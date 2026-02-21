@@ -274,12 +274,12 @@ export default function App() {
       {/* BANDEAU CONFIANCE */}
       <div className="bg-slate-50 border-y border-slate-100 py-10">
         <div className="max-w-7xl mx-auto px-6 flex flex-wrap justify-center md:justify-between items-center gap-8 md:gap-12">
-          <BrandLogo name="HAGER" url="https://upload.wikimedia.org/wikipedia/commons/c/cf/Hager_Logo.svg" />
+          <BrandLogo name="HAGER" url="https://upload.wikimedia.org/wikipedia/commons/d/d1/Hagerlogo.jpg" />
           <BrandLogo name="AUTEL" url="https://autelenergy.com/cdn/shop/files/logo_1_250x.png" />
-          <BrandLogo name="WALLBOX" url="https://cdn.worldvectorlogo.com/logos/wallbox-1.svg" />
-          <BrandLogo name="ALFEN" url="https://logo.uplead.com/alfen.com" />
-          <BrandLogo name="LEGRAND" url="https://upload.wikimedia.org/wikipedia/commons/1/1d/Legrand_logo.svg" />
-          <BrandLogo name="ABB" url="https://upload.wikimedia.org/wikipedia/commons/0/08/ABB_logo.svg" />
+          <BrandLogo name="WALLBOX" url="https://data.ladn.eu/wp-content/uploads/2022/12/Nomination-Wallbox-Myriam-Lhermurier-Boublil-1280x467.jpg?v=202602" />
+          <BrandLogo name="ALFEN" url="https://upload.wikimedia.org/wikipedia/commons/3/39/Alfen_logo.svg" />
+          <BrandLogo name="LEGRAND" url="https://upload.wikimedia.org/wikipedia/fr/3/3e/Logo_Legrand.svg" />
+          <BrandLogo name="ABB" url="https://upload.wikimedia.org/wikipedia/commons/0/00/ABB_logo.svg" />
         </div>
       </div>
 
