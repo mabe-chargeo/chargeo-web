@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Menu, 
   X, 
@@ -54,21 +54,25 @@ interface ServiceOption {
   desc: string;
 }
 
-// --- LOGO COMPOSANT (Utilise ton fichier PNG) ---
+// --- LOGO COMPOSANT ---
 const Logo = ({ light = false, className = "" }: { light?: boolean, className?: string }) => {
   const [imgError, setImgError] = useState(false);
 
+  const logoSrc = light 
+    ? "/CHARGEO_LOGO_BLANC.png" 
+    : "/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png";
+
   return (
-    <div className={`relative h-12 flex items-center select-none cursor-pointer ${className}`}>
+    <div className={`relative h-10 flex items-center select-none cursor-pointer ${className}`}>
       {!imgError ? (
         <img 
-          src="/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png"
+          src={logoSrc}
           alt="Logo CHARGÉO"
           onError={() => setImgError(true)}
-          className={`h-full w-auto object-contain transition-all duration-300 ${light ? 'brightness-0 invert' : ''}`}
+          className="h-full w-auto object-contain transition-all duration-300"
         />
       ) : (
-        <span className={`text-2xl md:text-3xl font-black tracking-tighter ${light ? 'text-white' : 'text-[#032b60]'}`}>
+        <span className={`text-xl md:text-2xl font-black tracking-tighter ${light ? 'text-white' : 'text-[#032b60]'}`}>
           CHARG<span className="text-[#0097b2]">É</span>O
         </span>
       )}
@@ -76,7 +80,7 @@ const Logo = ({ light = false, className = "" }: { light?: boolean, className?: 
   );
 };
 
-// --- COMPOSANT BRAND LOGO (Avec fallback texte de secours) ---
+// --- COMPOSANT BRAND LOGO ---
 const BrandLogo = ({ name, url }: { name: string, url: string }) => {
   const [error, setError] = useState(false);
   return (
@@ -85,7 +89,6 @@ const BrandLogo = ({ name, url }: { name: string, url: string }) => {
         <img 
           src={url} 
           alt={`Logo ${name}`} 
-          referrerPolicy="no-referrer"
           className="max-h-6 md:max-h-8 max-w-full object-contain opacity-40 grayscale transition-all duration-300 hover:opacity-100 hover:grayscale-0"
           onError={() => setError(true)}
         />
@@ -98,11 +101,21 @@ const BrandLogo = ({ name, url }: { name: string, url: string }) => {
 
 export default function App() {
   const [scrolled, setScrolled] = useState(false);
+  const [showStickyBar, setShowStickyBar] = useState(false);
+  const simulatorRef = useRef<HTMLDivElement>(null);
+
+  const [power, setPower] = useState('7.4kW');
+  const [selectedModel, setSelectedModel] = useState('AUT7');
+  const [distance, setDistance] = useState(15);
+  const [pathingRows, setPathingRows] = useState<RowData[]>([{ typeId: 'apparent', qty: 5 }]);
+  const [drillingRows, setDrillingRows] = useState<RowData[]>([{ typeId: 'placo', qty: 1 }]);
+  const [activeServices, setActiveServices] = useState<string[]>(['consuel', 'tic']);
+  const [currentReview, setCurrentReview] = useState(0);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const brandNavy = "#032b60";
   const brandTeal = "#0097b2";
 
-  // --- CATALOGUE DE DONNÉES ---
   const hardwarePacks = {
     '3.7kW': [{ id: 'LEG', name: "Legrand Green'Up", price: 490 }, { id: 'HAG', name: "Hager Witty Prise", price: 550 }],
     '7.4kW': [{ id: 'AUT7', name: "Autel MaxiCharger Pro", price: 1290 }, { id: 'HAG7', name: "Hager Witty Wallbox", price: 1350 }, { id: 'PUL7', name: "Wallbox Pulsar Max", price: 1320 }],
@@ -137,17 +150,6 @@ export default function App() {
     { id: 'maintenance', label: 'Maintenance (1an)', price: 150, icon: <Clock size={18}/>, desc: "Visite annuelle." }
   ];
 
-  // --- ÉTATS ---
-  const [power, setPower] = useState('7.4kW');
-  const [selectedModel, setSelectedModel] = useState('AUT7');
-  const [distance, setDistance] = useState(15);
-  const [pathingRows, setPathingRows] = useState<RowData[]>([{ typeId: 'apparent', qty: 5 }]);
-  const [drillingRows, setDrillingRows] = useState<RowData[]>([{ typeId: 'placo', qty: 1 }]);
-  const [activeServices, setActiveServices] = useState<string[]>(['consuel', 'tic']);
-
-  const [currentReview, setCurrentReview] = useState(0);
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-
   const faqs = [
     { q: "Quelles sont les aides de l'État pour l'installation ?", a: "En choisissant CHARGÉO, installateur certifié IRVE, vous bénéficiez de la Prime Advenir (jusqu'à 300€). Nous gérons toutes les démarches administratives pour vous." },
     { q: "Quel est le délai d'installation ?", a: "Une fois le devis validé, notre agence locale intervient en moyenne sous 10 à 15 jours pour installer et mettre en service votre borne." },
@@ -177,17 +179,25 @@ export default function App() {
   ];
 
   useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+      
+      if (simulatorRef.current) {
+        const rect = simulatorRef.current.getBoundingClientRect();
+        const isInSimulator = rect.top < window.innerHeight - 200 && rect.bottom > 200;
+        setShowStickyBar(isInSimulator);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
     const timer = setInterval(() => {
       setCurrentReview((prev) => (prev + 1) % reviews.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [reviews.length]);
 
   const calculateQuote = () => {
     const packsForPower = hardwarePacks[power as keyof typeof hardwarePacks];
@@ -226,7 +236,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-900 overflow-x-hidden selection:bg-[#0097b2]/20">
+    <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-[#0097b2]/20">
       
       {/* NAVIGATION */}
       <nav className={`fixed w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white/95 backdrop-blur-md shadow-lg py-2' : 'bg-transparent py-6'}`}>
@@ -240,6 +250,19 @@ export default function App() {
           </div>
         </div>
       </nav>
+
+      {/* STICKY BOTTOM BAR (MOBILE ONLY) */}
+      <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-[60] shadow-[0_-10px_30px_rgba(0,0,0,0.1)] transition-transform duration-500 transform ${showStickyBar ? 'translate-y-0' : 'translate-y-full'}`}>
+        <div className="flex items-center justify-between max-w-lg mx-auto">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estimation HT</p>
+            <p className="text-2xl font-black" style={{ color: brandNavy }}>{quote.totalHT},00€</p>
+          </div>
+          <button className="bg-[#032b60] text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 active:scale-95 transition-transform">
+            Réserver <ChevronRight size={18} />
+          </button>
+        </div>
+      </div>
 
       {/* HERO SECTION */}
       <section className="relative h-[90vh] flex items-center overflow-hidden bg-[#032b60]">
@@ -275,7 +298,7 @@ export default function App() {
       <div className="bg-slate-50 border-y border-slate-100 py-10">
         <div className="max-w-7xl mx-auto px-6 flex flex-wrap justify-center md:justify-between items-center gap-8 md:gap-12">
           <BrandLogo name="HAGER" url="https://upload.wikimedia.org/wikipedia/commons/d/d1/Hagerlogo.jpg" />
-          <BrandLogo name="AUTEL" url="https://autelenergy.com/cdn/shop/files/logo_1_250x.png" />
+          <BrandLogo name="AUTEL" url="https://mms.businesswire.com/media/20230321006038/fr/1595853/4/AUTEL_New_Energy_Logo.jpg" />
           <BrandLogo name="WALLBOX" url="https://data.ladn.eu/wp-content/uploads/2022/12/Nomination-Wallbox-Myriam-Lhermurier-Boublil-1280x467.jpg?v=202602" />
           <BrandLogo name="ALFEN" url="https://upload.wikimedia.org/wikipedia/commons/3/39/Alfen_logo.svg" />
           <BrandLogo name="LEGRAND" url="https://upload.wikimedia.org/wikipedia/fr/3/3e/Logo_Legrand.svg" />
@@ -313,7 +336,6 @@ export default function App() {
            <div className="relative">
               <div className="absolute -inset-4 bg-slate-100 rounded-[3rem] -rotate-3"></div>
               
-              {/* Conteneur des images du carrousel avec effet de fondu */}
               <div className="relative w-full rounded-[2.5rem] shadow-2xl aspect-[4/5] bg-slate-200 overflow-hidden">
                 {reviews.map((review, idx) => (
                   <img 
@@ -322,7 +344,7 @@ export default function App() {
                     className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${
                       idx === currentReview ? 'opacity-100 z-10' : 'opacity-0 z-0'
                     }`}
-                    alt={`Installation de borne de recharge par l'équipe Chargeo - Avis ${idx + 1}`}
+                    alt={`Installation de borne de recharge - Avis ${idx + 1}`}
                   />
                 ))}
               </div>
@@ -332,13 +354,11 @@ export default function App() {
                     <div className="flex gap-1 text-yellow-400 mb-4">
                        {[1,2,3,4,5].map(s => <Star key={s} size={14} fill="currentColor"/>)}
                     </div>
-                    {/* Le bloc est re-rendu à chaque changement d'index pour rejouer l'animation */}
                     <div key={currentReview} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                         <p className="text-sm font-bold text-slate-700 italic leading-relaxed">"{reviews[currentReview].text}"</p>
                         <p className="mt-4 font-black text-[10px] uppercase tracking-widest text-[#0097b2]">— {reviews[currentReview].author}, {reviews[currentReview].location}</p>
                     </div>
                 </div>
-                {/* Indicateurs de carrousel */}
                 <div className="flex gap-2 mt-6 justify-center">
                     {reviews.map((_, idx) => (
                         <button 
@@ -355,7 +375,7 @@ export default function App() {
       </section>
 
       {/* SIMULATEUR PROFESSIONNEL */}
-      <section id="simulateur" className="py-32 bg-slate-50">
+      <section ref={simulatorRef} id="simulateur" className="py-32 bg-slate-50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
             <h2 className="text-5xl md:text-[7rem] font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>CHARGÉO <br/><span style={{ color: brandTeal }}>LOGIC</span></h2>
@@ -364,11 +384,10 @@ export default function App() {
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-12 gap-12 items-start">
+          <div className="grid lg:grid-cols-12 gap-8 items-start relative">
             
-            <div className="lg:col-span-7 space-y-12">
-              
-              {/* 1. MATÉRIEL */}
+            {/* INPUTS COLUMN */}
+            <div className="lg:col-span-7 space-y-8">
               <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-sm border border-slate-100 space-y-8">
                 <h3 className="text-xl font-black uppercase tracking-[0.2em] flex items-center gap-4"><Zap style={{ color: brandTeal }}/> 1. Gamme de Puissance</h3>
                 <div className="flex flex-wrap gap-2">
@@ -396,10 +415,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 2. INFRASTRUCTURE */}
               <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-sm border border-slate-100 space-y-10">
                 <h3 className="text-xl font-black uppercase tracking-[0.2em] flex items-center gap-4"><Construction style={{ color: brandTeal }}/> 2. Infrastructure sur-mesure</h3>
-
                 <div className="space-y-4">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-2">Types de liaisons cumulables (mètres)</p>
                   {pathingRows.map((row, idx) => (
@@ -449,7 +466,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 3. SERVICES */}
               <div id="services" className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-sm border border-slate-100 space-y-10">
                 <h3 className="text-xl font-black uppercase tracking-[0.2em] flex items-center gap-4"><Settings style={{ color: brandTeal }}/> 3. Services & Administratif</h3>
                 <div className="grid md:grid-cols-2 gap-4">
@@ -471,69 +487,64 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 4. LOGISTIQUE */}
               <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-sm border border-slate-100 space-y-8 text-center">
                  <h3 className="text-xl font-black uppercase tracking-[0.2em] flex items-center gap-4 justify-center"><MapPin style={{ color: brandTeal }}/> 4. Agence locale</h3>
                  <div className="space-y-6">
                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest italic">Distance parcourue par l'agence locale : {distance} km</p>
                    <input type="range" min="1" max="80" value={distance} onChange={(e) => setDistance(parseInt(e.target.value))} className="w-full h-2 accent-[#0097b2]" />
-                   <div className="p-10 rounded-[3rem] bg-slate-900 text-white shadow-2xl relative overflow-hidden">
+                   <div className="p-8 md:p-10 rounded-[3rem] bg-slate-900 text-white shadow-2xl relative overflow-hidden">
                       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-[#0097b2]/20 to-transparent opacity-50"></div>
                       <p className="text-[10px] font-bold text-slate-500 uppercase mb-2 relative z-10">Zone tarifaire standardisée</p>
-                      <p className="text-4xl font-black relative z-10 tracking-tighter">{quote.s4 === 0 ? "LOGISTIQUE OFFERTE (Z1)" : `${quote.s4},00 € HT`}</p>
+                      <p className="text-3xl md:text-4xl font-black relative z-10 tracking-tighter">{quote.s4 === 0 ? "LOGISTIQUE OFFERTE (Z1)" : `${quote.s4},00 € HT`}</p>
                    </div>
                  </div>
               </div>
-
             </div>
 
-            {/* DEVIS FINAL (STICKY) */}
-            <div className="lg:col-span-5 sticky top-28">
-              <div className="bg-white rounded-[4rem] p-10 md:p-12 shadow-2xl border border-slate-100 relative overflow-hidden ring-1 ring-slate-100">
-                <div className="absolute top-0 right-0 w-80 h-80 bg-[#0097b2]/5 rounded-full blur-[100px] -mr-40 -mt-40"></div>
-                <h3 className="text-xl font-black mb-12 border-b pb-8 uppercase tracking-[0.3em] flex items-center gap-4 italic" style={{ color: brandNavy }}>
-                  <FileText style={{ color: brandTeal }} size={28}/> Chiffrage Estimé
+            {/* RESULTS COLUMN (STICKY REPARÉ ET PLUS COMPACT) */}
+            <div className="lg:col-span-5 lg:sticky lg:top-24 z-10 w-full">
+              <div className="bg-white rounded-[2.5rem] p-6 shadow-2xl border border-slate-100 relative ring-1 ring-slate-100 flex flex-col gap-4">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-[#0097b2]/5 rounded-full blur-[100px] -mr-40 -mt-40 z-0"></div>
+                
+                <h3 className="text-lg font-black border-b pb-3 border-slate-100 uppercase tracking-[0.2em] flex items-center gap-3 italic relative z-10" style={{ color: brandNavy }}>
+                  <FileText style={{ color: brandTeal }} size={20}/> Chiffrage Estimé
                 </h3>
-
-                <div className="space-y-8 font-mono text-[14px]">
-                  <div className="flex justify-between items-center">
+                
+                <div className="space-y-3 font-mono text-[12px] relative z-10">
+                  <div className="flex justify-between items-center text-sm">
                     <div className="flex flex-col">
-                      <span className="text-slate-400 uppercase text-[9px] font-bold tracking-[0.2em]">Section 1 : Matériel</span>
-                      <span className="font-black text-[12px] uppercase">{quote.packName}</span>
+                      <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S1 : Matériel</span>
+                      <span className="font-black text-[11px] uppercase leading-tight mt-1">{quote.packName}</span>
                     </div>
-                    <span className="font-black">{quote.s1},00 €</span>
+                    <span className="font-black whitespace-nowrap">{quote.s1},00 €</span>
                   </div>
-                  
-                  <div className="flex justify-between items-start border-t pt-4 border-slate-50">
-                    <span className="text-slate-400 uppercase text-[9px] font-bold tracking-[0.2em]">Section 2 : Infra ({quote.totalMeters}m + 2m)</span>
-                    <span className="font-black text-[#0097b2]">+ {quote.s2},00 €</span>
+                  <div className="flex justify-between items-start border-t pt-3 border-slate-50 text-sm">
+                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S2 : Infra ({quote.totalMeters}m + 2m)</span>
+                    <span className="font-black text-[#0097b2] whitespace-nowrap">+ {quote.s2},00 €</span>
                   </div>
-
-                  <div className="flex justify-between border-t pt-4 border-slate-50">
-                    <span className="text-slate-400 uppercase text-[9px] font-bold tracking-[0.2em]">Section 3 : Admin & Services</span>
-                    <span className="font-black">+ {quote.s3},00 €</span>
+                  <div className="flex justify-between border-t pt-3 border-slate-50 text-sm">
+                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S3 : Admin & Services</span>
+                    <span className="font-black whitespace-nowrap">+ {quote.s3},00 €</span>
                   </div>
-
-                  <div className="flex justify-between border-t pt-4 border-slate-50">
-                    <span className="text-slate-400 uppercase text-[9px] font-bold tracking-[0.2em]">Section 4 : Logistique Réseau</span>
-                    <span className={`font-black ${quote.s4 === 0 ? 'text-green-500' : ''}`}>{quote.s4 === 0 ? 'OFFERTE' : `+ ${quote.s4},00 €`}</span>
+                  <div className="flex justify-between border-t pt-3 border-slate-50 text-sm">
+                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S4 : Logistique</span>
+                    <span className={`font-black whitespace-nowrap ${quote.s4 === 0 ? 'text-green-500' : ''}`}>{quote.s4 === 0 ? 'OFFERTE' : `+ ${quote.s4},00 €`}</span>
                   </div>
-
-                  <div className="pt-14 mt-6 border-t flex flex-col gap-1">
-                    <p className="text-[10px] text-slate-400 font-black uppercase italic mb-1">Estimation Net HT (avant aides)</p>
-                    <p className="text-8xl font-black tracking-tighter leading-none" style={{ color: brandNavy }}>{quote.totalHT}<span className="text-3xl">,00€</span></p>
-                  </div>
-
-                  <div className="p-8 rounded-[3rem] text-center bg-green-50 border border-green-100 mt-12 relative group cursor-pointer hover:bg-green-100 transition-colors">
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-green-500 text-white text-[8px] font-black uppercase px-3 py-1 rounded-full">Automatique</div>
-                    <p className="text-[10px] font-black uppercase text-green-600 mb-1 tracking-widest">Prime Advenir 2026</p>
-                    <p className="text-4xl font-black text-green-600">- 300,00 €*</p>
-                  </div>
-
-                  <button className="w-full py-8 rounded-[2.5rem] font-black text-2xl transition-all flex items-center justify-center gap-4 mt-12 bg-[#032b60] text-white shadow-2xl hover:scale-[1.03] active:scale-95 group">
-                    Réserver mon Audit <ChevronRight size={32} className="group-hover:translate-x-1 transition-transform" />
-                  </button>
                 </div>
+
+                <div className="pt-4 border-t border-slate-100 flex flex-col gap-1 relative z-10">
+                  <p className="text-[9px] text-slate-400 font-black uppercase italic mb-1">Estimation Net HT (avant aides)</p>
+                  <p className="text-5xl font-black tracking-tighter leading-none" style={{ color: brandNavy }}>{quote.totalHT}<span className="text-2xl">,00€</span></p>
+                </div>
+                
+                <div className="p-3 rounded-2xl text-center bg-green-50 border border-green-100 relative group cursor-pointer hover:bg-green-100 transition-colors z-10 mt-1">
+                  <p className="text-[9px] font-black uppercase text-green-600 mb-1 tracking-widest">Prime Advenir 2026</p>
+                  <p className="text-xl font-black text-green-600">- 300,00 €*</p>
+                </div>
+                
+                <button className="w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 bg-[#032b60] text-white shadow-xl hover:scale-[1.03] active:scale-95 group mt-2 relative z-10">
+                  Réserver mon Audit <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                </button>
               </div>
             </div>
 
@@ -550,7 +561,6 @@ export default function App() {
             </h2>
             <p className="text-slate-500 font-medium text-lg">Tout ce que vous devez savoir avant de lancer votre installation.</p>
           </div>
-          
           <div className="space-y-4">
             {faqs.map((faq, idx) => (
               <div key={idx} className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -561,9 +571,7 @@ export default function App() {
                   <span className="font-black text-lg" style={{ color: brandNavy }}>{faq.q}</span>
                   <ChevronDown className={`transition-transform duration-300 shrink-0 ml-4 ${openFaq === idx ? 'rotate-180' : ''}`} style={{ color: brandTeal }} size={24} />
                 </button>
-                <div 
-                  className={`overflow-hidden transition-all duration-300 ease-in-out ${openFaq === idx ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
-                >
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${openFaq === idx ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
                   <div className="p-6 md:p-8 bg-white text-slate-500 font-medium leading-relaxed border-t border-slate-50">
                     {faq.a}
                   </div>
