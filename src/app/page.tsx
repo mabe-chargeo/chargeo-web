@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { 
   Menu, 
   X, 
@@ -57,21 +56,47 @@ interface ServiceOption {
 
 // --- LOGO COMPOSANT (Utilise ton fichier PNG) ---
 const Logo = ({ light = false, className = "" }: { light?: boolean, className?: string }) => {
+  const [imgError, setImgError] = useState(false);
+
   return (
-    <div className={`relative h-12 w-48 md:h-16 md:w-64 select-none cursor-pointer ${className}`}>
-      <Image 
-        src="/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png"
-        alt="Logo CHARGÉO"
-        fill
-        className={`object-contain transition-all duration-300 ${light ? 'brightness-0 invert' : ''}`}
-        priority
-      />
+    <div className={`relative h-12 flex items-center select-none cursor-pointer ${className}`}>
+      {!imgError ? (
+        <img 
+          src="/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png"
+          alt="Logo CHARGÉO"
+          onError={() => setImgError(true)}
+          className={`h-full w-auto object-contain transition-all duration-300 ${light ? 'brightness-0 invert' : ''}`}
+        />
+      ) : (
+        <span className={`text-2xl md:text-3xl font-black tracking-tighter ${light ? 'text-white' : 'text-[#032b60]'}`}>
+          CHARG<span className="text-[#0097b2]">É</span>O
+        </span>
+      )}
+    </div>
+  );
+};
+
+// --- COMPOSANT BRAND LOGO (Avec fallback texte de secours) ---
+const BrandLogo = ({ name, url }: { name: string, url: string }) => {
+  const [error, setError] = useState(false);
+  return (
+    <div className="flex items-center justify-center h-12 w-28 sm:w-32">
+      {!error ? (
+        <img 
+          src={url} 
+          alt={`Logo ${name}`} 
+          referrerPolicy="no-referrer"
+          className="max-h-6 md:max-h-8 max-w-full object-contain opacity-40 grayscale transition-all duration-300 hover:opacity-100 hover:grayscale-0"
+          onError={() => setError(true)}
+        />
+      ) : (
+        <span className="font-black text-xl md:text-2xl italic tracking-tighter opacity-30">{name}</span>
+      )}
     </div>
   );
 };
 
 export default function App() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   const brandNavy = "#032b60";
@@ -106,8 +131,9 @@ export default function App() {
     { id: 'consuel', label: 'Consuel IRVE Officiel', price: 180, icon: <ShieldCheck size={18}/>, desc: "Certificat obligatoire." },
     { id: 'advenir', label: 'Dossier Aide Advenir', price: 150, icon: <FileText size={18}/>, desc: "Montage administratif." },
     { id: 'tic', label: 'Délestage TIC Linky', price: 120, icon: <Zap size={18}/>, desc: "Évite les coupures." },
+    { id: 'modbus', label: 'Délestage Compteur Modbus', price: 180, icon: <Database size={18}/>, desc: "Gestion d'énergie dynamique." },
     { id: 'rj45', label: 'Liaison Réseau RJ45', price: 140, icon: <Wifi size={18}/>, desc: "Stabilité maximale." },
-    { id: 'grounding', label: 'Mise à la Terre (SECUR)', price: 450, icon: <ShieldAlert size={18}/>, desc: "Reprise obligatoire." },
+    { id: 'supervision', label: 'Supervision', price: 90, icon: <Globe size={18}/>, desc: "Suivi et contrôle à distance." },
     { id: 'maintenance', label: 'Maintenance (1an)', price: 150, icon: <Clock size={18}/>, desc: "Visite annuelle." }
   ];
 
@@ -118,6 +144,44 @@ export default function App() {
   const [pathingRows, setPathingRows] = useState<RowData[]>([{ typeId: 'apparent', qty: 5 }]);
   const [drillingRows, setDrillingRows] = useState<RowData[]>([{ typeId: 'placo', qty: 1 }]);
   const [activeServices, setActiveServices] = useState<string[]>(['consuel', 'tic']);
+
+  const [currentReview, setCurrentReview] = useState(0);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const faqs = [
+    { q: "Quelles sont les aides de l'État pour l'installation ?", a: "En choisissant CHARGÉO, installateur certifié IRVE, vous bénéficiez de la Prime Advenir (jusqu'à 300€). Nous gérons toutes les démarches administratives pour vous." },
+    { q: "Quel est le délai d'installation ?", a: "Une fois le devis validé, notre agence locale intervient en moyenne sous 10 à 15 jours pour installer et mettre en service votre borne." },
+    { q: "Les bornes sont-elles compatibles avec mon véhicule ?", a: "Oui, toutes nos bornes sont équipées du standard européen (Prise Type 2S) et sont 100% compatibles avec toutes les marques de véhicules électriques et hybrides rechargeables." },
+    { q: "Pourquoi faut-il un installateur certifié IRVE ?", a: "C'est une obligation légale pour toute installation supérieure à 3,7 kW. Cela garantit votre sécurité, vous assure d'être couvert par votre assurance habitation en cas de sinistre, et est indispensable pour toucher la Prime Advenir." }
+  ];
+
+  const reviews = [
+    {
+      text: "Enfin un installateur qui explique clairement ce qu'on paie. Devis reçu en 2 min, pose en 10 jours.",
+      author: "Jean-Phillippe",
+      location: "Thonon",
+      image: "https://images.unsplash.com/photo-1617704548623-340376564e68?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80"
+    },
+    {
+      text: "Intervention très propre. Le technicien a pris le temps de tout m'expliquer. Borne au top.",
+      author: "Sophie",
+      location: "Annecy",
+      image: "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80"
+    },
+    {
+      text: "Le prix annoncé sur le simulateur est exactement ce que j'ai payé. Aucune mauvaise surprise.",
+      author: "Marc",
+      location: "Annemasse",
+      image: "https://images.unsplash.com/photo-1605810230434-7631ac76ec81?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80"
+    }
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentReview((prev) => (prev + 1) % reviews.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -173,51 +237,49 @@ export default function App() {
               <a href="#concept" className="hover:opacity-70 transition-opacity">Concept</a>
               <a href="#simulateur" className="hover:opacity-70 transition-opacity text-[#0097b2]">Chiffrage</a>
             </div>
-            <button className="bg-[#0097b2] text-white px-8 py-3 rounded-full font-bold text-sm shadow-xl hover:scale-105 transition-transform active:scale-95">
-              Audit technique offert
-            </button>
           </div>
-          <button className="lg:hidden" style={{ color: scrolled ? brandNavy : '#fff' }} onClick={() => setIsMenuOpen(true)}><Menu size={32} /></button>
         </div>
       </nav>
 
       {/* HERO SECTION */}
       <section className="relative h-[90vh] flex items-center overflow-hidden bg-[#032b60]">
         <div className="absolute inset-0 z-0">
-          <img src="https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&q=80&w=2000" className="w-full h-full object-cover scale-105" alt="Installation CHARGÉO" />
+          <img 
+            src="https://images.unsplash.com/photo-1593941707882-a5bba14938c7?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80" 
+            className="w-full h-full object-cover scale-105 bg-[#032b60]" 
+            alt="Installation CHARGÉO" 
+          />
           <div className="absolute inset-0 bg-gradient-to-r from-[#032b60]/95 via-[#032b60]/60 to-transparent"></div>
         </div>
         <div className="max-w-7xl mx-auto px-6 relative z-10 w-full">
-          <div className="max-w-4xl space-y-10 animate-in fade-in slide-in-from-left-10 duration-1000">
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-5 py-2.5 rounded-full border border-white/20 text-[10px] font-black uppercase tracking-[0.2em] text-white">
-              <BadgeCheck size={16} className="text-[#0097b2]"/> Premier Réseau National d'Installateurs Qualifiés
-            </div>
-            <h1 className="text-6xl md:text-[8rem] font-black text-white tracking-tighter leading-[0.85] uppercase">
+          <div className="max-w-4xl mx-auto text-center flex flex-col items-center space-y-10 animate-in fade-in slide-in-from-bottom-10 duration-1000">
+            <h1 className="text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase">
               La recharge <br/><span style={{ color: brandTeal }}>en toute clarté.</span>
             </h1>
             <p className="text-xl md:text-2xl text-white/80 leading-relaxed font-medium max-w-2xl italic">
-              "Fini les forfaits approximatifs. Configurez votre installation au mètre près avec le standard CHARGÉO et réservez l'audit de votre agence locale."
+              "Fini les forfaits approximatifs. Configurez votre installation au mètre près. Nos experts IRVE locaux garantissent une pose zéro stress, protégeant votre domicile et la batterie de votre véhicule."
             </p>
-            <div className="flex flex-col sm:flex-row gap-6 pt-4">
-              <a href="#simulateur" className="flex items-center justify-center gap-3 bg-[#0097b2] text-white px-12 py-5 rounded-full font-black text-lg shadow-2xl hover:brightness-110 transition-all">
+            <div className="flex flex-col items-center gap-4 pt-4 w-full">
+              <a href="#simulateur" className="inline-flex items-center justify-center gap-3 bg-[#0097b2] text-white px-12 py-5 rounded-full font-black text-lg shadow-2xl hover:brightness-110 transition-all w-fit">
                 Démarrer mon chiffrage <ArrowRight size={24}/>
               </a>
-              <div className="flex items-center gap-4 bg-white/5 border border-white/10 px-6 py-3 rounded-3xl backdrop-blur-sm">
-                <Building2 size={24} className="text-white/40"/>
-                <div>
-                   <p className="text-white/40 text-[9px] font-black uppercase tracking-widest leading-none">Siège Social National</p>
-                   <p className="text-white font-black text-sm uppercase tracking-tighter">74200 Thonon-les-Bains</p>
-                </div>
-              </div>
+              <p className="text-white/60 text-sm font-bold tracking-wide mt-2">
+                ✓ Experts locaux IRVE • Prime Advenir déduite • Garantie Décennale
+              </p>
             </div>
           </div>
         </div>
       </section>
 
       {/* BANDEAU CONFIANCE */}
-      <div className="bg-slate-50 border-y border-slate-100 py-12">
-        <div className="max-w-7xl mx-auto px-6 flex flex-wrap justify-center md:justify-between items-center gap-12 opacity-30 grayscale font-black text-2xl italic tracking-tighter">
-          <span>HAGER</span><span>AUTEL</span><span>WALLBOX</span><span>ALFEN</span><span>LEGRAND</span><span>ABB</span>
+      <div className="bg-slate-50 border-y border-slate-100 py-10">
+        <div className="max-w-7xl mx-auto px-6 flex flex-wrap justify-center md:justify-between items-center gap-8 md:gap-12">
+          <BrandLogo name="HAGER" url="https://upload.wikimedia.org/wikipedia/commons/c/cf/Hager_Logo.svg" />
+          <BrandLogo name="AUTEL" url="https://autelenergy.com/cdn/shop/files/logo_1_250x.png" />
+          <BrandLogo name="WALLBOX" url="https://cdn.worldvectorlogo.com/logos/wallbox-1.svg" />
+          <BrandLogo name="ALFEN" url="https://logo.uplead.com/alfen.com" />
+          <BrandLogo name="LEGRAND" url="https://upload.wikimedia.org/wikipedia/commons/1/1d/Legrand_logo.svg" />
+          <BrandLogo name="ABB" url="https://upload.wikimedia.org/wikipedia/commons/0/08/ABB_logo.svg" />
         </div>
       </div>
 
@@ -229,14 +291,14 @@ export default function App() {
                 Une Méthode <br/><span style={{ color: brandTeal }}>Standardisée</span>
               </h2>
               <p className="text-lg text-slate-500 font-medium leading-relaxed">
-                Le réseau CHARGÉO repose sur une transparence absolue. Chaque devis de nos agences est construit sur la même base algorithmique pour garantir le prix juste partout en France.
+                Le réseau CHARGÉO repose sur une transparence absolue. Chaque devis est construit sur notre base algorithmique pour garantir le prix juste. Sur le terrain, nos experts IRVE locaux, formés au standard d'excellence CHARGÉO, assurent une installation 100% sécurisée et zéro stress.
               </p>
               <div className="space-y-6">
                 {[
-                  { i: <Zap/>, t: "S1 : Solution Borne", d: "La borne adaptée et son kit de protection électrique certifié." },
-                  { i: <Construction/>, t: "S2 : Infrastructure", d: "Une pose au mètre réel. Vous ne payez que ce que nous installons." },
-                  { i: <ShieldCheck/>, t: "S3 : Services & Admin", d: "Consuel inclus et prise en charge totale de vos aides d'État." },
-                  { i: <Truck/>, t: "S4 : Logistique", d: "Forfait déplacement optimisé au départ de l'agence la plus proche." }
+                  { i: <Zap/>, t: "1. Solution Borne", d: "La borne adaptée et son kit de protection électrique certifié." },
+                  { i: <Construction/>, t: "2. Infrastructure", d: "Une pose au mètre réel. Vous ne payez que ce que nous installons." },
+                  { i: <ShieldCheck/>, t: "3. Services & Admin", d: "Consuel inclus et prise en charge totale de vos aides d'État." },
+                  { i: <Truck/>, t: "4. Logistique", d: "Forfait déplacement optimisé au départ de l'agence la plus proche." }
                 ].map((item, idx) => (
                   <div key={idx} className="flex gap-5 group">
                     <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2]/10 transition-colors shrink-0" style={{ color: brandTeal }}>{item.i}</div>
@@ -250,13 +312,43 @@ export default function App() {
            </div>
            <div className="relative">
               <div className="absolute -inset-4 bg-slate-100 rounded-[3rem] -rotate-3"></div>
-              <img src="https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&q=80&w=1000" className="relative rounded-[2.5rem] shadow-2xl transition-transform hover:rotate-0 duration-700" alt="Qualité réseau"/>
-              <div className="absolute -bottom-10 -left-10 bg-white p-8 rounded-3xl shadow-xl border border-slate-100 max-w-xs">
-                <div className="flex gap-1 text-yellow-400 mb-2">
-                   {[1,2,3,4,5].map(s => <Star key={s} size={14} fill="currentColor"/>)}
+              
+              {/* Conteneur des images du carrousel avec effet de fondu */}
+              <div className="relative w-full rounded-[2.5rem] shadow-2xl aspect-[4/5] bg-slate-200 overflow-hidden">
+                {reviews.map((review, idx) => (
+                  <img 
+                    key={idx}
+                    src={review.image} 
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${
+                      idx === currentReview ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                    }`}
+                    alt={`Installation de borne de recharge par l'équipe Chargeo - Avis ${idx + 1}`}
+                  />
+                ))}
+              </div>
+              
+              <div className="absolute -bottom-10 -left-4 md:-left-10 bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-slate-100 max-w-xs min-h-[220px] flex flex-col justify-between z-20">
+                <div>
+                    <div className="flex gap-1 text-yellow-400 mb-4">
+                       {[1,2,3,4,5].map(s => <Star key={s} size={14} fill="currentColor"/>)}
+                    </div>
+                    {/* Le bloc est re-rendu à chaque changement d'index pour rejouer l'animation */}
+                    <div key={currentReview} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        <p className="text-sm font-bold text-slate-700 italic leading-relaxed">"{reviews[currentReview].text}"</p>
+                        <p className="mt-4 font-black text-[10px] uppercase tracking-widest text-[#0097b2]">— {reviews[currentReview].author}, {reviews[currentReview].location}</p>
+                    </div>
                 </div>
-                <p className="text-sm font-bold text-slate-700 italic">"Enfin un installateur qui explique clairement ce qu'on paie. Devis reçu en 2 min, pose en 10 jours."</p>
-                <p className="mt-4 font-black text-[10px] uppercase tracking-widest text-[#0097b2]">— Jean-Phillippe, Thonon</p>
+                {/* Indicateurs de carrousel */}
+                <div className="flex gap-2 mt-6 justify-center">
+                    {reviews.map((_, idx) => (
+                        <button 
+                            key={idx} 
+                            onClick={() => setCurrentReview(idx)}
+                            className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentReview ? 'w-6 bg-[#0097b2]' : 'w-2 bg-slate-200 hover:bg-slate-300'}`} 
+                            aria-label={`Aller à l'avis ${idx + 1}`}
+                        />
+                    ))}
+                </div>
               </div>
            </div>
         </div>
@@ -268,10 +360,7 @@ export default function App() {
           <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
             <h2 className="text-5xl md:text-[7rem] font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>CHARGÉO <br/><span style={{ color: brandTeal }}>LOGIC</span></h2>
             <div className="text-right">
-               <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em] mb-2">Outil de chiffrage Réseau Officiel</p>
-               <div className="inline-flex items-center gap-2 bg-[#0097b2]/10 px-4 py-2 rounded-xl text-[#0097b2] font-black text-xs">
-                  <Calculator size={16}/> VERSION 2026.04
-               </div>
+               <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em] mb-2">Obtenez votre devis réel en 3 minutes</p>
             </div>
           </div>
 
@@ -437,8 +526,8 @@ export default function App() {
 
                   <div className="p-8 rounded-[3rem] text-center bg-green-50 border border-green-100 mt-12 relative group cursor-pointer hover:bg-green-100 transition-colors">
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-green-500 text-white text-[8px] font-black uppercase px-3 py-1 rounded-full">Automatique</div>
-                    <p className="text-[10px] font-black uppercase text-green-600 mb-1 tracking-widest">Aides Advenir & Crédit 2026</p>
-                    <p className="text-4xl font-black text-green-600">- 500,00 €*</p>
+                    <p className="text-[10px] font-black uppercase text-green-600 mb-1 tracking-widest">Prime Advenir 2026</p>
+                    <p className="text-4xl font-black text-green-600">- 300,00 €*</p>
                   </div>
 
                   <button className="w-full py-8 rounded-[2.5rem] font-black text-2xl transition-all flex items-center justify-center gap-4 mt-12 bg-[#032b60] text-white shadow-2xl hover:scale-[1.03] active:scale-95 group">
@@ -448,6 +537,39 @@ export default function App() {
               </div>
             </div>
 
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ SECTION */}
+      <section className="py-24 bg-white border-t border-slate-100">
+        <div className="max-w-4xl mx-auto px-6 space-y-12">
+          <div className="text-center space-y-4">
+            <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase" style={{ color: brandNavy }}>
+              Questions <span style={{ color: brandTeal }}>Fréquentes</span>
+            </h2>
+            <p className="text-slate-500 font-medium text-lg">Tout ce que vous devez savoir avant de lancer votre installation.</p>
+          </div>
+          
+          <div className="space-y-4">
+            {faqs.map((faq, idx) => (
+              <div key={idx} className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                <button 
+                  onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                  className="w-full flex items-center justify-between p-6 md:p-8 bg-slate-50 text-left transition-colors hover:bg-slate-100"
+                >
+                  <span className="font-black text-lg" style={{ color: brandNavy }}>{faq.q}</span>
+                  <ChevronDown className={`transition-transform duration-300 shrink-0 ml-4 ${openFaq === idx ? 'rotate-180' : ''}`} style={{ color: brandTeal }} size={24} />
+                </button>
+                <div 
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${openFaq === idx ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+                >
+                  <div className="p-6 md:p-8 bg-white text-slate-500 font-medium leading-relaxed border-t border-slate-50">
+                    {faq.a}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
