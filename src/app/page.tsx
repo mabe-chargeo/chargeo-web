@@ -67,13 +67,13 @@ const Logo = ({ light = false, className = "" }: { light?: boolean, className?: 
       {!imgError ? (
         <img 
           src={logoSrc}
-          alt="Logo CHARGÉO"
+          alt="Logo CHARGéO"
           onError={() => setImgError(true)}
           className="h-full w-auto object-contain transition-all duration-300"
         />
       ) : (
         <span className={`text-xl md:text-2xl font-black tracking-tighter ${light ? 'text-white' : 'text-[#032b60]'}`}>
-          CHARG<span className="text-[#0097b2]">É</span>O
+          CHARG<span className="text-[#0097b2]">é</span>O
         </span>
       )}
     </div>
@@ -109,18 +109,17 @@ export default function App() {
   const [distance, setDistance] = useState(15);
   const [pathingRows, setPathingRows] = useState<RowData[]>([{ typeId: 'apparent', qty: 5 }]);
   const [drillingRows, setDrillingRows] = useState<RowData[]>([{ typeId: 'placo', qty: 1 }]);
-  const [activeServices, setActiveServices] = useState<string[]>(['consuel', 'tic']);
+  const [activeServices, setActiveServices] = useState<string[]>([]);
   const [currentReview, setCurrentReview] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const brandNavy = "#032b60";
   const brandTeal = "#0097b2";
 
+  // Réduction aux puissances monophasées (particuliers)
   const hardwarePacks = {
     '3.7kW': [{ id: 'LEG', name: "Legrand Green'Up", price: 490 }, { id: 'HAG', name: "Hager Witty Prise", price: 550 }],
-    '7.4kW': [{ id: 'AUT7', name: "Autel MaxiCharger Pro", price: 1290 }, { id: 'HAG7', name: "Hager Witty Wallbox", price: 1350 }, { id: 'PUL7', name: "Wallbox Pulsar Max", price: 1320 }],
-    '11kW': [{ id: 'AUT11', name: "Autel Triphasé Performance", price: 1690 }, { id: 'ALF11', name: "Alfen Eve Single", price: 1850 }],
-    '22kW': [{ id: 'AUT22', name: "Autel High Power Business", price: 1990 }, { id: 'ALF22', name: "Alfen Pro-Line", price: 2150 }]
+    '7.4kW': [{ id: 'AUT7', name: "Autel MaxiCharger Pro", price: 1290 }, { id: 'HAG7', name: "Hager Witty Wallbox", price: 1350 }, { id: 'PUL7', name: "Wallbox Pulsar Max", price: 1320 }]
   };
 
   const pathingOptions = [
@@ -140,18 +139,16 @@ export default function App() {
     { id: 'pierre', name: 'Pierre Naturelle / Moellon', price: 165 }
   ];
 
+  // Réduction aux services B2C pertinents
   const servicesOptions: ServiceOption[] = [
     { id: 'consuel', label: 'Consuel IRVE Officiel', price: 180, icon: <ShieldCheck size={18}/>, desc: "Certificat obligatoire." },
     { id: 'advenir', label: 'Dossier Aide Advenir', price: 150, icon: <FileText size={18}/>, desc: "Montage administratif." },
     { id: 'tic', label: 'Délestage TIC Linky', price: 120, icon: <Zap size={18}/>, desc: "Évite les coupures." },
-    { id: 'modbus', label: 'Délestage Compteur Modbus', price: 180, icon: <Database size={18}/>, desc: "Gestion d'énergie dynamique." },
-    { id: 'rj45', label: 'Liaison Réseau RJ45', price: 140, icon: <Wifi size={18}/>, desc: "Stabilité maximale." },
-    { id: 'supervision', label: 'Supervision', price: 90, icon: <Globe size={18}/>, desc: "Suivi et contrôle à distance." },
-    { id: 'maintenance', label: 'Maintenance (1an)', price: 150, icon: <Clock size={18}/>, desc: "Visite annuelle." }
+    { id: 'rj45', label: 'Liaison Réseau RJ45', price: 140, icon: <Wifi size={18}/>, desc: "Stabilité maximale." }
   ];
 
   const faqs = [
-    { q: "Quelles sont les aides de l'État pour l'installation ?", a: "En choisissant CHARGÉO, installateur certifié IRVE, vous bénéficiez de la Prime Advenir (jusqu'à 300€). Nous gérons toutes les démarches administratives pour vous." },
+    { q: "Quelles sont les aides de l'État pour l'installation ?", a: "En choisissant CHARGéO, installateur certifié IRVE, vous pouvez bénéficier de la Prime Advenir (jusqu'à 600€ en logement collectif). Nous gérons toutes les démarches administratives pour vous." },
     { q: "Quel est le délai d'installation ?", a: "Une fois le devis validé, notre agence locale intervient en moyenne sous 10 à 15 jours pour installer et mettre en service votre borne." },
     { q: "Les bornes sont-elles compatibles avec mon véhicule ?", a: "Oui, toutes nos bornes sont équipées du standard européen (Prise Type 2S) et sont 100% compatibles avec toutes les marques de véhicules électriques et hybrides rechargeables." },
     { q: "Pourquoi faut-il un installateur certifié IRVE ?", a: "C'est une obligation légale pour toute installation supérieure à 3,7 kW. Cela garantit votre sécurité, vous assure d'être couvert par votre assurance habitation en cas de sinistre, et est indispensable pour toucher la Prime Advenir." }
@@ -223,10 +220,14 @@ export default function App() {
 
     let s4 = distance > 50 ? 115 : (distance > 20 ? 55 : 0);
 
-    return { s1: pack.price, s2, s3, s4, totalHT: pack.price + s2 + s3 + s4, totalMeters, packName: pack.name };
+    const totalHT = pack.price + s2 + s3 + s4;
+    const totalTTC = totalHT * 1.055; // TVA 5.5%
+
+    return { s1: pack.price, s2, s3, s4, totalHT, totalTTC, totalMeters, packName: pack.name };
   };
 
   const quote = calculateQuote();
+  const formatTTC = (value: number) => value.toFixed(2).replace('.', ',');
 
   const updateRow = (type: 'path' | 'drill', index: number, field: keyof RowData, value: string | number) => {
     const setRows = type === 'path' ? setPathingRows : setDrillingRows;
@@ -255,8 +256,8 @@ export default function App() {
       <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-[60] shadow-[0_-10px_30px_rgba(0,0,0,0.1)] transition-transform duration-500 transform ${showStickyBar ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estimation HT</p>
-            <p className="text-2xl font-black" style={{ color: brandNavy }}>{quote.totalHT},00€</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estimation TTC*</p>
+            <p className="text-2xl font-black" style={{ color: brandNavy }}>{formatTTC(quote.totalTTC)}€</p>
           </div>
           <button className="bg-[#032b60] text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 active:scale-95 transition-transform">
             Réserver votre audit<ChevronRight size={18} />
@@ -270,7 +271,7 @@ export default function App() {
           <img 
             src="https://images.unsplash.com/photo-1593941707882-a5bba14938c7?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80" 
             className="w-full h-full object-cover scale-105 bg-[#032b60]" 
-            alt="Installation CHARGÉO" 
+            alt="Installation CHARGéO" 
           />
           <div className="absolute inset-0 bg-gradient-to-r from-[#032b60]/95 via-[#032b60]/60 to-transparent"></div>
         </div>
@@ -314,7 +315,7 @@ export default function App() {
                 Une Méthode <br/><span style={{ color: brandTeal }}>Standardisée</span>
               </h2>
               <p className="text-lg text-slate-500 font-medium leading-relaxed">
-                Le réseau CHARGÉO repose sur une transparence absolue. Chaque devis est construit sur notre base algorithmique pour garantir le prix juste. Sur le terrain, nos experts IRVE locaux, formés au standard d'excellence CHARGÉO, assurent une installation 100% sécurisée et zéro stress.
+                Le réseau CHARGéO repose sur une transparence absolue. Chaque devis est construit sur notre base algorithmique pour garantir le prix juste. Sur le terrain, nos experts IRVE locaux, formés au standard d'excellence CHARGéO, assurent une installation 100% sécurisée et zéro stress.
               </p>
               <div className="space-y-6">
                 {[
@@ -378,9 +379,10 @@ export default function App() {
       <section ref={simulatorRef} id="simulateur" className="py-32 bg-slate-50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
-            <h2 className="text-5xl md:text-[7rem] font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>CHARGÉO <br/><span style={{ color: brandTeal }}>LOGIC</span></h2>
+            <h2 className="text-5xl md:text-[7rem] font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>CHARGéO <br/><span style={{ color: brandTeal }}>LOGIC</span></h2>
             <div className="text-right">
                <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em] mb-2">Obtenez votre devis réel en 3 minutes</p>
+               <p className="text-sm font-medium text-slate-500 max-w-xs ml-auto mt-3">Ce simulateur est destiné aux particuliers. D'autres prestations sont bien sûr disponibles sur demande.</p>
             </div>
           </div>
 
@@ -516,33 +518,44 @@ export default function App() {
                       <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S1 : Matériel</span>
                       <span className="font-black text-[11px] uppercase leading-tight mt-1">{quote.packName}</span>
                     </div>
-                    <span className="font-black whitespace-nowrap">{quote.s1},00 €</span>
+                    <span className="font-black whitespace-nowrap">{quote.s1},00 € HT</span>
                   </div>
                   <div className="flex justify-between items-start border-t pt-3 border-slate-50 text-sm">
                     <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S2 : Infra ({quote.totalMeters}m + 2m)</span>
-                    <span className="font-black text-[#0097b2] whitespace-nowrap">+ {quote.s2},00 €</span>
+                    <span className="font-black text-[#0097b2] whitespace-nowrap">+ {quote.s2},00 € HT</span>
                   </div>
                   <div className="flex justify-between border-t pt-3 border-slate-50 text-sm">
                     <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S3 : Admin & Services</span>
-                    <span className="font-black whitespace-nowrap">+ {quote.s3},00 €</span>
+                    <span className="font-black whitespace-nowrap">+ {quote.s3},00 € HT</span>
                   </div>
                   <div className="flex justify-between border-t pt-3 border-slate-50 text-sm">
                     <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S4 : Logistique</span>
-                    <span className={`font-black whitespace-nowrap ${quote.s4 === 0 ? 'text-green-500' : ''}`}>{quote.s4 === 0 ? 'OFFERTE' : `+ ${quote.s4},00 €`}</span>
+                    <span className={`font-black whitespace-nowrap ${quote.s4 === 0 ? 'text-green-500' : ''}`}>{quote.s4 === 0 ? 'OFFERTE' : `+ ${quote.s4},00 € HT`}</span>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-slate-100 flex flex-col gap-1 relative z-10">
-                  <p className="text-[9px] text-slate-400 font-black uppercase italic mb-1">Estimation Net HT (avant aides)</p>
-                  <p className="text-5xl font-black tracking-tighter leading-none" style={{ color: brandNavy }}>{quote.totalHT}<span className="text-2xl">,00€</span></p>
+                  <p className="text-[9px] text-slate-400 font-black uppercase italic mb-1">Estimation Net TTC (TVA 5.5%*)</p>
+                  <p className="text-5xl font-black tracking-tighter leading-none" style={{ color: brandNavy }}>
+                    {(() => {
+                      const [int, dec] = formatTTC(quote.totalTTC).split(',');
+                      return <>{int}<span className="text-2xl">,{dec}€</span></>;
+                    })()}
+                  </p>
+                  <p className="text-[8px] text-slate-400 mt-1 leading-tight">*Taux de TVA à 5.5% applicable uniquement si le logement a plus de 2 ans.</p>
                 </div>
                 
                 <div className="p-3 rounded-2xl text-center bg-green-50 border border-green-100 relative group cursor-pointer hover:bg-green-100 transition-colors z-10 mt-1">
-                  <p className="text-[9px] font-black uppercase text-green-600 mb-1 tracking-widest">Prime Advenir 2026</p>
-                  <p className="text-xl font-black text-green-600">- 300,00 €*</p>
+                  <p className="text-[9px] font-black uppercase text-green-600 mb-1 tracking-widest">Prime Advenir (Collectif)</p>
+                  <p className="text-xl font-black text-green-600">- 600,00 €</p>
+                  <p className="text-[8px] text-green-700/60 mt-1 uppercase font-bold leading-tight">*Soumis à éligibilité, montant susceptible d'évoluer sans préavis.</p>
                 </div>
                 
-                <button className="w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 bg-[#032b60] text-white shadow-xl hover:scale-[1.03] active:scale-95 group mt-2 relative z-10">
+                <div className="text-[10px] text-slate-500 font-medium leading-tight text-center mt-3 z-10 relative">
+                  Lancement officiel de CHARGéO très prochainement. En remplissant ce formulaire, vous faites partie de nos premiers contacts prioritaires.
+                </div>
+
+                <button className="w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 bg-[#032b60] text-white shadow-xl hover:scale-[1.03] active:scale-95 group mt-1 relative z-10">
                   Réserver mon Audit <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
@@ -592,6 +605,7 @@ export default function App() {
                     <Building2 size={16} /> Siège Social National
                  </div>
                  <p className="text-white font-black text-2xl tracking-tighter uppercase leading-none">74200 Thonon-les-Bains</p>
+                 <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mt-2">Entreprise en cours de création</p>
               </div>
            </div>
            <div className="flex gap-20">
