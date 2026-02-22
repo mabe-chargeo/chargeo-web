@@ -489,16 +489,20 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-sm border border-slate-100 space-y-8 text-center">
+              {/* SECTION 4 : LOGISTIQUE REFAITE EN BLEU MARINE */}
+              <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-sm border border-slate-100 space-y-8">
                  <h3 className="text-xl font-black uppercase tracking-[0.2em] flex items-center gap-4"><MapPin style={{ color: brandTeal }}/> 4. Logistique</h3>
                  <div className="space-y-6">
                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest italic">Distance parcourue par l'agence locale : {distance} km</p>
                    <input type="range" min="1" max="80" value={distance} onChange={(e) => setDistance(parseInt(e.target.value))} className="w-full h-2 accent-[#0097b2]" />
-                   <div className="p-8 md:p-10 rounded-[3rem] bg-[#032b60] text-white shadow-2xl relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-[#0097b2]/20 to-transparent opacity-50"></div>
-                      <p className="text-[10px] font-bold text-blue-200 uppercase mb-2 relative z-10">Zone tarifaire standardisée</p>
-                      <p className="text-3xl md:text-4xl font-black relative z-10 tracking-tighter">{quote.s4 === 0 ? "LOGISTIQUE OFFERTE (Z1)" : `${quote.s4},00 € HT`}</p>
+                   
+                   <div className="pt-4">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-widest">Zone tarifaire standardisée</p>
+                      <p className="text-3xl font-black tracking-tighter" style={{ color: brandNavy }}>
+                        {quote.s4 === 0 ? <span className="text-[#0097b2]">LOGISTIQUE OFFERTE (Z1)</span> : `${quote.s4},00 € HT`}
+                      </p>
                    </div>
+
                  </div>
               </div>
             </div>
