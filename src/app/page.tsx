@@ -260,7 +260,7 @@ export default function App() {
             <p className="text-2xl font-black" style={{ color: brandNavy }}>{formatTTC(quote.totalTTC)}€</p>
           </div>
           <button className="bg-[#032b60] text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 active:scale-95 transition-transform">
-            Réserver votre audit<ChevronRight size={18} />
+            Etre rappelé par un expert<ChevronRight size={18} />
           </button>
         </div>
       </div>
@@ -285,10 +285,10 @@ export default function App() {
             </p>
             <div className="flex flex-col items-center gap-4 pt-4 w-full">
               <a href="#simulateur" className="inline-flex items-center justify-center gap-3 bg-[#0097b2] text-white px-12 py-5 rounded-full font-black text-lg shadow-2xl hover:brightness-110 transition-all w-fit">
-                Estimer mon chiffrage <ArrowRight size={24}/>
+                Estimer mon projet <ArrowRight size={24}/>
               </a>
               <p className="text-white/60 text-sm font-bold tracking-wide mt-2">
-                ✓ Experts locaux IRVE • Prime Advenir déduite • Garantie Décennale
+                ✓ Experts locaux IRVE • Prime Advenir • Garantie Décennale
               </p>
             </div>
           </div>
@@ -381,7 +381,7 @@ export default function App() {
           <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
             <h2 className="text-5xl md:text-[7rem] font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>CHARGéO <br/><span style={{ color: brandTeal }}>LOGIC</span></h2>
             <div className="text-right">
-               <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em] mb-2">Obtenez votre devis réel en 3 minutes</p>
+               <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em] mb-2">Obtenez votre estimation en 2 minutes</p>
                <p className="text-sm font-medium text-slate-500 max-w-xs ml-auto mt-3">Ce simulateur est destiné aux particuliers. D'autres prestations sont bien sûr disponibles sur demande.</p>
             </div>
           </div>
@@ -556,7 +556,7 @@ export default function App() {
                 </div>
 
                 <button className="w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 bg-[#032b60] text-white shadow-xl hover:scale-[1.03] active:scale-95 group mt-1 relative z-10">
-                  Réserver mon Audit <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                  Etre rappelé par un expert <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
             </div>
@@ -602,7 +602,7 @@ export default function App() {
               <Logo light={true} className="scale-125 origin-left" />
               <div className="space-y-3">
                  <div className="flex items-center gap-3 text-white/40 uppercase text-[10px] font-black tracking-[0.3em]">
-                    <Building2 size={16} /> Siège Social National
+                    <Building2 size={16} /> Siège Social
                  </div>
                  <p className="text-white font-black text-2xl tracking-tighter uppercase leading-none">74200 Thonon-les-Bains</p>
                  <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mt-2">Entreprise en cours de création</p>
