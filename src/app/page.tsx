@@ -160,7 +160,7 @@ export default function App() {
   const reviews = [
     {
       text: "Enfin un installateur qui explique clairement ce qu'on paie. Devis reçu en 2 min, pose en 10 jours.",
-      author: "Jean-Phillippe",
+      author: "Jean-Philippe",
       location: "Thonon",
       image: "https://images.unsplash.com/photo-1692052664566-477579a08e8c?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTc5fHxib3JuZSUyMGRlJTIwcmVjaGFyZ2V8ZW58MHx8MHx8fDA%3D"
     },
@@ -259,7 +259,7 @@ export default function App() {
             <p className="text-2xl font-black" style={{ color: brandNavy }}>{quote.totalHT},00€</p>
           </div>
           <button className="bg-[#032b60] text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 active:scale-95 transition-transform">
-            Réserver <ChevronRight size={18} />
+            Réserver votre audit<ChevronRight size={18} />
           </button>
         </div>
       </div>
@@ -284,7 +284,7 @@ export default function App() {
             </p>
             <div className="flex flex-col items-center gap-4 pt-4 w-full">
               <a href="#simulateur" className="inline-flex items-center justify-center gap-3 bg-[#0097b2] text-white px-12 py-5 rounded-full font-black text-lg shadow-2xl hover:brightness-110 transition-all w-fit">
-                Démarrer mon chiffrage <ArrowRight size={24}/>
+                Estimer mon chiffrage <ArrowRight size={24}/>
               </a>
               <p className="text-white/60 text-sm font-bold tracking-wide mt-2">
                 ✓ Experts locaux IRVE • Prime Advenir déduite • Garantie Décennale
