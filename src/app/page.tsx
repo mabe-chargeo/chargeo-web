@@ -321,7 +321,7 @@ export default function App() {
                 {[
                   { i: <Zap/>, t: "1. Solution Borne", d: "La borne adaptée et son kit de protection électrique certifié." },
                   { i: <Construction/>, t: "2. Infrastructure", d: "Une pose au mètre réel. Vous ne payez que ce que nous installons." },
-                  { i: <ShieldCheck/>, t: "3. Services & Admin", d: "Consuel inclus et prise en charge totale de vos aides d'État." },
+                  { i: <ShieldCheck/>, t: "3. Services & Admin", d: "Services techniques et administratifs optionnels." },
                   { i: <Truck/>, t: "4. Logistique", d: "Forfait déplacement optimisé au départ de l'agence la plus proche." }
                 ].map((item, idx) => (
                   <div key={idx} className="flex gap-5 group">
@@ -379,10 +379,10 @@ export default function App() {
       <section ref={simulatorRef} id="simulateur" className="py-32 bg-slate-50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
-            <h2 className="text-5xl md:text-[7rem] font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>CHARGéO <br/><span style={{ color: brandTeal }}>LOGIC</span></h2>
+            <h2 className="text-5xl md:text-[7rem] font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>Simulateur <br/><span style={{ color: brandTeal }}>CHARGéO</span></h2>
             <div className="text-right">
-               <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em] mb-2">Obtenez votre devis réel en 3 minutes</p>
-               <p className="text-sm font-medium text-slate-500 max-w-xs ml-auto mt-3">Ce simulateur est destiné aux particuliers. D'autres prestations sont bien sûr disponibles sur demande.</p>
+               <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em] mb-2">Obtenez votre estimation en 2 minutes</p>
+               <p className="text-sm font-medium text-slate-500 max-w-xs ml-auto mt-3">Ce simulateur est destiné aux particuliers. D'autres prestations, gammes de puissance et services sont disponibles sur demande.</p>
             </div>
           </div>
 
@@ -515,21 +515,21 @@ export default function App() {
                 <div className="space-y-3 font-mono text-[12px] relative z-10">
                   <div className="flex justify-between items-center text-sm">
                     <div className="flex flex-col">
-                      <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S1 : Matériel</span>
+                      <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">1 : Matériel</span>
                       <span className="font-black text-[11px] uppercase leading-tight mt-1">{quote.packName}</span>
                     </div>
                     <span className="font-black whitespace-nowrap">{quote.s1},00 € HT</span>
                   </div>
                   <div className="flex justify-between items-start border-t pt-3 border-slate-50 text-sm">
-                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S2 : Infra ({quote.totalMeters}m + 2m)</span>
+                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">2 : Infra ({quote.totalMeters}m + 2m)</span>
                     <span className="font-black text-[#0097b2] whitespace-nowrap">+ {quote.s2},00 € HT</span>
                   </div>
                   <div className="flex justify-between border-t pt-3 border-slate-50 text-sm">
-                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S3 : Admin & Services</span>
+                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">3 : Services & Administratif</span>
                     <span className="font-black whitespace-nowrap">+ {quote.s3},00 € HT</span>
                   </div>
                   <div className="flex justify-between border-t pt-3 border-slate-50 text-sm">
-                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S4 : Logistique</span>
+                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">4 : Logistique</span>
                     <span className={`font-black whitespace-nowrap ${quote.s4 === 0 ? 'text-green-500' : ''}`}>{quote.s4 === 0 ? 'OFFERTE' : `+ ${quote.s4},00 € HT`}</span>
                   </div>
                 </div>
@@ -602,7 +602,7 @@ export default function App() {
               <Logo light={true} className="scale-125 origin-left" />
               <div className="space-y-3">
                  <div className="flex items-center gap-3 text-white/40 uppercase text-[10px] font-black tracking-[0.3em]">
-                    <Building2 size={16} /> Siège Social National
+                    <Building2 size={16} /> Siège Social
                  </div>
                  <p className="text-white font-black text-2xl tracking-tighter uppercase leading-none">74200 Thonon-les-Bains</p>
                  <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mt-2">Entreprise en cours de création</p>
