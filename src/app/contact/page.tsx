@@ -48,7 +48,7 @@ export default function ContactPage() {
         </div>
 
         {/* Conteneur iFrame ClickUp */}
-        <div className="max-w-3xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden relative min-h-[800px] flex flex-col">
+        <div className="max-w-3xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden relative min-h-[900px] flex flex-col">
           
           {/* Loader affiché pendant le chargement du formulaire */}
           {isLoading && (
@@ -60,7 +60,7 @@ export default function ContactPage() {
 
           {/* 👇 REMPLACEZ LE LIEN 'src' CI-DESSOUS PAR VOTRE LIEN D'INTÉGRATION CLICKUP 👇 */}
           <iframe 
-            className="w-full h-full min-h-[800px] border-none flex-grow"
+            className="w-full h-full min-h-[900px] border-none flex-grow"
             src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS" 
             title="Formulaire de contact CHARGéO"
             onLoad={() => setIsLoading(false)}
