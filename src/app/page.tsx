@@ -288,7 +288,7 @@ export default function App() {
                 Estimer mon projet <ArrowRight size={24}/>
               </a>
               <p className="text-white/60 text-sm font-bold tracking-wide mt-2">
-                ✓ Experts locaux IRVE • Prime Advenir déduite • Garantie Décennale
+                ✓ Experts locaux IRVE • Prime Advenir • Garantie Décennale
               </p>
             </div>
           </div>
@@ -494,9 +494,9 @@ export default function App() {
                  <div className="space-y-6">
                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest italic">Distance parcourue par l'agence locale : {distance} km</p>
                    <input type="range" min="1" max="80" value={distance} onChange={(e) => setDistance(parseInt(e.target.value))} className="w-full h-2 accent-[#0097b2]" />
-                   <div className="p-8 md:p-10 rounded-[3rem] bg-slate-900 text-white shadow-2xl relative overflow-hidden">
+                   <div className="p-8 md:p-10 rounded-[3rem] bg-[#032b60] text-white shadow-2xl relative overflow-hidden">
                       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-[#0097b2]/20 to-transparent opacity-50"></div>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase mb-2 relative z-10">Zone tarifaire standardisée</p>
+                      <p className="text-[10px] font-bold text-blue-200 uppercase mb-2 relative z-10">Zone tarifaire standardisée</p>
                       <p className="text-3xl md:text-4xl font-black relative z-10 tracking-tighter">{quote.s4 === 0 ? "LOGISTIQUE OFFERTE (Z1)" : `${quote.s4},00 € HT`}</p>
                    </div>
                  </div>
