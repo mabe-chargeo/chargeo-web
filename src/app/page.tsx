@@ -308,7 +308,7 @@ export default function App() {
       </div>
 
       {/* MÉTHODOLOGIE FRANCHISE */}
-      <section id="concept" className="py-24 bg-white">
+      <section id="concept" className="py-24 bg-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-20 items-center">
            <div className="space-y-8">
               <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>
@@ -490,7 +490,7 @@ export default function App() {
               </div>
 
               <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-sm border border-slate-100 space-y-8 text-center">
-                 <h3 className="text-xl font-black uppercase tracking-[0.2em] flex items-center gap-4 justify-center"><MapPin style={{ color: brandTeal }}/> 4. Logistique</h3>
+                 <h3 className="text-xl font-black uppercase tracking-[0.2em] flex items-center gap-4"><MapPin style={{ color: brandTeal }}/> 4. Logistique</h3>
                  <div className="space-y-6">
                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest italic">Distance parcourue par l'agence locale : {distance} km</p>
                    <input type="range" min="1" max="80" value={distance} onChange={(e) => setDistance(parseInt(e.target.value))} className="w-full h-2 accent-[#0097b2]" />
@@ -505,7 +505,7 @@ export default function App() {
 
             {/* RESULTS COLUMN (STICKY REPARÉ ET PLUS COMPACT) */}
             <div className="lg:col-span-5 lg:sticky lg:top-24 z-10 w-full">
-              <div className="bg-white rounded-[2.5rem] p-6 shadow-2xl border border-slate-100 relative ring-1 ring-slate-100 flex flex-col gap-4">
+              <div className="bg-white rounded-[2.5rem] p-6 shadow-2xl border border-slate-100 relative ring-1 ring-slate-100 flex flex-col gap-4 overflow-hidden">
                 <div className="absolute top-0 right-0 w-80 h-80 bg-[#0097b2]/5 rounded-full blur-[100px] -mr-40 -mt-40 z-0"></div>
                 
                 <h3 className="text-lg font-black border-b pb-3 border-slate-100 uppercase tracking-[0.2em] flex items-center gap-3 italic relative z-10" style={{ color: brandNavy }}>
