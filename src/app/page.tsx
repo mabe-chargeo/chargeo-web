@@ -596,7 +596,7 @@ export default function App() {
       </section>
 
       {/* FOOTER */}
-      <footer className="bg-[#020817] py-24 border-t border-white/5">
+      <footer className="bg-[#032B60] py-24 border-t border-white/5">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-start gap-16">
            <div className="space-y-10">
               <Logo light={true} className="scale-125 origin-left" />
