@@ -259,9 +259,9 @@ export default function App() {
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estimation TTC*</p>
             <p className="text-2xl font-black" style={{ color: brandNavy }}>{formatTTC(quote.totalTTC)}€</p>
           </div>
-          <button className="bg-[#032b60] text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 active:scale-95 transition-transform">
+          <a href="/contact" className="bg-[#032b60] text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 active:scale-95 transition-transform">
             Etre rappelé par un expert<ChevronRight size={18} />
-          </button>
+          </a>
         </div>
       </div>
 
@@ -285,10 +285,10 @@ export default function App() {
             </p>
             <div className="flex flex-col items-center gap-4 pt-4 w-full">
               <a href="#simulateur" className="inline-flex items-center justify-center gap-3 bg-[#0097b2] text-white px-12 py-5 rounded-full font-black text-lg shadow-2xl hover:brightness-110 transition-all w-fit">
-                Estimer mon projet <ArrowRight size={24}/>
+                Estimer mon chiffrage <ArrowRight size={24}/>
               </a>
               <p className="text-white/60 text-sm font-bold tracking-wide mt-2">
-                ✓ Experts locaux IRVE • Prime Advenir • Garantie Décennale
+                ✓ Experts locaux IRVE • Prime Advenir déduite • Garantie Décennale
               </p>
             </div>
           </div>
@@ -379,10 +379,10 @@ export default function App() {
       <section ref={simulatorRef} id="simulateur" className="py-32 bg-slate-50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
-            <h2 className="text-5xl md:text-[7rem] font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>Simulateur <br/><span style={{ color: brandTeal }}>CHARGéO</span></h2>
+            <h2 className="text-5xl md:text-[7rem] font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>CHARGéO <br/><span style={{ color: brandTeal }}>LOGIC</span></h2>
             <div className="text-right">
-               <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em] mb-2">Obtenez votre estimation en 2 minutes</p>
-               <p className="text-sm font-medium text-slate-500 max-w-xs ml-auto mt-3">Ce simulateur est destiné aux particuliers. D'autres prestations, gammes de puissance et services sont disponibles sur demande.</p>
+               <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em] mb-2">Obtenez votre devis réel en 3 minutes</p>
+               <p className="text-sm font-medium text-slate-500 max-w-xs ml-auto mt-3">Ce simulateur est destiné aux particuliers. D'autres prestations sont bien sûr disponibles sur demande.</p>
             </div>
           </div>
 
@@ -490,7 +490,7 @@ export default function App() {
               </div>
 
               <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-sm border border-slate-100 space-y-8 text-center">
-                 <h3 className="text-xl font-black uppercase tracking-[0.2em] flex items-center gap-4 justify-center"><MapPin style={{ color: brandTeal }}/> 4. Logistique</h3>
+                 <h3 className="text-xl font-black uppercase tracking-[0.2em] flex items-center gap-4 justify-center"><MapPin style={{ color: brandTeal }}/> 4. Agence locale</h3>
                  <div className="space-y-6">
                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest italic">Distance parcourue par l'agence locale : {distance} km</p>
                    <input type="range" min="1" max="80" value={distance} onChange={(e) => setDistance(parseInt(e.target.value))} className="w-full h-2 accent-[#0097b2]" />
@@ -515,21 +515,21 @@ export default function App() {
                 <div className="space-y-3 font-mono text-[12px] relative z-10">
                   <div className="flex justify-between items-center text-sm">
                     <div className="flex flex-col">
-                      <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">1 : Matériel</span>
+                      <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S1 : Matériel</span>
                       <span className="font-black text-[11px] uppercase leading-tight mt-1">{quote.packName}</span>
                     </div>
                     <span className="font-black whitespace-nowrap">{quote.s1},00 € HT</span>
                   </div>
                   <div className="flex justify-between items-start border-t pt-3 border-slate-50 text-sm">
-                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">2 : Infra ({quote.totalMeters}m + 2m)</span>
+                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S2 : Infra ({quote.totalMeters}m + 2m)</span>
                     <span className="font-black text-[#0097b2] whitespace-nowrap">+ {quote.s2},00 € HT</span>
                   </div>
                   <div className="flex justify-between border-t pt-3 border-slate-50 text-sm">
-                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">3 : Services & Admin</span>
+                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S3 : Admin & Services</span>
                     <span className="font-black whitespace-nowrap">+ {quote.s3},00 € HT</span>
                   </div>
                   <div className="flex justify-between border-t pt-3 border-slate-50 text-sm">
-                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">4 : Logistique</span>
+                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">S4 : Logistique</span>
                     <span className={`font-black whitespace-nowrap ${quote.s4 === 0 ? 'text-green-500' : ''}`}>{quote.s4 === 0 ? 'OFFERTE' : `+ ${quote.s4},00 € HT`}</span>
                   </div>
                 </div>
@@ -555,9 +555,9 @@ export default function App() {
                   Lancement officiel de CHARGéO très prochainement. En remplissant ce formulaire, vous faites partie de nos premiers contacts prioritaires.
                 </div>
 
-                <button className="w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 bg-[#032b60] text-white shadow-xl hover:scale-[1.03] active:scale-95 group mt-1 relative z-10">
+                <a href="/contact" className="w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 bg-[#032b60] text-white shadow-xl hover:scale-[1.03] active:scale-95 group mt-1 relative z-10">
                   Etre rappelé par un expert <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                </button>
+                </a>
               </div>
             </div>
 
@@ -602,7 +602,7 @@ export default function App() {
               <Logo light={true} className="scale-125 origin-left" />
               <div className="space-y-3">
                  <div className="flex items-center gap-3 text-white/40 uppercase text-[10px] font-black tracking-[0.3em]">
-                    <Building2 size={16} /> Siège Social
+                    <Building2 size={16} /> Siège Social National
                  </div>
                  <p className="text-white font-black text-2xl tracking-tighter uppercase leading-none">74200 Thonon-les-Bains</p>
                  <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mt-2">Entreprise en cours de création</p>
