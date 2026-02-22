@@ -490,7 +490,7 @@ export default function App() {
               </div>
 
               <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-sm border border-slate-100 space-y-8 text-center">
-                 <h3 className="text-xl font-black uppercase tracking-[0.2em] flex items-center gap-4 justify-center"><MapPin style={{ color: brandTeal }}/> 4. Agence locale</h3>
+                 <h3 className="text-xl font-black uppercase tracking-[0.2em] flex items-center gap-4 justify-center"><MapPin style={{ color: brandTeal }}/> 4. Logistique</h3>
                  <div className="space-y-6">
                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest italic">Distance parcourue par l'agence locale : {distance} km</p>
                    <input type="range" min="1" max="80" value={distance} onChange={(e) => setDistance(parseInt(e.target.value))} className="w-full h-2 accent-[#0097b2]" />
@@ -525,7 +525,7 @@ export default function App() {
                     <span className="font-black text-[#0097b2] whitespace-nowrap">+ {quote.s2},00 € HT</span>
                   </div>
                   <div className="flex justify-between border-t pt-3 border-slate-50 text-sm">
-                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">3 : Admin & Services</span>
+                    <span className="text-slate-400 uppercase text-[8px] font-bold tracking-[0.2em]">3 : Services & Admin</span>
                     <span className="font-black whitespace-nowrap">+ {quote.s3},00 € HT</span>
                   </div>
                   <div className="flex justify-between border-t pt-3 border-slate-50 text-sm">
