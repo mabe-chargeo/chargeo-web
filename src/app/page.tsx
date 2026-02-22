@@ -379,7 +379,7 @@ export default function App() {
       <section ref={simulatorRef} id="simulateur" className="py-32 bg-slate-50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
-            <h2 className="text-5xl md:text-[7rem] font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>CHARGéO <br/><span style={{ color: brandTeal }}>LOGIC</span></h2>
+            <h2 className="text-5xl md:text-[7rem] font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>Simulateur <br/><span style={{ color: brandTeal }}>CHARGéO</span></h2>
             <div className="text-right">
                <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em] mb-2">Obtenez votre estimation en 2 minutes</p>
                <p className="text-sm font-medium text-slate-500 max-w-xs ml-auto mt-3">Ce simulateur est destiné aux particuliers. D'autres prestations sont bien sûr disponibles sur demande.</p>
