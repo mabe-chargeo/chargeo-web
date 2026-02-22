@@ -285,7 +285,7 @@ export default function App() {
             </p>
             <div className="flex flex-col items-center gap-4 pt-4 w-full">
               <a href="#simulateur" className="inline-flex items-center justify-center gap-3 bg-[#0097b2] text-white px-12 py-5 rounded-full font-black text-lg shadow-2xl hover:brightness-110 transition-all w-fit">
-                Estimer mon chiffrage <ArrowRight size={24}/>
+                Estimer mon projet <ArrowRight size={24}/>
               </a>
               <p className="text-white/60 text-sm font-bold tracking-wide mt-2">
                 ✓ Experts locaux IRVE • Prime Advenir déduite • Garantie Décennale
