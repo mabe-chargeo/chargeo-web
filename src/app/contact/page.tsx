@@ -61,7 +61,7 @@ export default function ContactPage() {
           {/* 👇 REMPLACEZ LE LIEN 'src' CI-DESSOUS PAR VOTRE LIEN D'INTÉGRATION CLICKUP 👇 */}
           <iframe 
             className="w-full h-full min-h-[800px] border-none flex-grow"
-            src="https://forms.clickup.com/f/VOTRE_IDENTIFIANT_DE_FORMULAIRE_ICI" 
+            src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS" 
             title="Formulaire de contact CHARGéO"
             onLoad={() => setIsLoading(false)}
           ></iframe>
