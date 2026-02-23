@@ -549,11 +549,17 @@ export default function App() {
                   <p className="text-[8px] text-slate-400 mt-1 leading-tight">*Taux de TVA à 5.5% applicable uniquement si le logement a plus de 2 ans.</p>
                 </div>
                 
-                <div className="p-3 rounded-2xl text-center bg-green-50 border border-green-100 relative group cursor-pointer hover:bg-green-100 transition-colors z-10 mt-1">
-                  <p className="text-[9px] font-black uppercase text-green-600 mb-1 tracking-widest">Prime Advenir (Collectif)</p>
-                  <p className="text-xl font-black text-green-600">- 600,00 €</p>
-                  <p className="text-[8px] text-green-700/60 mt-1 uppercase font-bold leading-tight">*Soumis à éligibilité, montant susceptible d'évoluer sans préavis.</p>
-                </div>
+                {power !== '3.7kW' && (
+  <div className="p-3 rounded-2xl text-center bg-green-50 border border-green-100 relative group cursor-pointer hover:bg-green-100 transition-colors z-10 mt-1">
+    <p className="text-[9px] font-black uppercase text-green-600 mb-1 tracking-widest">
+      Prime Advenir (Collectif)
+    </p>
+    <p className="text-xl font-black text-green-600">- 600,00 €</p>
+    <p className="text-[8px] text-green-700/60 mt-1 uppercase font-bold leading-tight">
+      *Soumis à éligibilité, montant susceptible d'évoluer sans préavis.
+    </p>
+  </div>
+)}
                 
                 <div className="text-[10px] text-slate-500 font-medium leading-tight text-center mt-3 z-10 relative">
                   Lancement officiel de CHARGéO très prochainement. En remplissant ce formulaire, vous faites partie de nos premiers contacts prioritaires.
