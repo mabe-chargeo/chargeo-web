@@ -1,10 +1,20 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
 export default function ContactPage() {
   const [isLoading, setIsLoading] = useState(true);
+  const [iframeUrl, setIframeUrl] = useState("");
+
+  useEffect(() => {
+    // 1. L'URL de base absolue, sans AUCUNE variable après les lettres !
+    const baseUrl = "https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS";
+    // 2. On lit les vraies valeurs déjà calculées dans la barre d'adresse (ex: ?Source=Site Web&Budget=1656...)
+    const urlParams = window.location.search;
+    // 3. On génère l'URL parfaite pour l'iFrame
+    setIframeUrl(baseUrl + (urlParams || ""));
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans selection:bg-[#0097b2]/20">
@@ -58,13 +68,16 @@ export default function ContactPage() {
             </div>
           )}
 
-          {/* 👇 REMPLACEZ LE LIEN 'src' CI-DESSOUS PAR VOTRE LIEN D'INTÉGRATION CLICKUP 👇 */}
-          <iframe 
-            className="w-full h-full min-h-[900px] border-none flex-grow"
-            src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS" 
-            title="Formulaire de contact CHARGéO"
-            onLoad={() => setIsLoading(false)}
-          ></iframe>
+          {/* L'iframe s'affiche uniquement quand l'URL parfaite est prête avec les variables */}
+          {iframeUrl && (
+            <iframe 
+              className="w-full h-full min-h-[900px] border-none flex-grow"
+              src={iframeUrl} 
+              title="Formulaire de contact CHARGéO"
+              onLoad={() => setIsLoading(false)}
+              style={{ background: 'transparent' }}
+            ></iframe>
+          )}
         </div>
 
         {/* Réassurance sous le formulaire */}
