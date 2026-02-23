@@ -259,7 +259,7 @@ export default function App() {
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estimation TTC*</p>
             <p className="text-2xl font-black" style={{ color: brandNavy }}>{formatTTC(quote.totalTTC)}€</p>
           </div>
-          <a href={`/contact?Source=Site%20Web&Budget=${Math.round(quote.totalTTC)}&Puissance=${encodeURIComponent(power)}&Distance=${distance}`} className="bg-[#032b60] text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 active:scale-95 transition-transform">
+          <a href={`/contact?Source=Site%20Web&Budget=${Math.round(quote.totalTTC)}&Puissance=${encodeURIComponent(power)}&Distance=${quote.totalMeters}`} className="bg-[#032b60] text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 active:scale-95 transition-transform">
             Etre rappelé par un expert<ChevronRight size={18} />
           </a>
         </div>
@@ -559,7 +559,7 @@ export default function App() {
                   Lancement officiel de CHARGéO très prochainement. En remplissant ce formulaire, vous faites partie de nos premiers contacts prioritaires.
                 </div>
 
-                <a href={`/contact?Source=Site%20Web&Budget=${Math.round(quote.totalTTC)}&Puissance=${encodeURIComponent(power)}&Distance=${distance}`} className="w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 bg-[#032b60] text-white shadow-xl hover:scale-[1.03] active:scale-95 group mt-1 relative z-10">
+                <a href={`/contact?Source=Site%20Web&Budget=${Math.round(quote.totalTTC)}&Puissance=${encodeURIComponent(power)}&Distance=${quote.totalMeters}`} className="w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 bg-[#032b60] text-white shadow-xl hover:scale-[1.03] active:scale-95 group mt-1 relative z-10">
                   Etre rappelé par un expert <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </a>
               </div>
