@@ -13,7 +13,10 @@ import {
   PiggyBank,
   CarFront,
   Fuel,
-  Settings
+  Settings,
+  MapPin,
+  Award,
+  FileText
 } from 'lucide-react';
 
 // --- HOOK D'ANIMATION DES CHIFFRES (SÉCURISÉ & PERSISTANT) ---
@@ -105,7 +108,12 @@ const Logo = ({ light = false, className = "" }: { light?: boolean, className?: 
   return (
     <div className={`relative h-10 inline-flex items-center select-none cursor-pointer ${className}`}>
       {!imgError ? (
-        <img src={logoSrc} alt="Logo CHARGéO" onError={() => setImgError(true)} className="h-full w-auto object-contain transition-all duration-300" />
+        <img 
+          src={logoSrc} 
+          alt="Logo CHARGéO" 
+          onError={() => setImgError(true)} 
+          className="h-full w-auto object-contain transition-all duration-300" 
+        />
       ) : (
         <span className={`text-xl md:text-2xl font-black tracking-tighter ${light ? 'text-white' : 'text-[#032b60]'}`}>
           CHARG<span className="text-[#0097b2]">é</span>O
@@ -135,6 +143,7 @@ const BrandLogo = ({ name, url }: { name: string, url: string }) => {
 };
 
 export default function App() {
+  // États de l'interface
   const [scrolled, setScrolled] = useState(false);
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [currentReview, setCurrentReview] = useState(0);
@@ -144,18 +153,21 @@ export default function App() {
   const [dailyKm, setDailyKm] = useState(40);
   const [gasConsumption, setGasConsumption] = useState(6.5);
   
-  // Nouveaux états de contrôle du simulateur (Avancés)
+  // États de contrôle du simulateur (Avancés)
   const [gasPrice, setGasPrice] = useState(1.85);
   const [elecPrice, setElecPrice] = useState(0.25);
   const [evConsumption, setEvConsumption] = useState(16);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
+  // Déclencheurs d'animation
   const [isInView, setIsInView] = useState(false); 
   const [triggerKey, setTriggerKey] = useState(0);
 
+  // Références DOM
   const simulatorRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
+  // Couleurs de marque principales
   const brandNavy = "#032b60";
   const brandTeal = "#0097b2";
 
@@ -181,9 +193,8 @@ export default function App() {
     }
   ], []);
 
-  // --- CALCULS LOGIQUES MIS À JOUR ET SÉCURISÉS ---
+  // --- CALCULS LOGIQUES SÉCURISÉS ---
   const results = useMemo(() => {
-    // Garantir des nombres valides pour éviter les erreurs de calcul (NaN)
     const safeDailyKm = isNaN(dailyKm) ? 0 : dailyKm;
     const safeGasCons = isNaN(gasConsumption) ? 0 : gasConsumption;
     const safeGasPrice = isNaN(gasPrice) ? 0 : gasPrice;
@@ -223,6 +234,7 @@ export default function App() {
     return `${hrs} h ${mins.toString().padStart(2, '0')}`;
   };
 
+  // Gestion du scroll et de l'intersection
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
@@ -255,7 +267,7 @@ export default function App() {
     };
   }, [reviews.length]);
 
-  // Déclencheur de reset incluant les nouveaux curseurs
+  // Déclencheur de reset incluant tous les curseurs
   useEffect(() => {
     setTriggerKey(prev => prev + 1);
   }, [dailyKm, gasConsumption, gasPrice, elecPrice, evConsumption]);
@@ -308,7 +320,11 @@ export default function App() {
       {/* HERO SECTION */}
       <section className="relative h-[90vh] flex items-center overflow-hidden bg-[#032b60]">
         <div className="absolute inset-0 z-0">
-          <img src="https://images.unsplash.com/photo-1593941707882-a5bba14938c7?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80" className="w-full h-full object-cover scale-105 opacity-40" alt="Hero Background" />
+          <img 
+            src="https://images.unsplash.com/photo-1593941707882-a5bba14938c7?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80" 
+            className="w-full h-full object-cover scale-105 opacity-40" 
+            alt="Hero Background" 
+          />
           <div className="absolute inset-0 bg-gradient-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
         </div>
         <div className="max-w-7xl mx-auto px-6 relative z-10 w-full">
@@ -385,8 +401,9 @@ export default function App() {
                   <img 
                     key={idx}
                     src={review.image} 
+                    loading="lazy"
                     className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-1000 ease-in-out ${idx === currentReview ? 'opacity-100 z-10 scale-100' : 'opacity-0 z-0 scale-105'}`}
-                    alt={review.author}
+                    alt={`Témoignage de ${review.author}`}
                   />
                 ))}
               </div>
@@ -410,12 +427,60 @@ export default function App() {
                         <button 
                             key={idx} 
                             onClick={() => setCurrentReview(idx)}
+                            aria-label={`Voir le témoignage ${idx + 1}`}
                             className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentReview ? 'w-6 bg-[#0097b2]' : 'w-2 bg-slate-200 hover:bg-slate-300'}`} 
                         />
                     ))}
                 </div>
               </div>
            </div>
+        </div>
+      </section>
+
+      {/* NOUVEAU BLOC EXPERTISE / CONFIANCE (QUI SOMMES-NOUS) */}
+      <section className="py-20 bg-white border-t border-slate-100">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="bg-[#032b60] rounded-[2.5rem] p-10 md:p-16 flex flex-col md:flex-row items-center gap-12 shadow-2xl relative overflow-hidden">
+            {/* Forme décorative floutée en fond */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#0097b2]/30 rounded-full blur-[80px] -mr-20 -mt-20"></div>
+
+            <div className="md:w-1/2 space-y-6 relative z-10 text-white">
+              <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full border border-white/20">
+                <MapPin size={16} className="text-[#0097b2]" />
+                <span className="text-xs font-black uppercase tracking-widest text-blue-100">Vos Experts Locaux</span>
+              </div>
+              <h2 className="text-3xl md:text-5xl font-black tracking-tighter leading-tight">
+                L'excellence d'un service <span className="text-[#0097b2]">de proximité.</span>
+              </h2>
+              <p className="text-lg text-blue-100/80 font-medium leading-relaxed">
+                Basés en Haute-Savoie, nous ne sommes pas une plateforme nationale impersonnelle. CHARGéO, c'est une équipe locale d'artisans certifiés IRVE qui vous accompagne de A à Z, sans intermédiaire.
+              </p>
+              <div className="flex items-center gap-6 pt-4">
+                <div className="flex -space-x-4">
+                  <img className="w-12 h-12 rounded-full border-2 border-[#032b60] object-cover" src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100&h=100&fit=crop&crop=faces" alt="Technicien CHARGéO" />
+                  <img className="w-12 h-12 rounded-full border-2 border-[#032b60] object-cover" src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=faces" alt="Expert CHARGéO" />
+                  <div className="w-12 h-12 rounded-full border-2 border-[#032b60] bg-[#0097b2] flex items-center justify-center text-white font-black text-[10px]">IRVE</div>
+                </div>
+                <div className="text-sm font-bold">
+                  <p className="text-white">Intervention rapide</p>
+                  <p className="text-[#0097b2]">74200 Thonon-les-Bains</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="md:w-1/2 w-full grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
+              <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl">
+                <Award className="text-[#0097b2] mb-4" size={32} />
+                <h4 className="text-white font-black uppercase tracking-wider mb-2">Certification État</h4>
+                <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Nos techniciens détiennent la qualification officielle IRVE, indispensable pour votre assurance habitation.</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl sm:mt-8">
+                <FileText className="text-[#0097b2] mb-4" size={32} />
+                <h4 className="text-white font-black uppercase tracking-wider mb-2">Administratif Inclus</h4>
+                <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Nous montons de A à Z vos dossiers de Prime Advenir (jusqu'à 600€) et la demande de TVA réduite.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -464,6 +529,7 @@ export default function App() {
             <div className="order-3 lg:row-start-3 lg:col-start-1 w-full">
                <button 
                   onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                  aria-expanded={showAdvancedSettings}
                   className="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 hover:border-[#0097b2] text-slate-500 hover:text-[#0097b2] px-6 py-4 rounded-full font-bold text-sm transition-all shadow-sm"
                >
                   <Settings size={18} />
@@ -580,7 +646,11 @@ export default function App() {
           <div className="space-y-4">
             {faqs.map((faq, idx) => (
               <div key={idx} className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-6 md:p-8 bg-white text-left transition-colors hover:bg-slate-50">
+                <button 
+                  onClick={() => setOpenFaq(openFaq === idx ? null : idx)} 
+                  aria-expanded={openFaq === idx}
+                  className="w-full flex items-center justify-between p-6 md:p-8 bg-white text-left transition-colors hover:bg-slate-50"
+                >
                   <span className="font-black text-lg" style={{ color: brandNavy }}>{faq.q}</span>
                   <ChevronDown className={`transition-transform duration-300 shrink-0 ml-4 ${openFaq === idx ? 'rotate-180' : ''}`} style={{ color: brandTeal }} size={24} />
                 </button>
