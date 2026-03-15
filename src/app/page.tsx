@@ -270,10 +270,20 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-[#0097b2]/20 scroll-smooth">
       
-      {/* NAVIGATION */}
-      <nav className={`fixed w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white/95 shadow-lg py-2 backdrop-blur-md' : 'bg-transparent py-6'}`}>
+      {/* NAVIGATION avec STICKY CTA SUR ORDINATEUR */}
+      <nav className={`fixed w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white/95 shadow-lg py-3 backdrop-blur-md' : 'bg-transparent py-6'}`}>
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           <Logo light={!scrolled} />
+          
+          {/* CTA STICKY BUREAU (VISIBLE AU SCROLL) */}
+          <div className={`hidden md:flex transition-all duration-500 ${scrolled ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
+            <button 
+              onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
+              className="bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105"
+            >
+              Être rappelé par un expert <ChevronRight size={18} />
+            </button>
+          </div>
         </div>
       </nav>
 
