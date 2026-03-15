@@ -183,7 +183,7 @@ export default function App() {
 
   // --- CALCULS LOGIQUES MIS À JOUR ET SÉCURISÉS ---
   const results = useMemo(() => {
-    // Garantir des nombres valides pour éviter les erreurs NaN
+    // Garantir des nombres valides pour éviter les erreurs de calcul (NaN)
     const safeDailyKm = isNaN(dailyKm) ? 0 : dailyKm;
     const safeGasCons = isNaN(gasConsumption) ? 0 : gasConsumption;
     const safeGasPrice = isNaN(gasPrice) ? 0 : gasPrice;
@@ -416,7 +416,9 @@ export default function App() {
             <h2 className="text-4xl md:text-6xl font-black text-[#032b60] uppercase tracking-tighter leading-tight">
               Vos habitudes <br className="md:hidden"/><span className="text-[#0097b2]">de conduite</span>
             </h2>
-            <p className="text-slate-500 font-medium text-lg">Ajustez les curseurs pour voir vos économies réelles.</p>
+            <p className="text-slate-500 font-medium text-lg max-w-2xl mx-auto text-balance">
+              Vous payez votre carburant au prix fort. Découvrez à quel point rouler à l'électrique est économique. Ajustez ces curseurs pour calculer votre rentabilité exacte.
+            </p>
           </div>
 
           {/* GRILLE CSS : LES INPUTS SONT À GAUCHE (ordre 1, 2, 3), LES RÉSULTATS À DROITE (ordre 4, 5) */}
@@ -524,7 +526,7 @@ export default function App() {
 
           </div>
 
-          {/* FORMULAIRE IN-PAGE INTÉGRÉ (FULL-BLEED SUR MOBILE) */}
+          {/* FORMULAIRE IN-PAGE INTÉGRÉ (AVEC HAUTEUR DE SÉCURITÉ) */}
           <div id="formulaire-devis" className="max-w-4xl mx-auto mt-16 lg:mt-24 bg-white sm:p-6 md:p-8 sm:rounded-[2.5rem] shadow-2xl border-y sm:border border-slate-100 flex flex-col relative z-10 -mx-6 sm:mx-auto">
             {/* Header du formulaire avec padding latéral sur mobile pour aligner le texte */}
             <div className="flex items-center justify-between mb-4 sm:mb-6 border-b border-slate-100 pb-4 px-6 sm:px-0 pt-6 sm:pt-0">
@@ -539,16 +541,21 @@ export default function App() {
               </div>
             </div>
             
-            {/* L'iframe s'étend d'un bord à l'autre sur mobile, empêchant la troncature */}
-            <div className="w-full h-[750px] sm:h-[650px] md:h-[700px] relative">
+            {/* L'iframe sans script externe pour assurer le fonctionnement du Canvas, avec une hauteur minimale généreuse */}
+            <div className="w-full relative h-[800px] min-h-[800px]">
               <iframe 
-                src={`https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS?Source=Site%20Web&Budget=${Math.round(results.annualSavings)}&Puissance=7.4kW&Distance=${dailyKm}`} 
-                className="absolute inset-0 w-full h-full border-none sm:rounded-2xl" 
+                className="w-full h-full border-none sm:rounded-2xl" 
+                src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS" 
                 title="Formulaire CHARGéO" 
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                style={{ overflow: 'hidden' }}
+                style={{ background: 'transparent' }}
               />
             </div>
+
+            {/* MICRO-COPY DE SÉCURITÉ */}
+            <p className="text-center text-[10px] text-slate-400 mt-4 sm:mt-6 px-4 font-medium flex justify-center items-center gap-1.5">
+               <span className="flex items-center justify-center text-green-500 shrink-0"><ShieldCheck size={12} /></span>
+               Vos données sont strictement confidentielles, chiffrées, et ne seront jamais revendues à des tiers.
+            </p>
           </div>
 
         </div>
@@ -580,7 +587,6 @@ export default function App() {
       <footer className="bg-[#032B60] py-24 border-t border-white/5 text-white font-bold">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-start gap-16">
            <div className="space-y-8 text-left">
-              {/* MODIFICATION ICI : Alignement parfait à gauche */}
               <Logo light={true} className="scale-100 sm:scale-110 md:scale-125 origin-left" />
               <div className="space-y-3 mt-4">
                  <p className="text-white font-black text-2xl tracking-tighter uppercase leading-none">74200 Thonon-les-Bains</p>
