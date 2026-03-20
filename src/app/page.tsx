@@ -15,10 +15,11 @@ const Settings = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.or
 const MapPinIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>;
 const AwardIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>;
 const FileTextIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>;
-const CoinsIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="M16.7 14.4l.7-.7"/></svg>;
+const PiggyBankIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2h0V5z"></path><path d="M2 9v1c0 1.1.9 2 2 2h1"></path><path d="M16 11h.01"></path></svg>;
 const CarIcon = ({ size = 24, color = "currentColor", className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>;
 const FlameIcon = ({ size = 24, color = "currentColor", className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>;
-
+const WrenchIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>;
+const PhoneIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>;
 
 // --- COMPOSANT : APPARITION AU SCROLL (FADE-IN) ---
 function FadeIn({ children, delay = 0, direction = 'up' }: { children: React.ReactNode, delay?: number, direction?: string }) {
@@ -305,17 +306,25 @@ export default function App() {
   }, [dailyKm, gasConsumption, gasPrice, elecPrice, evConsumption]);
 
   const faqs = [
-    { q: "Quelles sont les aides de l'État ?", a: "En choisissant CHARGéO, certifié IRVE, bénéficiez de la Prime Advenir (jusqu'à 600€) et de la TVA réduite à 5,5%. Nous gérons tout l'administratif." },
+    { q: "Quelles sont les aides de l'État ?", a: "En choisissant CHARGéO, installateur qualifié IRVE, bénéficiez de la Prime Advenir (jusqu'à 600€) et de la TVA réduite à 5,5%. Nous gérons tout l'administratif." },
     { q: "Quel est le délai d'installation ?", a: "Après votre demande de devis, une visite technique gratuite est planifiée. L'installation se fait généralement sous 10 à 15 jours après validation du devis." },
     { q: "Compatibilité véhicule ?", a: "Standard européen Type 2, compatible avec 100% des véhicules électriques et hybrides du marché." },
-    { q: "Obligation IRVE ?", a: "C'est une obligation légale au-delà de 3,7kW. Elle garantit votre sécurité et la validité de votre assurance habitation." }
+    { q: "Qualification IRVE ?", a: "Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Elle garantit votre sécurité, la validité de votre assurance habitation et la garantie de votre véhicule." }
   ];
 
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-[#0097b2]/20 scroll-smooth">
+    // Ajout de pb-24 pour compenser la hauteur de la sticky bar permanente sur mobile
+    <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-[#0097b2]/20 scroll-smooth pb-24 lg:pb-0">
       
-      {/* INJECTION DES ANIMATIONS CSS COMPLEXES */}
+      {/* INJECTION DES ANIMATIONS CSS COMPLEXES ET FORCAGE DU MODE CLAIR */}
       <style dangerouslySetInnerHTML={{__html: `
+        :root {
+          color-scheme: light only !important;
+        }
+        html, body {
+          background-color: #ffffff !important;
+          color: #0f172a !important;
+        }
         @keyframes slowPan {
           0% { transform: scale(1.05) translate(0, 0); }
           100% { transform: scale(1.15) translate(-1%, 1%); }
@@ -356,14 +365,14 @@ export default function App() {
               className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
             >
               <div className="animate-button-shine" />
-              Demander un devis gratuit <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              Être rappelé(e) gratuitement <PhoneIcon size={16} className="group-hover:rotate-12 transition-transform" />
             </button>
           </div>
         </div>
       </nav>
 
-      {/* STICKY BOTTOM BAR (MOBILE ONLY) */}
-      <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-[60] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 transform ${showStickyBar ? 'translate-y-0' : 'translate-y-full'}`}>
+      {/* STICKY BOTTOM BAR FIXE (MOBILE ONLY) - Toujours visible */}
+      <div className="lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-[60] shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex flex-col">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Mon estimation</p>
@@ -373,10 +382,10 @@ export default function App() {
           </div>
           <button 
             onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
-            className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] group"
+            className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-3 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
           >
             <div className="animate-button-shine" />
-            Obtenir un devis<ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+            Me faire rappeler <PhoneIcon size={16} className="group-hover:rotate-12 transition-transform" />
           </button>
         </div>
       </div>
@@ -394,22 +403,23 @@ export default function App() {
           </div>
           <div className="max-w-7xl mx-auto px-6 relative z-10 w-full">
             <div className="max-w-4xl mx-auto text-center flex flex-col items-center space-y-6">
-              
-              <FadeIn delay={100} direction="up">
-                <div className="inline-block bg-[#0097b2]/20 border border-[#0097b2]/30 text-blue-100 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-2 backdrop-blur-sm shadow-[0_0_15px_rgba(0,151,178,0.3)]">
-                  Fini le plein à 80€ ⛽
-                </div>
+
+              <FadeIn delay={200} direction="up">
+                 <div className="flex items-center justify-center gap-2 text-[#0097b2] font-black text-sm sm:text-base uppercase tracking-widest bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm mt-2">
+                   <MapPinIcon size={18} />
+                   <span>Intervention sur le Chablais et la Haute-Savoie</span>
+                 </div>
               </FadeIn>
               
               <FadeIn delay={300} direction="up">
-                <h1 className="text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase">
+                <h1 className="text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase mt-4">
                   La recharge <br/><span style={{ color: brandTeal }}>ultra-rentable.</span>
                 </h1>
               </FadeIn>
               
               <FadeIn delay={500} direction="up">
                 <p className="text-lg md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
-                  Simulez vos économies en passant à l'électrique et demandez une visite technique gratuite pour l'installation de votre borne certifiée IRVE.
+                  Simulez vos économies en passant à l&apos;électrique et demandez une visite technique gratuite pour l&apos;installation de votre borne certifiée IRVE.
                 </p>
               </FadeIn>
               
@@ -417,10 +427,10 @@ export default function App() {
                 <div className="flex flex-col items-center gap-4 mt-4 animate-float">
                   <button 
                     onClick={() => simulatorRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-                    className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 sm:px-12 py-5 rounded-full font-black text-lg shadow-[0_0_30px_rgba(255,107,0,0.3)] hover:shadow-[0_0_50px_rgba(255,107,0,0.6)] hover:scale-105 transition-all w-fit group text-center"
+                    className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full font-black text-base sm:text-lg shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 transition-all w-fit group text-center"
                   >
                     <div className="animate-button-shine" />
-                    Estimer & Demander un devis <ArrowRight size={24} className="group-hover:translate-x-1 transition-transform"/>
+                    Être rappelé(e) pour une visite <PhoneIcon size={20} className="group-hover:rotate-12 transition-transform"/>
                   </button>
                   <div className="flex flex-col gap-1">
                     <p className="text-xs text-white/50 font-bold uppercase tracking-widest flex items-center gap-2">
@@ -457,7 +467,7 @@ export default function App() {
                   {[
                     { i: <Zap/>, t: "Borne Intelligente", d: "7.4kW pour une charge 3x plus rapide qu'une prise standard." },
                     { i: <FileTextIcon/>, t: "Devis Transparent", d: "Obtenez un devis clair après une visite technique gratuite." },
-                    { i: <ShieldCheck/>, t: "Sécurité IRVE", d: "Installation certifiée pour votre assurance et les aides d'État." }
+                    { i: <ShieldCheck/>, t: "Qualification IRVE", d: "Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW." }
                   ].map((item, idx) => (
                     <div key={idx} className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm hover:shadow-md border border-slate-100">
                       <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2] group-hover:text-white transition-colors duration-500 shrink-0 text-[#0097b2]">
@@ -531,10 +541,10 @@ export default function App() {
                   <span className="text-xs font-black uppercase tracking-widest text-blue-100">Vos Experts Locaux</span>
                 </div>
                 <h2 className="text-3xl md:text-5xl font-black tracking-tighter leading-tight">
-                  L'excellence d'un service <span className="text-[#0097b2]">de proximité.</span>
+                  L&apos;excellence d&apos;un service <span className="text-[#0097b2]">de proximité.</span>
                 </h2>
                 <p className="text-lg text-blue-100/80 font-medium leading-relaxed">
-                  Basés en Haute-Savoie, nous ne sommes pas une plateforme nationale impersonnelle. CHARGéO, c'est une équipe locale d'artisans certifiés IRVE qui vous accompagne de la visite technique jusqu'à l'installation.
+                  Basés en Haute-Savoie, nous ne sommes pas une plateforme nationale impersonnelle. CHARGéO, c&apos;est une équipe locale d&apos;artisans qualifiés IRVE qui vous accompagne de la visite technique jusqu&apos;à l&apos;installation.
                 </p>
                 <div className="flex items-center gap-6 pt-4">
                   <div className="flex -space-x-4">
@@ -549,16 +559,22 @@ export default function App() {
                 </div>
               </div>
 
+              {/* GRILLE À 3 CARTES (Certification, Administratif, SAV) */}
               <div className="md:w-1/2 w-full grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300">
                   <AwardIcon className="text-[#0097b2] mb-4" size={32} />
-                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Certification État</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Nos techniciens détiennent la qualification officielle IRVE, indispensable pour votre assurance habitation.</p>
+                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Qualification IRVE</h4>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Il s&apos;agit d&apos;une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Indispensable pour votre assurance.</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl sm:mt-8 hover:bg-white/20 transition-colors duration-300">
                   <FileTextIcon className="text-[#0097b2] mb-4" size={32} />
                   <h4 className="text-white font-black uppercase tracking-wider mb-2">Administratif Inclus</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Nous montons de A à Z vos dossiers de Prime Advenir (jusqu'à 600€) et la demande de TVA réduite.</p>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Nous montons de A à Z vos dossiers de Prime Advenir (jusqu&apos;à 600€) et la demande de TVA réduite.</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 sm:col-span-2">
+                  <WrenchIcon className="text-[#0097b2] mb-4" size={32} />
+                  <h4 className="text-white font-black uppercase tracking-wider mb-2">SAV & Maintenance</h4>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Un problème ? Notre équipe locale intervient rapidement. Nous assurons le suivi de tout notre parc installé pour vous garantir une tranquillité d&apos;esprit totale sur le long terme.</p>
                 </div>
               </div>
             </div>
@@ -573,7 +589,7 @@ export default function App() {
                 Simulez vos <br className="md:hidden"/><span className="text-[#0097b2]">économies</span>
               </h2>
               <p className="text-slate-500 font-medium text-lg max-w-2xl mx-auto text-balance">
-                Découvrez à quel point rouler à l'électrique est rentable face aux prix du carburant, puis demandez votre devis personnalisé.
+                Découvrez à quel point rouler à l&apos;électrique est rentable face aux prix du carburant, puis demandez votre devis personnalisé.
               </p>
             </div>
 
@@ -603,7 +619,7 @@ export default function App() {
                     <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
                       <FlameIcon color={brandTeal} size={24}/> Conso. Thermique
                     </h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Le carburant pèse lourd dans votre budget.</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Le carburant pèse lourd dans budget.</p>
                   </div>
                   <span className={`text-3xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
                     {gasConsumption} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">L/100</span>
@@ -661,7 +677,7 @@ export default function App() {
 
               {/* CARTE 4 : ÉCONOMIES */}
               <div ref={resultsRef} className="order-4 lg:row-start-1 lg:col-start-2 h-full flex flex-col justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-8 md:p-10 rounded-[2.5rem] border border-green-200 shadow-xl relative overflow-hidden hover:shadow-2xl transition-all hover:-translate-y-1">
-                <CoinsIcon className="absolute -right-10 -bottom-10 opacity-10 text-green-600 transition-transform duration-1000 hover:rotate-12" size={200} />
+                <PiggyBankIcon className="absolute -right-10 -bottom-10 opacity-10 text-green-600 transition-transform duration-1000 hover:rotate-12" size={200} />
                 <h3 className="text-green-800 text-sm font-black uppercase tracking-widest mb-2 relative z-10">Vos économies estimées</h3>
                 <div className={`flex items-baseline gap-2 relative z-10 transition-all duration-300 ${isPulsing ? 'scale-105 text-emerald-500 translate-x-2' : 'scale-100 text-green-600'}`}>
                   <span className="text-6xl md:text-7xl font-black tracking-tighter">+{Math.round(animatedSavings).toLocaleString('fr-FR')}</span>
@@ -688,22 +704,22 @@ export default function App() {
             </div>
 
             {/* === NOUVEAU BLOC FORMULAIRE : DEVIS & VISITE TECHNIQUE === */}
-            <div id="formulaire-devis" ref={formRef} className="w-full mt-16 lg:mt-24 bg-white sm:p-8 md:p-10 sm:rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.1)] border-y sm:border border-slate-100 flex flex-col relative z-10 -mx-6 sm:mx-0">
-              <div className="flex items-center justify-between mb-4 sm:mb-6 border-b border-slate-100 pb-4 px-6 sm:px-0 pt-6 sm:pt-0">
+            <div id="formulaire-devis" ref={formRef} className="w-full mt-16 lg:mt-24 bg-white p-4 sm:p-8 md:p-10 rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.1)] border border-slate-100 flex flex-col relative z-10 mx-auto">
+              <div className="flex items-center justify-between mb-4 sm:mb-6 border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0 shadow-inner">
-                    <ShieldCheck size={20} />
+                    <PhoneIcon size={20} />
                   </div>
                   <div>
-                    <h3 className="font-black text-[#032b60] uppercase tracking-widest text-xs sm:text-sm leading-tight">Planifier ma visite technique</h3>
-                    <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Un expert se déplace gratuitement pour votre devis</p>
+                    <h3 className="font-black text-[#032b60] uppercase tracking-widest text-xs sm:text-sm leading-tight">Demander à être rappelé</h3>
+                    <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Un conseiller qualifie votre projet avant la visite technique</p>
                   </div>
                 </div>
               </div>
               
-              <div className="w-full relative h-[1200px] sm:h-[950px]">
+              <div className="w-full relative h-[850px] sm:h-[800px] lg:h-[900px]">
                 <iframe 
-                  className="w-full h-full border-none sm:rounded-2xl" 
+                  className="w-full h-full border-none rounded-2xl" 
                   src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS" 
                   title="Formulaire CHARGéO" 
                   style={{ background: 'transparent' }}
