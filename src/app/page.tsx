@@ -196,6 +196,12 @@ export default function App() {
   const simulatorRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const simulatorCtaRef = useRef<HTMLButtonElement>(null);
+
+  const [isHeroVisible, setIsHeroVisible] = useState(true);
+  const [isSimulatorCtaVisible, setIsSimulatorCtaVisible] = useState(false);
+  const [isFormVisible, setIsFormVisible] = useState(false);
 
   const brandNavy = "#032b60";
   const brandTeal = "#0097b2";
@@ -263,16 +269,6 @@ export default function App() {
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
-      
-      if (simulatorRef.current && formRef.current) {
-        const simRect = simulatorRef.current.getBoundingClientRect();
-        const formRect = formRef.current.getBoundingClientRect();
-        
-        const isSimulatorVisible = simRect.top < window.innerHeight - 200;
-        const isFormReachingBottom = formRect.top < window.innerHeight - 150;
-
-        setShowStickyBar(isSimulatorVisible && !isFormReachingBottom);
-      }
     };
     
     window.addEventListener('scroll', handleScroll);
@@ -298,6 +294,27 @@ export default function App() {
       clearInterval(timer);
     };
   }, [reviews.length]);
+
+  // NOUVEAU : Observer intelligent pour cacher les CTA flottants si un bouton natif est à l'écran
+  useEffect(() => {
+    const observerOptions = { threshold: 0 }; // Se déclenche dès qu'un pixel touche l'écran
+
+    const heroObserver = new IntersectionObserver(([entry]) => setIsHeroVisible(entry.isIntersecting), observerOptions);
+    const simCtaObserver = new IntersectionObserver(([entry]) => setIsSimulatorCtaVisible(entry.isIntersecting), observerOptions);
+    const formObserver = new IntersectionObserver(([entry]) => setIsFormVisible(entry.isIntersecting), observerOptions);
+
+    if (heroRef.current) heroObserver.observe(heroRef.current);
+    if (simulatorCtaRef.current) simCtaObserver.observe(simulatorCtaRef.current);
+    if (formRef.current) formObserver.observe(formRef.current);
+
+    return () => {
+      heroObserver.disconnect();
+      simCtaObserver.disconnect();
+      formObserver.disconnect();
+    };
+  }, []);
+
+  const showFloatingCta = !isHeroVisible && !isSimulatorCtaVisible && !isFormVisible;
 
   useEffect(() => {
     setTriggerKey(prev => prev + 1);
@@ -360,7 +377,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           <Logo light={!scrolled} />
           
-          <div className={`hidden md:flex transition-all duration-500 ${scrolled ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
+          <div className={`hidden md:flex transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
             <button 
               onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
               className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
@@ -372,8 +389,8 @@ export default function App() {
         </div>
       </nav>
 
-      {/* STICKY BOTTOM BAR FIXE (MOBILE ONLY) - Toujours visible */}
-      <div className="lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-[60] shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
+      {/* STICKY BOTTOM BAR FIXE (MOBILE ONLY) - Intelligente */}
+      <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-[60] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 ${showFloatingCta ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex flex-col">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Mon estimation</p>
@@ -425,7 +442,7 @@ export default function App() {
               </FadeIn>
               
               <FadeIn delay={700} direction="up">
-                <div className="flex flex-col items-center gap-4 mt-4 animate-float">
+                <div ref={heroRef} className="flex flex-col items-center gap-4 mt-4 animate-float">
                   <button 
                     onClick={() => simulatorRef.current?.scrollIntoView({ behavior: 'smooth' })} 
                     className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full font-black text-base sm:text-lg shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 transition-all w-fit group text-center"
@@ -690,6 +707,15 @@ export default function App() {
                   <span className="text-6xl md:text-7xl font-black tracking-tighter">+{Math.round(animatedSavings).toLocaleString('fr-FR')}</span>
                   <span className="text-2xl font-black text-green-700">€ / an</span>
                 </div>
+                {/* NOUVEAU BOUTON DANS LE SIMULATEUR POUR FAIRE LE PONT VERS LE FORMULAIRE */}
+                <button 
+                  ref={simulatorCtaRef}
+                  onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
+                  className="relative overflow-hidden mt-8 w-full inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full font-black text-sm sm:text-base shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 transition-all group z-10"
+                >
+                  <div className="animate-button-shine" />
+                  Demander à être rappelé(e) <PhoneIcon size={18} className="group-hover:rotate-12 transition-transform" />
+                </button>
               </div>
 
               {/* CARTE 5 : TEMPS DE CHARGE */}
