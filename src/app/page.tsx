@@ -20,6 +20,7 @@ const CarIcon = ({ size = 24, color = "currentColor", className = "" }) => <svg 
 const FlameIcon = ({ size = 24, color = "currentColor", className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>;
 const WrenchIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>;
 const PhoneIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>;
+const MailIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>;
 
 // --- COMPOSANT : APPARITION AU SCROLL (FADE-IN) ---
 function FadeIn({ children, delay = 0, direction = 'up' }: { children: React.ReactNode, delay?: number, direction?: string }) {
@@ -567,15 +568,15 @@ export default function App() {
 
               {/* GRILLE À 3 CARTES (Certification, Administratif, SAV) */}
               <div className="md:w-1/2 w-full grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300">
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
                   <AwardIcon className="text-[#0097b2] mb-4" size={32} />
                   <h4 className="text-white font-black uppercase tracking-wider mb-2">Qualification IRVE</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Il s&apos;agit d&apos;une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Indispensable pour votre assurance.</p>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Il s&apos;agit d&apos;une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Indispensable pour votre assurance.</p>
                 </div>
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl sm:mt-8 hover:bg-white/20 transition-colors duration-300">
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
                   <FileTextIcon className="text-[#0097b2] mb-4" size={32} />
                   <h4 className="text-white font-black uppercase tracking-wider mb-2">Administratif Inclus</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Nous montons de A à Z vos dossiers de Prime Advenir (jusqu&apos;à 600€) et la demande de TVA réduite.</p>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Nous montons de A à Z vos dossiers de Prime Advenir (jusqu&apos;à 600€) et la demande de TVA réduite.</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 sm:col-span-2">
                   <WrenchIcon className="text-[#0097b2] mb-4" size={32} />
@@ -689,14 +690,6 @@ export default function App() {
                   <span className="text-6xl md:text-7xl font-black tracking-tighter">+{Math.round(animatedSavings).toLocaleString('fr-FR')}</span>
                   <span className="text-2xl font-black text-green-700">€ / an</span>
                 </div>
-                {/* NOUVEAU BOUTON DANS LE SIMULATEUR POUR FAIRE LE PONT VERS LE FORMULAIRE */}
-                <button 
-                  onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
-                  className="mt-8 bg-green-600 hover:bg-green-700 text-white py-3 sm:py-4 px-6 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95 group z-10 relative"
-                >
-                  <PhoneIcon size={18} className="group-hover:rotate-12 transition-transform" />
-                  Valider ce projet avec un expert
-                </button>
               </div>
 
               {/* CARTE 5 : TEMPS DE CHARGE */}
@@ -722,11 +715,11 @@ export default function App() {
               <div className="flex items-center justify-between mb-4 sm:mb-6 border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0 shadow-inner">
-                    <PhoneIcon size={20} />
+                    <ShieldCheck size={20} />
                   </div>
                   <div>
-                    <h3 className="font-black text-[#032b60] uppercase tracking-widest text-xs sm:text-sm leading-tight">Demander à être rappelé</h3>
-                    <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Un conseiller qualifie votre projet avant la visite technique</p>
+                    <h3 className="font-black text-[#032b60] uppercase tracking-widest text-xs sm:text-sm leading-tight">Planifier ma visite technique</h3>
+                    <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Un expert se déplace gratuitement pour votre devis</p>
                   </div>
                 </div>
               </div>
@@ -789,7 +782,10 @@ export default function App() {
            <div className="space-y-8 text-left">
               <Logo light={true} className="scale-100 sm:scale-110 md:scale-125 origin-left" />
               <div className="space-y-3 mt-4">
-                 <p className="text-white font-black text-2xl tracking-tighter uppercase leading-none">74200 Thonon-les-Bains</p>
+                 <p className="text-white font-black text-lg sm:text-xl tracking-tighter uppercase leading-snug">
+                   8, Avenue du général De Gaulle<br />
+                   74200 THONON LES BAINS
+                 </p>
                  <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mt-2">Entreprise en cours de création</p>
               </div>
            </div>
@@ -803,7 +799,16 @@ export default function App() {
               <div className="space-y-6">
                  <h4 className="text-white/20 font-black text-[10px] uppercase tracking-[0.3em]">Assistance</h4>
                  <ul className="text-white space-y-4 text-sm font-bold">
-                    <li className="text-[#0097b2] font-black hover:text-white transition-colors cursor-pointer">contact@chargeo.fr</li>
+                    <li>
+                      <a href="tel:0485692204" className="text-xl font-black hover:text-[#0097b2] transition-colors cursor-pointer flex items-center gap-2">
+                        <PhoneIcon size={18} /> 04 85 69 22 04
+                      </a>
+                    </li>
+                    <li>
+                      <a href="mailto:contact@chargeo.fr" className="text-xl font-black hover:text-[#0097b2] transition-colors cursor-pointer flex items-center gap-2">
+                        <MailIcon size={18} /> contact@chargeo.fr
+                      </a>
+                    </li>
                  </ul>
               </div>
            </div>
