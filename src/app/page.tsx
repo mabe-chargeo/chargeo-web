@@ -430,10 +430,16 @@ export default function App() {
                     className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full font-black text-base sm:text-lg shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 transition-all w-fit group text-center"
                   >
                     <div className="animate-button-shine" />
-                    Être rappelé(e) pour une visite <PhoneIcon size={20} className="group-hover:rotate-12 transition-transform"/>
+                    Calculer mes économies <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/>
                   </button>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-xs text-white/50 font-bold uppercase tracking-widest flex items-center gap-2">
+                  <div className="flex flex-col gap-2 items-center">
+                    <button 
+                      onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
+                      className="text-sm text-white/80 hover:text-white font-bold underline underline-offset-4 decoration-white/30 hover:decoration-white transition-all flex items-center gap-2 mt-2"
+                    >
+                      <PhoneIcon size={14} /> Ou demander à être rappelé directement
+                    </button>
+                    <p className="text-xs text-white/50 font-bold uppercase tracking-widest flex items-center gap-2 mt-1">
                       <CheckCircle size={14} className="text-[#0097b2]"/> Visite technique gratuite
                     </p>
                   </div>
@@ -683,6 +689,14 @@ export default function App() {
                   <span className="text-6xl md:text-7xl font-black tracking-tighter">+{Math.round(animatedSavings).toLocaleString('fr-FR')}</span>
                   <span className="text-2xl font-black text-green-700">€ / an</span>
                 </div>
+                {/* NOUVEAU BOUTON DANS LE SIMULATEUR POUR FAIRE LE PONT VERS LE FORMULAIRE */}
+                <button 
+                  onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
+                  className="mt-8 bg-green-600 hover:bg-green-700 text-white py-3 sm:py-4 px-6 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95 group z-10 relative"
+                >
+                  <PhoneIcon size={18} className="group-hover:rotate-12 transition-transform" />
+                  Valider ce projet avec un expert
+                </button>
               </div>
 
               {/* CARTE 5 : TEMPS DE CHARGE */}
