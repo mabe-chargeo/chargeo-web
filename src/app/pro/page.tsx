@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 
-// --- ICÔNES VECTORIELLES PURES (Aucune bibliothèque externe = 0 conflit) ---
+// --- ICÔNES VECTORIELLES PURES ---
 const ChevronDown = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="6 9 12 15 18 9"></polyline></svg>;
 const ArrowRight = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>;
 const Zap = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>;
@@ -11,18 +11,21 @@ const Clock = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2
 const CheckCircle = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>;
 const ChevronRight = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"></polyline></svg>;
 const Star = ({ size = 24, className = "", fill = "none", stroke = "currentColor" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>;
-const Settings = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
+const SettingsIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
 const MapPinIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>;
 const AwardIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>;
 const FileTextIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>;
 const PiggyBankIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2h0V5z"></path><path d="M2 9v1c0 1.1.9 2 2 2h1"></path><path d="M16 11h.01"></path></svg>;
 const CarIcon = ({ size = 24, color = "currentColor", className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>;
-const FlameIcon = ({ size = 24, color = "currentColor", className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>;
 const WrenchIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>;
 const PhoneIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>;
 const MailIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>;
-const BatteryChargingIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 18H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3.19M15 6h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3.19"></path><line x1="23" y1="13" x2="23" y2="11"></line><polyline points="11 6 7 12 13 12 9 18"></polyline></svg>;
 const MenuIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>;
+const BuildingIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>;
+const UsersIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>;
+const HomeIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>;
+const CreditCardIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>;
+const PlugIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 22v-5"></path><path d="M9 8V2"></path><path d="M15 8V2"></path><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"></path></svg>;
 
 // --- COMPOSANT : APPARITION AU SCROLL (FADE-IN) ---
 function FadeIn({ children, delay = 0, direction = 'up' }: { children: React.ReactNode, delay?: number, direction?: string }) {
@@ -147,7 +150,7 @@ const Logo = ({ light = false, className = "" }: { light?: boolean, className?: 
   const [imgError, setImgError] = useState(false);
   const logoSrc = light ? "/CHARGEO_LOGO_BLANC.png" : "/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png";
   return (
-    <div className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
+    <a href="/" className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
       {!imgError ? (
         <img src={logoSrc} alt="Logo CHARGéO" onError={() => setImgError(true)} className="h-full w-auto object-contain transition-all duration-300" />
       ) : (
@@ -155,7 +158,7 @@ const Logo = ({ light = false, className = "" }: { light?: boolean, className?: 
           CHARG<span className="text-[#0097b2]">é</span>O
         </span>
       )}
-    </div>
+    </a>
   );
 };
 
@@ -178,17 +181,17 @@ const BrandLogo = ({ name, url }: { name: string, url: string }) => {
   );
 };
 
-export default function App() {
+export default function ProPage() {
   const [scrolled, setScrolled] = useState(false);
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [currentReview, setCurrentReview] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   
-  const [dailyKm, setDailyKm] = useState(40);
-  const [gasConsumption, setGasConsumption] = useState(6.5);
-  const [gasPrice, setGasPrice] = useState(1.85);
-  const [elecPrice, setElecPrice] = useState(0.25);
-  const [evConsumption, setEvConsumption] = useState(16);
+  // Variables Simulateur Pro (Monétisation)
+  const [chargePoints, setChargePoints] = useState(4);
+  const [sessionsPerDay, setSessionsPerDay] = useState(2);
+  const [marginPerKwh, setMarginPerKwh] = useState(0.20);
+  const [kwhPerSession, setKwhPerSession] = useState(25);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
   const [isPulsing, setIsPulsing] = useState(false);
@@ -208,69 +211,57 @@ export default function App() {
   const brandNavy = "#032b60";
   const brandTeal = "#0097b2";
 
+  // Calculs Pro (Revenus de monétisation)
+  const results = useMemo(() => {
+    const safeChargePoints = isNaN(chargePoints) ? 0 : chargePoints;
+    const safeSessions = isNaN(sessionsPerDay) ? 0 : sessionsPerDay;
+    const safeMargin = isNaN(marginPerKwh) ? 0 : marginPerKwh;
+    const safeKwh = isNaN(kwhPerSession) ? 0 : kwhPerSession;
+
+    // Base conservatrice de 300 jours d'ouverture par an
+    const annualRevenue = safeChargePoints * safeSessions * safeKwh * safeMargin * 300;
+    
+    return { 
+      annualRevenue: Math.max(0, annualRevenue) 
+    };
+  }, [chargePoints, sessionsPerDay, marginPerKwh, kwhPerSession]);
+
+  const animatedRevenue = useAnimatedValue(results.annualRevenue, 1200, isInView, triggerKey);
+
   const reviews = useMemo(() => [
     {
-      text: "Enfin un installateur qui explique les vraies économies. J'ai divisé mon budget carburant par 4 dès le premier mois.",
-      author: "Jean-Philippe",
-      location: "74200 Thonon",
-      image: "https://images.unsplash.com/photo-1692052664566-477579a08e8c?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTc5fHxib3JuZSUyMGRlJTIwcmVjaGFyZ2V8ZW58MHx8MHx8fDA%3D"
+      text: "Nous voulions offrir un service de recharge à notre clientèle. CHARGéO a géré l'installation, et la borne génère aujourd'hui des revenus chaque mois.",
+      author: "Directeur d'Hôtel",
+      location: "74500 Évian",
+      image: "https://images.unsplash.com/photo-1621293954908-907159247fc8?q=80&w=900&auto=format&fit=crop"
     },
     {
-      text: "La visite technique a été planifiée en 2 jours. Devis clair, sans surprise. La borne 7.4kW change tout par rapport à ma prise standard.",
-      author: "Sophie",
+      text: "Pour nos commerciaux, la solution à domicile est parfaite. Le logiciel relève automatiquement leurs recharges pro. Gain de temps énorme.",
+      author: "DRH",
       location: "74000 Annecy",
-      image: "https://images.unsplash.com/photo-1760539068164-e7186a197d09?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTc1fHxib3JuZSUyMGRlJTIwcmVjaGFyZ2V8ZW58MHx8MHx8fDA%3D"
+      image: "https://images.unsplash.com/photo-1572097034177-8d0fc65507d8?q=80&w=900&auto=format&fit=crop"
     },
     {
-      text: "Devis reçu rapidement et pose effectuée en 10 jours. L'équipe est experte et gère directement les aides de l'État.",
-      author: "Marc",
-      location: "74100 Annemasse",
-      image: "https://images.unsplash.com/photo-1765272088009-100c96a4cd4e?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTY2fHxib3JuZSUyMGRlJTIwcmVjaGFyZ2V8ZW58MHx8MHx8fDA%3D"
+      text: "Nous avons équipé notre parking avec délestage dynamique. Parfait pour respecter la Loi LOM, et l'amortissement comptable est un vrai plus.",
+      author: "Gérant",
+      location: "74200 Thonon",
+      image: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=900&auto=format&fit=crop"
     }
   ], []);
-
-  const results = useMemo(() => {
-    const safeDailyKm = isNaN(dailyKm) ? 0 : dailyKm;
-    const safeGasCons = isNaN(gasConsumption) ? 0 : gasConsumption;
-    const safeGasPrice = isNaN(gasPrice) ? 0 : gasPrice;
-    const safeEvCons = isNaN(evConsumption) ? 0 : evConsumption;
-    const safeElecPrice = isNaN(elecPrice) ? 0 : elecPrice;
-
-    const dailyGasCost = (safeDailyKm / 100) * safeGasCons * safeGasPrice;
-    const dailyEvCost = (safeDailyKm / 100) * safeEvCons * safeElecPrice;
-    const annualSavings = (dailyGasCost - dailyEvCost) * 365;
-    
-    const energyNeeded = (safeDailyKm / 100) * safeEvCons;
-    const timeStandard = energyNeeded / 2.3; 
-    const timeWallbox = energyNeeded / 7.4; 
-    const wallboxTimePercent = timeStandard > 0 ? (timeWallbox / timeStandard) * 100 : 0;
-
-    return { 
-      annualSavings: Math.max(0, annualSavings), 
-      timeStandard, 
-      timeWallbox, 
-      wallboxTimePercent 
-    };
-  }, [dailyKm, gasConsumption, gasPrice, elecPrice, evConsumption]);
-
-  const animatedSavings = useAnimatedValue(results.annualSavings, 1200, isInView, triggerKey);
-  const animatedTimeStd = useAnimatedValue(results.timeStandard, 1200, isInView, triggerKey);
-  const animatedTimeWallbox = useAnimatedValue(results.timeWallbox, 1200, isInView, triggerKey);
-
-  const formatTime = (decimalHours: number) => {
-    if (isNaN(decimalHours) || decimalHours === Infinity) return "0 min";
-    const hrs = Math.floor(decimalHours);
-    const mins = Math.round((decimalHours - hrs) * 60);
-    if (mins === 60) return `${hrs + 1} h 00`;
-    if (hrs === 0 && mins === 0) return `0 min`;
-    if (hrs === 0) return `${mins} min`;
-    if (mins === 0) return `${hrs} h`;
-    return `${hrs} h ${mins.toString().padStart(2, '0')}`;
-  };
 
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
+      
+      if (simulatorRef.current && formRef.current) {
+        const simRect = simulatorRef.current.getBoundingClientRect();
+        const formRect = formRef.current.getBoundingClientRect();
+        
+        const isSimulatorVisible = simRect.top < window.innerHeight - 200;
+        const isFormReachingBottom = formRect.top < window.innerHeight - 150;
+
+        setShowStickyBar(isSimulatorVisible && !isFormReachingBottom);
+      }
     };
     
     window.addEventListener('scroll', handleScroll);
@@ -297,9 +288,9 @@ export default function App() {
     };
   }, [reviews.length]);
 
-  // NOUVEAU : Observer intelligent pour cacher les CTA flottants si un bouton natif est à l'écran
+  // Observer intelligent pour cacher les CTA flottants si un bouton natif est à l'écran
   useEffect(() => {
-    const observerOptions = { threshold: 0 }; // Se déclenche dès qu'un pixel touche l'écran
+    const observerOptions = { threshold: 0 };
 
     const heroObserver = new IntersectionObserver(([entry]) => setIsHeroVisible(entry.isIntersecting), observerOptions);
     const simCtaObserver = new IntersectionObserver(([entry]) => setIsSimulatorCtaVisible(entry.isIntersecting), observerOptions);
@@ -323,13 +314,13 @@ export default function App() {
     setIsPulsing(true);
     const pulseTimer = setTimeout(() => setIsPulsing(false), 300);
     return () => clearTimeout(pulseTimer);
-  }, [dailyKm, gasConsumption, gasPrice, elecPrice, evConsumption]);
+  }, [chargePoints, sessionsPerDay, marginPerKwh, kwhPerSession]);
 
   const faqs = [
-    { q: "Quelles sont les aides de l'État ?", a: "En choisissant CHARGéO, installateur qualifié IRVE, bénéficiez de la Prime Advenir (jusqu'à 600€) et de la TVA réduite à 5,5%. Nous gérons tout l'administratif." },
-    { q: "Quel est le délai d'installation ?", a: "Après votre demande de devis, une visite technique gratuite est planifiée. L'installation se fait généralement sous 10 à 15 jours après validation du devis." },
-    { q: "Compatibilité véhicule ?", a: "Standard européen Type 2, compatible avec 100% des véhicules électriques et hybrides du marché." },
-    { q: "Qualification IRVE ?", a: "Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Elle garantit votre sécurité, la validité de votre assurance habitation et la garantie de votre véhicule." }
+    { q: "Comment fonctionne la monétisation ?", a: "C'est très simple : nous installons des bornes communicantes. Vous décidez du tarif appliqué au kWh. Notre logiciel s'occupe de facturer l'utilisateur final par QR Code et vous reverse les revenus mensuellement." },
+    { q: "Domicile Collaborateurs : Comment rembourser l'électricité ?", a: "Notre logiciel isole la consommation liée au véhicule professionnel grâce au badge RFID du salarié. Chaque mois, un relevé certifié permet le remboursement en note de frais." },
+    { q: "Quelles sont les obligations de la Loi LOM ?", a: "La Loi LOM oblige les entreprises (parc > 100 véhicules) à intégrer un pourcentage de véhicules à faibles émissions. Équiper vos parkings devient une nécessité légale." },
+    { q: "Quels sont les avantages fiscaux ?", a: "L'électrification permet une exonération totale de la TVS. De plus, l'entreprise bénéficie d'un plafond d'amortissement rehaussé et la TVA sur l'électricité consommée est récupérable." }
   ];
 
   return (
@@ -385,8 +376,8 @@ export default function App() {
 
           {/* SÉLECTEUR TOUJOURS VISIBLE SANS CLIC */}
           <div className={`flex items-center p-1 rounded-full border transition-colors duration-300 ${scrolled ? 'bg-slate-100 border-slate-200' : 'bg-white/10 border-white/20 backdrop-blur-md'}`}>
-            <a href="/" className="px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-black bg-[#0097b2] text-white shadow-md">Particuliers</a>
-            <a href="/pro" className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/70 hover:text-white'}`}>Pros</a>
+            <a href="/" className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/70 hover:text-white'}`}>Particuliers</a>
+            <a href="/pro" className="px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-black bg-[#0097b2] text-white shadow-md">Pros</a>
             <a href="/copropriete" className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/70 hover:text-white'}`}>Copros</a>
           </div>
 
@@ -397,7 +388,7 @@ export default function App() {
               className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
             >
               <div className="animate-button-shine" />
-              Être rappelé(e) <PhoneIcon size={16} className="group-hover:rotate-12 transition-transform" />
+              Audit B2B Gratuit <PhoneIcon size={16} className="group-hover:rotate-12 transition-transform" />
             </button>
           </div>
 
@@ -408,9 +399,9 @@ export default function App() {
       <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-[60] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 ${showFloatingCta ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex flex-col">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Mon estimation</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Revenus Potentiels</p>
             <p className={`text-xl sm:text-2xl font-black text-green-600 transition-all duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
-              +{Math.round(results.annualSavings).toLocaleString('fr-FR')}€ / an
+              +{Math.round(results.annualRevenue).toLocaleString('fr-FR')}€ / an
             </p>
           </div>
           <button 
@@ -418,7 +409,7 @@ export default function App() {
             className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-3 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
           >
             <div className="animate-button-shine" />
-            Me faire rappeler <PhoneIcon size={16} className="group-hover:rotate-12 transition-transform" />
+            Audit B2B <PhoneIcon size={16} className="group-hover:rotate-12 transition-transform" />
           </button>
         </div>
       </div>
@@ -428,9 +419,9 @@ export default function App() {
         <section className="relative h-[90vh] flex items-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
             <img 
-              src="https://images.unsplash.com/photo-1593941707882-a5bba14938c7?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80" 
+              src="https://images.unsplash.com/photo-1554200876-56c2f25224fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80" 
               className="w-full h-full object-cover opacity-40 animate-bg-pan" 
-              alt="Hero Background" 
+              alt="Bâtiment entreprise et recharge" 
             />
             <div className="absolute inset-0 bg-gradient-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
         </div>
@@ -439,20 +430,20 @@ export default function App() {
 
             <FadeIn delay={200} direction="up">
                  <div className="flex items-center justify-center gap-2 text-[#0097b2] font-black text-sm sm:text-base uppercase tracking-widest bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm mt-2">
-                   <MapPinIcon size={18} />
-                   <span>Intervention sur le Chablais et la Haute-Savoie</span>
+                   <BuildingIcon size={18} />
+                   <span>Solutions pour Entreprises & B2B</span>
                  </div>
               </FadeIn>
               
               <FadeIn delay={300} direction="up">
                 <h1 className="text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase mt-4">
-                  La recharge <br/><span style={{ color: brandTeal }}>ultra-rentable.</span>
+                  L'infrastructure <br/><span style={{ color: brandTeal }}>pour les Pros.</span>
                 </h1>
               </FadeIn>
               
               <FadeIn delay={500} direction="up">
                 <p className="text-lg md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
-                  Simulez vos économies en passant à l&apos;électrique et demandez une visite technique gratuite pour l&apos;installation de votre borne certifiée IRVE.
+                  Électrifiez votre flotte, équipez vos collaborateurs à domicile ou monétisez votre parking client. Nous gérons votre projet de A à Z.
                 </p>
               </FadeIn>
               
@@ -463,17 +454,17 @@ export default function App() {
                     className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full font-black text-base sm:text-lg shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 transition-all w-fit group text-center"
                   >
                     <div className="animate-button-shine" />
-                    Calculer mes économies <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/>
+                    Estimer mes revenus <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/>
                   </button>
                   <div className="flex flex-col gap-2 items-center">
                     <button 
                       onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
                       className="text-sm text-white/80 hover:text-white font-bold underline underline-offset-4 decoration-white/30 hover:decoration-white transition-all flex items-center gap-2 mt-2"
                     >
-                      <PhoneIcon size={14} /> Ou demander à être rappelé directement
+                      <PhoneIcon size={14} /> Ou demander un Audit B2B directement
                     </button>
                     <p className="text-xs text-white/50 font-bold uppercase tracking-widest flex items-center gap-2 mt-1">
-                      <CheckCircle size={14} className="text-[#0097b2]"/> Visite technique gratuite
+                      <CheckCircle size={14} className="text-[#0097b2]"/> Étude de rentabilité incluse
                     </p>
                   </div>
                 </div>
@@ -495,18 +486,18 @@ export default function App() {
           </div>
         </div>
 
-        {/* MÉTHODOLOGIE + CARROUSEL AVIS */}
+        {/* CAS D'USAGE B2B + CARROUSEL AVIS */}
         <section id="concept" className="py-24 bg-slate-50 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-20 items-center">
              <div className="space-y-8">
-                <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>Une Méthode <br/><span style={{ color: brandTeal }}>Standardisée</span></h2>
-                <p className="text-lg text-slate-500 font-medium leading-relaxed mt-6">Le réseau CHARGéO repose sur une transparence absolue. Nos experts IRVE locaux se déplacent gratuitement pour vous fournir un devis précis et sans surprise.</p>
+                <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>Chaque entreprise <br/><span style={{ color: brandTeal }}>est unique.</span></h2>
+                <p className="text-lg text-slate-500 font-medium leading-relaxed mt-6">Nous avons segmenté nos offres pour répondre aux exigences comptables, fiscales et RH propres à votre modèle économique.</p>
                 
                 <div className="space-y-6">
                   {[
-                    { i: <Zap/>, t: "Borne Intelligente", d: "7.4kW pour une charge 3x plus rapide qu'une prise standard." },
-                    { i: <FileTextIcon/>, t: "Devis Transparent", d: "Obtenez un devis clair après une visite technique gratuite." },
-                    { i: <ShieldCheck/>, t: "Qualification IRVE", d: "Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW." }
+                    { i: <CarIcon/>, t: "Cas n°1 : La Flotte d'Entreprise", d: "Électrifiez votre parking. Supervision logicielle, badges RFID pour le suivi des consos et délestage pour la sécurité de l'entreprise." },
+                    { i: <HomeIcon/>, t: "Cas n°2 : Domicile Collaborateurs", d: "Offrez la recharge à la maison. Notre logiciel isole la conso pro : vous remboursez le salarié sur note de frais, sans gestion." },
+                    { i: <CreditCardIcon/>, t: "Cas n°3 : Monétisation Clientèle", d: "Attirez une clientèle premium. Fixez votre marge au kWh, le client paie par QR Code, vous générez des revenus." }
                   ].map((item, idx) => (
                     <div key={idx} className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm hover:shadow-md border border-slate-100">
                       <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2] group-hover:text-white transition-colors duration-500 shrink-0 text-[#0097b2]">
@@ -514,7 +505,7 @@ export default function App() {
                       </div>
                       <div className="flex flex-col justify-center">
                         <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>{item.t}</h4>
-                        <p className="text-xs text-slate-400 font-medium">{item.d}</p>
+                        <p className="text-xs text-slate-400 font-medium mt-1">{item.d}</p>
                       </div>
                     </div>
                   ))}
@@ -568,7 +559,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* BLOC EXPERTISE / CONFIANCE (QUI SOMMES-NOUS) */}
+        {/* BLOC EXPERTISE / FISCALITÉ PRO */}
         <section className="py-20 bg-white border-t border-slate-100 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6">
             <div className="bg-[#032b60] rounded-[2.5rem] p-10 md:p-16 flex flex-col md:flex-row items-center gap-12 shadow-2xl relative overflow-hidden group">
@@ -576,14 +567,14 @@ export default function App() {
 
               <div className="md:w-1/2 space-y-6 relative z-10 text-white">
                 <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full border border-white/20">
-                  <MapPinIcon size={16} className="text-[#0097b2]" />
-                  <span className="text-xs font-black uppercase tracking-widest text-blue-100">Vos Experts Locaux</span>
+                  <ShieldCheck size={16} className="text-[#0097b2]" />
+                  <span className="text-xs font-black uppercase tracking-widest text-blue-100">Votre Partenaire B2B</span>
                 </div>
                 <h2 className="text-3xl md:text-5xl font-black tracking-tighter leading-tight">
-                  L&apos;excellence d&apos;un service <span className="text-[#0097b2]">de proximité.</span>
+                  Tirez parti des <span className="text-[#0097b2]">leviers financiers.</span>
                 </h2>
                 <p className="text-lg text-blue-100/80 font-medium leading-relaxed">
-                  Basés en Haute-Savoie, nous ne sommes pas une plateforme nationale impersonnelle. CHARGéO, c&apos;est une équipe locale d&apos;artisans qualifiés IRVE qui vous accompagne de la visite technique jusqu&apos;à l&apos;installation.
+                  L'électrification de vos parkings n'est pas qu'une contrainte légale. C'est une opportunité fiscale puissante. Nos experts gèrent l'administratif pour que vous récupériez chaque euro auquel vous avez droit.
                 </p>
                 <div className="flex items-center gap-6 pt-4">
                   <div className="flex -space-x-4">
@@ -592,91 +583,90 @@ export default function App() {
                     <div className="w-12 h-12 rounded-full border-2 border-[#032b60] bg-[#0097b2] flex items-center justify-center text-white font-black text-[10px] hover:-translate-y-1 transition-transform">IRVE</div>
                   </div>
                   <div className="text-sm font-bold">
-                    <p className="text-white">Visite gratuite</p>
+                    <p className="text-white">Audit gratuit</p>
                     <p className="text-[#0097b2]">74200 Thonon-les-Bains</p>
                   </div>
                 </div>
               </div>
 
-              {/* GRILLE À 3 CARTES (Certification, Administratif, SAV) */}
               <div className="md:w-1/2 w-full grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
-                  <AwardIcon className="text-[#0097b2] mb-4" size={32} />
-                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Qualification IRVE</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Il s&apos;agit d&apos;une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Indispensable pour votre assurance.</p>
+                  <BuildingIcon className="text-[#0097b2] mb-4" size={32} />
+                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Conformité Loi LOM</h4>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Nous vous accompagnons dans la mise aux normes de vos parkings pour respecter vos quotas obligatoires.</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
                   <FileTextIcon className="text-[#0097b2] mb-4" size={32} />
-                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Administratif Inclus</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Nous montons de A à Z vos dossiers de Prime Advenir (jusqu&apos;à 600€) et la demande de TVA réduite.</p>
+                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Exonération TVS</h4>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Les véhicules 100% électriques de votre flotte bénéficient d'une exonération totale de la Taxe sur les Véhicules de Société.</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 sm:col-span-2">
-                  <WrenchIcon className="text-[#0097b2] mb-4" size={32} />
-                  <h4 className="text-white font-black uppercase tracking-wider mb-2">SAV & Maintenance</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Un problème ? Notre équipe locale intervient rapidement. Nous assurons le suivi de tout notre parc installé pour vous garantir une tranquillité d&apos;esprit totale sur le long terme.</p>
+                  <AwardIcon className="text-[#0097b2] mb-4" size={32} />
+                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Amortissement & TVA</h4>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Les entreprises bénéficient d'un plafond d'amortissement rehaussé (jusqu'à 30 000€) et la récupération totale de la TVA sur l'électricité consommée par la flotte.</p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* SIMULATEUR DE RENTABILITÉ */}
+        {/* SIMULATEUR DE MONÉTISATION */}
         <section ref={simulatorRef} id="simulateur" className="py-24 bg-white scroll-mt-24">
           <div className="max-w-7xl mx-auto px-6">
             <div className="text-center mb-16 space-y-4">
               <h2 className="text-4xl md:text-6xl font-black text-[#032b60] uppercase tracking-tighter leading-tight">
-                Simulez vos <br className="md:hidden"/><span className="text-[#0097b2]">économies</span>
+                Estimez vos <br className="md:hidden"/><span className="text-[#0097b2]">revenus de recharge</span>
               </h2>
               <p className="text-slate-500 font-medium text-lg max-w-2xl mx-auto text-balance">
-                Découvrez à quel point rouler à l&apos;électrique est rentable face aux prix du carburant, puis demandez votre devis personnalisé.
+                Vendez la recharge à vos clients ou visiteurs. Découvrez combien votre parking peut vous rapporter chaque année.
               </p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
               
-              {/* CARTE 1 : TRAJET */}
+              {/* CARTE 1 : POINTS DE CHARGE */}
               <div className="order-1 lg:row-start-1 lg:col-start-1 h-[260px] sm:h-[280px] flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
                     <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
-                      <CarIcon color={brandTeal} size={24}/> Trajet Quotidien
+                      <PlugIcon className="text-[#0097b2]" size={24}/> Points de charge
                     </h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Plus vous roulez, plus la borne est rentable.</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Combien de places équipées de bornes ?</p>
                   </div>
                   <span className={`text-3xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
-                    {dailyKm} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">km/j</span>
+                    {chargePoints} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">places</span>
                   </span>
                 </div>
-                <input type="range" aria-label="Distance quotidienne" min="5" max="150" step="5" value={dailyKm} onChange={(e) => setDailyKm(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest"><span>Petit rouleur</span><span>Gros rouleur</span></div>
+                <input type="range" aria-label="Points de charge" min="1" max="20" step="1" value={chargePoints} onChange={(e) => setChargePoints(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
+                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest"><span>1 borne</span><span>20 bornes</span></div>
               </div>
 
-              {/* CARTE 2 : CONSO THERMIQUE */}
+              {/* CARTE 2 : ROTATION */}
               <div className="order-2 lg:row-start-2 lg:col-start-1 h-[260px] sm:h-[280px] flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
                     <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
-                      <FlameIcon color={brandTeal} size={24}/> Conso. Thermique
+                      <UsersIcon className="text-[#0097b2]" size={24}/> Taux de rotation
                     </h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Le carburant pèse lourd dans budget.</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Recharges moyennes par place et par jour.</p>
                   </div>
                   <span className={`text-3xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
-                    {gasConsumption} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">L/100</span>
+                    {sessionsPerDay} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">sessions</span>
                   </span>
                 </div>
-                <input type="range" aria-label="Consommation thermique" min="4" max="12" step="0.5" value={gasConsumption} onChange={(e) => setGasConsumption(parseFloat(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-tighter font-black"><span>Citadine (4L)</span><span>Grand SUV (12L)</span></div>
+                <input type="range" aria-label="Taux de rotation" min="1" max="10" step="1" value={sessionsPerDay} onChange={(e) => setSessionsPerDay(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
+                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-tighter font-black"><span>Faible (1/j)</span><span>Très actif (10/j)</span></div>
               </div>
 
-              {/* CARTE 3 : RÉGLAGES AVANCÉS */}
+              {/* CARTE 3 : RÉGLAGES AVANCÉS B2B */}
               <div className="order-3 lg:row-start-3 lg:col-start-1 w-full">
                  <button 
                     onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
                     aria-expanded={showAdvancedSettings ? "true" : "false"}
                     className="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 hover:border-[#0097b2] text-slate-500 hover:text-[#0097b2] hover:shadow-md px-6 py-4 rounded-full font-bold text-sm transition-all shadow-sm"
                  >
-                    <Settings size={18} className={`transition-transform duration-700 ${showAdvancedSettings ? 'rotate-90' : 'rotate-0'}`} />
-                    {showAdvancedSettings ? "Masquer les réglages avancés" : "Personnaliser les coûts (Électricité, VE...)"}
+                    <SettingsIcon size={18} className={`transition-transform duration-700 ${showAdvancedSettings ? 'rotate-90' : 'rotate-0'}`} />
+                    {showAdvancedSettings ? "Masquer les marges" : "Ajuster votre marge de revente (kWh)"}
                     <ChevronDown size={18} className={`transition-transform duration-300 ${showAdvancedSettings ? 'rotate-180' : ''}`} />
                  </button>
 
@@ -685,66 +675,63 @@ export default function App() {
                        
                        <div className="space-y-4">
                          <div className="flex justify-between items-end">
-                           <span className="text-xs font-black uppercase text-slate-500 tracking-wider">Prix moyen au litre</span>
-                           <span className="text-lg font-black text-[#0097b2]">{gasPrice.toFixed(2)}<span className="text-xs"> €/L</span></span>
+                           <span className="text-xs font-black uppercase text-slate-500 tracking-wider">Marge nette par kWh revendu</span>
+                           <span className="text-lg font-black text-[#0097b2]">{marginPerKwh.toFixed(2)}<span className="text-xs"> €</span></span>
                          </div>
-                         <input type="range" aria-label="Prix du carburant" min="1.4" max="2.5" step="0.01" value={gasPrice} onChange={(e) => setGasPrice(parseFloat(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-                         <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-widest"><span>1.40 €</span><span>2.50 €</span></div>
+                         <input type="range" aria-label="Marge par kWh" min="0.05" max="0.50" step="0.01" value={marginPerKwh} onChange={(e) => setMarginPerKwh(parseFloat(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
+                         <p className="text-[10px] text-slate-400 font-medium italic">*La différence entre le prix facturé au client final et le coût de votre électricité.</p>
                        </div>
 
                        <div className="space-y-4">
                          <div className="flex justify-between items-end">
-                           <span className="text-xs font-black uppercase text-slate-500 tracking-wider">Prix moyen du kWh</span>
-                           <span className="text-lg font-black text-[#0097b2]">{elecPrice.toFixed(2)}<span className="text-xs"> €/kWh</span></span>
+                           <span className="text-xs font-black uppercase text-slate-500 tracking-wider">Énergie moyenne (Session)</span>
+                           <span className="text-lg font-black text-[#0097b2]">{kwhPerSession}<span className="text-xs"> kWh</span></span>
                          </div>
-                         <input type="range" aria-label="Prix de l'électricité" min="0.10" max="0.40" step="0.01" value={elecPrice} onChange={(e) => setElecPrice(parseFloat(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-                         <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-widest"><span>Heures Creuses</span><span>Heures Pleines</span></div>
-                       </div>
-
-                       <div className="space-y-4">
-                         <div className="flex justify-between items-end">
-                           <span className="text-xs font-black uppercase text-slate-500 tracking-wider">Consommation du VE</span>
-                           <span className="text-lg font-black text-[#0097b2]">{evConsumption.toFixed(1)}<span className="text-xs"> kWh/100</span></span>
-                         </div>
-                         <input type="range" aria-label="Consommation véhicule électrique" min="10" max="30" step="0.5" value={evConsumption} onChange={(e) => setEvConsumption(parseFloat(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-                         <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-widest"><span>Citadine (12)</span><span>Gros SUV (25+)</span></div>
+                         <input type="range" aria-label="Energie moyenne" min="10" max="50" step="5" value={kwhPerSession} onChange={(e) => setKwhPerSession(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
                        </div>
 
                     </div>
                  </div>
               </div>
 
-              {/* CARTE 4 : ÉCONOMIES */}
+              {/* CARTE 4 : REVENUS GÉNÉRÉS */}
               <div ref={resultsRef} className="order-4 lg:row-start-1 lg:col-start-2 h-full flex flex-col justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-8 md:p-10 rounded-[2.5rem] border border-green-200 shadow-xl relative overflow-hidden hover:shadow-2xl transition-all hover:-translate-y-1">
                 <PiggyBankIcon className="absolute -right-10 -bottom-10 opacity-10 text-green-600 transition-transform duration-1000 hover:rotate-12" size={200} />
-                <h3 className="text-green-800 text-sm font-black uppercase tracking-widest mb-2 relative z-10">Vos économies estimées</h3>
+                <h3 className="text-green-800 text-sm font-black uppercase tracking-widest mb-2 relative z-10">Revenus nets générés</h3>
                 <div className={`flex items-baseline gap-2 relative z-10 transition-all duration-300 ${isPulsing ? 'scale-105 text-emerald-500 translate-x-2' : 'scale-100 text-green-600'}`}>
-                  <span className="text-6xl md:text-7xl font-black tracking-tighter">+{Math.round(animatedSavings).toLocaleString('fr-FR')}</span>
+                  <span className="text-6xl md:text-7xl font-black tracking-tighter">+{Math.round(animatedRevenue).toLocaleString('fr-FR')}</span>
                   <span className="text-2xl font-black text-green-700">€ / an</span>
                 </div>
-                {/* NOUVEAU BOUTON DANS LE SIMULATEUR POUR FAIRE LE PONT VERS LE FORMULAIRE */}
+                <p className="text-xs text-green-800/70 font-bold mt-2 relative z-10">*Estimation sur une base conservatrice de 300 jours d'ouverture par an.</p>
+                
+                {/* BOUTON DANS LE SIMULATEUR POUR FAIRE LE PONT VERS LE FORMULAIRE */}
                 <button 
                   ref={simulatorCtaRef}
                   onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
                   className="relative overflow-hidden mt-8 w-full inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full font-black text-sm sm:text-base shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 transition-all group z-10"
                 >
                   <div className="animate-button-shine" />
-                  Demander à être rappelé(e) <PhoneIcon size={18} className="group-hover:rotate-12 transition-transform" />
+                  Audit B2B Gratuit <PhoneIcon size={18} className="group-hover:rotate-12 transition-transform" />
                 </button>
               </div>
 
-              {/* CARTE 5 : TEMPS DE CHARGE */}
+              {/* CARTE 5 : FACTURATION AUTOMATISÉE */}
               <div className="order-5 lg:row-start-2 lg:col-start-2 h-full flex flex-col justify-center bg-[#032b60] p-8 md:p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden text-white border border-white/5 hover:shadow-[0_20px_50px_rgba(3,43,96,0.5)] transition-all hover:-translate-y-1">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-[#0097b2]/20 rounded-full blur-[80px] -mr-20 -mt-20"></div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-blue-200 mb-8 flex items-center gap-3 relative z-10"><Clock size={18}/> Temps de charge pour vos {dailyKm} km</h3>
-                <div className="space-y-8 relative z-10">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm font-bold"><span className="text-slate-400">Prise standard (Maison)</span><span className="text-red-400 font-black">{formatTime(animatedTimeStd)}</span></div>
-                    <AnimatedBar percent={100} isVisible={isInView} triggerKey={triggerKey} delay={800} wrapperClass="w-full bg-white/10 rounded-full h-3 overflow-hidden p-[1px]" innerClass="bg-red-500 h-full rounded-full" />
+                <h3 className="text-sm font-black uppercase tracking-widest text-blue-200 mb-8 flex items-center gap-3 relative z-10"><CreditCardIcon size={18}/> Une facturation automatisée</h3>
+                
+                <div className="space-y-6 relative z-10">
+                  <div className="bg-white/10 border border-white/20 rounded-2xl p-4 flex flex-col gap-1">
+                    <p className="text-xs text-[#0097b2] font-bold uppercase tracking-widest flex items-center gap-2"><CheckCircle size={14}/> 1. Fixez votre tarif</p>
+                    <p className="text-xs text-white/70 font-medium">Vous définissez librement le prix de vente au kWh via notre plateforme.</p>
                   </div>
-                  <div className="space-y-2 pt-4 border-t border-white/10">
-                    <div className="flex justify-between text-sm font-bold"><span className="text-white flex items-center gap-2 font-black uppercase tracking-wider italic text-xs"><Zap size={16} className="text-[#0097b2]"/> Borne Intelligente (7.4kW)</span><span className="text-[#0097b2] text-xl font-black">{formatTime(animatedTimeWallbox)}</span></div>
-                    <AnimatedBar percent={results.wallboxTimePercent} isVisible={isInView} triggerKey={triggerKey} delay={950} wrapperClass="w-full bg-white/10 rounded-full h-4 overflow-hidden p-[2px]" innerClass="bg-gradient-to-r from-[#0097b2] to-cyan-300 h-full rounded-full shadow-[0_0_20px_rgba(0,151,178,0.4)]" />
+                  <div className="bg-white/10 border border-white/20 rounded-2xl p-4 flex flex-col gap-1">
+                    <p className="text-xs text-[#0097b2] font-bold uppercase tracking-widest flex items-center gap-2"><CheckCircle size={14}/> 2. Encaissement direct</p>
+                    <p className="text-xs text-white/70 font-medium">Les clients scannent un QR Code et paient par carte. Aucun terminal physique requis.</p>
+                  </div>
+                  <div className="bg-white/10 border border-white/20 rounded-2xl p-4 flex flex-col gap-1">
+                    <p className="text-xs text-[#0097b2] font-bold uppercase tracking-widest flex items-center gap-2"><CheckCircle size={14}/> 3. Versement des revenus</p>
+                    <p className="text-xs text-white/70 font-medium">Notre logiciel s'occupe de la facturation et vous reverse les fonds mensuellement.</p>
                   </div>
                 </div>
               </div>
@@ -756,15 +743,15 @@ export default function App() {
               <div className="flex items-center justify-between mb-4 sm:mb-6 border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0 shadow-inner">
-                    <ShieldCheck size={20} />
+                    <PhoneIcon size={20} />
                   </div>
                   <div>
-                    <h3 className="font-black text-[#032b60] uppercase tracking-widest text-xs sm:text-sm leading-tight">Planifier ma visite technique</h3>
-                    <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Un expert se déplace gratuitement pour votre devis</p>
+                    <h3 className="font-black text-[#032b60] uppercase tracking-widest text-xs sm:text-sm leading-tight">Demander un Audit B2B</h3>
+                    <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Un chargé d'affaires qualifie votre projet</p>
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 mb-6 flex items-start gap-3 shadow-sm">
                  <span className="text-orange-500 mt-0.5 text-lg leading-none">⚠️</span>
                  <p className="text-xs sm:text-sm text-orange-800 font-medium leading-relaxed">
@@ -775,8 +762,8 @@ export default function App() {
               <div className="w-full relative h-[850px] sm:h-[800px] lg:h-[900px]">
                 <iframe 
                   className="w-full h-full border-none rounded-2xl" 
-                  src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS" 
-                  title="Formulaire CHARGéO" 
+                  src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS?Source=Site%20Web%20Pro" 
+                  title="Formulaire CHARGéO Pro" 
                   style={{ background: 'transparent' }}
                 />
               </div>
@@ -843,8 +830,8 @@ export default function App() {
               <div className="space-y-5">
                  <h4 className="text-white/40 font-bold text-xs uppercase tracking-[0.2em]">Navigation</h4>
                  <ul className="space-y-3">
-                    <li><a href="/" className="text-[#0097b2] font-black text-sm hover:translate-x-1 transition-all inline-block">Offre Particuliers</a></li>
-                    <li><a href="/pro" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Offre Professionnels</a></li>
+                    <li><a href="/" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Offre Particuliers</a></li>
+                    <li><a href="/pro" className="text-[#0097b2] font-black text-sm hover:translate-x-1 transition-all inline-block">Offre Professionnels</a></li>
                     <li><a href="/copropriete" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Offre Copropriétés</a></li>
                     <li className="pt-2 border-t border-white/10 mt-2"><a href="#" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Devenir Franchisé</a></li>
                  </ul>

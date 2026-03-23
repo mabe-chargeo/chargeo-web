@@ -11,17 +11,17 @@ const Clock = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2
 const CheckCircle = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>;
 const ChevronRight = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"></polyline></svg>;
 const Star = ({ size = 24, className = "", fill = "none", stroke = "currentColor" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>;
-const Settings = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
+const SettingsIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
 const MapPinIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>;
 const AwardIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>;
 const FileTextIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>;
 const PiggyBankIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2h0V5z"></path><path d="M2 9v1c0 1.1.9 2 2 2h1"></path><path d="M16 11h.01"></path></svg>;
-const CarIcon = ({ size = 24, color = "currentColor", className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>;
-const FlameIcon = ({ size = 24, color = "currentColor", className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>;
+const BuildingIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>;
+const UsersIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>;
+const ServerIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>;
 const WrenchIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>;
 const PhoneIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>;
 const MailIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>;
-const BatteryChargingIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 18H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3.19M15 6h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3.19"></path><line x1="23" y1="13" x2="23" y2="11"></line><polyline points="11 6 7 12 13 12 9 18"></polyline></svg>;
 const MenuIcon = ({ size = 24, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>;
 
 // --- COMPOSANT : APPARITION AU SCROLL (FADE-IN) ---
@@ -147,7 +147,7 @@ const Logo = ({ light = false, className = "" }: { light?: boolean, className?: 
   const [imgError, setImgError] = useState(false);
   const logoSrc = light ? "/CHARGEO_LOGO_BLANC.png" : "/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png";
   return (
-    <div className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
+    <a href="/" className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
       {!imgError ? (
         <img src={logoSrc} alt="Logo CHARGéO" onError={() => setImgError(true)} className="h-full w-auto object-contain transition-all duration-300" />
       ) : (
@@ -155,7 +155,7 @@ const Logo = ({ light = false, className = "" }: { light?: boolean, className?: 
           CHARG<span className="text-[#0097b2]">é</span>O
         </span>
       )}
-    </div>
+    </a>
   );
 };
 
@@ -178,18 +178,15 @@ const BrandLogo = ({ name, url }: { name: string, url: string }) => {
   );
 };
 
-export default function App() {
+export default function CoproprietePage() {
   const [scrolled, setScrolled] = useState(false);
-  const [showStickyBar, setShowStickyBar] = useState(false);
   const [currentReview, setCurrentReview] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  const [dailyKm, setDailyKm] = useState(40);
-  const [gasConsumption, setGasConsumption] = useState(6.5);
-  const [gasPrice, setGasPrice] = useState(1.85);
-  const [elecPrice, setElecPrice] = useState(0.25);
-  const [evConsumption, setEvConsumption] = useState(16);
-  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  // Variables Simulateur Copro
+  const [parkingSpots, setParkingSpots] = useState(30);
+  const [interestedResidents, setInterestedResidents] = useState(3);
 
   const [isPulsing, setIsPulsing] = useState(false);
   const [isInView, setIsInView] = useState(false); 
@@ -208,65 +205,38 @@ export default function App() {
   const brandNavy = "#032b60";
   const brandTeal = "#0097b2";
 
+  // Calcul Subventions Copro
+  const results = useMemo(() => {
+    const safeParkingSpots = isNaN(parkingSpots) ? 0 : parkingSpots;
+    const safeInterested = isNaN(interestedResidents) ? 0 : interestedResidents;
+    
+    const totalSubventions = 8000 + (safeInterested * 600);
+    
+    return { totalSubventions: Math.max(0, totalSubventions) };
+  }, [parkingSpots, interestedResidents]);
+
+  const animatedSubventions = useAnimatedValue(results.totalSubventions, 1200, isInView, triggerKey);
+
   const reviews = useMemo(() => [
     {
-      text: "Enfin un installateur qui explique les vraies économies. J'ai divisé mon budget carburant par 4 dès le premier mois.",
-      author: "Jean-Philippe",
-      location: "74200 Thonon",
-      image: "https://images.unsplash.com/photo-1692052664566-477579a08e8c?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTc5fHxib3JuZSUyMGRlJTIwcmVjaGFyZ2V8ZW58MHx8MHx8fDA%3D"
+      text: "L'IRVE collective était la seule solution pérenne pour notre parking. CHARGéO a monté le dossier Advenir pour subventionner massivement l'artère principale.",
+      author: "Président du CS",
+      location: "Résidence 50 lots",
+      image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=900&auto=format&fit=crop"
     },
     {
-      text: "La visite technique a été planifiée en 2 jours. Devis clair, sans surprise. La borne 7.4kW change tout par rapport à ma prise standard.",
-      author: "Sophie",
-      location: "74000 Annecy",
-      image: "https://images.unsplash.com/photo-1760539068164-e7186a197d09?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTc1fHxib3JuZSUyMGRlJTIwcmVjaGFyZ2V8ZW58MHx8MHx8fDA%3D"
+      text: "L'artère principale a été tirée. Aujourd'hui, n'importe quel résident peut demander le raccordement de sa place sans faire disjoncter l'immeuble.",
+      author: "Copropriétaire",
+      location: "Thonon",
+      image: "https://images.unsplash.com/photo-1545601445-4d6a0a0565f0?q=80&w=900&auto=format&fit=crop"
     },
     {
-      text: "Devis reçu rapidement et pose effectuée en 10 jours. L'équipe est experte et gère directement les aides de l'État.",
-      author: "Marc",
-      location: "74100 Annemasse",
-      image: "https://images.unsplash.com/photo-1765272088009-100c96a4cd4e?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTY2fHxib3JuZSUyMGRlJTIwcmVjaGFyZ2V8ZW58MHx8MHx8fDA%3D"
+      text: "L'accompagnement et le logiciel de supervision nous déchargent totalement. Chacun est facturé au kWh consommé, et le syndic n'a plus rien à gérer.",
+      author: "Syndic",
+      location: "Annecy",
+      image: "https://images.unsplash.com/photo-1556761175-5973dc0f32b7?q=80&w=900&auto=format&fit=crop"
     }
   ], []);
-
-  const results = useMemo(() => {
-    const safeDailyKm = isNaN(dailyKm) ? 0 : dailyKm;
-    const safeGasCons = isNaN(gasConsumption) ? 0 : gasConsumption;
-    const safeGasPrice = isNaN(gasPrice) ? 0 : gasPrice;
-    const safeEvCons = isNaN(evConsumption) ? 0 : evConsumption;
-    const safeElecPrice = isNaN(elecPrice) ? 0 : elecPrice;
-
-    const dailyGasCost = (safeDailyKm / 100) * safeGasCons * safeGasPrice;
-    const dailyEvCost = (safeDailyKm / 100) * safeEvCons * safeElecPrice;
-    const annualSavings = (dailyGasCost - dailyEvCost) * 365;
-    
-    const energyNeeded = (safeDailyKm / 100) * safeEvCons;
-    const timeStandard = energyNeeded / 2.3; 
-    const timeWallbox = energyNeeded / 7.4; 
-    const wallboxTimePercent = timeStandard > 0 ? (timeWallbox / timeStandard) * 100 : 0;
-
-    return { 
-      annualSavings: Math.max(0, annualSavings), 
-      timeStandard, 
-      timeWallbox, 
-      wallboxTimePercent 
-    };
-  }, [dailyKm, gasConsumption, gasPrice, elecPrice, evConsumption]);
-
-  const animatedSavings = useAnimatedValue(results.annualSavings, 1200, isInView, triggerKey);
-  const animatedTimeStd = useAnimatedValue(results.timeStandard, 1200, isInView, triggerKey);
-  const animatedTimeWallbox = useAnimatedValue(results.timeWallbox, 1200, isInView, triggerKey);
-
-  const formatTime = (decimalHours: number) => {
-    if (isNaN(decimalHours) || decimalHours === Infinity) return "0 min";
-    const hrs = Math.floor(decimalHours);
-    const mins = Math.round((decimalHours - hrs) * 60);
-    if (mins === 60) return `${hrs + 1} h 00`;
-    if (hrs === 0 && mins === 0) return `0 min`;
-    if (hrs === 0) return `${mins} min`;
-    if (mins === 0) return `${hrs} h`;
-    return `${hrs} h ${mins.toString().padStart(2, '0')}`;
-  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -297,9 +267,9 @@ export default function App() {
     };
   }, [reviews.length]);
 
-  // NOUVEAU : Observer intelligent pour cacher les CTA flottants si un bouton natif est à l'écran
+  // Observer intelligent pour cacher les CTA flottants si un bouton natif est à l'écran
   useEffect(() => {
-    const observerOptions = { threshold: 0 }; // Se déclenche dès qu'un pixel touche l'écran
+    const observerOptions = { threshold: 0 };
 
     const heroObserver = new IntersectionObserver(([entry]) => setIsHeroVisible(entry.isIntersecting), observerOptions);
     const simCtaObserver = new IntersectionObserver(([entry]) => setIsSimulatorCtaVisible(entry.isIntersecting), observerOptions);
@@ -323,17 +293,17 @@ export default function App() {
     setIsPulsing(true);
     const pulseTimer = setTimeout(() => setIsPulsing(false), 300);
     return () => clearTimeout(pulseTimer);
-  }, [dailyKm, gasConsumption, gasPrice, elecPrice, evConsumption]);
+  }, [parkingSpots, interestedResidents]);
 
   const faqs = [
-    { q: "Quelles sont les aides de l'État ?", a: "En choisissant CHARGéO, installateur qualifié IRVE, bénéficiez de la Prime Advenir (jusqu'à 600€) et de la TVA réduite à 5,5%. Nous gérons tout l'administratif." },
-    { q: "Quel est le délai d'installation ?", a: "Après votre demande de devis, une visite technique gratuite est planifiée. L'installation se fait généralement sous 10 à 15 jours après validation du devis." },
-    { q: "Compatibilité véhicule ?", a: "Standard européen Type 2, compatible avec 100% des véhicules électriques et hybrides du marché." },
-    { q: "Qualification IRVE ?", a: "Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Elle garantit votre sécurité, la validité de votre assurance habitation et la garantie de votre véhicule." }
+    { q: "L'infrastructure IRVE collective a-t-elle un coût pour l'immeuble ?", a: "L'installation est lourdement subventionnée (jusqu'à 50% par la Prime Advenir avec un plafond de 8 000€). Le reste à charge éventuel dépend de la complexité technique du parking et de sa configuration, et peut parfois faire l'objet de solutions de préfinancement selon le dossier." },
+    { q: "Comment est facturée l'électricité ?", a: "Notre solution de supervision gère tout de A à Z. Chaque résident équipé dispose de son propre sous-compteur intelligent et d'un badge RFID. Les factures lui sont envoyées directement (prélèvement automatique), en fonction de sa consommation réelle. Le syndic ne gère ni les factures d'énergie, ni les impayés." },
+    { q: "Et si l'infrastructure collective n'est pas votée en AG ?", a: "En dernier recours, s'il n'est pas envisageable de créer une IRVE collective, il est toujours possible d'envisager un branchement individuel de type 'Droit à la Prise'. C'est une démarche légale où le résident paie l'intégralité de son tirage de câble depuis les parties communes, mais elle est souvent plus coûteuse pour le particulier à long terme." },
+    { q: "L'immeuble risque-t-il de disjoncter si tous les résidents chargent ?", a: "Absolument pas. L'infrastructure collective intègre par défaut un système de 'Délestage Dynamique' (Load Balancing). L'ordinateur de supervision répartit intelligemment la puissance disponible entre tous les véhicules branchés, garantissant la sécurité électrique totale du bâtiment et évitant une surchauffe." },
+    { q: "Accompagnez-vous les syndics lors des Assemblées Générales (AG) ?", a: "Oui, c'est indispensable. Une fois l'étude technique gratuite réalisée, un expert CHARGéO participe à votre Assemblée Générale pour présenter la solution aux copropriétaires, expliquer le montage financier avec les subventions, et répondre aux inquiétudes de l'assemblée." }
   ];
 
   return (
-    // Ajout de pb-24 pour compenser la hauteur de la sticky bar permanente sur mobile
     <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-[#0097b2]/20 scroll-smooth pb-24 lg:pb-0">
       
       {/* INJECTION DES ANIMATIONS CSS COMPLEXES ET FORCAGE DU MODE CLAIR */}
@@ -374,43 +344,40 @@ export default function App() {
         }
       `}} />
 
-      {/* NAVIGATION ULTRA COMPACTE */}
+      {/* NAVIGATION AVEC SÉLECTEUR DE CIBLES */}
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-white/95 shadow-lg py-2 sm:py-3 backdrop-blur-md' : 'bg-transparent py-4 sm:py-6'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
           
-          {/* LOGO (Légèrement réduit sur mobile pour gagner de la place) */}
           <div className="flex-shrink-0">
             <Logo light={!scrolled} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
           </div>
 
-          {/* SÉLECTEUR TOUJOURS VISIBLE SANS CLIC */}
           <div className={`flex items-center p-1 rounded-full border transition-colors duration-300 ${scrolled ? 'bg-slate-100 border-slate-200' : 'bg-white/10 border-white/20 backdrop-blur-md'}`}>
-            <a href="/" className="px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-black bg-[#0097b2] text-white shadow-md">Particuliers</a>
+            <a href="/" className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/70 hover:text-white'}`}>Particuliers</a>
             <a href="/pro" className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/70 hover:text-white'}`}>Pros</a>
-            <a href="/copropriete" className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/70 hover:text-white'}`}>Copros</a>
+            <a href="/copropriete" className="px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-black bg-[#0097b2] text-white shadow-md">Copros</a>
           </div>
 
-          {/* CTA DESKTOP (Apparaît uniquement sur PC, et se cache si un autre bouton est visible) */}
           <div className={`hidden lg:flex flex-shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
             <button 
               onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
               className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
             >
               <div className="animate-button-shine" />
-              Être rappelé(e) <PhoneIcon size={16} className="group-hover:rotate-12 transition-transform" />
+              Étude pour AG <PhoneIcon size={16} className="group-hover:rotate-12 transition-transform" />
             </button>
           </div>
 
         </div>
       </nav>
 
-      {/* STICKY BOTTOM BAR FIXE (MOBILE ONLY) - Intelligente (Se cache si un autre bouton est visible) */}
+      {/* STICKY BOTTOM BAR FIXE (MOBILE ONLY) - Intelligente */}
       <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-[60] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 ${showFloatingCta ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex flex-col">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Mon estimation</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Aides Débloquées</p>
             <p className={`text-xl sm:text-2xl font-black text-green-600 transition-all duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
-              +{Math.round(results.annualSavings).toLocaleString('fr-FR')}€ / an
+              +{Math.round(results.totalSubventions).toLocaleString('fr-FR')}€
             </p>
           </div>
           <button 
@@ -418,7 +385,7 @@ export default function App() {
             className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-3 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
           >
             <div className="animate-button-shine" />
-            Me faire rappeler <PhoneIcon size={16} className="group-hover:rotate-12 transition-transform" />
+            Étude pour AG <PhoneIcon size={16} className="group-hover:rotate-12 transition-transform" />
           </button>
         </div>
       </div>
@@ -428,16 +395,17 @@ export default function App() {
         <section className="relative h-[90vh] flex items-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
             <img 
-              src="https://images.unsplash.com/photo-1593941707882-a5bba14938c7?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80" 
-              className="w-full h-full object-cover opacity-40 animate-bg-pan" 
-              alt="Hero Background" 
+              src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2000&auto=format&fit=crop" 
+              className="w-full h-full object-cover opacity-30 animate-bg-pan" 
+              alt="Parking de copropriété" 
             />
             <div className="absolute inset-0 bg-gradient-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
-        </div>
-        <div className="max-w-7xl mx-auto px-6 relative z-10 w-full">
-          <div className="max-w-4xl mx-auto text-center flex flex-col items-center space-y-6">
+          </div>
+          
+          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full">
+            <div className="max-w-4xl mx-auto text-center flex flex-col items-center space-y-6">
 
-            <FadeIn delay={200} direction="up">
+              <FadeIn delay={200} direction="up">
                  <div className="flex items-center justify-center gap-2 text-[#0097b2] font-black text-sm sm:text-base uppercase tracking-widest bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm mt-2">
                    <MapPinIcon size={18} />
                    <span>Intervention sur le Chablais et la Haute-Savoie</span>
@@ -446,13 +414,13 @@ export default function App() {
               
               <FadeIn delay={300} direction="up">
                 <h1 className="text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase mt-4">
-                  La recharge <br/><span style={{ color: brandTeal }}>ultra-rentable.</span>
+                  L'infrastructure <br/><span style={{ color: brandTeal }}>collective.</span>
                 </h1>
               </FadeIn>
               
               <FadeIn delay={500} direction="up">
                 <p className="text-lg md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
-                  Simulez vos économies en passant à l&apos;électrique et demandez une visite technique gratuite pour l&apos;installation de votre borne certifiée IRVE.
+                  Infrastructure subventionnée, préfinancement possible et supervision complète. Équipez votre parking partagé en toute transparence.
                 </p>
               </FadeIn>
               
@@ -463,17 +431,17 @@ export default function App() {
                     className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full font-black text-base sm:text-lg shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 transition-all w-fit group text-center"
                   >
                     <div className="animate-button-shine" />
-                    Calculer mes économies <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/>
+                    Évaluer les subventions <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/>
                   </button>
                   <div className="flex flex-col gap-2 items-center">
                     <button 
                       onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
                       className="text-sm text-white/80 hover:text-white font-bold underline underline-offset-4 decoration-white/30 hover:decoration-white transition-all flex items-center gap-2 mt-2"
                     >
-                      <PhoneIcon size={14} /> Ou demander à être rappelé directement
+                      <PhoneIcon size={14} /> Ou planifier une étude pour l'AG
                     </button>
                     <p className="text-xs text-white/50 font-bold uppercase tracking-widest flex items-center gap-2 mt-1">
-                      <CheckCircle size={14} className="text-[#0097b2]"/> Visite technique gratuite
+                      <CheckCircle size={14} className="text-[#0097b2]"/> Présentation en AG par un expert IRVE
                     </p>
                   </div>
                 </div>
@@ -499,14 +467,14 @@ export default function App() {
         <section id="concept" className="py-24 bg-slate-50 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-20 items-center">
              <div className="space-y-8">
-                <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>Une Méthode <br/><span style={{ color: brandTeal }}>Standardisée</span></h2>
-                <p className="text-lg text-slate-500 font-medium leading-relaxed mt-6">Le réseau CHARGéO repose sur une transparence absolue. Nos experts IRVE locaux se déplacent gratuitement pour vous fournir un devis précis et sans surprise.</p>
+                <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>L'infrastructure <br/><span style={{ color: brandTeal }}>Maîtrisée</span></h2>
+                <p className="text-lg text-slate-500 font-medium leading-relaxed mt-6">La recharge de véhicules électriques en copropriété ne doit plus être un frein. Notre solution IRVE collective protège juridiquement et sécurise le syndicat des copropriétaires.</p>
                 
                 <div className="space-y-6">
                   {[
-                    { i: <Zap/>, t: "Borne Intelligente", d: "7.4kW pour une charge 3x plus rapide qu'une prise standard." },
-                    { i: <FileTextIcon/>, t: "Devis Transparent", d: "Obtenez un devis clair après une visite technique gratuite." },
-                    { i: <ShieldCheck/>, t: "Qualification IRVE", d: "Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW." }
+                    { i: <BuildingIcon/>, t: "Infrastructure Subventionnée", d: "Installation de l'artère électrique. Coût allégé grâce aux aides Advenir et à nos solutions de préfinancement." },
+                    { i: <ServerIcon/>, t: "Supervision & Facturation", d: "Notre logiciel gère tout : facturation automatique au résident et prélèvements. Gestion administrative simplifiée pour le syndic." },
+                    { i: <FileTextIcon/>, t: "Accompagnement AG", d: "Nous montons le dossier technique et un expert est présent lors de votre AG pour rassurer l'assemblée." }
                   ].map((item, idx) => (
                     <div key={idx} className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm hover:shadow-md border border-slate-100">
                       <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2] group-hover:text-white transition-colors duration-500 shrink-0 text-[#0097b2]">
@@ -514,7 +482,7 @@ export default function App() {
                       </div>
                       <div className="flex flex-col justify-center">
                         <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>{item.t}</h4>
-                        <p className="text-xs text-slate-400 font-medium">{item.d}</p>
+                        <p className="text-xs text-slate-400 font-medium mt-1">{item.d}</p>
                       </div>
                     </div>
                   ))}
@@ -539,7 +507,7 @@ export default function App() {
 
                 <div className="absolute -bottom-10 -left-4 md:-left-10 bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-slate-100 w-[90%] sm:max-w-md min-h-[220px] flex flex-col justify-between z-20 hover:-translate-y-2 transition-transform duration-500">
                   <div>
-                      <div className="flex gap-1 text-yellow-400 mb-4">
+                      <div className="flex gap-1 text-[#0097b2] mb-4">
                          {[1,2,3,4,5].map(s => (
                            <Star key={s} size={14} fill="currentColor" stroke="none" />
                          ))}
@@ -568,7 +536,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* BLOC EXPERTISE / CONFIANCE (QUI SOMMES-NOUS) */}
+        {/* BLOC EXPERTISE / CONFIANCE */}
         <section className="py-20 bg-white border-t border-slate-100 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6">
             <div className="bg-[#032b60] rounded-[2.5rem] p-10 md:p-16 flex flex-col md:flex-row items-center gap-12 shadow-2xl relative overflow-hidden group">
@@ -580,10 +548,10 @@ export default function App() {
                   <span className="text-xs font-black uppercase tracking-widest text-blue-100">Vos Experts Locaux</span>
                 </div>
                 <h2 className="text-3xl md:text-5xl font-black tracking-tighter leading-tight">
-                  L&apos;excellence d&apos;un service <span className="text-[#0097b2]">de proximité.</span>
+                  La garantie de la <br/><span className="text-[#0097b2]">conformité légale.</span>
                 </h2>
                 <p className="text-lg text-blue-100/80 font-medium leading-relaxed">
-                  Basés en Haute-Savoie, nous ne sommes pas une plateforme nationale impersonnelle. CHARGéO, c&apos;est une équipe locale d&apos;artisans qualifiés IRVE qui vous accompagne de la visite technique jusqu&apos;à l&apos;installation.
+                  L'installation en milieu collectif souterrain exige une maîtrise stricte des normes de sécurité incendie et de dimensionnement électrique. Nos artisans IRVE s'en portent garants.
                 </p>
                 <div className="flex items-center gap-6 pt-4">
                   <div className="flex -space-x-4">
@@ -592,159 +560,141 @@ export default function App() {
                     <div className="w-12 h-12 rounded-full border-2 border-[#032b60] bg-[#0097b2] flex items-center justify-center text-white font-black text-[10px] hover:-translate-y-1 transition-transform">IRVE</div>
                   </div>
                   <div className="text-sm font-bold">
-                    <p className="text-white">Visite gratuite</p>
-                    <p className="text-[#0097b2]">74200 Thonon-les-Bains</p>
+                    <p className="text-white">Experts Copropriété</p>
+                    <p className="text-[#0097b2]">Réseau certifié</p>
                   </div>
                 </div>
               </div>
 
-              {/* GRILLE À 3 CARTES (Certification, Administratif, SAV) */}
               <div className="md:w-1/2 w-full grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
                   <AwardIcon className="text-[#0097b2] mb-4" size={32} />
                   <h4 className="text-white font-black uppercase tracking-wider mb-2">Qualification IRVE</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Il s&apos;agit d&apos;une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Indispensable pour votre assurance.</p>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Certification stricte garantissant la validité de l'assurance multirisque immeuble de la copropriété.</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
-                  <FileTextIcon className="text-[#0097b2] mb-4" size={32} />
-                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Administratif Inclus</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Nous montons de A à Z vos dossiers de Prime Advenir (jusqu&apos;à 600€) et la demande de TVA réduite.</p>
+                  <PiggyBankIcon className="text-[#0097b2] mb-4" size={32} />
+                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Aides Collectives</h4>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Nous sommes agréés pour monter les dossiers "Infrastructure Collective" de la Prime Advenir (jusqu'à 8 000€).</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 sm:col-span-2">
-                  <WrenchIcon className="text-[#0097b2] mb-4" size={32} />
-                  <h4 className="text-white font-black uppercase tracking-wider mb-2">SAV & Maintenance</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Un problème ? Notre équipe locale intervient rapidement. Nous assurons le suivi de tout notre parc installé pour vous garantir une tranquillité d&apos;esprit totale sur le long terme.</p>
+                  <BuildingIcon className="text-[#0097b2] mb-4" size={32} />
+                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Délestage Dynamique (Sécurité)</h4>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Notre architecture intègre une gestion intelligente de la puissance pour ne jamais faire disjoncter l'immeuble, même si tous les résidents se rechargent en même temps.</p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* SIMULATEUR DE RENTABILITÉ */}
-        <section ref={simulatorRef} id="simulateur" className="py-24 bg-white scroll-mt-24">
-          <div className="max-w-7xl mx-auto px-6">
+        {/* SIMULATEUR */}
+        <section ref={simulatorRef} id="simulateur" className="py-24 bg-white scroll-mt-24 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-slate-50 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none"></div>
+          
+          <div className="max-w-7xl mx-auto px-6 relative z-10">
             <div className="text-center mb-16 space-y-4">
               <h2 className="text-4xl md:text-6xl font-black text-[#032b60] uppercase tracking-tighter leading-tight">
-                Simulez vos <br className="md:hidden"/><span className="text-[#0097b2]">économies</span>
+                Estimez les <br className="md:hidden"/><span className="text-[#0097b2]">subventions du projet</span>
               </h2>
               <p className="text-slate-500 font-medium text-lg max-w-2xl mx-auto text-balance">
-                Découvrez à quel point rouler à l&apos;électrique est rentable face aux prix du carburant, puis demandez votre devis personnalisé.
+                Découvrez la valeur de l'infrastructure et des aides débloquées pour votre copropriété grâce au programme Advenir.
               </p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
               
-              {/* CARTE 1 : TRAJET */}
+              {/* CARTE 1 : PLACES DE PARKING */}
               <div className="order-1 lg:row-start-1 lg:col-start-1 h-[260px] sm:h-[280px] flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
                     <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
-                      <CarIcon color={brandTeal} size={24}/> Trajet Quotidien
+                      <BuildingIcon className="text-[#0097b2]"/> Taille du Parking
                     </h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Plus vous roulez, plus la borne est rentable.</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Nombre total de places dans la résidence.</p>
                   </div>
                   <span className={`text-3xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
-                    {dailyKm} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">km/j</span>
+                    {parkingSpots} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">places</span>
                   </span>
                 </div>
-                <input type="range" aria-label="Distance quotidienne" min="5" max="150" step="5" value={dailyKm} onChange={(e) => setDailyKm(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest"><span>Petit rouleur</span><span>Gros rouleur</span></div>
+                <input 
+                  type="range" min="10" max="200" step="5" value={parkingSpots} 
+                  onChange={(e) => { setParkingSpots(parseInt(e.target.value)); if(interestedResidents > parseInt(e.target.value)) setInterestedResidents(parseInt(e.target.value)); }} 
+                  className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" 
+                />
+                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  <span>Petit (10)</span><span>Grand (200+)</span>
+                </div>
               </div>
 
-              {/* CARTE 2 : CONSO THERMIQUE */}
+              {/* CARTE 2 : RÉSIDENTS INTÉRESSÉS */}
               <div className="order-2 lg:row-start-2 lg:col-start-1 h-[260px] sm:h-[280px] flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
                     <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
-                      <FlameIcon color={brandTeal} size={24}/> Conso. Thermique
+                      <UsersIcon className="text-[#0097b2]"/> Premières demandes
                     </h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Le carburant pèse lourd dans budget.</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Résidents souhaitant une borne sur leur place.</p>
                   </div>
                   <span className={`text-3xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
-                    {gasConsumption} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">L/100</span>
+                    {interestedResidents} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">demandes</span>
                   </span>
                 </div>
-                <input type="range" aria-label="Consommation thermique" min="4" max="12" step="0.5" value={gasConsumption} onChange={(e) => setGasConsumption(parseFloat(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-tighter font-black"><span>Citadine (4L)</span><span>Grand SUV (12L)</span></div>
-              </div>
-
-              {/* CARTE 3 : RÉGLAGES AVANCÉS */}
-              <div className="order-3 lg:row-start-3 lg:col-start-1 w-full">
-                 <button 
-                    onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
-                    aria-expanded={showAdvancedSettings ? "true" : "false"}
-                    className="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 hover:border-[#0097b2] text-slate-500 hover:text-[#0097b2] hover:shadow-md px-6 py-4 rounded-full font-bold text-sm transition-all shadow-sm"
-                 >
-                    <Settings size={18} className={`transition-transform duration-700 ${showAdvancedSettings ? 'rotate-90' : 'rotate-0'}`} />
-                    {showAdvancedSettings ? "Masquer les réglages avancés" : "Personnaliser les coûts (Électricité, VE...)"}
-                    <ChevronDown size={18} className={`transition-transform duration-300 ${showAdvancedSettings ? 'rotate-180' : ''}`} />
-                 </button>
-
-                 <div className={`transition-all duration-500 overflow-hidden ${showAdvancedSettings ? 'max-h-[800px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
-                    <div className="bg-slate-50 border border-slate-100 p-6 md:p-8 rounded-[2.5rem] shadow-inner flex flex-col gap-8">
-                       
-                       <div className="space-y-4">
-                         <div className="flex justify-between items-end">
-                           <span className="text-xs font-black uppercase text-slate-500 tracking-wider">Prix moyen au litre</span>
-                           <span className="text-lg font-black text-[#0097b2]">{gasPrice.toFixed(2)}<span className="text-xs"> €/L</span></span>
-                         </div>
-                         <input type="range" aria-label="Prix du carburant" min="1.4" max="2.5" step="0.01" value={gasPrice} onChange={(e) => setGasPrice(parseFloat(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-                         <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-widest"><span>1.40 €</span><span>2.50 €</span></div>
-                       </div>
-
-                       <div className="space-y-4">
-                         <div className="flex justify-between items-end">
-                           <span className="text-xs font-black uppercase text-slate-500 tracking-wider">Prix moyen du kWh</span>
-                           <span className="text-lg font-black text-[#0097b2]">{elecPrice.toFixed(2)}<span className="text-xs"> €/kWh</span></span>
-                         </div>
-                         <input type="range" aria-label="Prix de l'électricité" min="0.10" max="0.40" step="0.01" value={elecPrice} onChange={(e) => setElecPrice(parseFloat(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-                         <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-widest"><span>Heures Creuses</span><span>Heures Pleines</span></div>
-                       </div>
-
-                       <div className="space-y-4">
-                         <div className="flex justify-between items-end">
-                           <span className="text-xs font-black uppercase text-slate-500 tracking-wider">Consommation du VE</span>
-                           <span className="text-lg font-black text-[#0097b2]">{evConsumption.toFixed(1)}<span className="text-xs"> kWh/100</span></span>
-                         </div>
-                         <input type="range" aria-label="Consommation véhicule électrique" min="10" max="30" step="0.5" value={evConsumption} onChange={(e) => setEvConsumption(parseFloat(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-                         <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase tracking-widest"><span>Citadine (12)</span><span>Gros SUV (25+)</span></div>
-                       </div>
-
-                    </div>
-                 </div>
-              </div>
-
-              {/* CARTE 4 : ÉCONOMIES */}
-              <div ref={resultsRef} className="order-4 lg:row-start-1 lg:col-start-2 h-full flex flex-col justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-8 md:p-10 rounded-[2.5rem] border border-green-200 shadow-xl relative overflow-hidden hover:shadow-2xl transition-all hover:-translate-y-1">
-                <PiggyBankIcon className="absolute -right-10 -bottom-10 opacity-10 text-green-600 transition-transform duration-1000 hover:rotate-12" size={200} />
-                <h3 className="text-green-800 text-sm font-black uppercase tracking-widest mb-2 relative z-10">Vos économies estimées</h3>
-                <div className={`flex items-baseline gap-2 relative z-10 transition-all duration-300 ${isPulsing ? 'scale-105 text-emerald-500 translate-x-2' : 'scale-100 text-green-600'}`}>
-                  <span className="text-6xl md:text-7xl font-black tracking-tighter">+{Math.round(animatedSavings).toLocaleString('fr-FR')}</span>
-                  <span className="text-2xl font-black text-green-700">€ / an</span>
+                <input 
+                  type="range" min="1" max={Math.min(50, parkingSpots)} step="1" value={interestedResidents} 
+                  onChange={(e) => setInterestedResidents(parseInt(e.target.value))} 
+                  className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" 
+                />
+                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-tighter font-black">
+                  <span>Juste moi (1)</span><span>Plusieurs résidents</span>
                 </div>
-                {/* NOUVEAU BOUTON DANS LE SIMULATEUR POUR FAIRE LE PONT VERS LE FORMULAIRE */}
+              </div>
+
+              {/* CARTE 3 : BUDGET COPRO */}
+              <div ref={resultsRef} className="order-3 lg:row-start-1 lg:col-start-2 h-full flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden hover:-translate-y-1 transition-all">
+                <ShieldCheck className="absolute -right-10 -bottom-10 opacity-5 text-slate-400 transition-transform duration-1000 hover:rotate-12" size={200} />
+                <h3 className="text-[#032b60] text-sm font-black uppercase tracking-widest mb-2 relative z-10">Budget Copropriété</h3>
+                <div className={`flex items-baseline gap-2 relative z-10 transition-all duration-300`}>
+                  <span className="text-5xl md:text-6xl font-black tracking-tighter text-[#032b60]">Sur Devis</span>
+                </div>
+                <p className="text-xs text-slate-500 font-bold mt-2 relative z-10">L'artère collective est subventionnée à 50%. Obtenez un chiffrage précis déduction faite des aides.</p>
+                
                 <button 
                   ref={simulatorCtaRef}
                   onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
                   className="relative overflow-hidden mt-8 w-full inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full font-black text-sm sm:text-base shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 transition-all group z-10"
                 >
                   <div className="animate-button-shine" />
-                  Demander à être rappelé(e) <PhoneIcon size={18} className="group-hover:rotate-12 transition-transform" />
+                  Planifier l'étude technique (AG) <PhoneIcon size={18} className="group-hover:rotate-12 transition-transform" />
                 </button>
               </div>
 
-              {/* CARTE 5 : TEMPS DE CHARGE */}
-              <div className="order-5 lg:row-start-2 lg:col-start-2 h-full flex flex-col justify-center bg-[#032b60] p-8 md:p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden text-white border border-white/5 hover:shadow-[0_20px_50px_rgba(3,43,96,0.5)] transition-all hover:-translate-y-1">
+              {/* CARTE 4 : SUBVENTIONS DYNAMIQUES */}
+              <div className="order-4 lg:row-start-2 lg:col-start-2 h-full flex flex-col justify-center bg-[#032b60] p-8 md:p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden text-white border border-white/5 hover:shadow-[0_20px_50px_rgba(3,43,96,0.5)] transition-all hover:-translate-y-1">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-[#0097b2]/20 rounded-full blur-[80px] -mr-20 -mt-20"></div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-blue-200 mb-8 flex items-center gap-3 relative z-10"><Clock size={18}/> Temps de charge pour vos {dailyKm} km</h3>
-                <div className="space-y-8 relative z-10">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm font-bold"><span className="text-slate-400">Prise standard (Maison)</span><span className="text-red-400 font-black">{formatTime(animatedTimeStd)}</span></div>
-                    <AnimatedBar percent={100} isVisible={isInView} triggerKey={triggerKey} delay={800} wrapperClass="w-full bg-white/10 rounded-full h-3 overflow-hidden p-[1px]" innerClass="bg-red-500 h-full rounded-full" />
+                
+                <h3 className="text-sm font-black uppercase tracking-widest text-blue-200 mb-6 flex items-center gap-3 relative z-10"><AwardIcon size={18}/> Aides Advenir débloquées</h3>
+                
+                <div className="flex flex-col mb-6 relative z-10">
+                   <span className={`text-4xl md:text-5xl font-black tracking-tighter text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-105' : 'scale-100'}`}>
+                      {Math.round(animatedSubventions).toLocaleString('fr-FR')} €
+                   </span>
+                   <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-1">Valeur totale des aides estimées</span>
+                </div>
+
+                <div className="space-y-4 relative z-10">
+                  <div className="bg-white/10 border border-white/20 rounded-2xl p-4 flex justify-between items-center">
+                    <div>
+                      <p className="text-xs text-blue-200 font-bold uppercase tracking-widest">Part Copropriété</p>
+                      <p className="text-[10px] text-white/50 font-medium">L'infrastructure collective</p>
+                    </div>
+                    <p className="text-white font-black text-sm">Jusqu'à 8 000€</p>
                   </div>
-                  <div className="space-y-2 pt-4 border-t border-white/10">
-                    <div className="flex justify-between text-sm font-bold"><span className="text-white flex items-center gap-2 font-black uppercase tracking-wider italic text-xs"><Zap size={16} className="text-[#0097b2]"/> Borne Intelligente (7.4kW)</span><span className="text-[#0097b2] text-xl font-black">{formatTime(animatedTimeWallbox)}</span></div>
-                    <AnimatedBar percent={results.wallboxTimePercent} isVisible={isInView} triggerKey={triggerKey} delay={950} wrapperClass="w-full bg-white/10 rounded-full h-4 overflow-hidden p-[2px]" innerClass="bg-gradient-to-r from-[#0097b2] to-cyan-300 h-full rounded-full shadow-[0_0_20px_rgba(0,151,178,0.4)]" />
+                  <div className="bg-white/10 border border-white/20 rounded-2xl p-4 flex justify-between items-center">
+                    <div>
+                      <p className="text-xs text-blue-200 font-bold uppercase tracking-widest">Part Individuelle</p>
+                      <p className="text-[10px] text-white/50 font-medium">Déduite des devis résidents</p>
+                    </div>
+                    <p className="text-white font-black text-sm">{interestedResidents * 600}€</p>
                   </div>
                 </div>
               </div>
@@ -759,8 +709,8 @@ export default function App() {
                     <ShieldCheck size={20} />
                   </div>
                   <div>
-                    <h3 className="font-black text-[#032b60] uppercase tracking-widest text-xs sm:text-sm leading-tight">Planifier ma visite technique</h3>
-                    <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Un expert se déplace gratuitement pour votre devis</p>
+                    <h3 className="font-black text-[#032b60] uppercase tracking-widest text-xs sm:text-sm leading-tight">Planifier la visite technique (Pré-AG)</h3>
+                    <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Un expert qualifie la faisabilité technique de votre parking</p>
                   </div>
                 </div>
               </div>
@@ -775,8 +725,8 @@ export default function App() {
               <div className="w-full relative h-[850px] sm:h-[800px] lg:h-[900px]">
                 <iframe 
                   className="w-full h-full border-none rounded-2xl" 
-                  src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS" 
-                  title="Formulaire CHARGéO" 
+                  src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS?Source=Site%20Web%20Copro" 
+                  title="Formulaire CHARGéO Copropriété" 
                   style={{ background: 'transparent' }}
                 />
               </div>
@@ -843,9 +793,9 @@ export default function App() {
               <div className="space-y-5">
                  <h4 className="text-white/40 font-bold text-xs uppercase tracking-[0.2em]">Navigation</h4>
                  <ul className="space-y-3">
-                    <li><a href="/" className="text-[#0097b2] font-black text-sm hover:translate-x-1 transition-all inline-block">Offre Particuliers</a></li>
+                    <li><a href="/" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Offre Particuliers</a></li>
                     <li><a href="/pro" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Offre Professionnels</a></li>
-                    <li><a href="/copropriete" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Offre Copropriétés</a></li>
+                    <li><a href="/copropriete" className="text-[#0097b2] font-black text-sm hover:translate-x-1 transition-all inline-block">Offre Copropriétés</a></li>
                     <li className="pt-2 border-t border-white/10 mt-2"><a href="#" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Devenir Franchisé</a></li>
                  </ul>
               </div>
