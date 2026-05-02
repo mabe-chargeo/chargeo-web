@@ -8,9 +8,19 @@ import {
 } from 'lucide-react';
 
 // --- COMPOSANT D'ANIMATION AVANCÉ (Natif, Fluide, Effet "Wow") ---
-const Reveal = ({ children, delay = 0, direction = "up", className = "" }) => {
+const Reveal = ({ 
+  children, 
+  delay = 0, 
+  direction = "up", 
+  className = "" 
+}: { 
+  children: React.ReactNode; 
+  delay?: number; 
+  direction?: string; 
+  className?: string; 
+}) => {  
   const [isVisible, setIsVisible] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -55,7 +65,7 @@ const Reveal = ({ children, delay = 0, direction = "up", className = "" }) => {
 };
 
 // --- COMPOSANTS INCLUS ---
-const Logo = ({ light = false, className = "" }: { light?: boolean, className?: string }) => {
+const Logo = ({ light = false, className = "" }: { light?: boolean; className?: string }) => {
   const [imgError, setImgError] = useState(false);
   const logoSrc = light ? "/CHARGEO_LOGO_BLANC.png" : "/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png";
   return (
@@ -71,7 +81,7 @@ const Logo = ({ light = false, className = "" }: { light?: boolean, className?: 
   );
 };
 
-const BrandLogo = ({ name, url }) => (
+const BrandLogo = ({ name, url }: { name: string; url: string }) => (
   <img src={url} alt={`Logo ${name}`} className="h-6 sm:h-8 object-contain grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-500 hover:scale-110" />
 );
 
