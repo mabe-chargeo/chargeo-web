@@ -281,17 +281,22 @@ export default function App() {
         .animate-float { animation: float 4s ease-in-out infinite; }
       `}} />
 
-      {/* NAVIGATION */}
+      {/* NAVIGATION (Modifiée en mode Landing Page fermée) */}
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-white/95 shadow-lg py-2 sm:py-3 backdrop-blur-md' : 'bg-transparent py-4 sm:py-6'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
+          
           <div className="flex-shrink-0">
             <Logo light={!scrolled} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
           </div>
-          <div className={`flex items-center p-1 rounded-full border transition-colors duration-300 ${scrolled ? 'bg-slate-100 border-slate-200' : 'bg-white/10 border-white/20 backdrop-blur-md'}`}>
-            <a href="/" className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/70 hover:text-white'}`}>Particuliers</a>
-            <a href="/pro" className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/70 hover:text-white'}`}>Pros</a>
-            <a href="/copropriete" className="px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-black bg-[#0097b2] text-white shadow-md">Copros</a>
+
+          {/* LIENS INTERNES UNIQUEMENT */}
+          <div className={`hidden md:flex items-center p-1 rounded-full border transition-colors duration-300 ${scrolled ? 'bg-slate-100 border-slate-200' : 'bg-white/10 border-white/20 backdrop-blur-md'}`}>
+            <a href="#simulateur" className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/80 hover:text-white'}`}>Subventions</a>
+            <a href="#concept" className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/80 hover:text-white'}`}>Notre Méthode</a>
+            <a href="#formulaire-devis" className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/80 hover:text-white'}`}>Demander une Étude</a>
           </div>
+
+          {/* CTA APPARAISSANT AU SCROLL */}
           <div className={`hidden lg:flex flex-shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
             <button 
               onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} 
@@ -586,7 +591,7 @@ export default function App() {
         </section>
       </main>
 
-      {/* FOOTER */}
+      {/* FOOTER (Modifié en mode Landing Page fermée) */}
       <footer className="bg-[#032B60] py-24 border-t border-white/5 overflow-hidden relative text-white">
         <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-[#0097b2] rounded-full blur-[150px] opacity-30 pointer-events-none"></div>
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between gap-16 relative z-10">
@@ -600,12 +605,13 @@ export default function App() {
               </div>
            </div>
            <div className="flex flex-col sm:flex-row gap-12 md:gap-24 text-left">
+              {/* LIENS INTERNES UNIQUEMENT */}
               <div className="space-y-5">
                  <h4 className="text-white/40 font-bold text-xs uppercase tracking-[0.2em]">Navigation</h4>
                  <ul className="space-y-3">
-                    <li><a href="/" className="text-white/80 text-sm hover:text-[#0097b2] transition-colors">Particuliers</a></li>
-                    <li><a href="/pro" className="text-white/80 text-sm hover:text-[#0097b2] transition-colors">Professionnels</a></li>
-                    <li><a href="/copropriete" className="text-[#0097b2] font-black text-sm">Copropriétés</a></li>
+                    <li><a href="#simulateur" className="text-[#0097b2] font-black text-sm hover:translate-x-1 transition-all inline-block">Estimer les subventions</a></li>
+                    <li><a href="#concept" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Méthodologie Syndic</a></li>
+                    <li><a href="#formulaire-devis" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Demander une Étude</a></li>
                  </ul>
               </div>
               <div className="space-y-5">
