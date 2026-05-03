@@ -59,7 +59,7 @@ const Reveal = ({
         transitionDelay: `${delay}ms`,
         transitionTimingFunction: 'cubic-bezier(0.175, 0.885, 0.32, 1.1)'
       }}
-      className={`transition-all duration-[600ms] sm:duration-1000 will-change-transform ${
+      className={`transition-all duration-600 sm:duration-1000 will-change-transform ${
         isVisible ? "opacity-100" : "opacity-0"
       } ${getTransform()} ${className}`}
     >
@@ -93,7 +93,7 @@ const ImageReveal = ({ src, alt, className = "" }: { src: string; alt: string; c
         src={src}
         alt={alt}
         loading="lazy"
-        className={`w-full h-full object-cover transition-transform duration-[2000ms] ease-out will-change-transform ${
+        className={`w-full h-full object-cover transition-transform duration-2000 ease-out will-change-transform ${
           isVisible ? "scale-100" : "scale-[1.15]"
         }`}
       />
@@ -184,7 +184,7 @@ export default function App() {
       <nav className="fixed top-0 left-0 w-full z-50 bg-white/85 backdrop-blur-md shadow-sm py-3 md:py-4 border-b border-slate-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
           
-          <div className="flex-shrink-0 relative z-50">
+          <div className="shrink-0 relative z-50">
             <Logo light={false} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
           </div>
 
@@ -224,7 +224,7 @@ export default function App() {
 
       <main>
         {/* HERO SECTION HIGH-TECH */}
-        <section className="relative min-h-[100dvh] pt-[100px] md:pt-[120px] flex flex-col justify-center overflow-hidden bg-[#032b60]">
+        <section className="relative min-h-dvh pt-25 md:pt-30 flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
             <div className="absolute inset-0 bg-grid-tech opacity-30"></div>
             <img 
@@ -233,12 +233,12 @@ export default function App() {
               alt="Installation institutionnelle" 
               fetchPriority="high"
             />
-            <div className="hidden md:block absolute top-[-300px] right-[-300px] w-[800px] h-[800px] bg-[radial-gradient(circle,rgba(0,151,178,0.15)_0%,transparent_70%)] pointer-events-none"></div>
-            <div className="hidden md:block absolute bottom-[-200px] left-[-200px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(34,211,238,0.1)_0%,transparent_70%)] pointer-events-none"></div>
-            <div className="absolute inset-0 bg-gradient-to-t from-[#032b60] via-[#032b60]/20 to-[#032b60]/50 opacity-90"></div>
+            <div className="hidden md:block absolute -top-75 -right-75 w-200 h-200 bg-[radial-gradient(circle,rgba(0,151,178,0.15)_0%,transparent_70%)] pointer-events-none"></div>
+            <div className="hidden md:block absolute -bottom-50 -left-50 w-150 h-150 bg-[radial-gradient(circle,rgba(34,211,238,0.1)_0%,transparent_70%)] pointer-events-none"></div>
+            <div className="absolute inset-0 bg-linear-to-t from-[#032b60] via-[#032b60]/20 to-[#032b60]/50 opacity-90"></div>
           </div>
           
-          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full py-12 md:py-24 flex-grow flex flex-col justify-center">
+          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full py-12 md:py-24 grow flex flex-col justify-center">
             <div className="grid lg:grid-cols-12 gap-12 items-center">
               
               <div className="lg:col-span-7 space-y-8">
@@ -251,7 +251,7 @@ export default function App() {
                 
                 <Reveal delay={100} direction="right">
                   <h1 className="text-4xl sm:text-6xl md:text-7xl font-black text-white tracking-tighter leading-[1.05] uppercase">
-                    L'intelligence <br/>au cœur de <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-[#0097b2]">la charge.</span>
+                    L'intelligence <br/>au cœur de <span className="text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-[#0097b2]">la charge.</span>
                   </h1>
                 </Reveal>
                 
@@ -277,7 +277,7 @@ export default function App() {
                 </Reveal>
               </div>
 
-              <div className="hidden lg:block lg:col-span-5 relative h-[500px]">
+              <div className="hidden lg:block lg:col-span-5 relative h-125">
                  <Reveal delay={300} direction="left" className="absolute top-10 right-0 w-64 glass-tech p-6 rounded-3xl border border-white/20 shadow-2xl animate-float z-20">
                     <div className="flex items-center gap-4 mb-3">
                        <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center border border-green-500/30">
@@ -289,7 +289,7 @@ export default function App() {
                        </div>
                     </div>
                     <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden mt-4">
-                      <div className="bg-gradient-to-r from-green-400 to-cyan-400 w-full h-full animate-[pulse_2s_ease-in-out_infinite]"></div>
+                      <div className="bg-linear-to-r from-green-400 to-cyan-400 w-full h-full animate-[pulse_2s_ease-in-out_infinite]"></div>
                     </div>
                  </Reveal>
 
@@ -305,8 +305,8 @@ export default function App() {
                     </div>
                  </Reveal>
                  
-                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full border border-[#0097b2]/20 shadow-[inset_0_0_50px_rgba(0,151,178,0.1)] animate-[spin_20s_linear_infinite] z-10"></div>
-                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] rounded-full border border-cyan-400/30 border-dashed animate-[spin_15s_linear_infinite_reverse] z-10"></div>
+                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-100 h-100 rounded-full border border-[#0097b2]/20 shadow-[inset_0_0_50px_rgba(0,151,178,0.1)] animate-[spin_20s_linear_infinite] z-10"></div>
+                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-62.5 h-62.5 rounded-full border border-cyan-400/30 border-dashed animate-[spin_15s_linear_infinite_reverse] z-10"></div>
               </div>
 
             </div>
@@ -373,13 +373,13 @@ export default function App() {
               </div>
 
               <Reveal delay={200} direction="left" className="relative hidden lg:block h-full">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#032b60] to-[#0097b2] rounded-[3rem] translate-x-6 translate-y-6 opacity-20 animate-[pulse_4s_ease-in-out_infinite]"></div>
+                <div className="absolute inset-0 bg-linear-to-br from-[#032b60] to-[#0097b2] rounded-[3rem] translate-x-6 translate-y-6 opacity-20 animate-[pulse_4s_ease-in-out_infinite]"></div>
                 <div className="absolute -inset-4 border border-[#0097b2]/20 rounded-[3.5rem] border-dashed animate-[spin_30s_linear_infinite]"></div>
                 
                 <ImageReveal
                   src="/tech-chargeo.png"
                   alt="Technicien tech en intervention"
-                  className="relative z-10 rounded-[3rem] shadow-2xl w-full h-[650px] grayscale-[30%] contrast-125 border-8 border-white"
+                  className="relative z-10 rounded-[3rem] shadow-2xl w-full h-162.5 grayscale-30 contrast-125 border-8 border-white"
                 />
               </Reveal>
             </div>
@@ -395,7 +395,7 @@ export default function App() {
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#0097b2]">Déploiement sur-mesure</span>
                 </div>
                 <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase" style={{ color: brandNavy }}>
-                  Écosystèmes de <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#032b60] to-[#0097b2]">charge</span>
+                  Écosystèmes de <span className="text-transparent bg-clip-text bg-linear-to-r from-[#032b60] to-[#0097b2]">charge</span>
                 </h2>
                 <p className="text-base md:text-lg text-slate-500 font-medium leading-relaxed max-w-2xl mx-auto">
                   Du point de charge domestique aux grappes de bornes connectées pour flottes. L'intelligence logicielle au service de l'énergie.
@@ -405,15 +405,15 @@ export default function App() {
              <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
                 {/* Carte PROS */}
                 <Reveal delay={0} direction="up">
-                  <a href="/pro" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
+                  <a href="/pro" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
                      <div className="flex justify-between items-start mb-6 md:mb-8">
-                        <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-[#032b60] to-blue-900 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform duration-500">
+                        <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-linear-to-br from-[#032b60] to-blue-900 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform duration-500">
                           <Briefcase size={24} />
                         </div>
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full group-hover:bg-[#032b60]/10 group-hover:text-[#032b60] transition-colors">B2B / Flottes</span>
                      </div>
                      <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight text-[#032b60] mb-4 group-hover:text-[#0097b2] transition-colors">Stations d'Entreprises</h3>
-                     <p className="text-slate-500 font-medium mb-8 flex-grow leading-relaxed text-sm md:text-base">
+                     <p className="text-slate-500 font-medium mb-8 grow leading-relaxed text-sm md:text-base">
                        Grappes de points de charge communicants avec Load Balancing statique ou dynamique. Interface d'administration Cloud (CPO) pour facturer les sessions.
                      </p>
                      
@@ -431,15 +431,15 @@ export default function App() {
 
                 {/* Carte COPROS */}
                 <Reveal delay={100} direction="up">
-                  <a href="/copropriete" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
+                  <a href="/copropriete" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
                      <div className="flex justify-between items-start mb-6 md:mb-8">
-                        <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-[#0097b2] to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30 group-hover:scale-110 transition-transform duration-500">
+                        <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-linear-to-br from-[#0097b2] to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30 group-hover:scale-110 transition-transform duration-500">
                           <Building size={24} />
                         </div>
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full group-hover:bg-[#0097b2]/10 group-hover:text-[#0097b2] transition-colors">Syndics</span>
                      </div>
                      <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight text-[#032b60] mb-4 group-hover:text-[#0097b2] transition-colors">Architecture Copro</h3>
-                     <p className="text-slate-500 font-medium mb-8 flex-grow leading-relaxed text-sm md:text-base">
+                     <p className="text-slate-500 font-medium mb-8 grow leading-relaxed text-sm md:text-base">
                        Câblage en colonne horizontale intelligente. Nous déployons un réseau électrique pré-équipé permettant d'ajouter des points de charge à la demande.
                      </p>
 
@@ -457,15 +457,15 @@ export default function App() {
 
                 {/* Carte PARTICULIER */}
                 <Reveal delay={200} direction="up">
-                  <a href="/particuliers" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
+                  <a href="/particuliers" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
                      <div className="flex justify-between items-start mb-6 md:mb-8">
-                        <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-[#032b60] shadow-md group-hover:scale-110 transition-transform duration-500">
+                        <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-linear-to-br from-slate-200 to-slate-300 flex items-center justify-center text-[#032b60] shadow-md group-hover:scale-110 transition-transform duration-500">
                           <Home size={24} />
                         </div>
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full group-hover:bg-slate-200 transition-colors">B2C</span>
                      </div>
                      <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight text-[#032b60] mb-4 group-hover:text-[#0097b2] transition-colors">Wallbox Résidentielle</h3>
-                     <p className="text-slate-500 font-medium mb-8 flex-grow leading-relaxed text-sm md:text-base">
+                     <p className="text-slate-500 font-medium mb-8 grow leading-relaxed text-sm md:text-base">
                        Le point de charge connecté (7.4kW - 22kW) à domicile. Pilotez vos sessions depuis votre smartphone, trackez l'énergie en toute sécurité.
                      </p>
 
@@ -487,7 +487,7 @@ export default function App() {
         {/* BLOC GARANTIE MCO */}
         <section id="engagements" className="py-20 md:py-32 bg-[#032b60] overflow-hidden relative">
           <div className="absolute inset-0 bg-grid-tech opacity-20"></div>
-          <div className="hidden md:block absolute top-[-200px] right-[-200px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(0,151,178,0.15)_0%,transparent_70%)] animate-[pulse_6s_ease-in-out_infinite] pointer-events-none"></div>
+          <div className="hidden md:block absolute -top-50 -right-50 w-150 h-150 bg-[radial-gradient(circle,rgba(0,151,178,0.15)_0%,transparent_70%)] animate-[pulse_6s_ease-in-out_infinite] pointer-events-none"></div>
           
           <div className="max-w-7xl mx-auto px-6 relative z-10">
             <Reveal delay={0}>
@@ -497,7 +497,7 @@ export default function App() {
                   <span>Exploitation & Fiabilité</span>
                 </div>
                 <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-white uppercase leading-tight mb-6">
-                  Le Maintien en <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-[#0097b2]">Condition Opérationnelle.</span>
+                  Le Maintien en <span className="text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-[#0097b2]">Condition Opérationnelle.</span>
                 </h2>
                 <p className="text-blue-100/70 font-medium text-base md:text-lg leading-relaxed">
                   L'installation n'est que la première étape. Notre pôle MCO garantit une disponibilité maximale de vos points de charge sur le long terme.
@@ -596,8 +596,8 @@ export default function App() {
             </div>
 
             <Reveal delay={300} className="lg:col-span-3 w-full bg-white p-4 sm:p-8 rounded-[2.5rem] shadow-md md:shadow-[0_20px_60px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#032b60] to-[#0097b2]"></div>
-              <div className="w-full relative min-h-[700px] h-[75vh]">
+              <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-[#032b60] to-[#0097b2]"></div>
+              <div className="w-full relative min-h-175 h-[75vh]">
                 <iframe 
                   className="w-full h-full border-none rounded-xl" 
                   src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS" 

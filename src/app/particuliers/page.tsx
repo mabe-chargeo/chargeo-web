@@ -203,7 +203,7 @@ export default function ParticuliersPage() {
       <nav className="fixed top-0 left-0 w-full z-50 bg-white/85 backdrop-blur-md shadow-sm py-3 md:py-4 border-b border-slate-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
           
-          <div className="flex-shrink-0 relative z-50">
+          <div className="shrink-0 relative z-50">
             <Logo light={false} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
           </div>
 
@@ -217,7 +217,7 @@ export default function ParticuliersPage() {
               <span className="sm:hidden">Retour</span>
             </Link>
 
-            <div className={`hidden lg:flex flex-shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
+            <div className={`hidden lg:flex shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
               <button 
                 onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
                 className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
@@ -232,7 +232,7 @@ export default function ParticuliersPage() {
       </nav>
 
       {/* STICKY BOTTOM BAR (MOBILE) */}
-      <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-[60] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 ${showFloatingCta ? 'translate-y-0' : 'translate-y-full'}`}>
+      <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-60 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 ${showFloatingCta ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex flex-col">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Mon estimation</p>
@@ -252,16 +252,16 @@ export default function ParticuliersPage() {
 
       <main>
         {/* HERO SECTION */}
-        <section className="relative min-h-[100dvh] pt-[100px] md:pt-[120px] flex flex-col justify-center overflow-hidden bg-[#032b60]">
+        <section className="relative min-h-dvh pt-25 md:pt-30 flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
             <img 
               src="/hero-particulier.png" 
               className="w-full h-full object-cover opacity-40 animate-bg-pan" 
               alt="Hero Background" 
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
+            <div className="absolute inset-0 bg-linear-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
         </div>
-        <div className="max-w-7xl mx-auto px-6 relative z-10 w-full py-12 flex-grow flex flex-col justify-center">
+        <div className="max-w-7xl mx-auto px-6 relative z-10 w-full py-12 grow flex flex-col justify-center">
           <div className="max-w-4xl mx-auto text-center flex flex-col items-center space-y-6">
 
             <FadeIn delay={200} direction="up">
@@ -351,7 +351,7 @@ export default function ParticuliersPage() {
              <div className="relative">
                 <div className="absolute -inset-4 bg-slate-100 rounded-[3rem] -rotate-3 shadow-sm transition-transform duration-700 hover:rotate-0"></div>
                 
-                <div className="relative w-full rounded-[2.5rem] shadow-2xl aspect-[4/5] bg-slate-200 overflow-hidden border-8 border-white group">
+                <div className="relative w-full rounded-[2.5rem] shadow-2xl aspect-4/5 bg-slate-200 overflow-hidden border-8 border-white group">
                   {reviews.map((review, idx) => (
                     <img 
                       key={idx}
@@ -361,10 +361,10 @@ export default function ParticuliersPage() {
                       alt={`Témoignage de ${review.author}`}
                     />
                   ))}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#032b60]/80 via-transparent to-transparent z-10 opacity-60 mix-blend-multiply"></div>
+                  <div className="absolute inset-0 bg-linear-to-t from-[#032b60]/80 via-transparent to-transparent z-10 opacity-60 mix-blend-multiply"></div>
                 </div>
 
-                <div className="absolute -bottom-10 -left-4 md:-left-10 bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-slate-100 w-[90%] sm:max-w-md min-h-[220px] flex flex-col justify-between z-20 hover:-translate-y-2 transition-transform duration-500">
+                <div className="absolute -bottom-10 -left-4 md:-left-10 bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-slate-100 w-[90%] sm:max-w-md min-h-55 flex flex-col justify-between z-20 hover:-translate-y-2 transition-transform duration-500">
                   <div>
                       <div className="flex gap-1 text-yellow-400 mb-4">
                          {[1,2,3,4,5].map(s => (
@@ -430,12 +430,12 @@ export default function ParticuliersPage() {
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
                   <Award className="text-[#0097b2] mb-4" size={32} />
                   <h4 className="text-white font-black uppercase tracking-wider mb-2">Qualification IRVE</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Indispensable pour votre assurance.</p>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed grow">Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Indispensable pour votre assurance.</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
                   <FileText className="text-[#0097b2] mb-4" size={32} />
                   <h4 className="text-white font-black uppercase tracking-wider mb-2">Administratif Inclus</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Nous montons de A à Z vos dossiers de Prime Advenir (jusqu'à 600€) et la demande de TVA réduite.</p>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed grow">Nous montons de A à Z vos dossiers de Prime Advenir (jusqu'à 600€) et la demande de TVA réduite.</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 sm:col-span-2">
                   <Wrench className="text-[#0097b2] mb-4" size={32} />
@@ -461,7 +461,7 @@ export default function ParticuliersPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
               
-              <div className="order-1 lg:row-start-1 lg:col-start-1 h-[260px] sm:h-[280px] flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
+              <div className="order-1 lg:row-start-1 lg:col-start-1 h-65 sm:h-70 flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
                     <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
@@ -477,7 +477,7 @@ export default function ParticuliersPage() {
                 <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest"><span>Petit rouleur</span><span>Gros rouleur</span></div>
               </div>
 
-              <div className="order-2 lg:row-start-2 lg:col-start-1 h-[260px] sm:h-[280px] flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
+              <div className="order-2 lg:row-start-2 lg:col-start-1 h-65 sm:h-70 flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
                     <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
@@ -490,7 +490,7 @@ export default function ParticuliersPage() {
                   </span>
                 </div>
                 <input type="range" aria-label="Consommation thermique" min="4" max="12" step="0.5" value={gasConsumption} onChange={(e) => setGasConsumption(parseFloat(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-tighter font-black"><span>Citadine (4L)</span><span>Grand SUV (12L)</span></div>
+                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-tighter"><span>Citadine (4L)</span><span>Grand SUV (12L)</span></div>
               </div>
 
               <div className="order-3 lg:row-start-3 lg:col-start-1 w-full">
@@ -504,7 +504,7 @@ export default function ParticuliersPage() {
                     <ChevronDown size={18} className={`transition-transform duration-300 ${showAdvancedSettings ? 'rotate-180' : ''}`} />
                  </button>
 
-                 <div className={`transition-all duration-500 overflow-hidden ${showAdvancedSettings ? 'max-h-[800px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
+                 <div className={`transition-all duration-500 overflow-hidden ${showAdvancedSettings ? 'max-h-200 opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
                     <div className="bg-slate-50 border border-slate-100 p-6 md:p-8 rounded-[2.5rem] shadow-inner flex flex-col gap-8">
                        
                        <div className="space-y-4">
@@ -538,7 +538,7 @@ export default function ParticuliersPage() {
                  </div>
               </div>
 
-              <div ref={resultsRef} className="order-4 lg:row-start-1 lg:col-start-2 h-full flex flex-col justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-8 md:p-10 rounded-[2.5rem] border border-green-200 shadow-xl relative overflow-hidden hover:shadow-2xl transition-all hover:-translate-y-1">
+              <div ref={resultsRef} className="order-4 lg:row-start-1 lg:col-start-2 h-full flex flex-col justify-center bg-linear-to-br from-green-50 to-emerald-100 p-8 md:p-10 rounded-[2.5rem] border border-green-200 shadow-xl relative overflow-hidden hover:shadow-2xl transition-all hover:-translate-y-1">
                 <PiggyBank className="absolute -right-10 -bottom-10 opacity-10 text-green-600 transition-transform duration-1000 hover:rotate-12" size={200} />
                 <h3 className="text-green-800 text-sm font-black uppercase tracking-widest mb-2 relative z-10">Vos économies estimées</h3>
                 <div className={`flex items-baseline gap-2 relative z-10 transition-all duration-300 ${isPulsing ? 'scale-105 text-emerald-500 translate-x-2' : 'scale-100 text-green-600'}`}>
@@ -573,7 +573,7 @@ export default function ParticuliersPage() {
             </div>
 
             {/* BLOC FORMULAIRE */}
-            <div id="formulaire-devis" ref={formRef} className="w-full mt-16 lg:mt-24 bg-white p-4 sm:p-8 md:p-10 rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.1)] border border-slate-100 flex flex-col relative z-10 mx-auto">
+            <div id="formulaire-devis" ref={formRef} className="w-full mt-16 lg:mt-24 bg-white p-4 sm:p-8 md:p-10 rounded-4xl sm:rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.1)] border border-slate-100 flex flex-col relative z-10 mx-auto">
               <div className="flex items-center justify-between mb-4 sm:mb-6 border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0 shadow-inner">
@@ -593,7 +593,7 @@ export default function ParticuliersPage() {
                  </p>
               </div>
 
-              <div className="w-full relative h-[850px] sm:h-[800px] lg:h-[900px]">
+              <div className="w-full relative h-212.5 sm:h-200 lg:h-225">
                 <iframe 
                   className="w-full h-full border-none rounded-2xl" 
                   src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS" 

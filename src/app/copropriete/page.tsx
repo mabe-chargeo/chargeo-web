@@ -156,7 +156,7 @@ export default function App() {
       <nav className="fixed top-0 left-0 w-full z-50 bg-white/85 backdrop-blur-md shadow-sm py-3 md:py-4 border-b border-slate-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
           
-          <div className="flex-shrink-0 relative z-50">
+          <div className="shrink-0 relative z-50">
             <Logo light={false} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
           </div>
 
@@ -171,7 +171,7 @@ export default function App() {
             </Link>
 
             {/* CTA APPARAISSANT AU SCROLL */}
-            <div className={`hidden lg:flex flex-shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
+            <div className={`hidden lg:flex shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
               <button 
                 onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} 
                 className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:scale-105 group"
@@ -185,7 +185,7 @@ export default function App() {
       </nav>
 
       {/* STICKY BOTTOM BAR (MOBILE) */}
-      <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-[60] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 ${showFloatingCta ? 'translate-y-0' : 'translate-y-full'}`}>
+      <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-60 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 ${showFloatingCta ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex flex-col">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Aides Débloquées</p>
@@ -205,17 +205,17 @@ export default function App() {
 
       <main>
         {/* HERO SECTION COPRO */}
-        <section className="relative min-h-[100dvh] pt-[100px] md:pt-[120px] flex flex-col justify-center overflow-hidden bg-[#032b60]">
+        <section className="relative min-h-dvh pt-25 md:pt-30 flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
             <img 
               src="/hero-copro.png" 
               className="w-full h-full object-cover opacity-30 animate-bg-pan" 
               alt="Immeuble moderne" 
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
+            <div className="absolute inset-0 bg-linear-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
           </div>
           
-          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full py-12 flex-grow flex flex-col justify-center items-center gap-6 text-center">
+          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full py-12 grow flex flex-col justify-center items-center gap-6 text-center">
             <FadeIn delay={200} direction="up">
                  <div className="flex items-center justify-center gap-2 text-[#0097b2] font-black text-sm sm:text-base uppercase tracking-widest bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm mt-2">
                    <UsersIcon size={18} />
@@ -312,7 +312,7 @@ export default function App() {
              <div className="relative">
                 <div className="absolute -inset-4 bg-slate-100 rounded-[3rem] -rotate-3 shadow-sm transition-transform duration-700 hover:rotate-0"></div>
                 
-                <div className="relative w-full rounded-[2.5rem] shadow-2xl aspect-[4/5] bg-slate-200 overflow-hidden border-8 border-white group">
+                <div className="relative w-full rounded-[2.5rem] shadow-2xl aspect-4/5 bg-slate-200 overflow-hidden border-8 border-white group">
                   {reviews.map((review, idx) => (
                     <img 
                       key={idx}
@@ -322,10 +322,10 @@ export default function App() {
                       alt={`Témoignage de ${review.author}`}
                     />
                   ))}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#032b60]/80 via-transparent to-transparent z-10 opacity-60 mix-blend-multiply"></div>
+                  <div className="absolute inset-0 bg-linear-to-t from-[#032b60]/80 via-transparent to-transparent z-10 opacity-60 mix-blend-multiply"></div>
                 </div>
 
-                <div className="absolute -bottom-10 -left-4 md:-left-10 bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-slate-100 w-[90%] sm:max-w-md min-h-[220px] flex flex-col justify-between z-20 hover:-translate-y-2 transition-transform duration-500">
+                <div className="absolute -bottom-10 -left-4 md:-left-10 bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-slate-100 w-[90%] sm:max-w-md min-h-55 flex flex-col justify-between z-20 hover:-translate-y-2 transition-transform duration-500">
                   <div>
                       <div className="flex gap-1 text-yellow-400 mb-4">
                          {[1,2,3,4,5].map(s => (
@@ -421,7 +421,7 @@ export default function App() {
                   <p className="text-[10px] text-slate-400 font-bold uppercase">Analyse de faisabilité technique et montage financier</p>
                 </div>
               </div>
-              <div className="w-full relative h-[900px]">
+              <div className="w-full relative h-225">
                 <iframe 
                   className="w-full h-full border-none rounded-2xl" 
                   src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS?Source=Copro" 
