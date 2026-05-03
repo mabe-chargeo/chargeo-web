@@ -56,7 +56,7 @@ const Reveal = ({
         transitionDelay: `${delay}ms`,
         transitionTimingFunction: 'cubic-bezier(0.175, 0.885, 0.32, 1.1)'
       }}
-      className={`transition-all duration-[600ms] sm:duration-1000 ${
+      className={`transition-all duration-[600ms] sm:duration-1000 will-change-transform ${
         isVisible ? "opacity-100" : "opacity-0"
       } ${getTransform()} ${className}`}
     >
@@ -65,7 +65,7 @@ const Reveal = ({
   );
 };
 
-// --- COMPOSANT : ZOOM CINÉMATIQUE ---
+// --- COMPOSANT : ZOOM CINÉMATIQUE OPTIMISÉ ---
 const ImageReveal = ({ src, alt, className = "" }: { src: string; alt: string; className?: string }) => {
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -91,7 +91,7 @@ const ImageReveal = ({ src, alt, className = "" }: { src: string; alt: string; c
         src={src}
         alt={alt}
         loading="lazy"
-        className={`w-full h-full object-cover transition-transform duration-[2000ms] ease-out ${
+        className={`w-full h-full object-cover transition-transform duration-[2000ms] ease-out will-change-transform ${
           isVisible ? "scale-100" : "scale-[1.15]"
         }`}
       />
@@ -134,7 +134,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#0097b2]/30 scroll-smooth pb-24 lg:pb-0 overflow-x-hidden">
       
-      {/* STYLES GLOBAUX & ANIMATIONS TECH */}
+      {/* STYLES GLOBAUX & ANIMATIONS TECH OPTIMISÉES */}
       <style dangerouslySetInnerHTML={{__html: `
         :root { color-scheme: light only !important; }
         html, body { background-color: #f8fafc !important; color: #0f172a !important; }
@@ -150,7 +150,7 @@ export default function App() {
           0% { transform: scale(1.05) translate(0, 0); }
           100% { transform: scale(1.15) translate(-1%, 1%); }
         }
-        .animate-bg-pan { animation: slowPan 25s ease-in-out infinite alternate; }
+        .animate-bg-pan { animation: slowPan 25s ease-in-out infinite alternate; will-change: transform; }
         
         @keyframes shine { 100% { left: 125%; } }
         .animate-button-shine {
@@ -163,13 +163,13 @@ export default function App() {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-10px); }
         }
-        .animate-float { animation: float 6s ease-in-out infinite; }
+        .animate-float { animation: float 6s ease-in-out infinite; will-change: transform; }
         
         @keyframes float-delayed {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-15px); }
         }
-        .animate-float-delayed { animation: float-delayed 7s ease-in-out infinite 2s; }
+        .animate-float-delayed { animation: float-delayed 7s ease-in-out infinite 2s; will-change: transform; }
         
         @keyframes pulse-neon {
           0%, 100% { box-shadow: 0 0 15px rgba(0, 151, 178, 0.5), inset 0 0 10px rgba(0, 151, 178, 0.2); }
@@ -194,24 +194,30 @@ export default function App() {
           background: linear-gradient(135deg, rgba(0,151,178,0.1) 0%, rgba(3,43,96,0.05) 100%);
         }
 
+        /* SUPPRESSION DE TOUS LES EFFETS LOURDS SUR MOBILE POUR LA FLUIDITÉ */
         @media (max-width: 768px) {
-          .animate-bg-pan { animation: none !important; transform: none !important; }
-          .glass-tech { backdrop-filter: none; background: rgba(255, 255, 255, 0.08); }
+          .animate-bg-pan, .animate-float, .animate-float-delayed, .animate-pulse-neon { 
+            animation: none !important; transform: none !important; 
+          }
+          .glass-tech { 
+            backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: rgba(255, 255, 255, 0.08); 
+          }
         }
       `}} />
 
-      {/* NAVIGATION VITRINE */}
+      {/* NAVIGATION VITRINE (TOUJOURS GLASSY/BLANCHE) */}
       <nav className="fixed top-0 left-0 w-full z-50 bg-white/85 backdrop-blur-md shadow-sm py-3 md:py-4 border-b border-slate-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
           
           <div className="flex-shrink-0 relative z-50">
+            {/* Logo toujours en couleur */}
             <Logo light={false} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
           </div>
 
           <div className="hidden md:flex items-center p-1.5 rounded-full border bg-white/50 border-slate-200 shadow-[inset_0_1px_3px_rgba(0,0,0,0.05)]">
-            <a href="#groupe" className="px-6 py-2 rounded-full text-sm font-bold text-slate-600 hover:text-[#032b60] hover:bg-white transition-all hover:shadow-sm">Le Groupe Tech</a>
-            <a href="#expertises" className="px-6 py-2 rounded-full text-sm font-bold text-slate-600 hover:text-[#032b60] hover:bg-white transition-all hover:shadow-sm">Points de charge</a>
-            <a href="#engagements" className="px-6 py-2 rounded-full text-sm font-bold text-slate-600 hover:text-[#032b60] hover:bg-white transition-all hover:shadow-sm">Garanties MCO</a>
+            <a href="#groupe" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white hover:shadow-sm">Le Groupe Tech</a>
+            <a href="#expertises" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white hover:shadow-sm">Points de charge</a>
+            <a href="#engagements" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white hover:shadow-sm">Garanties MCO</a>
           </div>
 
           <div className="flex items-center gap-2 relative z-50">
@@ -220,7 +226,7 @@ export default function App() {
               className="relative overflow-hidden px-5 sm:px-6 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all group bg-[#032b60] text-white hover:bg-[#0097b2] shadow-md hover:shadow-lg"
             >
               <div className="animate-button-shine" />
-              Contact <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform text-cyan-400 hidden sm:block" />
+              Contact <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform hidden sm:block text-cyan-400" />
             </a>
             
             <button 
@@ -243,9 +249,11 @@ export default function App() {
         </div>
       </nav>
 
+      {/* Main n'a pas de padding-top, permettant au fond bleu du Hero de se glisser sous la barre */}
       <main>
+        
         {/* HERO SECTION HIGH-TECH */}
-        <section className="relative min-h-[100dvh] pt-[100px] md:pt-[120px] flex items-center overflow-hidden bg-[#032b60]">
+        <section className="relative min-h-[100dvh] pt-[100px] md:pt-[120px] flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
             <div className="absolute inset-0 bg-grid-tech opacity-30"></div>
             <img 
@@ -254,12 +262,13 @@ export default function App() {
               alt="Installation institutionnelle" 
               fetchPriority="high"
             />
-            <div className="hidden md:block absolute top-0 right-0 w-[800px] h-[800px] bg-[#0097b2] rounded-full blur-[150px] opacity-20 -mr-60 -mt-60 pointer-events-none"></div>
-            <div className="hidden md:block absolute bottom-0 left-0 w-[600px] h-[600px] bg-cyan-400 rounded-full blur-[120px] opacity-10 -ml-40 -mb-40 pointer-events-none"></div>
-            <div className="absolute inset-0 bg-gradient-to-t from-[#032b60] via-transparent to-transparent opacity-90"></div>
+            {/* OPTIMISATION MAJEURE : Les filtres 'blur-[]' tuaient la carte graphique. Remplacés par des radial-gradient super légers */}
+            <div className="hidden md:block absolute top-[-300px] right-[-300px] w-[800px] h-[800px] bg-[radial-gradient(circle,rgba(0,151,178,0.15)_0%,transparent_70%)] pointer-events-none"></div>
+            <div className="hidden md:block absolute bottom-[-200px] left-[-200px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(34,211,238,0.1)_0%,transparent_70%)] pointer-events-none"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-[#032b60] via-[#032b60]/20 to-[#032b60]/50 opacity-90"></div>
           </div>
           
-          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full py-12 md:py-24">
+          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full py-12 md:py-24 flex-grow flex flex-col justify-center">
             <div className="grid lg:grid-cols-12 gap-12 items-center">
               
               <div className="lg:col-span-7 space-y-8">
@@ -326,6 +335,7 @@ export default function App() {
                     </div>
                  </Reveal>
                  
+                 {/* Anneaux de chargement */}
                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full border border-[#0097b2]/20 shadow-[inset_0_0_50px_rgba(0,151,178,0.1)] animate-[spin_20s_linear_infinite] z-10"></div>
                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] rounded-full border border-cyan-400/30 border-dashed animate-[spin_15s_linear_infinite_reverse] z-10"></div>
               </div>
@@ -424,7 +434,7 @@ export default function App() {
              </Reveal>
 
              <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
-                {/* Carte PROS - DEVENUE UN LIEN */}
+                {/* Carte PROS */}
                 <Reveal delay={0} direction="up">
                   <a href="/pros" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
                      <div className="flex justify-between items-start mb-6 md:mb-8">
@@ -443,7 +453,6 @@ export default function App() {
                          <div className="flex items-center gap-3"><Cpu size={16} className="text-[#0097b2]"/> <span className="text-xs md:text-sm font-bold text-[#032b60]">Supervision OCR</span></div>
                          <div className="flex items-center gap-3"><Zap size={16} className="text-[#0097b2]"/> <span className="text-xs md:text-sm font-bold text-[#032b60]">Load Balancing</span></div>
                        </div>
-                       {/* Bouton flèche animé au survol */}
                        <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-[#032b60] group-hover:bg-[#0097b2] group-hover:text-white transition-colors">
                          <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                        </div>
@@ -451,7 +460,7 @@ export default function App() {
                   </a>
                 </Reveal>
 
-                {/* Carte COPROS - DEVENUE UN LIEN */}
+                {/* Carte COPROS */}
                 <Reveal delay={100} direction="up">
                   <a href="/coproprietes" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
                      <div className="flex justify-between items-start mb-6 md:mb-8">
@@ -477,7 +486,7 @@ export default function App() {
                   </a>
                 </Reveal>
 
-                {/* Carte PARTICULIER - DEVENUE UN LIEN */}
+                {/* Carte PARTICULIER */}
                 <Reveal delay={200} direction="up">
                   <a href="/particuliers" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
                      <div className="flex justify-between items-start mb-6 md:mb-8">
@@ -509,7 +518,8 @@ export default function App() {
         {/* BLOC GARANTIE MCO */}
         <section id="engagements" className="py-20 md:py-32 bg-[#032b60] overflow-hidden relative">
           <div className="absolute inset-0 bg-grid-tech opacity-20"></div>
-          <div className="hidden md:block absolute top-0 right-0 w-[600px] h-[600px] bg-[#0097b2] rounded-full blur-[200px] opacity-20 -mr-40 -mt-40 animate-[pulse_6s_ease-in-out_infinite]"></div>
+          {/* OPTIMISATION MAJEURE : radial-gradient au lieu de blur-[] */}
+          <div className="hidden md:block absolute top-[-200px] right-[-200px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(0,151,178,0.15)_0%,transparent_70%)] animate-[pulse_6s_ease-in-out_infinite] pointer-events-none"></div>
           
           <div className="max-w-7xl mx-auto px-6 relative z-10">
             <Reveal delay={0}>
@@ -636,7 +646,8 @@ export default function App() {
 
       {/* FOOTER EXACT */}
       <footer className="bg-[#032B60] py-16 md:py-24 border-t border-white/5 overflow-hidden relative">
-        <div className="hidden md:block absolute -bottom-40 -right-40 w-96 h-96 bg-[#0097b2] rounded-full blur-[150px] opacity-30 pointer-events-none"></div>
+        {/* OPTIMISATION MAJEURE : radial-gradient */}
+        <div className="hidden md:block absolute -bottom-40 -right-40 w-96 h-96 bg-[radial-gradient(circle,rgba(0,151,178,0.3)_0%,transparent_70%)] pointer-events-none"></div>
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-start gap-12 md:gap-16 relative z-10">
            
            <div className="space-y-6 text-left max-w-sm">
