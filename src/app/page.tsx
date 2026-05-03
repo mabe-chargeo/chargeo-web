@@ -8,45 +8,10 @@ import {
   Menu, X
 } from 'lucide-react';
 
-// --- COMPOSANTS UI INTERNES (Intégrés pour garantir le fonctionnement) ---
+import { Logo } from '@/components/ui/Logo';
+import { BrandLogo } from '@/components/ui/BrandLogo';
 
-const Logo = ({ light = false, className = "" }: { light?: boolean; className?: string }) => {
-  const [imgError, setImgError] = useState(false);
-  const logoSrc = light ? "/CHARGEO_LOGO_BLANC.png" : "/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png";
-  
-  return (
-    <a href="/" className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
-      {!imgError ? (
-        <img src={logoSrc} alt="Logo CHARGéO" onError={() => setImgError(true)} className="h-full w-auto object-contain transition-all duration-300" />
-      ) : (
-        <span className={`text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter ${light ? 'text-white' : 'text-[#032b60]'}`}>
-          CHARG<span className="text-[#0097b2]">é</span>O
-        </span>
-      )}
-    </a>
-  );
-};
-
-const BrandLogo = ({ name, url }: { name: string; url: string }) => {
-  const [error, setError] = useState(false); 
-  return (
-    <div className="flex items-center justify-center h-12 w-28 sm:w-32 group">
-        {!error ? (
-          <img 
-            src={url} 
-            alt={name} 
-            onError={() => setError(true)}
-            className="max-h-6 md:max-h-8 max-w-full object-contain opacity-40 grayscale transition-all duration-500 group-hover:opacity-100 group-hover:grayscale-0 group-hover:scale-110" 
-          />
-        ) : (
-          <span className="font-black text-[10px] uppercase opacity-20 text-center group-hover:opacity-100 transition-opacity">{name}</span>
-        )}
-    </div>
-  );
-};
-
-// --- COMPOSANTS D'ANIMATION ---
-
+// --- COMPOSANT D'ANIMATION STANDARD ---
 const Reveal = ({ 
   children, 
   delay = 0, 

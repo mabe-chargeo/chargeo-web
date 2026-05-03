@@ -15,9 +15,7 @@ import { Logo } from '@/components/ui/Logo';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import { useAnimatedValue } from '@/hooks/useAnimatedValue';
 
-// --- PAGE PRINCIPALE ---
-
-export default function App() {
+export default function ParticuliersPage() {
   const [currentReview, setCurrentReview] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   
@@ -201,7 +199,7 @@ export default function App() {
         }
       `}} />
 
-      {/* NAVIGATION : Fixe, Blanche Glassy (Identique à la Vitrine) avec bouton Retour */}
+      {/* NAVIGATION : Fixe, Blanche Glassy */}
       <nav className="fixed top-0 left-0 w-full z-50 bg-white/85 backdrop-blur-md shadow-sm py-3 md:py-4 border-b border-slate-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
           
@@ -275,7 +273,7 @@ export default function App() {
               
               <FadeIn delay={300} direction="up">
                 <h1 className="text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase mt-4">
-                  La recharge <br/><span style={{ color: brandTeal }}>ultra-rentable.</span>
+                  La recharge <br/><span className="text-[#0097b2]">ultra-rentable.</span>
                 </h1>
               </FadeIn>
               

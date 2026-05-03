@@ -18,137 +18,19 @@ import {
   Building as BuildingIcon, 
   Users as UsersIcon, 
   Phone as PhoneIcon, 
-  Mail as MailIcon
+  Mail as MailIcon, 
+  Menu as MenuIcon 
 } from 'lucide-react';
 
-// --- COMPOSANTS INTERNES (Intégrés pour garantir la compilation) ---
-
-/**
- * Hook personnalisé pour l'animation des nombres
- */
-function useAnimatedValue(target: number, duration: number = 1000, isVisible: boolean, triggerKey: number) {
-  const [displayValue, setDisplayValue] = useState(0);
-  const hasAnimatedRef = useRef(false);
-
-  useEffect(() => {
-    setDisplayValue(0);
-    hasAnimatedRef.current = false;
-  }, [triggerKey]);
-
-  useEffect(() => {
-    if (!isVisible || hasAnimatedRef.current) return;
-
-    let startTimestamp: number | null = null;
-    let animationFrame: number;
-
-    const step = (timestamp: number) => {
-      if (!startTimestamp) startTimestamp = timestamp;
-      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-      const easeOut = 1 - Math.pow(1 - progress, 4);
-      
-      setDisplayValue(target * easeOut);
-
-      if (progress < 1) {
-        animationFrame = window.requestAnimationFrame(step);
-      } else {
-        hasAnimatedRef.current = true;
-      }
-    };
-
-    const timer = setTimeout(() => {
-      animationFrame = window.requestAnimationFrame(step);
-    }, 50);
-
-    return () => {
-      clearTimeout(timer);
-      if (animationFrame) window.cancelAnimationFrame(animationFrame);
-    };
-  }, [isVisible, target, triggerKey, duration]);
-
-  return displayValue;
-}
-
-/**
- * Composant pour l'apparition fluide au scroll
- */
-function FadeIn({ children, delay = 0, direction = 'up' }: { children: React.ReactNode, delay?: number, direction?: string }) {
-  const [isVisible, setIsVisible] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          if (ref.current) observer.unobserve(ref.current);
-        }
-      },
-      { threshold: 0.15 }
-    );
-    
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
-
-  let startClass = 'translate-y-12 opacity-0';
-  if (direction === 'left') startClass = '-translate-x-12 opacity-0';
-  if (direction === 'right') startClass = 'translate-x-12 opacity-0';
-  if (direction === 'scale') startClass = 'scale-90 opacity-0';
-
-  return (
-    <div 
-      ref={ref} 
-      className={`transition-all duration-1000 ease-out ${isVisible ? 'translate-y-0 translate-x-0 scale-100 opacity-100' : startClass}`}
-      style={{ transitionDelay: `${delay}ms` }}
-    >
-      {children}
-    </div>
-  );
-}
-
-/**
- * Composant Logo
- */
-const Logo = ({ light = false, className = "" }: { light?: boolean, className?: string }) => {
-  const [imgError, setImgError] = useState(false);
-  const logoSrc = light ? "/CHARGEO_LOGO_BLANC.png" : "/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png";
-  return (
-    <Link href="/" className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
-      {!imgError ? (
-        <img src={logoSrc} alt="Logo CHARGéO" onError={() => setImgError(true)} className="h-full w-auto object-contain transition-all duration-300" />
-      ) : (
-        <span className={`text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter ${light ? 'text-white' : 'text-[#032b60]'}`}>
-          CHARG<span className="text-[#0097b2]">é</span>O
-        </span>
-      )}
-    </Link>
-  );
-};
-
-/**
- * Composant BrandLogo pour les marques partenaires
- */
-const BrandLogo = ({ name, url }: { name: string, url: string }) => {
-  const [error, setError] = useState(false); 
-  return (
-    <div className="flex items-center justify-center h-12 w-28 sm:w-32 group">
-        {!error ? (
-          <img 
-            src={url} 
-            alt={name} 
-            onError={() => setError(true)}
-            className="max-h-6 md:max-h-8 max-w-full object-contain opacity-40 grayscale transition-all duration-500 group-hover:opacity-100 group-hover:grayscale-0 group-hover:scale-110" 
-          />
-        ) : (
-          <span className="font-black text-[10px] uppercase opacity-20 text-center group-hover:opacity-100 transition-opacity">{name}</span>
-        )}
-    </div>
-  );
-};
+import { FadeIn } from '@/components/ui/FadeIn';
+import { Logo } from '@/components/ui/Logo';
+import { BrandLogo } from '@/components/ui/BrandLogo';
+import { useAnimatedValue } from '@/hooks/useAnimatedValue';
 
 // --- COMPOSANT PRINCIPAL : PAGE COPROPRIÉTÉ ---
 
-export default function CoproPage() {
+export default function App() {
+  const [scrolled, setScrolled] = useState(false);
   const [currentReview, setCurrentReview] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   
