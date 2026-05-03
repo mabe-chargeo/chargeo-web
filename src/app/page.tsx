@@ -10,6 +10,9 @@ import {
 
 import { Logo } from '@/components/ui/Logo';
 import { BrandLogo } from '@/components/ui/BrandLogo';
+import { Navbar } from '@/components/layout/Navbar';
+import { Footer } from '@/components/layout/Footer';
+import { TrustedBrands } from '@/components/layout/TrustedBrands';
 
 // --- COMPOSANT D'ANIMATION STANDARD ---
 const Reveal = ({ 
@@ -111,117 +114,10 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#0097b2]/30 scroll-smooth pb-24 lg:pb-0 overflow-x-hidden">
       
       {/* STYLES GLOBAUX & ANIMATIONS TECH OPTIMISÉES */}
-      <style dangerouslySetInnerHTML={{__html: `
-        :root { color-scheme: light only !important; }
-        html, body { background-color: #f8fafc !important; color: #0f172a !important; }
-        
-        .bg-grid-tech {
-          background-image: 
-            linear-gradient(to right, rgba(0, 151, 178, 0.05) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(0, 151, 178, 0.05) 1px, transparent 1px);
-          background-size: 40px 40px;
-        }
-
-        @keyframes slowPan {
-          0% { transform: scale(1.05) translate(0, 0); }
-          100% { transform: scale(1.15) translate(-1%, 1%); }
-        }
-        .animate-bg-pan { animation: slowPan 25s ease-in-out infinite alternate; will-change: transform; }
-        
-        @keyframes shine { 100% { left: 125%; } }
-        .animate-button-shine {
-          position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
-          background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
-          transform: skewX(-20deg); animation: shine 3s infinite;
-        }
-        
-        @keyframes float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
-        }
-        .animate-float { animation: float 6s ease-in-out infinite; will-change: transform; }
-        
-        @keyframes float-delayed {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-15px); }
-        }
-        .animate-float-delayed { animation: float-delayed 7s ease-in-out infinite 2s; will-change: transform; }
-        
-        @keyframes pulse-neon {
-          0%, 100% { box-shadow: 0 0 15px rgba(0, 151, 178, 0.5), inset 0 0 10px rgba(0, 151, 178, 0.2); }
-          50% { box-shadow: 0 0 30px rgba(0, 151, 178, 0.8), inset 0 0 20px rgba(0, 151, 178, 0.4); }
-        }
-        .animate-pulse-neon { animation: pulse-neon 3s infinite; }
-
-        .glass-tech {
-          background: rgba(255, 255, 255, 0.03);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .tech-card { position: relative; z-index: 1; }
-        .tech-card::before {
-          content: ''; position: absolute; inset: 0; border-radius: inherit;
-          background: linear-gradient(135deg, rgba(0,151,178,0) 0%, rgba(0,151,178,0) 100%);
-          z-index: -1; transition: background 0.5s ease;
-        }
-        .tech-card:hover::before {
-          background: linear-gradient(135deg, rgba(0,151,178,0.1) 0%, rgba(3,43,96,0.05) 100%);
-        }
-
-        @media (max-width: 768px) {
-          .animate-bg-pan, .animate-float, .animate-float-delayed, .animate-pulse-neon { 
-            animation: none !important; transform: none !important; 
-          }
-          .glass-tech { 
-            backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: rgba(255, 255, 255, 0.08); 
-          }
-        }
-      `}} />
+      
 
       {/* NAVIGATION VITRINE */}
-      <nav className="fixed top-0 left-0 w-full z-50 bg-white/85 backdrop-blur-md shadow-sm py-3 md:py-4 border-b border-slate-200/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
-          
-          <div className="shrink-0 relative z-50">
-            <Logo light={false} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
-          </div>
-
-          <div className="hidden md:flex items-center p-1.5 rounded-full border bg-white/50 border-slate-200 shadow-[inset_0_1px_3px_rgba(0,0,0,0.05)]">
-            <a href="#groupe" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white hover:shadow-sm">Le Groupe Tech</a>
-            <a href="#expertises" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white hover:shadow-sm">Points de charge</a>
-            <a href="#engagements" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white hover:shadow-sm">Garanties MCO</a>
-          </div>
-
-          <div className="flex items-center gap-2 relative z-50">
-            <a 
-              href="#contact"
-              className="relative overflow-hidden px-5 sm:px-6 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all group bg-[#032b60] text-white hover:bg-[#0097b2] shadow-md hover:shadow-lg"
-            >
-              <div className="animate-button-shine" />
-              Contact <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform hidden sm:block text-cyan-400" />
-            </a>
-            
-            <button 
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full text-[#032b60] hover:bg-slate-200 transition-colors"
-              aria-label="Menu"
-            >
-              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
-          </div>
-        </div>
-
-        <div className={`md:hidden absolute top-full left-0 w-full bg-white border-b border-slate-200 shadow-xl overflow-hidden transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="px-6 py-4 flex flex-col gap-4">
-            <a onClick={() => setIsMobileMenuOpen(false)} href="#groupe" className="text-base font-bold text-[#032b60] py-2 border-b border-slate-100 flex justify-between items-center">Le Groupe Tech <ChevronRight size={16} className="text-slate-300"/></a>
-            <a onClick={() => setIsMobileMenuOpen(false)} href="#expertises" className="text-base font-bold text-[#032b60] py-2 border-b border-slate-100 flex justify-between items-center">Points de charge <ChevronRight size={16} className="text-slate-300"/></a>
-            <a onClick={() => setIsMobileMenuOpen(false)} href="#engagements" className="text-base font-bold text-[#032b60] py-2 flex justify-between items-center">Garanties MCO <ChevronRight size={16} className="text-slate-300"/></a>
-          </div>
-        </div>
-      </nav>
-
+<Navbar isHome />
       <main>
         {/* HERO SECTION HIGH-TECH */}
         <section className="relative min-h-dvh pt-25 md:pt-30 flex flex-col justify-center overflow-hidden bg-[#032b60]">
@@ -314,17 +210,7 @@ export default function App() {
         </section>
 
         {/* MARQUES PARTENAIRES TECHNOLOGIQUES */}
-        <div className="bg-white py-12 border-b border-slate-100 relative z-20">
-          <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-8">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Hardware partenaires</p>
-            <div className="flex flex-wrap justify-center items-center gap-8 sm:gap-16 w-full">
-              <BrandLogo name="HAGER" url="https://upload.wikimedia.org/wikipedia/commons/d/d1/Hagerlogo.jpg" />
-              <BrandLogo name="AUTEL" url="https://mms.businesswire.com/media/20230321006038/fr/1595853/4/AUTEL_New_Energy_Logo.jpg" />
-              <BrandLogo name="WALLBOX" url="https://data.ladn.eu/wp-content/uploads/2022/12/Nomination-Wallbox-Myriam-Lhermurier-Boublil-1280x467.jpg" />
-              <BrandLogo name="ALFEN" url="https://upload.wikimedia.org/wikipedia/commons/3/39/Alfen_logo.svg" />
-            </div>
-          </div>
-        </div>
+   <TrustedBrands />
 
         {/* SECTION PRÉSENTATION GROUPE TECH */}
         <section id="groupe" className="py-20 md:py-32 bg-slate-50 overflow-hidden relative">
@@ -613,57 +499,7 @@ export default function App() {
       </main>
 
       {/* FOOTER EXACT */}
-      <footer className="bg-[#032B60] py-16 md:py-24 border-t border-white/5 overflow-hidden relative">
-        <div className="hidden md:block absolute -bottom-40 -right-40 w-96 h-96 bg-[radial-gradient(circle,rgba(0,151,178,0.3)_0%,transparent_70%)] pointer-events-none"></div>
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-start gap-12 md:gap-16 relative z-10">
-           
-           <div className="space-y-6 text-left max-w-sm">
-              <Logo light={true} className="scale-100 sm:scale-110 origin-left" />
-              <div className="space-y-2 mt-4">
-                 <p className="text-white/80 font-medium text-sm sm:text-base leading-relaxed">
-                   8, Avenue du général De Gaulle<br />
-                   74200 THONON-LES-BAINS
-                 </p>
-                 <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest mt-4">Entreprise en cours de création</p>
-              </div>
-           </div>
-           
-           <div className="flex flex-col sm:flex-row gap-12 md:gap-24 text-left">
-              <div className="space-y-5">
-                 <h4 className="text-white/40 font-bold text-xs uppercase tracking-[0.2em]">Navigation</h4>
-                 <ul className="space-y-3">
-                    <li><a href="#groupe" className="text-[#0097b2] font-black text-sm hover:translate-x-1 transition-all inline-block">Le Groupe</a></li>
-                    <li><a href="#expertises" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Nos Expertises</a></li>
-                    <li><a href="#engagements" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Engagements</a></li>
-                    <li className="pt-2 border-t border-white/10 mt-2"><a href="#contact" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Nous contacter</a></li>
-                 </ul>
-              </div>
-              
-              <div className="space-y-5">
-                 <h4 className="text-white/40 font-bold text-xs uppercase tracking-[0.2em]">Assistance</h4>
-                 <ul className="space-y-4">
-                    <li>
-                      <a href="tel:0485692204" className="text-white font-bold text-base sm:text-lg hover:text-[#0097b2] transition-colors flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0"><Phone size={14} /></span>
-                        04 85 69 22 04
-                      </a>
-                    </li>
-                    <li>
-                      <a href="mailto:contact@chargeo.fr" className="text-white font-bold text-base sm:text-lg hover:text-[#0097b2] transition-colors flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0"><Mail size={14} /></span>
-                        contact@chargeo.fr
-                      </a>
-                    </li>
-                    <li className="pt-2 flex gap-4">
-                      <a href="#" className="text-white/40 text-[10px] font-bold uppercase tracking-wider hover:text-[#0097b2] transition-colors">Mentions Légales</a>
-                      <a href="#" className="text-white/40 text-[10px] font-bold uppercase tracking-wider hover:text-[#0097b2] transition-colors">CGV</a>
-                    </li>
-                 </ul>
-              </div>
-           </div>
-
-        </div>
-      </footer>
+<Footer />
 
     </div>
   );

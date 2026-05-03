@@ -1,61 +1,46 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import Link from 'next/link';
-import { 
-  ChevronDown, ArrowRight, ShieldCheck, ArrowLeft,
-  CheckCircle, Star, Settings, MapPin, 
-  Award, FileText, PiggyBank, Car, 
-  Wrench, Phone, Mail, Building, Users, Home, CreditCard, Plug, Zap
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  ArrowRight, ShieldCheck, Building, Home, CreditCard,
+  MapPin, Award, FileText, Phone, Car
 } from 'lucide-react';
 
 import { FadeIn } from '@/components/ui/FadeIn';
-import { Logo } from '@/components/ui/Logo';
-import { BrandLogo } from '@/components/ui/BrandLogo';
-import { useAnimatedValue } from '@/hooks/useAnimatedValue';
-
-// --- PAGE PRINCIPALE ---
+import { Navbar } from '@/components/layout/Navbar';
+import { TrustedBrands } from '@/components/layout/TrustedBrands';
+import { Footer } from '@/components/layout/Footer';
+import { ReviewsCarousel } from '@/components/ui/ReviewsCarousel';
+import { FaqAccordion } from '@/components/ui/FaqAccordion';
+import { SimulatorPro } from '@/components/ui/SimulatorPro';
 
 export default function ProPage() {
-  const [currentReview, setCurrentReview] = useState(0);
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-  
-  // Variables Simulateur Pro
-  const [chargePoints, setChargePoints] = useState(4);
-  const [sessionsPerDay, setSessionsPerDay] = useState(2);
-  const [marginPerKwh, setMarginPerKwh] = useState(0.20);
-  const [kwhPerSession, setKwhPerSession] = useState(25);
-  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [isHeroVisible, setIsHeroVisible] = useState(true);
+  const [isFormVisible, setIsFormVisible] = useState(false);
 
-  const [isPulsing, setIsPulsing] = useState(false);
-  const [isInView, setIsInView] = useState(false); 
-  const [triggerKey, setTriggerKey] = useState(0);
-
-  const simulatorRef = useRef<HTMLDivElement>(null);
-  const resultsRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
-  const simulatorCtaRef = useRef<HTMLButtonElement>(null);
-
-  const [isHeroVisible, setIsHeroVisible] = useState(true);
-  const [isSimulatorCtaVisible, setIsSimulatorCtaVisible] = useState(false);
-  const [isFormVisible, setIsFormVisible] = useState(false);
 
   const brandNavy = "#032b60";
   const brandTeal = "#0097b2";
 
-  const results = useMemo(() => {
-    const safeChargePoints = isNaN(chargePoints) ? 0 : chargePoints;
-    const safeSessions = isNaN(sessionsPerDay) ? 0 : sessionsPerDay;
-    const safeMargin = isNaN(marginPerKwh) ? 0 : marginPerKwh;
-    const safeKwh = isNaN(kwhPerSession) ? 0 : kwhPerSession;
-    const annualRevenue = safeChargePoints * safeSessions * safeKwh * safeMargin * 300;
-    return { annualRevenue: Math.max(0, annualRevenue) };
-  }, [chargePoints, sessionsPerDay, marginPerKwh, kwhPerSession]);
+  const showFloatingCta = !isHeroVisible && !isFormVisible;
 
-  const animatedRevenue = useAnimatedValue(results.annualRevenue, 1200, isInView, triggerKey);
+  useEffect(() => {
+    const observerOptions = { threshold: 0 };
+    const heroObserver = new IntersectionObserver(([entry]) => setIsHeroVisible(entry.isIntersecting), observerOptions);
+    const formObserver = new IntersectionObserver(([entry]) => setIsFormVisible(entry.isIntersecting), observerOptions);
 
-  const reviews = useMemo(() => [
+    if (heroRef.current) heroObserver.observe(heroRef.current);
+    if (formRef.current) formObserver.observe(formRef.current);
+
+    return () => {
+      heroObserver.disconnect();
+      formObserver.disconnect();
+    };
+  }, []);
+
+  const reviews = [
     {
       text: "Nous voulions offrir un service de recharge à notre clientèle. CHARGéO a géré l'installation, et la borne génère aujourd'hui des revenus chaque mois.",
       author: "Directeur d'Hôtel",
@@ -74,45 +59,7 @@ export default function ProPage() {
       location: "74200 Thonon",
       image: "/review-flotte.png"
     }
-  ], []);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => setIsInView(entry.isIntersecting), { threshold: 0.2 });
-    if (resultsRef.current) observer.observe(resultsRef.current);
-
-    const timer = setInterval(() => setCurrentReview((prev) => (prev + 1) % reviews.length), 5000);
-
-    return () => {
-      observer.disconnect();
-      clearInterval(timer);
-    };
-  }, [reviews.length]);
-
-  useEffect(() => {
-    const observerOptions = { threshold: 0 };
-    const heroObserver = new IntersectionObserver(([entry]) => setIsHeroVisible(entry.isIntersecting), observerOptions);
-    const simCtaObserver = new IntersectionObserver(([entry]) => setIsSimulatorCtaVisible(entry.isIntersecting), observerOptions);
-    const formObserver = new IntersectionObserver(([entry]) => setIsFormVisible(entry.isIntersecting), observerOptions);
-
-    if (heroRef.current) heroObserver.observe(heroRef.current);
-    if (simulatorCtaRef.current) simCtaObserver.observe(simulatorCtaRef.current);
-    if (formRef.current) formObserver.observe(formRef.current);
-
-    return () => {
-      heroObserver.disconnect();
-      simCtaObserver.disconnect();
-      formObserver.disconnect();
-    };
-  }, []);
-
-  const showFloatingCta = !isHeroVisible && !isSimulatorCtaVisible && !isFormVisible;
-
-  useEffect(() => {
-    setTriggerKey(prev => prev + 1);
-    setIsPulsing(true);
-    const pulseTimer = setTimeout(() => setIsPulsing(false), 300);
-    return () => clearTimeout(pulseTimer);
-  }, [chargePoints, sessionsPerDay, marginPerKwh, kwhPerSession]);
+  ];
 
   const faqs = [
     { q: "Comment fonctionne la monétisation ?", a: "C'est très simple : nous installons des bornes communicantes. Vous décidez du tarif appliqué au kWh. Notre logiciel s'occupe de facturer l'utilisateur final par QR Code et vous reverse les revenus mensuellement." },
@@ -123,61 +70,24 @@ export default function ProPage() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-[#0097b2]/20 scroll-smooth pb-24 lg:pb-0">
-      
-      <style dangerouslySetInnerHTML={{__html: `
-        :root { color-scheme: light only !important; }
-        html, body { background-color: #ffffff !important; color: #0f172a !important; }
-        @keyframes slowPan { 0% { transform: scale(1.05) translate(0, 0); } 100% { transform: scale(1.15) translate(-1%, 1%); } }
-        .animate-bg-pan { animation: slowPan 25s ease-in-out infinite alternate; will-change: transform; }
-        @keyframes shine { 100% { left: 125%; } }
-        .animate-button-shine { position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%); transform: skewX(-20deg); animation: shine 3s infinite; }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-        .animate-float { animation: float 4s ease-in-out infinite; will-change: transform; }
-        @media (max-width: 768px) {
-          .animate-bg-pan, .animate-float { animation: none !important; transform: none !important; }
-        }
-      `}} />
 
-      {/* NAVIGATION : Blanche Glassy Fixe */}
-      <nav className="fixed top-0 left-0 w-full z-50 bg-white/85 backdrop-blur-md shadow-sm py-3 md:py-4 border-b border-slate-200/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
-          <div className="shrink-0 relative z-50">
-            <Logo light={false} className="scale-75 sm:scale-100 origin-left" />
-          </div>
-          <div className="flex items-center gap-2 sm:gap-4 relative z-50">
-            <Link 
-              href="/" 
-              className="flex items-center gap-2 text-slate-500 hover:text-[#032b60] font-bold text-sm bg-white hover:bg-slate-100 px-4 py-2 sm:py-2.5 rounded-full border border-slate-200 transition-all shadow-sm"
-            >
-              <ArrowLeft size={16} />
-              <span className="hidden sm:inline">Retour à l'accueil</span>
-              <span className="sm:hidden">Retour</span>
-            </Link>
-
-            <div className={`hidden lg:flex shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
-              <button 
-                onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-                className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] group"
-              >
-                <div className="animate-button-shine" />
-                Audit B2B Gratuit <Phone size={16} className="group-hover:rotate-12 transition-transform" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar
+        showFloatingCta={showFloatingCta}
+        onCtaClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
+        ctaText="Audit B2B Gratuit"
+      />
 
       {/* STICKY BOTTOM BAR (MOBILE) */}
       <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-60 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 ${showFloatingCta ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex flex-col">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Revenus Potentiels</p>
-            <p className={`text-xl sm:text-2xl font-black text-green-600 transition-all duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
-              +{Math.round(results.annualRevenue).toLocaleString('fr-FR')}€ / an
+            <p className="text-xl sm:text-2xl font-black text-green-600 transition-all duration-300">
+              Calculateur
             </p>
           </div>
-          <button 
-            onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} 
+          <button
+            onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
             className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-3 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] group"
           >
             <div className="animate-button-shine" />
@@ -190,10 +100,10 @@ export default function ProPage() {
         {/* HERO SECTION PRO */}
         <section className="relative min-h-dvh pt-25 md:pt-30 flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
-            <img 
-              src="/hero-pro.png" 
-              className="w-full h-full object-cover opacity-40 animate-bg-pan" 
-              alt="Bâtiment entreprise et recharge" 
+            <img
+              src="/hero-pro.png"
+              className="w-full h-full object-cover opacity-40 animate-bg-pan"
+              alt="Bâtiment entreprise et recharge"
             />
             <div className="absolute inset-0 bg-linear-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
           </div>
@@ -217,15 +127,15 @@ export default function ProPage() {
               </FadeIn>
               <FadeIn delay={700}>
                 <div ref={heroRef} className="flex flex-col items-center gap-4 animate-float">
-                  <button 
-                    onClick={() => simulatorRef.current?.scrollIntoView({ behavior: 'smooth' })} 
+                  <button
+                    onClick={() => document.getElementById('simulateur')?.scrollIntoView({ behavior: 'smooth' })}
                     className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full font-black text-base sm:text-lg shadow-[0_4px_14px_rgba(255,107,0,0.3)] transition-all group"
                   >
                     <div className="animate-button-shine" />
                     Estimer mes revenus <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/>
                   </button>
-                  <button 
-                    onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} 
+                  <button
+                    onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
                     className="text-sm text-white/80 hover:text-white font-bold underline underline-offset-4 decoration-white/30 hover:decoration-white transition-all flex items-center gap-2"
                   >
                     <Phone size={14} /> Ou demander un Audit B2B directement
@@ -237,16 +147,7 @@ export default function ProPage() {
         </section>
 
         {/* BANDEAU CONFIANCE */}
-        <div className="bg-white border-y border-slate-100 py-10">
-          <div className="max-w-7xl mx-auto px-6 flex flex-wrap justify-center items-center gap-8 md:gap-12">
-            <BrandLogo name="HAGER" url="https://upload.wikimedia.org/wikipedia/commons/d/d1/Hagerlogo.jpg" />
-            <BrandLogo name="AUTEL" url="https://mms.businesswire.com/media/20230321006038/fr/1595853/4/AUTEL_New_Energy_Logo.jpg" />
-            <BrandLogo name="WALLBOX" url="https://data.ladn.eu/wp-content/uploads/2022/12/Nomination-Wallbox-Myriam-Lhermurier-Boublil-1280x467.jpg" />
-            <BrandLogo name="ALFEN" url="https://upload.wikimedia.org/wikipedia/commons/3/39/Alfen_logo.svg" />
-            <BrandLogo name="LEGRAND" url="https://upload.wikimedia.org/wikipedia/fr/3/3e/Logo_Legrand.svg" />
-            <BrandLogo name="ABB" url="https://upload.wikimedia.org/wikipedia/commons/0/00/ABB_logo.svg" />
-          </div>
-        </div>
+        <TrustedBrands />
 
         {/* CAS D'USAGE B2B */}
         <section id="concept" className="py-24 bg-slate-50 overflow-hidden">
@@ -254,7 +155,7 @@ export default function ProPage() {
              <div className="space-y-8">
                 <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>Chaque entreprise <br/><span style={{ color: brandTeal }}>est unique.</span></h2>
                 <p className="text-lg text-slate-500 font-medium leading-relaxed">Nous avons segmenté nos offres pour répondre aux exigences comptables, fiscales et RH propres à votre modèle économique.</p>
-                
+
                 <div className="space-y-6">
                   {[
                     { i: <Car />, t: "Cas n°1 : La Flotte d'Entreprise", d: "Électrifiez votre parking. Supervision logicielle, badges RFID pour le suivi des consos et délestage pour la sécurité de l'entreprise." },
@@ -273,46 +174,8 @@ export default function ProPage() {
                   ))}
                 </div>
              </div>
-             
-             <div className="relative">
-                <div className="absolute -inset-4 bg-slate-100 rounded-[3rem] -rotate-3 shadow-sm"></div>
-                <div className="relative w-full rounded-[2.5rem] shadow-2xl aspect-4/5 bg-slate-200 overflow-hidden border-8 border-white group">
-                  {reviews.map((review, idx) => (
-                    <img 
-                      key={idx}
-                      src={review.image} 
-                      className={`absolute inset-0 w-full h-full object-cover transition-all duration-1000 ${idx === currentReview ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
-                      alt={`Témoignage de ${review.author}`}
-                    />
-                  ))}
-                  <div className="absolute inset-0 bg-linear-to-t from-[#032b60]/80 via-transparent to-transparent z-10 opacity-60"></div>
-                </div>
 
-                <div className="absolute -bottom-10 -left-4 md:-left-10 bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-slate-100 w-[90%] sm:max-w-md min-h-55 flex flex-col justify-between z-20 hover:-translate-y-2 transition-transform">
-                  <div>
-                      <div className="flex gap-1 text-yellow-400 mb-4">
-                         {[1,2,3,4,5].map(s => <Star key={s} size={14} fill="currentColor" stroke="none" />)}
-                      </div>
-                      <div className="relative overflow-hidden h-32">
-                        {reviews.map((review, idx) => (
-                          <div key={idx} className={`absolute inset-0 transition-all duration-700 ${idx === currentReview ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
-                            <p className="text-sm font-bold text-slate-700 italic leading-relaxed">&quot;{review.text}&quot;</p>
-                            <p className="mt-3 font-black text-[10px] uppercase tracking-widest text-[#0097b2]">&mdash; {review.author}, {review.location}</p>
-                          </div>
-                        ))}
-                      </div>
-                  </div>
-                  <div className="flex gap-2 mt-4 justify-center">
-                      {reviews.map((_, idx) => (
-                          <button 
-                              key={idx} 
-                              onClick={() => setCurrentReview(idx)}
-                              className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentReview ? 'w-6 bg-[#0097b2]' : 'w-2 bg-slate-200'}`} 
-                          ></button>
-                      ))}
-                  </div>
-                </div>
-             </div>
+             <ReviewsCarousel reviews={reviews} />
           </div>
         </section>
 
@@ -320,6 +183,8 @@ export default function ProPage() {
         <section className="py-20 bg-white border-t border-slate-100 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6">
             <div className="bg-[#032b60] rounded-[2.5rem] p-10 md:p-16 flex flex-col md:flex-row items-center gap-12 shadow-2xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#0097b2]/30 rounded-full blur-[100px] -mr-20 -mt-20 group-hover:scale-150 transition-transform duration-1000 ease-in-out"></div>
+
               <div className="md:w-1/2 space-y-6 relative z-10 text-white">
                 <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full border border-white/20">
                   <ShieldCheck size={16} className="text-[#0097b2]" />
@@ -353,79 +218,19 @@ export default function ProPage() {
         </section>
 
         {/* SIMULATEUR PRO */}
-        <section ref={simulatorRef} id="simulateur" className="py-24 bg-white scroll-mt-24">
-          <div className="max-w-7xl mx-auto px-6 text-center">
-            <h2 className="text-4xl md:text-6xl font-black text-[#032b60] uppercase tracking-tighter mb-16">
-              Estimez vos <br className="md:hidden"/><span className="text-[#0097b2]">revenus de recharge</span>
-            </h2>
+        <section id="simulateur" className="py-24 bg-white scroll-mt-24">
+          <SimulatorPro />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-              <div className="space-y-8 bg-slate-50 p-8 md:p-10 rounded-[2.5rem] border border-slate-100">
-                <div className="flex justify-between items-end">
-                  <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
-                    <Plug className="text-[#0097b2]" size={24}/> Points de charge
-                  </h3>
-                  <span className={`text-3xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-110' : ''}`}>
-                    {chargePoints} <span className="text-sm text-slate-400 font-bold">places</span>
-                  </span>
-                </div>
-                <input type="range" min="1" max="20" value={chargePoints} onChange={(e) => setChargePoints(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-                
-                <div className="flex justify-between items-end pt-4 border-t border-slate-200">
-                  <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
-                    <Users className="text-[#0097b2]" size={24}/> Taux de rotation
-                  </h3>
-                  <span className={`text-3xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-110' : ''}`}>
-                    {sessionsPerDay} <span className="text-sm text-slate-400 font-bold">sessions/j</span>
-                  </span>
-                </div>
-                <input type="range" min="1" max="10" value={sessionsPerDay} onChange={(e) => setSessionsPerDay(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-
-                <button 
-                  onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
-                  className="w-full flex items-center justify-center gap-2 text-slate-400 font-bold text-sm pt-4"
-                >
-                  <Settings size={14} /> {showAdvancedSettings ? "Masquer les réglages" : "Ajuster la marge (kWh)"}
-                </button>
-
-                {showAdvancedSettings && (
-                  <div className="pt-4 space-y-6">
-                    <div className="flex justify-between text-xs font-black uppercase text-slate-500"><span>Marge nette</span><span>{marginPerKwh.toFixed(2)} €/kWh</span></div>
-                    <input type="range" min="0.05" max="0.50" step="0.01" value={marginPerKwh} onChange={(e) => setMarginPerKwh(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none accent-[#0097b2]" />
-                  </div>
-                )}
-              </div>
-
-              <div ref={resultsRef} className="bg-linear-to-br from-green-50 to-emerald-100 p-8 md:p-10 rounded-[2.5rem] border border-green-200 shadow-xl flex flex-col justify-center relative overflow-hidden">
-                <PiggyBank className="absolute -right-10 -bottom-10 opacity-10 text-green-600" size={200} />
-                <h3 className="text-green-800 text-sm font-black uppercase tracking-widest mb-2 relative z-10">Revenus nets générés</h3>
-                <div className={`flex items-baseline justify-center gap-2 relative z-10 transition-all duration-300 ${isPulsing ? 'scale-105' : ''}`}>
-                  <span className="text-6xl md:text-7xl font-black text-green-600 tracking-tighter">+{Math.round(animatedRevenue).toLocaleString('fr-FR')}</span>
-                  <span className="text-2xl font-black text-green-700">€ / an</span>
-                </div>
-                <p className="text-xs text-green-800/70 font-bold mt-4 relative z-10">*Basé sur 300 jours d'ouverture par an.</p>
-                <button 
-                  ref={simulatorCtaRef}
-                  onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                  className="relative overflow-hidden mt-8 w-full bg-[#FF6B00] hover:bg-[#E66000] text-white py-4 rounded-full font-black text-lg shadow-lg group z-10 transition-all"
-                >
-                  <div className="animate-button-shine" />
-                  Audit B2B Gratuit <Phone size={18} className="inline ml-2" />
-                </button>
-              </div>
-            </div>
-
-            {/* FORMULAIRE ClickUp */}
-            <div id="formulaire-devis" ref={formRef} className="w-full mt-24 bg-white p-4 sm:p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-              <div className="w-full relative h-212.5 sm:h-200 lg:h-225">
-                <iframe 
-                  className="w-full h-full border-none rounded-2xl" 
-                  src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS?Source=Site%20Web%20Pro" 
-                  title="Formulaire CHARGéO Pro" 
-                  style={{ background: 'transparent' }}
-                  loading="lazy"
-                />
-              </div>
+          {/* FORMULAIRE ClickUp */}
+          <div id="formulaire-devis" ref={formRef} className="max-w-7xl mx-auto px-6 mt-24 bg-white p-4 sm:p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+            <div className="w-full relative h-212.5 sm:h-200 lg:h-225">
+              <iframe
+                className="w-full h-full border-none rounded-2xl"
+                src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS?Source=Site%20Web%20Pro"
+                title="Formulaire CHARGéO Pro"
+                style={{ background: 'transparent' }}
+                loading="lazy"
+              />
             </div>
           </div>
         </section>
@@ -434,59 +239,12 @@ export default function ProPage() {
         <section className="py-24 bg-slate-50 border-t border-slate-100 text-center">
           <div className="max-w-4xl mx-auto px-6">
             <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase mb-12" style={{ color: brandNavy }}>Questions <span style={{ color: brandTeal }}>Fréquentes</span></h2>
-            <div className="space-y-4">
-              {faqs.map((faq, idx) => (
-                <div key={idx} className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm bg-white">
-                  <button 
-                    onClick={() => setOpenFaq(openFaq === idx ? null : idx)} 
-                    className="w-full flex items-center justify-between p-6 md:p-8 text-left hover:bg-slate-50 transition-colors"
-                  >
-                    <span className="font-black text-lg pr-8" style={{ color: brandNavy }}>{faq.q}</span>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${openFaq === idx ? 'bg-[#0097b2] text-white' : 'bg-slate-50 text-[#0097b2]'}`}>
-                      <ChevronDown className={`transition-transform duration-300 ${openFaq === idx ? 'rotate-180' : ''}`} size={20} />
-                    </div>
-                  </button>
-                  <div className={`overflow-hidden transition-all duration-500 ease-in-out ${openFaq === idx ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-                    <div className="p-6 md:p-8 bg-slate-50 text-slate-500 font-medium leading-relaxed border-t border-slate-100">
-                      {faq.a}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <FaqAccordion faqs={faqs} />
           </div>
         </section>
       </main>
 
-      {/* FOOTER */}
-      <footer className="bg-[#032B60] py-16 md:py-24 border-t border-white/5 relative overflow-hidden">
-        <div className="hidden md:block absolute -bottom-40 -right-40 w-96 h-96 bg-[radial-gradient(circle,rgba(0,151,178,0.3)_0%,transparent_70%)] pointer-events-none"></div>
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-start gap-12 md:gap-16 relative z-10">
-           <div className="space-y-6 text-left max-w-sm">
-              <Logo light={true} className="scale-100 sm:scale-110 origin-left" />
-              <p className="text-white/80 font-medium text-sm sm:text-base">
-                 8, Avenue du général De Gaulle<br />74200 THONON-LES-BAINS
-              </p>
-           </div>
-           <div className="flex flex-col sm:flex-row gap-12 md:gap-24 text-left">
-              <div className="space-y-5">
-                 <h4 className="text-white/40 font-bold text-xs uppercase tracking-[0.2em]">Navigation</h4>
-                 <ul className="space-y-3">
-                    <li><a href="#simulateur" className="text-[#0097b2] font-black text-sm hover:translate-x-1 transition-all inline-block">Estimer mes revenus</a></li>
-                    <li><a href="#concept" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Cas d'usage B2B</a></li>
-                    <li><a href="#formulaire-devis" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Demander un Audit</a></li>
-                 </ul>
-              </div>
-              <div className="space-y-5">
-                 <h4 className="text-white/40 font-bold text-xs uppercase tracking-[0.2em]">Assistance</h4>
-                 <ul className="space-y-4">
-                    <li><a href="tel:0485692204" className="text-white font-bold text-lg flex items-center gap-3 hover:text-[#0097b2] transition-colors"><Phone size={14} /> 04 85 69 22 04</a></li>
-                    <li><a href="mailto:contact@chargeo.fr" className="text-white font-bold text-lg flex items-center gap-3 hover:text-[#0097b2] transition-colors"><Mail size={14} /> contact@chargeo.fr</a></li>
-                 </ul>
-              </div>
-           </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
