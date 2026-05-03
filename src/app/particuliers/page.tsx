@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import Link from 'next/link';
 import { 
   ChevronDown, ArrowRight, Zap, ShieldCheck, Clock, 
   CheckCircle, Star, Settings, MapPin, 
@@ -8,120 +9,15 @@ import {
   Wrench, Phone, Mail, ArrowLeft 
 } from 'lucide-react';
 
-// --- COMPOSANTS RÉINTÉGRÉS POUR LE FONCTIONNEMENT AUTONOME ---
+import { FadeIn } from '@/components/ui/FadeIn';
+import { AnimatedBar } from '@/components/ui/AnimatedBar';
+import { Logo } from '@/components/ui/Logo';
+import { BrandLogo } from '@/components/ui/BrandLogo';
+import { useAnimatedValue } from '@/hooks/useAnimatedValue';
 
-const FadeIn = ({ children, delay = 0, direction = "up", className = "" }: any) => {
-  const [isVisible, setIsVisible] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          observer.unobserve(entry.target);
-        }
-      },
-      { threshold: 0.1, rootMargin: "0px 0px -50px 0px" }
-    );
-
-    if (ref.current) observer.observe(ref.current);
-    return () => { if (ref.current) observer.unobserve(ref.current); };
-  }, []);
-
-  const getTransform = () => {
-    if (isVisible) return "translate-y-0 translate-x-0 scale-100";
-    switch (direction) {
-      case "up": return "translate-y-8 scale-95";
-      case "down": return "-translate-y-8 scale-95";
-      case "left": return "translate-x-8 scale-95";
-      case "right": return "-translate-x-8 scale-95";
-      default: return "translate-y-8 scale-95";
-    }
-  };
-
-  return (
-    <div
-      ref={ref}
-      style={{ transitionDelay: `${delay}ms` }}
-      className={`transition-all duration-1000 ease-out ${
-        isVisible ? "opacity-100" : "opacity-0"
-      } ${getTransform()} ${className}`}
-    >
-      {children}
-    </div>
-  );
-};
-
-const useAnimatedValue = (endValue: number, duration = 1000, startAnimating = true, triggerKey = 0) => {
-  const [value, setValue] = useState(0);
-
-  useEffect(() => {
-    if (!startAnimating) return;
-    let startTime: number | null = null;
-    let animationFrame: number;
-    
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-      const ease = 1 - Math.pow(1 - progress, 4);
-      setValue(endValue * ease);
-      
-      if (progress < 1) {
-        animationFrame = requestAnimationFrame(animate);
-      }
-    };
-    
-    animationFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [endValue, duration, startAnimating, triggerKey]);
-
-  return value;
-};
-
-const AnimatedBar = ({ percent, isVisible, triggerKey, delay, wrapperClass, innerClass }: any) => {
-  const [width, setWidth] = useState(0);
-  
-  useEffect(() => {
-    if (isVisible) {
-      const timer = setTimeout(() => setWidth(percent), delay);
-      return () => clearTimeout(timer);
-    } else {
-      setWidth(0);
-    }
-  }, [percent, isVisible, triggerKey, delay]);
-
-  return (
-    <div className={wrapperClass}>
-      <div className={innerClass} style={{ width: `${width}%`, transition: 'width 1s ease-out' }}></div>
-    </div>
-  );
-};
-
-const Logo = ({ light = false, className = "" }: { light?: boolean, className?: string }) => {
-  const [imgError, setImgError] = useState(false);
-  const logoSrc = light ? "/CHARGEO_LOGO_BLANC.png" : "/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png";
-  return (
-    <a href="/" className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
-      {!imgError ? (
-        <img src={logoSrc} alt="Logo CHARGéO" onError={() => setImgError(true)} className="h-full w-auto object-contain transition-all duration-300" />
-      ) : (
-        <span className={`text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter ${light ? 'text-white' : 'text-[#032b60]'}`}>
-          CHARG<span className="text-[#0097b2]">é</span>O
-        </span>
-      )}
-    </a>
-  );
-};
-
-const BrandLogo = ({ name, url }: any) => (
-  <img src={url} alt={`Logo ${name}`} className="h-6 sm:h-8 object-contain grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-500" />
-);
-
-// --- FIN DES COMPOSANTS RÉINTÉGRÉS ---
+// --- PAGE PRINCIPALE ---
 
 export default function App() {
-  const [scrolled, setScrolled] = useState(false);
   const [currentReview, setCurrentReview] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   
@@ -210,12 +106,6 @@ export default function App() {
   };
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
-    
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    
     const observer = new IntersectionObserver(
       ([entry]) => {
         setIsInView(entry.isIntersecting);
@@ -231,7 +121,6 @@ export default function App() {
     }, 5000);
 
     return () => {
-      window.removeEventListener('scroll', handleScroll);
       if (currentResultsRef) observer.unobserve(currentResultsRef);
       observer.disconnect();
       clearInterval(timer);
@@ -321,14 +210,14 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4 relative z-50">
-            <a 
+            <Link 
               href="/" 
               className="flex items-center gap-2 text-slate-500 hover:text-[#032b60] font-bold text-sm bg-white hover:bg-slate-100 px-4 py-2 sm:py-2.5 rounded-full border border-slate-200 transition-all shadow-sm hover:shadow"
             >
               <ArrowLeft size={16} />
               <span className="hidden sm:inline">Retour à l'accueil</span>
               <span className="sm:hidden">Retour</span>
-            </a>
+            </Link>
 
             <div className={`hidden lg:flex flex-shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
               <button 
@@ -364,7 +253,7 @@ export default function App() {
       </div>
 
       <main>
-        {/* HERO SECTION : Ajustée avec pt-[100px] pour passer fluidement sous la navbar fixe */}
+        {/* HERO SECTION */}
         <section className="relative min-h-[100dvh] pt-[100px] md:pt-[120px] flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
             <img 
@@ -392,7 +281,7 @@ export default function App() {
               
               <FadeIn delay={500} direction="up">
                 <p className="text-lg md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
-                  Simule vos économies en passant à l&apos;électrique et demandez une visite technique gratuite pour l&apos;installation de votre borne certifiée IRVE.
+                  Simulez vos économies en passant à l'électrique et demandez une visite technique gratuite pour l'installation de votre borne certifiée IRVE.
                 </p>
               </FadeIn>
               
@@ -520,10 +409,10 @@ export default function App() {
                   <span className="text-xs font-black uppercase tracking-widest text-blue-100">Vos Experts Locaux</span>
                 </div>
                 <h2 className="text-3xl md:text-5xl font-black tracking-tighter leading-tight">
-                  L&apos;excellence d&apos;un service <span className="text-[#0097b2]">de proximité.</span>
+                  L'excellence d'un service <span className="text-[#0097b2]">de proximité.</span>
                 </h2>
                 <p className="text-lg text-blue-100/80 font-medium leading-relaxed">
-                  Basés en Haute-Savoie, nous ne sommes pas une plateforme nationale impersonnelle. CHARGéO, c&apos;est une équipe locale d&apos;artisans qualifiés IRVE qui vous accompagne de la visite technique jusqu&apos;à l&apos;installation.
+                  Basés en Haute-Savoie, nous ne sommes pas une plateforme nationale impersonnelle. CHARGéO, c'est une équipe locale d'artisans qualifiés IRVE qui vous accompagne de la visite technique jusqu'à l'installation.
                 </p>
                 <div className="flex items-center gap-6 pt-4">
                   <div className="flex -space-x-4">
@@ -543,17 +432,17 @@ export default function App() {
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
                   <Award className="text-[#0097b2] mb-4" size={32} />
                   <h4 className="text-white font-black uppercase tracking-wider mb-2">Qualification IRVE</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Il s&apos;agit d&apos;une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Indispensable pour votre assurance.</p>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Indispensable pour votre assurance.</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
                   <FileText className="text-[#0097b2] mb-4" size={32} />
                   <h4 className="text-white font-black uppercase tracking-wider mb-2">Administratif Inclus</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Nous montons de A à Z vos dossiers de Prime Advenir (jusqu&apos;à 600€) et la demande de TVA réduite.</p>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed flex-grow">Nous montons de A à Z vos dossiers de Prime Advenir (jusqu'à 600€) et la demande de TVA réduite.</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 sm:col-span-2">
                   <Wrench className="text-[#0097b2] mb-4" size={32} />
                   <h4 className="text-white font-black uppercase tracking-wider mb-2">SAV & Maintenance</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Un problème ? Notre équipe locale intervient rapidement. Nous assurons le suivi de tout notre parc installé pour vous garantir une tranquillité d&apos;esprit totale sur le long terme.</p>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Un problème ? Notre équipe locale intervient rapidement. Nous assurons le suivi de tout notre parc installé pour vous garantir une tranquillité d'esprit totale sur le long terme.</p>
                 </div>
               </div>
             </div>
@@ -568,7 +457,7 @@ export default function App() {
                 Simulez vos <br className="md:hidden"/><span className="text-[#0097b2]">économies</span>
               </h2>
               <p className="text-slate-500 font-medium text-lg max-w-2xl mx-auto text-balance">
-                Découvrez à quel point rouler à l&apos;électrique est rentable face aux prix du carburant, puis demandez votre devis personnalisé.
+                Découvrez à quel point rouler à l'électrique est rentable face aux prix du carburant, puis demandez votre devis personnalisé.
               </p>
             </div>
 

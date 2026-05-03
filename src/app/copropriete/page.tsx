@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import Link from 'next/link';
 // Utilisation de lucide-react pour toutes les icônes
 import { 
   ChevronDown, 
@@ -8,21 +9,16 @@ import {
   ArrowRight, 
   Zap, 
   ShieldCheck, 
-  Clock, 
   CheckCircle, 
   Star, 
-  Settings as SettingsIcon, 
   MapPin as MapPinIcon, 
   Award as AwardIcon, 
   FileText as FileTextIcon, 
   PiggyBank as PiggyBankIcon, 
   Building as BuildingIcon, 
   Users as UsersIcon, 
-  Server as ServerIcon, 
-  Wrench as WrenchIcon, 
   Phone as PhoneIcon, 
-  Mail as MailIcon, 
-  Menu as MenuIcon 
+  Mail as MailIcon
 } from 'lucide-react';
 
 // --- COMPOSANTS INTERNES (Intégrés pour garantir la compilation) ---
@@ -117,7 +113,7 @@ const Logo = ({ light = false, className = "" }: { light?: boolean, className?: 
   const [imgError, setImgError] = useState(false);
   const logoSrc = light ? "/CHARGEO_LOGO_BLANC.png" : "/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png";
   return (
-    <a href="/" className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
+    <Link href="/" className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
       {!imgError ? (
         <img src={logoSrc} alt="Logo CHARGéO" onError={() => setImgError(true)} className="h-full w-auto object-contain transition-all duration-300" />
       ) : (
@@ -125,7 +121,7 @@ const Logo = ({ light = false, className = "" }: { light?: boolean, className?: 
           CHARG<span className="text-[#0097b2]">é</span>O
         </span>
       )}
-    </a>
+    </Link>
   );
 };
 
@@ -152,8 +148,7 @@ const BrandLogo = ({ name, url }: { name: string, url: string }) => {
 
 // --- COMPOSANT PRINCIPAL : PAGE COPROPRIÉTÉ ---
 
-export default function App() {
-  const [scrolled, setScrolled] = useState(false);
+export default function CoproPage() {
   const [currentReview, setCurrentReview] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   
@@ -211,12 +206,6 @@ export default function App() {
   ], []);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
-    
-    window.addEventListener('scroll', handleScroll);
-    
     const observer = new IntersectionObserver(
       ([entry]) => {
         setIsInView(entry.isIntersecting);
@@ -231,7 +220,6 @@ export default function App() {
     }, 5000);
 
     return () => {
-      window.removeEventListener('scroll', handleScroll);
       observer.disconnect();
       clearInterval(timer);
     };
@@ -291,14 +279,14 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4 relative z-50">
-            <a 
+            <Link 
               href="/" 
               className="flex items-center gap-2 text-slate-500 hover:text-[#032b60] font-bold text-sm bg-white hover:bg-slate-100 px-4 py-2 sm:py-2.5 rounded-full border border-slate-200 transition-all shadow-sm hover:shadow"
             >
               <ArrowLeft size={16} />
               <span className="hidden sm:inline">Retour à l'accueil</span>
               <span className="sm:hidden">Retour</span>
-            </a>
+            </Link>
 
             {/* CTA APPARAISSANT AU SCROLL */}
             <div className={`hidden lg:flex flex-shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>

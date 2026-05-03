@@ -7,7 +7,7 @@ export const Logo = ({ light = false, className = "" }: { light?: boolean, class
   const logoSrc = light ? "/CHARGEO_LOGO_BLANC.png" : "/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png";
   
   return (
-    <div className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
+    <a href="/" className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
       {!imgError ? (
         <img src={logoSrc} alt="Logo CHARGéO" onError={() => setImgError(true)} className="h-full w-auto object-contain transition-all duration-300" />
       ) : (
@@ -15,6 +15,6 @@ export const Logo = ({ light = false, className = "" }: { light?: boolean, class
           CHARG<span className="text-[#0097b2]">é</span>O
         </span>
       )}
-    </div>
+    </a>
   );
 };

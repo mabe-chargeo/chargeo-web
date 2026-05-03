@@ -8,7 +8,45 @@ import {
   Menu, X
 } from 'lucide-react';
 
-// --- COMPOSANT D'ANIMATION STANDARD ---
+// --- COMPOSANTS UI INTERNES (Intégrés pour garantir le fonctionnement) ---
+
+const Logo = ({ light = false, className = "" }: { light?: boolean; className?: string }) => {
+  const [imgError, setImgError] = useState(false);
+  const logoSrc = light ? "/CHARGEO_LOGO_BLANC.png" : "/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png";
+  
+  return (
+    <a href="/" className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
+      {!imgError ? (
+        <img src={logoSrc} alt="Logo CHARGéO" onError={() => setImgError(true)} className="h-full w-auto object-contain transition-all duration-300" />
+      ) : (
+        <span className={`text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter ${light ? 'text-white' : 'text-[#032b60]'}`}>
+          CHARG<span className="text-[#0097b2]">é</span>O
+        </span>
+      )}
+    </a>
+  );
+};
+
+const BrandLogo = ({ name, url }: { name: string; url: string }) => {
+  const [error, setError] = useState(false); 
+  return (
+    <div className="flex items-center justify-center h-12 w-28 sm:w-32 group">
+        {!error ? (
+          <img 
+            src={url} 
+            alt={name} 
+            onError={() => setError(true)}
+            className="max-h-6 md:max-h-8 max-w-full object-contain opacity-40 grayscale transition-all duration-500 group-hover:opacity-100 group-hover:grayscale-0 group-hover:scale-110" 
+          />
+        ) : (
+          <span className="font-black text-[10px] uppercase opacity-20 text-center group-hover:opacity-100 transition-opacity">{name}</span>
+        )}
+    </div>
+  );
+};
+
+// --- COMPOSANTS D'ANIMATION ---
+
 const Reveal = ({ 
   children, 
   delay = 0, 
@@ -65,7 +103,6 @@ const Reveal = ({
   );
 };
 
-// --- COMPOSANT : ZOOM CINÉMATIQUE OPTIMISÉ ---
 const ImageReveal = ({ src, alt, className = "" }: { src: string; alt: string; className?: string }) => {
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -98,32 +135,6 @@ const ImageReveal = ({ src, alt, className = "" }: { src: string; alt: string; c
     </div>
   );
 };
-
-// --- COMPOSANTS INCLUS ---
-const Logo = ({ light = false, className = "" }: { light?: boolean; className?: string }) => {
-  const [imgError, setImgError] = useState(false);
-  const logoSrc = light ? "/CHARGEO_LOGO_BLANC.png" : "/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png";
-  return (
-    <a href="/" className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
-      {!imgError ? (
-        <img src={logoSrc} alt="Logo CHARGéO" onError={() => setImgError(true)} className="h-full w-auto object-contain transition-all duration-300" />
-      ) : (
-        <span className={`text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter ${light ? 'text-white' : 'text-[#032b60]'}`}>
-          CHARG<span className="text-[#0097b2]">é</span>O
-        </span>
-      )}
-    </a>
-  );
-};
-
-const BrandLogo = ({ name, url }: { name: string; url: string }) => (
-  <img 
-    src={url} 
-    alt={`Logo ${name}`} 
-    loading="lazy"
-    className="h-6 sm:h-8 object-contain grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-500 hover:scale-110" 
-  />
-);
 
 // --- SITE VITRINE INSTITUTIONNEL ---
 
@@ -194,7 +205,6 @@ export default function App() {
           background: linear-gradient(135deg, rgba(0,151,178,0.1) 0%, rgba(3,43,96,0.05) 100%);
         }
 
-        /* SUPPRESSION DE TOUS LES EFFETS LOURDS SUR MOBILE POUR LA FLUIDITÉ */
         @media (max-width: 768px) {
           .animate-bg-pan, .animate-float, .animate-float-delayed, .animate-pulse-neon { 
             animation: none !important; transform: none !important; 
@@ -205,12 +215,11 @@ export default function App() {
         }
       `}} />
 
-      {/* NAVIGATION VITRINE (TOUJOURS GLASSY/BLANCHE) */}
+      {/* NAVIGATION VITRINE */}
       <nav className="fixed top-0 left-0 w-full z-50 bg-white/85 backdrop-blur-md shadow-sm py-3 md:py-4 border-b border-slate-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
           
           <div className="flex-shrink-0 relative z-50">
-            {/* Logo toujours en couleur */}
             <Logo light={false} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
           </div>
 
@@ -239,7 +248,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* MENU DÉROULANT MOBILE */}
         <div className={`md:hidden absolute top-full left-0 w-full bg-white border-b border-slate-200 shadow-xl overflow-hidden transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="px-6 py-4 flex flex-col gap-4">
             <a onClick={() => setIsMobileMenuOpen(false)} href="#groupe" className="text-base font-bold text-[#032b60] py-2 border-b border-slate-100 flex justify-between items-center">Le Groupe Tech <ChevronRight size={16} className="text-slate-300"/></a>
@@ -249,9 +257,7 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Main n'a pas de padding-top, permettant au fond bleu du Hero de se glisser sous la barre */}
       <main>
-        
         {/* HERO SECTION HIGH-TECH */}
         <section className="relative min-h-[100dvh] pt-[100px] md:pt-[120px] flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
@@ -262,7 +268,6 @@ export default function App() {
               alt="Installation institutionnelle" 
               fetchPriority="high"
             />
-            {/* OPTIMISATION MAJEURE : Les filtres 'blur-[]' tuaient la carte graphique. Remplacés par des radial-gradient super légers */}
             <div className="hidden md:block absolute top-[-300px] right-[-300px] w-[800px] h-[800px] bg-[radial-gradient(circle,rgba(0,151,178,0.15)_0%,transparent_70%)] pointer-events-none"></div>
             <div className="hidden md:block absolute bottom-[-200px] left-[-200px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(34,211,238,0.1)_0%,transparent_70%)] pointer-events-none"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-[#032b60] via-[#032b60]/20 to-[#032b60]/50 opacity-90"></div>
@@ -335,7 +340,6 @@ export default function App() {
                     </div>
                  </Reveal>
                  
-                 {/* Anneaux de chargement */}
                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full border border-[#0097b2]/20 shadow-[inset_0_0_50px_rgba(0,151,178,0.1)] animate-[spin_20s_linear_infinite] z-10"></div>
                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] rounded-full border border-cyan-400/30 border-dashed animate-[spin_15s_linear_infinite_reverse] z-10"></div>
               </div>
@@ -417,7 +421,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* SECTION POINTS DE CHARGE (Cartes Cliquables) */}
+        {/* SECTION POINTS DE CHARGE */}
         <section id="expertises" className="py-20 md:py-32 bg-white overflow-hidden border-y border-slate-100 relative">
           <div className="max-w-7xl mx-auto px-6 relative z-10">
              <Reveal delay={0} className="text-center mb-16 md:mb-20 space-y-6">
@@ -518,7 +522,6 @@ export default function App() {
         {/* BLOC GARANTIE MCO */}
         <section id="engagements" className="py-20 md:py-32 bg-[#032b60] overflow-hidden relative">
           <div className="absolute inset-0 bg-grid-tech opacity-20"></div>
-          {/* OPTIMISATION MAJEURE : radial-gradient au lieu de blur-[] */}
           <div className="hidden md:block absolute top-[-200px] right-[-200px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(0,151,178,0.15)_0%,transparent_70%)] animate-[pulse_6s_ease-in-out_infinite] pointer-events-none"></div>
           
           <div className="max-w-7xl mx-auto px-6 relative z-10">
@@ -646,7 +649,6 @@ export default function App() {
 
       {/* FOOTER EXACT */}
       <footer className="bg-[#032B60] py-16 md:py-24 border-t border-white/5 overflow-hidden relative">
-        {/* OPTIMISATION MAJEURE : radial-gradient */}
         <div className="hidden md:block absolute -bottom-40 -right-40 w-96 h-96 bg-[radial-gradient(circle,rgba(0,151,178,0.3)_0%,transparent_70%)] pointer-events-none"></div>
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-start gap-12 md:gap-16 relative z-10">
            
