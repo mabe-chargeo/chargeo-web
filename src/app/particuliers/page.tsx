@@ -5,7 +5,7 @@ import {
   ChevronDown, ArrowRight, Zap, ShieldCheck, Clock, 
   CheckCircle, Star, Settings, MapPin, 
   Award, FileText, PiggyBank, Car, Flame, 
-  Wrench, Phone, Mail 
+  Wrench, Phone, Mail, ArrowLeft 
 } from 'lucide-react';
 
 // --- COMPOSANTS RÉINTÉGRÉS POUR LE FONCTIONNEMENT AUTONOME ---
@@ -154,19 +154,19 @@ export default function App() {
       text: "Enfin un installateur qui explique les vraies économies. J'ai divisé mon budget carburant par 4 dès le premier mois.",
       author: "Jean-Philippe",
       location: "74200 Thonon",
-      image: "https://images.unsplash.com/photo-1692052664566-477579a08e8c?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTc5fHxib3JuZSUyMGRlJTIwcmVjaGFyZ2V8ZW58MHx8MHx8fDA%3D"
+      image: "/review-particulier-1.png"
     },
     {
       text: "La visite technique a été planifiée en 2 jours. Devis clair, sans surprise. La borne 7.4kW change tout par rapport à ma prise standard.",
       author: "Sophie",
       location: "74000 Annecy",
-      image: "https://images.unsplash.com/photo-1760539068164-e7186a197d09?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTc1fHxib3JuZSUyMGRlJTIwcmVjaGFyZ2V8ZW58MHx8MHx8fDA%3D"
+      image: "/review-particulier-2.png"
     },
     {
       text: "Devis reçu rapidement et pose effectuée en 10 jours. L'équipe est experte et gère directement les aides de l'État.",
       author: "Marc",
       location: "74100 Annemasse",
-      image: "https://images.unsplash.com/photo-1765272088009-100c96a4cd4e?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTY2fHxib3JuZSUyMGRlJTIwcmVjaGFyZ2V8ZW58MHx8MHx8fDA%3D"
+      image: "/review-particulier-3.png"
     }
   ], []);
 
@@ -214,7 +214,7 @@ export default function App() {
       setScrolled(window.scrollY > 50);
     };
     
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -312,22 +312,33 @@ export default function App() {
         }
       `}} />
 
-      {/* NAVIGATION (Modifiée en mode Landing Page pure sans menu) */}
-      <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-white/95 shadow-lg py-2 sm:py-3 backdrop-blur-md' : 'bg-transparent py-4 sm:py-6'}`}>
+      {/* NAVIGATION : Fixe, Blanche Glassy (Identique à la Vitrine) avec bouton Retour */}
+      <nav className="fixed top-0 left-0 w-full z-50 bg-white/85 backdrop-blur-md shadow-sm py-3 md:py-4 border-b border-slate-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
           
-          <div className="flex-shrink-0">
-            <Logo light={!scrolled} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
+          <div className="flex-shrink-0 relative z-50">
+            <Logo light={false} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
           </div>
 
-          <div className={`hidden md:flex flex-shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
-            <button 
-              onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
-              className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
+          <div className="flex items-center gap-2 sm:gap-4 relative z-50">
+            <a 
+              href="/" 
+              className="flex items-center gap-2 text-slate-500 hover:text-[#032b60] font-bold text-sm bg-white hover:bg-slate-100 px-4 py-2 sm:py-2.5 rounded-full border border-slate-200 transition-all shadow-sm hover:shadow"
             >
-              <div className="animate-button-shine" />
-              Être rappelé(e) <Phone size={16} className="group-hover:rotate-12 transition-transform" />
-            </button>
+              <ArrowLeft size={16} />
+              <span className="hidden sm:inline">Retour à l'accueil</span>
+              <span className="sm:hidden">Retour</span>
+            </a>
+
+            <div className={`hidden lg:flex flex-shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
+              <button 
+                onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
+                className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
+              >
+                <div className="animate-button-shine" />
+                Être rappelé(e) <Phone size={16} className="group-hover:rotate-12 transition-transform" />
+              </button>
+            </div>
           </div>
 
         </div>
@@ -353,17 +364,17 @@ export default function App() {
       </div>
 
       <main>
-        {/* HERO SECTION */}
-        <section className="relative h-[90vh] flex items-center overflow-hidden bg-[#032b60]">
+        {/* HERO SECTION : Ajustée avec pt-[100px] pour passer fluidement sous la navbar fixe */}
+        <section className="relative min-h-[100dvh] pt-[100px] md:pt-[120px] flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
             <img 
-              src="https://images.unsplash.com/photo-1593941707882-a5bba14938c7?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80" 
+              src="/hero-particulier.png" 
               className="w-full h-full object-cover opacity-40 animate-bg-pan" 
               alt="Hero Background" 
             />
             <div className="absolute inset-0 bg-gradient-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
         </div>
-        <div className="max-w-7xl mx-auto px-6 relative z-10 w-full">
+        <div className="max-w-7xl mx-auto px-6 relative z-10 w-full py-12 flex-grow flex flex-col justify-center">
           <div className="max-w-4xl mx-auto text-center flex flex-col items-center space-y-6">
 
             <FadeIn delay={200} direction="up">
@@ -381,7 +392,7 @@ export default function App() {
               
               <FadeIn delay={500} direction="up">
                 <p className="text-lg md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
-                  Simulez vos économies en passant à l&apos;électrique et demandez une visite technique gratuite pour l&apos;installation de votre borne certifiée IRVE.
+                  Simule vos économies en passant à l&apos;électrique et demandez une visite technique gratuite pour l&apos;installation de votre borne certifiée IRVE.
                 </p>
               </FadeIn>
               

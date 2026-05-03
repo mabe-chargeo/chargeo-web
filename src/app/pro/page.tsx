@@ -7,7 +7,7 @@ import {
   ChevronDown, ArrowRight, ShieldCheck, 
   CheckCircle, Star, Settings, MapPin, 
   Award, FileText, PiggyBank, Car, 
-  Wrench, Phone, Mail, Building, Users, Home, CreditCard, Plug, Zap
+  Wrench, Phone, Mail, Building, Users, Home, CreditCard, Plug, Zap, ArrowLeft
 } from 'lucide-react';
 
 // --- COMPOSANTS RÉINTÉGRÉS POUR LE FONCTIONNEMENT AUTONOME (CANVAS) ---
@@ -155,19 +155,19 @@ export default function ProPage() {
       text: "Nous voulions offrir un service de recharge à notre clientèle. CHARGéO a géré l'installation, et la borne génère aujourd'hui des revenus chaque mois.",
       author: "Directeur d'Hôtel",
       location: "74500 Évian",
-      image: "https://images.unsplash.com/photo-1621293954908-907159247fc8?q=80&w=900&auto=format&fit=crop"
+      image: "/review-hotel.png"
     },
     {
       text: "Pour nos commerciaux, la solution à domicile est parfaite. Le logiciel relève automatiquement leurs recharges pro. Gain de temps énorme.",
       author: "DRH",
       location: "74000 Annecy",
-      image: "https://images.unsplash.com/photo-1572097034177-8d0fc65507d8?q=80&w=900&auto=format&fit=crop"
+      image: "/review-domicile.png"
     },
     {
       text: "Nous avons équipé notre parking avec délestage dynamique. Parfait pour respecter la Loi LOM, et l'amortissement comptable est un vrai plus.",
       author: "Gérant",
       location: "74200 Thonon",
-      image: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=900&auto=format&fit=crop"
+      image: "/review-flotte.png"
     }
   ], []);
 
@@ -284,23 +284,34 @@ export default function ProPage() {
         }
       `}} />
 
-      {/* NAVIGATION (Modifiée en mode Landing Page pure sans menu) */}
-      <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-white/95 shadow-lg py-2 sm:py-3 backdrop-blur-md' : 'bg-transparent py-4 sm:py-6'}`}>
+      {/* NAVIGATION : Fixe, Blanche Glassy (Identique à la Vitrine) avec bouton Retour */}
+      <nav className="fixed top-0 left-0 w-full z-50 bg-white/85 backdrop-blur-md shadow-sm py-3 md:py-4 border-b border-slate-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
           
-          <div className="flex-shrink-0">
-            <Logo light={!scrolled} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
+          <div className="flex-shrink-0 relative z-50">
+            <Logo light={false} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
           </div>
 
-          {/* APPEL À L'ACTION UNIQUE (Apparaît uniquement quand nécessaire) */}
-          <div className={`hidden md:flex flex-shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
-            <button 
-              onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
-              className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
+          <div className="flex items-center gap-2 sm:gap-4 relative z-50">
+            <a 
+              href="/" 
+              className="flex items-center gap-2 text-slate-500 hover:text-[#032b60] font-bold text-sm bg-white hover:bg-slate-100 px-4 py-2 sm:py-2.5 rounded-full border border-slate-200 transition-all shadow-sm hover:shadow"
             >
-              <div className="animate-button-shine" />
-              Audit B2B Gratuit <Phone size={16} className="group-hover:rotate-12 transition-transform" />
-            </button>
+              <ArrowLeft size={16} />
+              <span className="hidden sm:inline">Retour à l'accueil</span>
+              <span className="sm:hidden">Retour</span>
+            </a>
+
+            {/* APPEL À L'ACTION UNIQUE (Apparaît uniquement quand nécessaire) */}
+            <div className={`hidden lg:flex flex-shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
+              <button 
+                onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
+                className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
+              >
+                <div className="animate-button-shine" />
+                Audit B2B Gratuit <Phone size={16} className="group-hover:rotate-12 transition-transform" />
+              </button>
+            </div>
           </div>
 
         </div>
@@ -326,11 +337,11 @@ export default function ProPage() {
       </div>
 
       <main>
-        {/* HERO SECTION */}
-        <section className="relative h-[90vh] flex items-center overflow-hidden bg-[#032b60]">
+        {/* HERO SECTION : Ajustée avec pt-[100px] pour passer fluidement sous la navbar fixe */}
+        <section className="relative min-h-[100dvh] pt-[100px] md:pt-[120px] flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
             <img 
-              src="https://images.unsplash.com/photo-1554200876-56c2f25224fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80" 
+              src="/hero-pro.png" 
               className="w-full h-full object-cover opacity-40 animate-bg-pan" 
               alt="Bâtiment entreprise et recharge" 
             />
@@ -710,7 +721,7 @@ export default function ProPage() {
         </section>
       </main>
 
-      {/* FOOTER (Modifié en mode Landing Page fermée) */}
+      {/* FOOTER */}
       <footer className="bg-[#032B60] py-16 md:py-24 border-t border-white/5 overflow-hidden relative">
         <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-[#0097b2] rounded-full blur-[150px] opacity-30 pointer-events-none"></div>
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-start gap-12 md:gap-16 relative z-10">

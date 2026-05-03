@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 // Utilisation de lucide-react pour toutes les icônes
 import { 
   ChevronDown, 
+  ArrowLeft,
   ArrowRight, 
   Zap, 
   ShieldCheck, 
@@ -193,19 +194,19 @@ export default function App() {
       text: "L'IRVE collective était la seule solution pérenne pour notre parking. CHARGéO a monté le dossier Advenir pour subventionner massivement l'artère principale.",
       author: "Président du CS",
       location: "Résidence 50 lots",
-      image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=900&auto=format&fit=crop"
+      image: "/review-cs.png"
     },
     {
       text: "L'artère principale a été tirée. Aujourd'hui, n'importe quel résident peut demander le raccordement de sa place sans faire disjoncter l'immeuble.",
       author: "Copropriétaire",
       location: "Thonon",
-      image: "https://images.unsplash.com/photo-1545601445-4d6a0a0565f0?q=80&w=900&auto=format&fit=crop"
+      image: "/review-resident.png"
     },
     {
       text: "L'accompagnement et le logiciel de supervision nous déchargent totalement. Chacun est facturé au kWh consommé, et le syndic n'a plus rien à gérer.",
       author: "Syndic",
       location: "Annecy",
-      image: "https://images.unsplash.com/photo-1556761175-5973dc0f32b7?q=80&w=900&auto=format&fit=crop"
+      image: "/review-syndic.png"
     }
   ], []);
 
@@ -281,30 +282,34 @@ export default function App() {
         .animate-float { animation: float 4s ease-in-out infinite; }
       `}} />
 
-      {/* NAVIGATION (Modifiée en mode Landing Page fermée) */}
-      <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-white/95 shadow-lg py-2 sm:py-3 backdrop-blur-md' : 'bg-transparent py-4 sm:py-6'}`}>
+      {/* NAVIGATION : Fixe, Blanche Glassy (Identique à la Vitrine) avec bouton Retour */}
+      <nav className="fixed top-0 left-0 w-full z-50 bg-white/85 backdrop-blur-md shadow-sm py-3 md:py-4 border-b border-slate-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
           
-          <div className="flex-shrink-0">
-            <Logo light={!scrolled} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
+          <div className="flex-shrink-0 relative z-50">
+            <Logo light={false} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
           </div>
 
-          {/* LIENS INTERNES UNIQUEMENT */}
-          <div className={`hidden md:flex items-center p-1 rounded-full border transition-colors duration-300 ${scrolled ? 'bg-slate-100 border-slate-200' : 'bg-white/10 border-white/20 backdrop-blur-md'}`}>
-            <a href="#simulateur" className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/80 hover:text-white'}`}>Subventions</a>
-            <a href="#concept" className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/80 hover:text-white'}`}>Notre Méthode</a>
-            <a href="#formulaire-devis" className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-sm font-bold transition-all ${scrolled ? 'text-slate-500 hover:text-[#032b60]' : 'text-white/80 hover:text-white'}`}>Demander une Étude</a>
-          </div>
-
-          {/* CTA APPARAISSANT AU SCROLL */}
-          <div className={`hidden lg:flex flex-shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
-            <button 
-              onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-              className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:scale-105 group"
+          <div className="flex items-center gap-2 sm:gap-4 relative z-50">
+            <a 
+              href="/" 
+              className="flex items-center gap-2 text-slate-500 hover:text-[#032b60] font-bold text-sm bg-white hover:bg-slate-100 px-4 py-2 sm:py-2.5 rounded-full border border-slate-200 transition-all shadow-sm hover:shadow"
             >
-              <div className="animate-button-shine" />
-              Étude pour AG <PhoneIcon size={16} className="group-hover:rotate-12 transition-transform" />
-            </button>
+              <ArrowLeft size={16} />
+              <span className="hidden sm:inline">Retour à l'accueil</span>
+              <span className="sm:hidden">Retour</span>
+            </a>
+
+            {/* CTA APPARAISSANT AU SCROLL */}
+            <div className={`hidden lg:flex flex-shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
+              <button 
+                onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} 
+                className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:scale-105 group"
+              >
+                <div className="animate-button-shine" />
+                Étude pour AG <PhoneIcon size={16} className="group-hover:rotate-12 transition-transform" />
+              </button>
+            </div>
           </div>
         </div>
       </nav>
@@ -330,17 +335,17 @@ export default function App() {
 
       <main>
         {/* HERO SECTION COPRO */}
-        <section className="relative h-[90vh] flex items-center overflow-hidden bg-[#032b60]">
+        <section className="relative min-h-[100dvh] pt-[100px] md:pt-[120px] flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
             <img 
-              src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2000&auto=format&fit=crop" 
+              src="/hero-copro.png" 
               className="w-full h-full object-cover opacity-30 animate-bg-pan" 
               alt="Immeuble moderne" 
             />
             <div className="absolute inset-0 bg-gradient-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
           </div>
           
-          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full text-center flex flex-col items-center gap-6">
+          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full py-12 flex-grow flex flex-col justify-center items-center gap-6 text-center">
             <FadeIn delay={200} direction="up">
                  <div className="flex items-center justify-center gap-2 text-[#0097b2] font-black text-sm sm:text-base uppercase tracking-widest bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm mt-2">
                    <UsersIcon size={18} />

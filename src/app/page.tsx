@@ -436,7 +436,7 @@ export default function App() {
              <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
                 {/* Carte PROS */}
                 <Reveal delay={0} direction="up">
-                  <a href="/pros" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
+                  <a href="/pro" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
                      <div className="flex justify-between items-start mb-6 md:mb-8">
                         <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-[#032b60] to-blue-900 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform duration-500">
                           <Briefcase size={24} />
@@ -462,7 +462,7 @@ export default function App() {
 
                 {/* Carte COPROS */}
                 <Reveal delay={100} direction="up">
-                  <a href="/coproprietes" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
+                  <a href="/copropriete" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
                      <div className="flex justify-between items-start mb-6 md:mb-8">
                         <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-[#0097b2] to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30 group-hover:scale-110 transition-transform duration-500">
                           <Building size={24} />
