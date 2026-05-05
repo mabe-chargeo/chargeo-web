@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, CheckCircle, MapPin, Users, Phone, Zap, ShieldCheck, FileText, PiggyBank } from 'lucide-react';
+import { ArrowRight, CheckCircle, MapPin, Users, Phone, Zap, ShieldCheck, FileText, PiggyBank, Award } from 'lucide-react';
 
 import { FadeIn } from '@/components/ui/FadeIn';
 import { Navbar } from '@/components/layout/Navbar';
@@ -173,7 +173,8 @@ export default function CoproprietePage() {
                 <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>L'infrastructure <br/><span style={{ color: brandTeal }}>Maîtrisée</span></h2>
                 <p className="text-lg text-slate-500 font-medium leading-relaxed mt-6">Nous offrons une tranquillité d'esprit aux syndics de copropriété tout en garantissant un service optimal pour les résidents utilisateurs.</p>
                 
-                <div className="space-y-6">
+             <div className="space-y-6">
+                  {/* CARTE 1 */}
                   <div className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm hover:shadow-md border border-slate-100">
                     <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2] group-hover:text-white transition-colors duration-500 shrink-0 text-[#0097b2]">
                       <ShieldCheck />
@@ -181,6 +182,28 @@ export default function CoproprietePage() {
                     <div className="flex flex-col justify-center">
                       <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>Gestion des sous-compteurs</h4>
                       <p className="text-xs text-slate-400 font-medium mt-1">Finis les calculs d'apothicaire en fin d'année. Notre solution logicielle divise précisément les factures.</p>
+                    </div>
+                  </div>
+
+                  {/* CARTE 2 */}
+                  <div className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm hover:shadow-md border border-slate-100">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2] group-hover:text-white transition-colors duration-500 shrink-0 text-[#0097b2]">
+                      <Award />
+                    </div>
+                    <div className="flex flex-col justify-center">
+                      <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>Qualification IRVE</h4>
+                      <p className="text-xs text-slate-400 font-medium mt-1">C'est l'assurance pour le syndicat que l'infrastructure répond à toutes les normes de sécurité en vigueur.</p>
+                    </div>
+                  </div>
+
+                  {/* CARTE 3 */}
+                  <div className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm hover:shadow-md border border-slate-100">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2] group-hover:text-white transition-colors duration-500 shrink-0 text-[#0097b2]">
+                      <Users />
+                    </div>
+                    <div className="flex flex-col justify-center">
+                      <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>Évolutivité garantie</h4>
+                      <p className="text-xs text-slate-400 font-medium mt-1">Nous installons une colonne vertébrale capable d'accueillir de nouveaux résidents au fil des années.</p>
                     </div>
                   </div>
                 </div>
