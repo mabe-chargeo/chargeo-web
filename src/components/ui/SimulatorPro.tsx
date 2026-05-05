@@ -4,8 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Plug, Users, Settings, PiggyBank, Phone } from 'lucide-react';
 import { useAnimatedValue } from '@/hooks/useAnimatedValue';
 
-export function SimulatorPro() {
-  const [chargePoints, setChargePoints] = useState(4);
+export function SimulatorPro({ onResultChange }: { onResultChange?: (val: number) => void }) {  const [chargePoints, setChargePoints] = useState(4);
   const [sessionsPerDay, setSessionsPerDay] = useState(2);
   const [marginPerKwh, setMarginPerKwh] = useState(0.20);
   const [kwhPerSession, setKwhPerSession] = useState(25);
@@ -25,6 +24,9 @@ export function SimulatorPro() {
     const annualRevenue = safeChargePoints * safeSessions * safeKwh * safeMargin * 300;
     return { annualRevenue: Math.max(0, annualRevenue) };
   }, [chargePoints, sessionsPerDay, marginPerKwh, kwhPerSession]);
+  useEffect(() => {
+    if (onResultChange) onResultChange(results.annualRevenue);
+  }, [results.annualRevenue, onResultChange]);
 
   const animatedRevenue = useAnimatedValue(results.annualRevenue, 1200, isInView, triggerKey);
 

@@ -17,6 +17,7 @@ import { SimulatorPro } from '@/components/ui/SimulatorPro';
 export default function ProPage() {
   const [isHeroVisible, setIsHeroVisible] = useState(true);
   const [isFormVisible, setIsFormVisible] = useState(false);
+  const [revenue, setRevenue] = useState(0);
 
   const formRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -83,7 +84,7 @@ export default function ProPage() {
           <div className="flex flex-col">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Revenus Potentiels</p>
             <p className="text-xl sm:text-2xl font-black text-green-600 transition-all duration-300">
-              Calculateur
+              +{Math.round(revenue).toLocaleString('fr-FR')}€ / an
             </p>
           </div>
           <button
@@ -219,8 +220,7 @@ export default function ProPage() {
 
         {/* SIMULATEUR PRO */}
         <section id="simulateur" className="py-24 bg-white scroll-mt-24">
-          <SimulatorPro />
-
+<SimulatorPro onResultChange={setRevenue} />
           {/* FORMULAIRE ClickUp */}
           <div id="formulaire-devis" ref={formRef} className="max-w-7xl mx-auto px-6 mt-24 bg-white p-4 sm:p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
             <div className="w-full relative h-212.5 sm:h-200 lg:h-225">

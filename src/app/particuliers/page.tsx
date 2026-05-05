@@ -16,6 +16,7 @@ import { SimulatorParticuliers } from '@/components/ui/SimulatorParticuliers';
 export default function ParticuliersPage() {
   const [isHeroVisible, setIsHeroVisible] = useState(true);
   const [isFormVisible, setIsFormVisible] = useState(false);
+  const [savings, setSavings] = useState(0);
 
   const formRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -82,7 +83,7 @@ export default function ParticuliersPage() {
           <div className="flex flex-col">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Mon estimation</p>
             <p className="text-xl sm:text-2xl font-black text-green-600 transition-all duration-300">
-              Calculateur
+              +{Math.round(savings).toLocaleString('fr-FR')}€ / an
             </p>
           </div>
           <button 
@@ -240,8 +241,7 @@ export default function ParticuliersPage() {
 
         {/* SIMULATEUR DE RENTABILITÉ */}
         <section id="simulateur" className="py-24 bg-white scroll-mt-24">
-          <SimulatorParticuliers />
-
+<SimulatorParticuliers onResultChange={setSavings} />
           {/* BLOC FORMULAIRE */}
           <div id="formulaire-devis" ref={formRef} className="max-w-7xl mt-16 lg:mt-24 bg-white p-4 sm:p-8 md:p-10 rounded-4xl sm:rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.1)] border border-slate-100 flex flex-col relative z-10 mx-auto">
             <div className="flex items-center justify-between mb-4 sm:mb-6 border-b border-slate-100 pb-4">

@@ -5,8 +5,7 @@ import { Settings, ChevronDown, Car, Flame, PiggyBank, Phone, Clock, Zap } from 
 import { useAnimatedValue } from '@/hooks/useAnimatedValue';
 import { AnimatedBar } from '@/components/ui/AnimatedBar';
 
-export function SimulatorParticuliers() {
-  const [dailyKm, setDailyKm] = useState(40);
+export function SimulatorParticuliers({ onResultChange }: { onResultChange?: (val: number) => void }) {  const [dailyKm, setDailyKm] = useState(40);
   const [gasConsumption, setGasConsumption] = useState(6.5);
   const [gasPrice, setGasPrice] = useState(1.85);
   const [elecPrice, setElecPrice] = useState(0.25);
@@ -42,6 +41,9 @@ export function SimulatorParticuliers() {
       wallboxTimePercent 
     };
   }, [dailyKm, gasConsumption, gasPrice, elecPrice, evConsumption]);
+  useEffect(() => {
+    if (onResultChange) onResultChange(results.annualSavings);
+  }, [results.annualSavings, onResultChange]);
 
   const animatedSavings = useAnimatedValue(results.annualSavings, 1200, isInView, triggerKey);
   const animatedTimeStd = useAnimatedValue(results.timeStandard, 1200, isInView, triggerKey);

@@ -14,6 +14,7 @@ import { Footer } from '@/components/layout/Footer';
 export default function CoproprietePage() {
   const [isHeroVisible, setIsHeroVisible] = useState(true);
   const [isFormVisible, setIsFormVisible] = useState(false);
+  const [subventions, setSubventions] = useState(0);
 
   const formRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -81,8 +82,7 @@ export default function CoproprietePage() {
           <div className="flex flex-col">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Aides Débloquées</p>
             <p className="text-xl sm:text-2xl font-black text-green-600">
-              Jusqu'à +8 000€
-            </p>
++{Math.round(subventions).toLocaleString('fr-FR')}€ d'aides            </p>
           </div>
           <button 
             onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} 
@@ -218,8 +218,7 @@ export default function CoproprietePage() {
         <section id="simulateur" className="py-24 bg-white scroll-mt-24 relative overflow-hidden">
           
           {/* COMPOSANT SIMULATEUR ISOLÉ */}
-          <SimulatorCopro />
-
+<SimulatorCopro onResultChange={setSubventions} />
           {/* FORMULAIRE AG */}
           <div id="formulaire-devis" ref={formRef} className="max-w-7xl mt-24 bg-white p-8 md:p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 flex flex-col relative z-10 mx-auto">
             <div className="flex items-center gap-3 mb-6 border-b pb-4">
