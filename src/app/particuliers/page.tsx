@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import {
-  ArrowRight, ShieldCheck, Building, Home, CreditCard,
-  MapPin, Award, FileText, Phone, Car, CheckCircle
+import { 
+  ShieldCheck, MapPin, Award, FileText, Wrench, Phone, ArrowRight, CheckCircle, Zap
 } from 'lucide-react';
 
 import { FadeIn } from '@/components/ui/FadeIn';
@@ -13,12 +12,12 @@ import { TrustedBrands } from '@/components/layout/TrustedBrands';
 import { Footer } from '@/components/layout/Footer';
 import { ReviewsCarousel } from '@/components/ui/ReviewsCarousel';
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
-import { SimulatorPro } from '@/components/ui/SimulatorPro';
+import { SimulatorParticuliers } from '@/components/ui/SimulatorParticuliers';
 
-export default function ProPage() {
+export default function ParticuliersPage() {
   const [isHeroVisible, setIsHeroVisible] = useState(true);
   const [isFormVisible, setIsFormVisible] = useState(false);
-  const [revenue, setRevenue] = useState(0);
+  const [savings, setSavings] = useState(0);
 
   const formRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -44,82 +43,81 @@ export default function ProPage() {
 
   const reviews = [
     {
-      text: "Nous voulions offrir un service de recharge à notre clientèle. CHARGéO a géré l'installation, et la borne génère aujourd'hui des revenus chaque mois.",
-      author: "Directeur d'Hôtel",
-      location: "74500 Évian",
-      image: "/review-hotel.png"
-    },
-    {
-      text: "Pour nos commerciaux, la solution à domicile est parfaite. Le logiciel relève automatiquement leurs recharges pro. Gain de temps énorme.",
-      author: "DRH",
-      location: "74000 Annecy",
-      image: "/review-domicile.png"
-    },
-    {
-      text: "Nous avons équipé notre parking avec délestage dynamique. Parfait pour respecter la Loi LOM, et l'amortissement comptable est un vrai plus.",
-      author: "Gérant",
+      text: "Enfin un installateur qui explique les vraies économies. J'ai divisé mon budget carburant par 4 dès le premier mois.",
+      author: "Jean-Philippe",
       location: "74200 Thonon",
-      image: "/review-flotte.png"
+      image: "/review-particulier-1.png"
+    },
+    {
+      text: "La visite technique a été planifiée en 2 jours. Devis clair, sans surprise. La borne 7.4kW change tout par rapport à ma prise standard.",
+      author: "Sophie",
+      location: "74000 Annecy",
+      image: "/review-particulier-2.png"
+    },
+    {
+      text: "Devis reçu rapidement et pose effectuée en 10 jours. L'équipe est experte et gère directement les aides de l'État.",
+      author: "Marc",
+      location: "74100 Annemasse",
+      image: "/review-particulier-3.png"
     }
   ];
 
   const faqs = [
-    { q: "Comment fonctionne la monétisation ?", a: "C'est très simple : nous installons des bornes communicantes. Vous décidez du tarif appliqué au kWh. Notre logiciel s'occupe de facturer l'utilisateur final par QR Code et vous reverse les revenus mensuellement." },
-    { q: "Domicile Collaborateurs : Comment rembourser l'électricité ?", a: "Notre logiciel isole la consommation liée au véhicule professionnel grâce au badge RFID du salarié. Chaque mois, un relevé certifié permet le remboursement en note de frais." },
-    { q: "Quelles sont les obligations de la Loi LOM ?", a: "La Loi LOM oblige les entreprises (parc > 100 véhicules) à intégrer un pourcentage de véhicules à faibles émissions. Équiper vos parkings devient une nécessité légale." },
-    { q: "Quels sont les avantages fiscaux ?", a: "L'électrification permet une exonération totale de la TVS. De plus, l'entreprise bénéficie d'un plafond d'amortissement rehaussé et la TVA sur l'électricité consommée est récupérable." }
+    { q: "Quelles sont les aides de l'État ?", a: "En choisissant CHARGéO, installateur qualifié IRVE, bénéficiez de la Prime Advenir (jusqu'à 600€) et de la TVA réduite à 5,5%. Nous gérons tout l'administratif." },
+    { q: "Quel est le délai d'installation ?", a: "Après votre demande de devis, une visite technique gratuite est planifiée. L'installation se fait généralement sous 10 à 15 jours après validation du devis." },
+    { q: "Compatibilité véhicule ?", a: "Standard européen Type 2, compatible avec 100% des véhicules électriques et hybrides du marché." },
+    { q: "Qualification IRVE ?", a: "Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Elle garantit votre sécurité, la validité de votre assurance habitation et la garantie de votre véhicule." }
   ];
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-[#0097b2]/20 scroll-smooth pb-24 lg:pb-0">
-
-      <Navbar
-        showFloatingCta={showFloatingCta}
-        onCtaClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
-        ctaText="Audit B2B Gratuit"
+      
+      <Navbar 
+        showFloatingCta={showFloatingCta} 
+        onCtaClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
+        ctaText="Être rappelé(e)"
       />
 
       {/* STICKY BOTTOM BAR (MOBILE) */}
       <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-60 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 ${showFloatingCta ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex flex-col">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Revenus Potentiels</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Mon estimation</p>
             <p className="text-xl sm:text-2xl font-black text-green-600 transition-all duration-300">
-              +{Math.round(revenue).toLocaleString('fr-FR')}€ / an
+              +{Math.round(savings).toLocaleString('fr-FR')}€ / an
             </p>
           </div>
-          <button
-            onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
-            className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-3 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] group"
+          <button 
+            onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
+            className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-3 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
           >
-            <div className="animate-button-shine" />
-            Audit B2B <Phone size={16} className="group-hover:rotate-12 transition-transform" />
+            Me faire rappeler <Phone size={16} className="group-hover:rotate-12 transition-transform" />
           </button>
         </div>
       </div>
 
       <main>
-        {/* HERO SECTION PRO */}
+        {/* HERO SECTION */}
         <section className="relative min-h-[82vh] pt-28 pb-12 flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
-            <Image src="/hero-pro.png" alt="Bâtiment entreprise et recharge" fill sizes="100vw" priority className="object-cover opacity-40 animate-bg-pan" />
+            <Image src="/hero-particulier.png" alt="Hero Background" fill sizes="100vw" priority className="object-cover opacity-40 animate-bg-pan" />
             <div className="absolute inset-0 bg-linear-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
           </div>
           
           <div className="max-w-7xl mx-auto px-6 relative z-10 w-full flex flex-col justify-center items-center text-center">
-              <FadeIn delay={200} direction="up">
-                <div className="w-full flex justify-center mb-6 mt-6">
-                  <div className="flex items-center justify-center gap-2 text-[#0097b2] font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
-                     <Building size={16} />
-                     <span>Solutions pour Entreprises & B2B</span>
-                  </div>
-                </div>
+             <FadeIn delay={200} direction="up">
+                 <div className="w-full flex justify-center mb-6 mt-6">
+                   <div className="flex items-center justify-center gap-2 text-[#0097b2] font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
+                     <MapPin size={16} />
+                     <span>Intervention sur le Chablais et la Haute-Savoie</span>
+                   </div>
+                 </div>
               </FadeIn>
               
               <FadeIn delay={300} direction="up">
                 <div className="w-full flex justify-center mb-6">
                   <h1 className="text-[2.5rem] sm:text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase">
-                    L'infrastructure <br/><span className="text-[#0097b2]">pour les Pros.</span>
+                    La recharge <br/><span className="text-[#0097b2]">ultra-rentable.</span>
                   </h1>
                 </div>
               </FadeIn>
@@ -127,7 +125,7 @@ export default function ProPage() {
               <FadeIn delay={500} direction="up">
                 <div className="w-full flex justify-center mb-10">
                   <p className="text-sm sm:text-base md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
-                    Électrifiez votre flotte, équipez vos collaborateurs à domicile ou monétisez votre parking client. Nous gérons votre projet de A à Z.
+                    Simulez vos économies en passant à l'électrique et demandez une visite technique gratuite pour l'installation de votre borne certifiée IRVE.
                   </p>
                 </div>
               </FadeIn>
@@ -137,14 +135,14 @@ export default function ProPage() {
                   <div ref={heroRef} className="flex flex-col items-center gap-5 animate-float">
                     <button onClick={() => document.getElementById('simulateur')?.scrollIntoView({ behavior: 'smooth' })} className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full font-black text-base sm:text-lg shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 transition-all w-fit group text-center">
                       <div className="animate-button-shine" />
-                      Estimer mes revenus <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/>
+                      Calculer mes économies <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/>
                     </button>
                     <div className="flex flex-col items-center justify-start h-12 gap-2">
                       <button onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm text-white/80 hover:text-white font-bold underline underline-offset-4 decoration-white/30 hover:decoration-white transition-all flex items-center gap-2">
-                        <Phone size={14} /> Ou demander un Audit B2B
+                        <Phone size={14} /> Ou demander à être rappelé
                       </button>
                       <p className="text-xs text-white/50 font-bold uppercase tracking-widest flex items-center gap-2">
-                        <CheckCircle size={14} className="text-[#0097b2]"/> Audit technique gratuit
+                        <CheckCircle size={14} className="text-[#0097b2]"/> Visite technique gratuite
                       </p>
                     </div>
                   </div>
@@ -156,37 +154,37 @@ export default function ProPage() {
         {/* BANDEAU CONFIANCE */}
         <TrustedBrands />
 
-        {/* CAS D'USAGE B2B */}
+        {/* MÉTHODOLOGIE + CARROUSEL AVIS */}
         <section id="concept" className="py-24 bg-slate-50 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-20 items-center">
              <div className="space-y-8">
-                <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>Chaque entreprise <br/><span style={{ color: brandTeal }}>est unique.</span></h2>
-                <p className="text-lg text-slate-500 font-medium leading-relaxed">Nous avons segmenté nos offres pour répondre aux exigences comptables, fiscales et RH propres à votre modèle économique.</p>
-
+                <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>Une Méthode <br/><span style={{ color: brandTeal }}>Standardisée</span></h2>
+                <p className="text-lg text-slate-500 font-medium leading-relaxed mt-6">Le réseau CHARGéO repose sur une transparence absolue. Nos experts IRVE locaux se déplacent gratuitement pour vous fournir un devis précis et sans surprise.</p>
+                
                 <div className="space-y-6">
                   {[
-                    { i: <Car />, t: "Cas n°1 : La Flotte d'Entreprise", d: "Électrifiez votre parking. Supervision logicielle, badges RFID pour le suivi des consos et délestage pour la sécurité de l'entreprise." },
-                    { i: <Home />, t: "Cas n°2 : Domicile Collaborateurs", d: "Offrez la recharge à la maison. Notre logiciel isole la conso pro : vous remboursez le salarié sur note de frais, sans gestion." },
-                    { i: <CreditCard />, t: "Cas n°3 : Monétisation Clientèle", d: "Attirez une clientèle premium. Fixez votre marge au kWh, le client paie par QR Code, vous générez des revenus." }
+                    { i: <Zap/>, t: "Borne Intelligente", d: "7.4kW pour une charge 3x plus rapide qu'une prise standard." },
+                    { i: <FileText/>, t: "Devis Transparent", d: "Obtenez un devis clair après une visite technique gratuite." },
+                    { i: <ShieldCheck/>, t: "Qualification IRVE", d: "Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW." }
                   ].map((item, idx) => (
-                    <div key={idx} className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+                    <div key={idx} className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm hover:shadow-md border border-slate-100">
                       <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2] group-hover:text-white transition-colors duration-500 shrink-0 text-[#0097b2]">
                         {item.i}
                       </div>
                       <div className="flex flex-col justify-center">
                         <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>{item.t}</h4>
-                        <p className="text-xs text-slate-400 font-medium mt-1">{item.d}</p>
+                        <p className="text-xs text-slate-400 font-medium">{item.d}</p>
                       </div>
                     </div>
                   ))}
                 </div>
              </div>
-
+             
              <ReviewsCarousel reviews={reviews} />
           </div>
         </section>
 
-        {/* EXPERTISE FISCALE */}
+        {/* BLOC EXPERTISE / CONFIANCE */}
         <section className="py-20 bg-white border-t border-slate-100 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6">
             <div className="bg-[#032b60] rounded-[2.5rem] p-10 md:p-16 flex flex-col md:flex-row items-center gap-12 shadow-2xl relative overflow-hidden group">
@@ -194,39 +192,53 @@ export default function ProPage() {
 
               <div className="md:w-1/2 space-y-6 relative z-10 text-white">
                 <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full border border-white/20">
-                  <ShieldCheck size={16} className="text-[#0097b2]" />
-                  <span className="text-xs font-black uppercase tracking-widest text-blue-100">Votre Partenaire B2B</span>
+                  <MapPin size={16} className="text-[#0097b2]" />
+                  <span className="text-xs font-black uppercase tracking-widest text-blue-100">Vos Experts Locaux</span>
                 </div>
                 <h2 className="text-3xl md:text-5xl font-black tracking-tighter leading-tight">
-                  Tirez parti des <span className="text-[#0097b2]">leviers financiers.</span>
+                  L'excellence d'un service <span className="text-[#0097b2]">de proximité.</span>
                 </h2>
-                <p className="text-lg text-blue-100/80 font-medium">L'électrification de vos parkings n'est pas qu'une contrainte légale. C'est une opportunité fiscale puissante. Nos experts gèrent l'administratif pour que vous récupériez chaque euro auquel vous avez droit.</p>
+                <p className="text-lg text-blue-100/80 font-medium leading-relaxed">
+                  Basés en Haute-Savoie, nous ne sommes pas une plateforme nationale impersonnelle. CHARGéO, c'est une équipe locale d'artisans qualifiés IRVE qui vous accompagne de la visite technique jusqu'à l'installation.
+                </p>
+                <div className="flex items-center gap-6 pt-4">
+                  <div className="flex -space-x-4">
+                    <img className="w-12 h-12 rounded-full border-2 border-[#032b60] object-cover hover:-translate-y-1 transition-transform" src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100&h=100&fit=crop&crop=faces" alt="Technicien CHARGéO" />
+                    <img className="w-12 h-12 rounded-full border-2 border-[#032b60] object-cover hover:-translate-y-1 transition-transform" src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=faces" alt="Expert CHARGéO" />
+                    <div className="w-12 h-12 rounded-full border-2 border-[#032b60] bg-[#0097b2] flex items-center justify-center text-white font-black text-[10px] hover:-translate-y-1 transition-transform">IRVE</div>
+                  </div>
+                  <div className="text-sm font-bold">
+                    <p className="text-white">Visite gratuite</p>
+                    <p className="text-[#0097b2]">74200 Thonon-les-Bains</p>
+                  </div>
+                </div>
               </div>
 
+              {/* GRILLE À 3 CARTES */}
               <div className="md:w-1/2 w-full grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl">
-                  <Building className="text-[#0097b2] mb-4" size={32} />
-                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Conformité Loi LOM</h4>
-                  <p className="text-blue-100/70 text-xs">Mise aux normes de vos parkings pour respecter vos quotas obligatoires.</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl">
-                  <FileText className="text-[#0097b2] mb-4" size={32} />
-                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Exonération TVS</h4>
-                  <p className="text-blue-100/70 text-xs">Exonération totale de la Taxe sur les Véhicules de Société pour les flottes électriques.</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl sm:col-span-2">
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
                   <Award className="text-[#0097b2] mb-4" size={32} />
-                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Amortissement & TVA</h4>
-                  <p className="text-blue-100/70 text-xs">Plafond d'amortissement rehaussé (30 000€) et récupération totale de la TVA sur l'électricité consommée.</p>
+                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Qualification IRVE</h4>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed grow">Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Indispensable pour votre assurance.</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
+                  <FileText className="text-[#0097b2] mb-4" size={32} />
+                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Administratif Inclus</h4>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed grow">Nous montons de A à Z vos dossiers de Prime Advenir (jusqu'à 600€) et la demande de TVA réduite.</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 sm:col-span-2">
+                  <Wrench className="text-[#0097b2] mb-4" size={32} />
+                  <h4 className="text-white font-black uppercase tracking-wider mb-2">SAV & Maintenance</h4>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Un problème ? Notre équipe locale intervient rapidement. Nous assurons le suivi de tout notre parc installé pour vous garantir une tranquillité d'esprit totale sur le long terme.</p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* SIMULATEUR PRO */}
+        {/* SIMULATEUR DE RENTABILITÉ */}
         <section id="simulateur" className="py-24 bg-white scroll-mt-24">
-            <SimulatorPro onResultChange={setRevenue} />
+            <SimulatorParticuliers onResultChange={setSavings} />
         </section>
 
         {/* SECTION CONTACT CORPORATE TECH (Même disposition que l'accueil) */}
@@ -238,16 +250,16 @@ export default function ProPage() {
               <FadeIn delay={0}>
                 <div>
                   <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase text-[#032b60] mb-4 md:mb-6 leading-tight">
-                    Demander un <br/><span className="text-[#0097b2]">Audit B2B</span>
+                    Planifier ma <br/><span className="text-[#0097b2]">visite technique</span>
                   </h2>
                   <p className="text-slate-500 font-medium leading-relaxed text-base md:text-lg mb-6">
-                    Un ingénieur IRVE examine la faisabilité technique de votre entreprise et chiffre votre projet.
+                    Un expert IRVE local se déplace gratuitement pour évaluer la faisabilité et vous établir un devis précis.
                   </p>
                   
                   <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 flex items-start gap-3 shadow-sm">
                      <span className="text-orange-500 mt-0.5 text-lg leading-none">⚠️</span>
                      <p className="text-xs sm:text-sm text-orange-800 font-medium leading-relaxed">
-                       Nos créneaux d'audit se remplissent vite. <span className="font-black">Complétez le formulaire aujourd'hui pour bloquer votre étude.</span>
+                       Nos plannings se remplissent vite. <span className="font-black">Réservez votre visite technique aujourd'hui.</span>
                      </p>
                   </div>
                 </div>
@@ -272,7 +284,7 @@ export default function ProPage() {
                       <Phone size={24} />
                     </div>
                     <div className="pt-1">
-                      <p className="font-black text-[#032b60] uppercase tracking-wider text-xs md:text-sm mb-1 group-hover:text-[#0097b2] transition-colors">Ligne Directe B2B</p>
+                      <p className="font-black text-[#032b60] uppercase tracking-wider text-xs md:text-sm mb-1 group-hover:text-[#0097b2] transition-colors">Ligne Directe</p>
                       <a href="tel:0485692204" className="text-slate-500 font-medium text-base md:text-lg hover:text-[#0097b2] transition-colors">04 85 69 22 04</a>
                     </div>
                   </div>
@@ -287,8 +299,8 @@ export default function ProPage() {
                   <div className="w-full relative min-h-[600px] h-[75vh]">
                     <iframe 
                       className="w-full h-full border-none rounded-xl" 
-                      src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS?Source=Site%20Web%20Pro" 
-                      title="Formulaire Contact CHARGéO Pro" 
+                      src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS?Source=Site%20Web%20Particuliers" 
+                      title="Formulaire Contact CHARGéO" 
                       style={{ background: 'transparent', width: '100%', minWidth: '100%' }}
                       loading="lazy"
                     />
@@ -301,9 +313,11 @@ export default function ProPage() {
         </section>
 
         {/* FAQ SECTION */}
-        <section className="py-24 bg-slate-50 border-t border-slate-100 text-center">
-          <div className="max-w-4xl mx-auto px-6">
-            <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase mb-12" style={{ color: brandNavy }}>Questions <span style={{ color: brandTeal }}>Fréquentes</span></h2>
+        <section className="py-24 bg-slate-50 border-t border-slate-100">
+          <div className="max-w-4xl mx-auto px-6 space-y-12">
+            <div className="text-center space-y-4">
+              <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase" style={{ color: brandNavy }}>Questions <span style={{ color: brandTeal }}>Fréquentes</span></h2>
+            </div>
             <FaqAccordion faqs={faqs} />
           </div>
         </section>

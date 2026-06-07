@@ -24,3 +24,92 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+/* --- ANIMATIONS ET STYLES GLOBAUX CHARGÉO --- */
+:root { 
+  color-scheme: light only !important; 
+}
+
+html, body { 
+  background-color: #ffffff !important; 
+  color: #0f172a !important; 
+}
+
+/* Animations de fond et flottantes */
+@keyframes slowPan { 
+  0% { transform: scale(1.05) translate(0, 0); } 
+  100% { transform: scale(1.15) translate(-1%, 1%); } 
+}
+.animate-bg-pan { 
+  animation: slowPan 25s ease-in-out infinite alternate; 
+  will-change: transform; 
+}
+
+@keyframes float { 
+  0%, 100% { transform: translateY(0); } 
+  50% { transform: translateY(-8px); } 
+}
+.animate-float { 
+  animation: float 4s ease-in-out infinite; 
+  will-change: transform; 
+}
+
+@keyframes float-delayed { 
+  0%, 100% { transform: translateY(0); } 
+  50% { transform: translateY(-15px); } 
+}
+.animate-float-delayed { 
+  animation: float-delayed 7s ease-in-out infinite 2s; 
+  will-change: transform; 
+}
+
+/* Effet de brillance sur les boutons (CTA) */
+@keyframes shine { 
+  100% { left: 125%; } 
+}
+.animate-button-shine { 
+  position: absolute; top: 0; left: -100%; width: 50%; height: 100%; 
+  background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%); 
+  transform: skewX(-20deg); 
+  animation: shine 3s infinite; 
+}
+
+/* Styles spécifiques Page d'accueil (Tech) */
+.bg-grid-tech {
+  background-image: 
+    linear-gradient(to right, rgba(0, 151, 178, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 151, 178, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+@keyframes pulse-neon {
+  0%, 100% { box-shadow: 0 0 15px rgba(0, 151, 178, 0.5), inset 0 0 10px rgba(0, 151, 178, 0.2); }
+  50% { box-shadow: 0 0 30px rgba(0, 151, 178, 0.8), inset 0 0 20px rgba(0, 151, 178, 0.4); }
+}
+.animate-pulse-neon { animation: pulse-neon 3s infinite; }
+
+.glass-tech {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tech-card { position: relative; z-index: 1; }
+.tech-card::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: linear-gradient(135deg, rgba(0,151,178,0) 0%, rgba(0,151,178,0) 100%);
+  z-index: -1; transition: background 0.5s ease;
+}
+.tech-card:hover::before {
+  background: linear-gradient(135deg, rgba(0,151,178,0.1) 0%, rgba(3,43,96,0.05) 100%);
+}
+
+/* Désactivation des animations lourdes sur mobile pour les performances */
+@media (max-width: 768px) {
+  .animate-bg-pan, .animate-float, .animate-float-delayed, .animate-pulse-neon { 
+    animation: none !important; transform: none !important; 
+  }
+  .glass-tech { 
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: rgba(255, 255, 255, 0.08); 
+  }
+}
