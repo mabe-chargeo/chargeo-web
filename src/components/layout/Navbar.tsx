@@ -33,9 +33,9 @@ export function Navbar({
         {/* SI ACCUEIL : Menu Central | SI PAGE : Bouton Retour */}
         {isHome ? (
           <div className="hidden md:flex items-center p-1.5 rounded-full border bg-white/50 border-slate-200 shadow-[inset_0_1px_3px_rgba(0,0,0,0.05)]">
-            <a href="#groupe" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white">Le Groupe Tech</a>
+            <a href="#groupe" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white">Notre ADN</a>
             <a href="#expertises" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white">Points de charge</a>
-            <a href="#engagements" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white">Garanties MCO</a>
+            <a href="#engagements" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white">Maintenance & Suivi</a>
           </div>
         ) : (
           <Link href="/" className="flex items-center gap-2 text-slate-500 hover:text-[#032b60] font-bold text-sm bg-white hover:bg-slate-100 px-4 py-2 sm:py-2.5 rounded-full border border-slate-200 transition-all shadow-sm">
@@ -73,9 +73,9 @@ export function Navbar({
       {isHome && (
         <div className={`md:hidden absolute top-full left-0 w-full bg-white border-b border-slate-200 shadow-xl overflow-hidden transition-all duration-300 ${isMobileMenuOpen ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="px-6 py-4 flex flex-col gap-4">
-            <a onClick={() => setIsMobileMenuOpen(false)} href="#groupe" className="text-base font-bold text-[#032b60] py-2 border-b border-slate-100 flex justify-between items-center">Le Groupe Tech <ChevronRight size={16}/></a>
+            <a onClick={() => setIsMobileMenuOpen(false)} href="#groupe" className="text-base font-bold text-[#032b60] py-2 border-b border-slate-100 flex justify-between items-center">Notre ADN <ChevronRight size={16}/></a>
             <a onClick={() => setIsMobileMenuOpen(false)} href="#expertises" className="text-base font-bold text-[#032b60] py-2 border-b border-slate-100 flex justify-between items-center">Points de charge <ChevronRight size={16}/></a>
-            <a onClick={() => setIsMobileMenuOpen(false)} href="#engagements" className="text-base font-bold text-[#032b60] py-2 flex justify-between items-center">Garanties MCO <ChevronRight size={16}/></a>
+            <a onClick={() => setIsMobileMenuOpen(false)} href="#engagements" className="text-base font-bold text-[#032b60] py-2 flex justify-between items-center">Maintenance & Suivi <ChevronRight size={16}/></a>
           </div>
         </div>
       )}

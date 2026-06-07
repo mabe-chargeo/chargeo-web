@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import {
   ArrowRight, ShieldCheck, Building, Home, CreditCard,
-  MapPin, Award, FileText, Phone, Car
+  MapPin, Award, FileText, Phone, Car, CheckCircle
 } from 'lucide-react';
 
 import { FadeIn } from '@/components/ui/FadeIn';
@@ -99,51 +100,56 @@ export default function ProPage() {
 
       <main>
         {/* HERO SECTION PRO */}
-        <section className="relative min-h-dvh pt-25 md:pt-30 flex flex-col justify-center overflow-hidden bg-[#032b60]">
+        <section className="relative min-h-[82vh] pt-28 pb-12 flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
-            <img
-              src="/hero-pro.png"
-              className="w-full h-full object-cover opacity-40 animate-bg-pan"
-              alt="Bâtiment entreprise et recharge"
-            />
+            <Image src="/hero-pro.png" alt="Bâtiment entreprise et recharge" fill sizes="100vw" priority className="object-cover opacity-40 animate-bg-pan" />
             <div className="absolute inset-0 bg-linear-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
           </div>
-          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full py-12 grow flex flex-col justify-center">
-            <div className="max-w-4xl mx-auto text-center flex flex-col items-center space-y-6">
-              <FadeIn delay={200}>
-                <div className="flex items-center justify-center gap-2 text-[#0097b2] font-black text-sm sm:text-base uppercase tracking-widest bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
-                   <Building size={18} />
-                   <span>Solutions pour Entreprises & B2B</span>
+          
+          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full flex flex-col justify-center items-center text-center">
+              <FadeIn delay={200} direction="up">
+                <div className="w-full flex justify-center mb-6 mt-6">
+                  <div className="flex items-center justify-center gap-2 text-[#0097b2] font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
+                     <Building size={16} />
+                     <span>Solutions pour Entreprises & B2B</span>
+                  </div>
                 </div>
               </FadeIn>
-              <FadeIn delay={300}>
-                <h1 className="text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase">
-                  L'infrastructure <br/><span style={{ color: brandTeal }}>pour les Pros.</span>
-                </h1>
-              </FadeIn>
-              <FadeIn delay={500}>
-                <p className="text-lg md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl">
-                  Électrifiez votre flotte, équipez vos collaborateurs à domicile ou monétisez votre parking client. Nous gérons votre projet de A à Z.
-                </p>
-              </FadeIn>
-              <FadeIn delay={700}>
-                <div ref={heroRef} className="flex flex-col items-center gap-4 animate-float">
-                  <button
-                    onClick={() => document.getElementById('simulateur')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full font-black text-base sm:text-lg shadow-[0_4px_14px_rgba(255,107,0,0.3)] transition-all group"
-                  >
-                    <div className="animate-button-shine" />
-                    Estimer mes revenus <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/>
-                  </button>
-                  <button
-                    onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                    className="text-sm text-white/80 hover:text-white font-bold underline underline-offset-4 decoration-white/30 hover:decoration-white transition-all flex items-center gap-2"
-                  >
-                    <Phone size={14} /> Ou demander un Audit B2B directement
-                  </button>
+              
+              <FadeIn delay={300} direction="up">
+                <div className="w-full flex justify-center mb-6">
+                  <h1 className="text-[2.5rem] sm:text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase">
+                    L'infrastructure <br/><span className="text-[#0097b2]">pour les Pros.</span>
+                  </h1>
                 </div>
               </FadeIn>
-            </div>
+              
+              <FadeIn delay={500} direction="up">
+                <div className="w-full flex justify-center mb-10">
+                  <p className="text-sm sm:text-base md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
+                    Électrifiez votre flotte, équipez vos collaborateurs à domicile ou monétisez votre parking client. Nous gérons votre projet de A à Z.
+                  </p>
+                </div>
+              </FadeIn>
+              
+              <FadeIn delay={700} direction="up">
+                <div className="w-full flex justify-center">
+                  <div ref={heroRef} className="flex flex-col items-center gap-5 animate-float">
+                    <button onClick={() => document.getElementById('simulateur')?.scrollIntoView({ behavior: 'smooth' })} className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full font-black text-base sm:text-lg shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 transition-all w-fit group text-center">
+                      <div className="animate-button-shine" />
+                      Estimer mes revenus <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/>
+                    </button>
+                    <div className="flex flex-col items-center justify-start h-12 gap-2">
+                      <button onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm text-white/80 hover:text-white font-bold underline underline-offset-4 decoration-white/30 hover:decoration-white transition-all flex items-center gap-2">
+                        <Phone size={14} /> Ou demander un Audit B2B
+                      </button>
+                      <p className="text-xs text-white/50 font-bold uppercase tracking-widest flex items-center gap-2">
+                        <CheckCircle size={14} className="text-[#0097b2]"/> Audit technique gratuit
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </FadeIn>
           </div>
         </section>
 
@@ -220,18 +226,77 @@ export default function ProPage() {
 
         {/* SIMULATEUR PRO */}
         <section id="simulateur" className="py-24 bg-white scroll-mt-24">
-<SimulatorPro onResultChange={setRevenue} />
-          {/* FORMULAIRE ClickUp */}
-          <div id="formulaire-devis" ref={formRef} className="max-w-7xl mx-auto px-6 mt-24 bg-white p-4 sm:p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-            <div className="w-full relative h-212.5 sm:h-200 lg:h-225">
-              <iframe
-                className="w-full h-full border-none rounded-2xl"
-                src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS?Source=Site%20Web%20Pro"
-                title="Formulaire CHARGéO Pro"
-                style={{ background: 'transparent' }}
-                loading="lazy"
-              />
+            <SimulatorPro onResultChange={setRevenue} />
+        </section>
+
+        {/* SECTION CONTACT CORPORATE TECH (Même disposition que l'accueil) */}
+        <section id="formulaire-devis" ref={formRef} className="py-20 md:py-32 bg-slate-50 relative border-t border-slate-100 scroll-mt-24">
+          <div className="absolute inset-0 bg-grid-tech opacity-30"></div>
+          <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-5 gap-12 md:gap-16 items-start relative z-10">
+            
+            <div className="lg:col-span-2 space-y-10 md:space-y-12">
+              <FadeIn delay={0}>
+                <div>
+                  <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase text-[#032b60] mb-4 md:mb-6 leading-tight">
+                    Demander un <br/><span className="text-[#0097b2]">Audit B2B</span>
+                  </h2>
+                  <p className="text-slate-500 font-medium leading-relaxed text-base md:text-lg mb-6">
+                    Un ingénieur IRVE examine la faisabilité technique de votre entreprise et chiffre votre projet.
+                  </p>
+                  
+                  <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 flex items-start gap-3 shadow-sm">
+                     <span className="text-orange-500 mt-0.5 text-lg leading-none">⚠️</span>
+                     <p className="text-xs sm:text-sm text-orange-800 font-medium leading-relaxed">
+                       Nos créneaux d'audit se remplissent vite. <span className="font-black">Complétez le formulaire aujourd'hui pour bloquer votre étude.</span>
+                     </p>
+                  </div>
+                </div>
+              </FadeIn>
+
+              <div className="space-y-6">
+                <FadeIn delay={0}>
+                  <div className="flex items-start gap-5 md:gap-6 group">
+                    <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center text-[#032b60] shrink-0 group-hover:border-[#0097b2] group-hover:text-[#0097b2] transition-colors">
+                      <MapPin size={24} />
+                    </div>
+                    <div className="pt-1">
+                      <p className="font-black text-[#032b60] uppercase tracking-wider text-xs md:text-sm mb-1 group-hover:text-[#0097b2] transition-colors">Zone d'intervention</p>
+                      <p className="text-slate-500 font-medium text-sm md:text-base">Chablais et Haute-Savoie</p>
+                    </div>
+                  </div>
+                </FadeIn>
+                
+                <FadeIn delay={100}>
+                  <div className="flex items-start gap-5 md:gap-6 group">
+                    <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center text-[#032b60] shrink-0 group-hover:border-[#0097b2] group-hover:text-[#0097b2] transition-colors">
+                      <Phone size={24} />
+                    </div>
+                    <div className="pt-1">
+                      <p className="font-black text-[#032b60] uppercase tracking-wider text-xs md:text-sm mb-1 group-hover:text-[#0097b2] transition-colors">Ligne Directe B2B</p>
+                      <a href="tel:0485692204" className="text-slate-500 font-medium text-base md:text-lg hover:text-[#0097b2] transition-colors">04 85 69 22 04</a>
+                    </div>
+                  </div>
+                </FadeIn>
+              </div>
             </div>
+
+            <div className="lg:col-span-3 w-full">
+              <FadeIn delay={300}>
+                <div className="w-full bg-white p-4 sm:p-8 rounded-[2.5rem] shadow-md md:shadow-[0_20px_60px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-[#032b60] to-[#0097b2]"></div>
+                  <div className="w-full relative min-h-[600px] h-[75vh]">
+                    <iframe 
+                      className="w-full h-full border-none rounded-xl" 
+                      src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS?Source=Site%20Web%20Pro" 
+                      title="Formulaire Contact CHARGéO Pro" 
+                      style={{ background: 'transparent', width: '100%', minWidth: '100%' }}
+                      loading="lazy"
+                    />
+                  </div>
+                </div>
+              </FadeIn>
+            </div>
+
           </div>
         </section>
 

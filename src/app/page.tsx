@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import { Logo } from '@/components/ui/Logo';
+import Image from 'next/image';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -92,11 +93,12 @@ const ImageReveal = ({ src, alt, className = "" }: { src: string; alt: string; c
 
   return (
     <div ref={ref} className={`overflow-hidden ${className}`}>
-      <img
+      <Image
         src={src}
         alt={alt}
-        loading="lazy"
-        className={`w-full h-full object-cover transition-transform duration-2000 ease-out will-change-transform ${
+        fill
+        sizes="(max-width: 1024px) 100vw, 50vw"
+        className={`object-cover transition-transform duration-2000 ease-out will-change-transform ${
           isVisible ? "scale-100" : "scale-[1.15]"
         }`}
       />
@@ -120,92 +122,57 @@ export default function App() {
 <Navbar isHome />
       <main>
         {/* HERO SECTION HIGH-TECH */}
-        <section className="relative min-h-dvh pt-25 md:pt-30 flex flex-col justify-center overflow-hidden bg-[#032b60]">
+        <section className="relative min-h-[82vh] pt-28 pb-12 flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
             <div className="absolute inset-0 bg-grid-tech opacity-30"></div>
-            <img 
-              src="/hero-chargeo.png" 
-              className="w-full h-full object-cover opacity-20 animate-bg-pan grayscale" 
-              alt="Installation institutionnelle" 
-              fetchPriority="high"
-            />
-            <div className="hidden md:block absolute -top-75 -right-75 w-200 h-200 bg-[radial-gradient(circle,rgba(0,151,178,0.15)_0%,transparent_70%)] pointer-events-none"></div>
-            <div className="hidden md:block absolute -bottom-50 -left-50 w-150 h-150 bg-[radial-gradient(circle,rgba(34,211,238,0.1)_0%,transparent_70%)] pointer-events-none"></div>
+            <Image src="/hero-chargeo.png" alt="Installation institutionnelle" fill sizes="100vw" priority className="object-cover opacity-20 animate-bg-pan grayscale" />
             <div className="absolute inset-0 bg-linear-to-t from-[#032b60] via-[#032b60]/20 to-[#032b60]/50 opacity-90"></div>
           </div>
           
-          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full py-12 md:py-24 grow flex flex-col justify-center">
-            <div className="grid lg:grid-cols-12 gap-12 items-center">
+          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full flex flex-col justify-center items-center text-center">
+             <Reveal delay={0} direction="up">
+                 <div className="w-full flex justify-center mb-6 mt-6">
+                   <div className="flex items-center justify-center gap-2 text-cyan-300 font-bold text-[10px] sm:text-xs uppercase tracking-[0.2em] bg-white/10 px-4 py-2 rounded-full border border-cyan-400/30 backdrop-blur-sm">
+                     <Cpu size={16} className="text-cyan-400 animate-pulse" />
+                     <span>L'installation de points de charge réinventée</span>
+                   </div>
+                 </div>
+              </Reveal>
               
-              <div className="lg:col-span-7 space-y-8">
-                <Reveal delay={0} direction="right">
-                  <div className="inline-flex items-center gap-2 text-cyan-300 font-bold text-[10px] sm:text-xs uppercase tracking-[0.2em] glass-tech px-4 py-2 rounded-full border border-cyan-400/30 md:shadow-[0_0_15px_rgba(0,151,178,0.3)]">
-                    <Cpu size={16} className="text-cyan-400 animate-pulse" />
-                    <span>L'installation de points de charge réinventée</span>
-                  </div>
-                </Reveal>
-                
-                <Reveal delay={100} direction="right">
-                  <h1 className="text-4xl sm:text-6xl md:text-7xl font-black text-white tracking-tighter leading-[1.05] uppercase">
+              <Reveal delay={100} direction="up">
+                <div className="w-full flex justify-center mb-6">
+                  <h1 className="text-[2.5rem] sm:text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase">
                     L'intelligence <br/>au cœur de <span className="text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-[#0097b2]">la charge.</span>
                   </h1>
-                </Reveal>
-                
-                <Reveal delay={200} direction="right">
-                  <p className="text-lg md:text-xl text-white/80 leading-relaxed font-medium max-w-xl">
+                </div>
+              </Reveal>
+              
+              <Reveal delay={200} direction="up">
+                <div className="w-full flex justify-center mb-10">
+                  <p className="text-sm sm:text-base md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
                     Nous sommes l'entreprise tech spécialisée dans le déploiement et la supervision de points de charge intelligents pour les professionnels, copropriétés et particuliers en Haute-Savoie.
                   </p>
-                </Reveal>
-                
-                <Reveal delay={300} direction="right">
-                  <div className="pt-6 flex flex-col sm:flex-row items-center gap-6">
-                    <a 
-                      href="#expertises"
-                      className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#0097b2] hover:bg-cyan-500 text-white px-8 py-4 rounded-full font-black text-sm sm:text-base transition-all group w-full sm:w-auto"
-                    >
+                </div>
+              </Reveal>
+              
+              <Reveal delay={300} direction="up">
+                <div className="w-full flex justify-center">
+                  <div className="flex flex-col items-center gap-5 animate-float">
+                    <a href="#expertises" className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full font-black text-base sm:text-lg shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 transition-all w-fit group text-center">
                       <div className="animate-button-shine" />
-                      Découvrir nos points de charge <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                      Découvrir nos points de charge <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                     </a>
-                    <a href="#groupe" className="text-white/60 hover:text-white font-bold text-sm uppercase tracking-widest transition-colors flex items-center justify-center gap-2 group w-full sm:w-auto">
-                      Notre ADN Tech <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform text-[#0097b2]" />
-                    </a>
+                    <div className="flex flex-col items-center justify-start h-12 gap-2">
+                      <a href="#groupe" className="text-sm text-white/80 hover:text-white font-bold underline underline-offset-4 decoration-white/30 hover:decoration-white transition-all flex items-center gap-2">
+                        <FileText size={14} /> Notre ADN Tech
+                      </a>
+                      <p className="text-xs text-white/50 font-bold uppercase tracking-widest flex items-center gap-2">
+                        <CheckCircle size={14} className="text-[#0097b2]"/> Installateur Qualifié IRVE
+                      </p>
+                    </div>
                   </div>
-                </Reveal>
-              </div>
-
-              <div className="hidden lg:block lg:col-span-5 relative h-125">
-                 <Reveal delay={300} direction="left" className="absolute top-10 right-0 w-64 glass-tech p-6 rounded-3xl border border-white/20 shadow-2xl animate-float z-20">
-                    <div className="flex items-center gap-4 mb-3">
-                       <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center border border-green-500/30">
-                          <Wifi className="text-green-400" size={18} />
-                       </div>
-                       <div>
-                         <p className="text-white font-black text-sm">Supervision CPO</p>
-                         <p className="text-green-400 text-[10px] font-bold uppercase tracking-widest">Connecté</p>
-                       </div>
-                    </div>
-                    <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden mt-4">
-                      <div className="bg-linear-to-r from-green-400 to-cyan-400 w-full h-full animate-[pulse_2s_ease-in-out_infinite]"></div>
-                    </div>
-                 </Reveal>
-
-                 <Reveal delay={500} direction="up" className="absolute bottom-20 left-10 w-72 glass-tech p-6 rounded-3xl border border-white/20 shadow-2xl animate-float-delayed z-30">
-                    <div className="flex items-center gap-4">
-                       <div className="w-12 h-12 rounded-2xl bg-[#0097b2]/30 flex items-center justify-center border border-[#0097b2]/50 shadow-[0_0_15px_rgba(0,151,178,0.5)]">
-                          <Zap className="text-cyan-300" size={24} />
-                       </div>
-                       <div>
-                         <p className="text-white font-black text-lg">Load Balancing</p>
-                         <p className="text-cyan-200 text-[10px] font-bold uppercase tracking-widest">Gestion dynamique</p>
-                       </div>
-                    </div>
-                 </Reveal>
-                 
-                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-100 h-100 rounded-full border border-[#0097b2]/20 shadow-[inset_0_0_50px_rgba(0,151,178,0.1)] animate-[spin_20s_linear_infinite] z-10"></div>
-                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-62.5 h-62.5 rounded-full border border-cyan-400/30 border-dashed animate-[spin_15s_linear_infinite_reverse] z-10"></div>
-              </div>
-
-            </div>
+                </div>
+              </Reveal>
           </div>
         </section>
 
@@ -227,17 +194,17 @@ export default function App() {
                 
                 <Reveal delay={100}>
                   <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-[#032b60] uppercase leading-[1.1]">
-                    Maîtriser le matériel <br className="hidden md:block" />pour libérer <span className="text-[#0097b2]">le logiciel.</span>
+                    L'ingénierie physique <br className="hidden md:block" />au service de <span className="text-[#0097b2]">l'intelligence.</span>
                   </h2>
                 </Reveal>
                 
                 <Reveal delay={200}>
                   <div className="space-y-6 text-slate-600 font-medium leading-relaxed text-lg">
                     <p>
-                      Installer une prise est à la portée de tous. Déployer un point de charge intelligent, communicant et évolutif requiert une véritable ingénierie. CHARGéO est né pour combler ce vide technologique.
+                      Poser une prise basique est à la portée de n'importe quel électricien. Déployer une infrastructure de charge intelligente, communicante et évolutive exige une tout autre ingénierie.
                     </p>
                     <p>
-                      Nous ne sous-traitons aucune compétence. Nos techniciens, formés aux dernières normes IRVE, intègrent le matériel de pointe avec les logiciels de supervision les plus avancés du marché.
+                      Chez CHARGÉO, nous maîtrisons l'intégralité de la chaîne de valeur. Nos experts qualifiés IRVE déploient sur le terrain un matériel de pointe nativement connecté aux meilleurs outils de gestion du marché.
                     </p>
                   </div>
                 </Reveal>
@@ -289,80 +256,56 @@ export default function App() {
              </Reveal>
 
              <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
-                {/* Carte PROS */}
+                {/* BOUTON PROS */}
                 <Reveal delay={0} direction="up">
-                  <a href="/pro" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
-                     <div className="flex justify-between items-start mb-6 md:mb-8">
-                        <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-linear-to-br from-[#032b60] to-blue-900 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform duration-500">
-                          <Briefcase size={24} />
-                        </div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full group-hover:bg-[#032b60]/10 group-hover:text-[#032b60] transition-colors">B2B / Flottes</span>
-                     </div>
-                     <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight text-[#032b60] mb-4 group-hover:text-[#0097b2] transition-colors">Stations d'Entreprises</h3>
-                     <p className="text-slate-500 font-medium mb-8 grow leading-relaxed text-sm md:text-base">
-                       Grappes de points de charge communicants avec Load Balancing statique ou dynamique. Interface d'administration Cloud (CPO) pour facturer les sessions.
-                     </p>
+                  <a href="/pro" className="relative flex flex-col items-center justify-center bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(3,43,96,0.1)] border border-slate-100 hover:border-[#032b60]/20 transition-all duration-500 hover:-translate-y-2 group overflow-hidden h-full">
+                     <div className="absolute inset-0 bg-linear-to-br from-[#032b60]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                      
-                     <div className="flex items-center justify-between mt-auto pt-6 border-t border-slate-100">
-                       <div className="space-y-3">
-                         <div className="flex items-center gap-3"><Cpu size={16} className="text-[#0097b2]"/> <span className="text-xs md:text-sm font-bold text-[#032b60]">Supervision OCR</span></div>
-                         <div className="flex items-center gap-3"><Zap size={16} className="text-[#0097b2]"/> <span className="text-xs md:text-sm font-bold text-[#032b60]">Load Balancing</span></div>
-                       </div>
-                       <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-[#032b60] group-hover:bg-[#0097b2] group-hover:text-white transition-colors">
-                         <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                       </div>
+                     <div className="w-20 h-20 rounded-[1.5rem] bg-[#032b60] flex items-center justify-center text-white shadow-lg mb-6 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 relative z-10">
+                       <Briefcase size={32} />
+                     </div>
+                     
+                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 relative z-10">B2B / Flottes</span>
+                     <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#032b60] text-center mb-8 relative z-10">Entreprises</h3>
+                     
+                     <div className="mt-auto w-full inline-flex items-center justify-center gap-3 bg-slate-50 text-[#032b60] px-6 py-4 rounded-full font-black text-sm group-hover:bg-[#FF6B00] group-hover:text-white transition-colors duration-300 relative z-10">
+                       Voir les solutions <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                      </div>
                   </a>
                 </Reveal>
 
-                {/* Carte COPROS */}
+                {/* BOUTON COPROS */}
                 <Reveal delay={100} direction="up">
-                  <a href="/copropriete" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
-                     <div className="flex justify-between items-start mb-6 md:mb-8">
-                        <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-linear-to-br from-[#0097b2] to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30 group-hover:scale-110 transition-transform duration-500">
-                          <Building size={24} />
-                        </div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full group-hover:bg-[#0097b2]/10 group-hover:text-[#0097b2] transition-colors">Syndics</span>
+                  <a href="/copropriete" className="relative flex flex-col items-center justify-center bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,151,178,0.15)] border border-slate-100 hover:border-[#0097b2]/30 transition-all duration-500 hover:-translate-y-2 group overflow-hidden h-full">
+                     <div className="absolute inset-0 bg-linear-to-br from-[#0097b2]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                     
+                     <div className="w-20 h-20 rounded-[1.5rem] bg-[#0097b2] flex items-center justify-center text-white shadow-lg mb-6 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 relative z-10">
+                       <Building size={32} />
                      </div>
-                     <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight text-[#032b60] mb-4 group-hover:text-[#0097b2] transition-colors">Architecture Copro</h3>
-                     <p className="text-slate-500 font-medium mb-8 grow leading-relaxed text-sm md:text-base">
-                       Câblage en colonne horizontale intelligente. Nous déployons un réseau électrique pré-équipé permettant d'ajouter des points de charge à la demande.
-                     </p>
-
-                     <div className="flex items-center justify-between mt-auto pt-6 border-t border-slate-100">
-                       <div className="space-y-3">
-                         <div className="flex items-center gap-3"><Cpu size={16} className="text-[#0097b2]"/> <span className="text-xs md:text-sm font-bold text-[#032b60]">Scalabilité</span></div>
-                         <div className="flex items-center gap-3"><Zap size={16} className="text-[#0097b2]"/> <span className="text-xs md:text-sm font-bold text-[#032b60]">Zéro frais syndicat</span></div>
-                       </div>
-                       <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-[#032b60] group-hover:bg-[#0097b2] group-hover:text-white transition-colors">
-                         <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                       </div>
+                     
+                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 relative z-10">Syndics</span>
+                     <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#032b60] text-center mb-8 relative z-10">Copropriétés</h3>
+                     
+                     <div className="mt-auto w-full inline-flex items-center justify-center gap-3 bg-slate-50 text-[#032b60] px-6 py-4 rounded-full font-black text-sm group-hover:bg-[#FF6B00] group-hover:text-white transition-colors duration-300 relative z-10">
+                       Voir les solutions <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                      </div>
                   </a>
                 </Reveal>
 
-                {/* Carte PARTICULIER */}
+                {/* BOUTON PARTICULIER */}
                 <Reveal delay={200} direction="up">
-                  <a href="/particuliers" className="block tech-card bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm md:shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex-col h-full group hover:shadow-[0_0_40px_rgba(0,151,178,0.15)] transition-all duration-500 hover:-translate-y-2 cursor-pointer">
-                     <div className="flex justify-between items-start mb-6 md:mb-8">
-                        <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-linear-to-br from-slate-200 to-slate-300 flex items-center justify-center text-[#032b60] shadow-md group-hover:scale-110 transition-transform duration-500">
-                          <Home size={24} />
-                        </div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full group-hover:bg-slate-200 transition-colors">B2C</span>
+                  <a href="/particuliers" className="relative flex flex-col items-center justify-center bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.1)] border border-slate-100 hover:border-slate-300 transition-all duration-500 hover:-translate-y-2 group overflow-hidden h-full">
+                     <div className="absolute inset-0 bg-linear-to-br from-slate-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                     
+                     <div className="w-20 h-20 rounded-[1.5rem] bg-slate-200 flex items-center justify-center text-[#032b60] shadow-md mb-6 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 relative z-10">
+                       <Home size={32} />
                      </div>
-                     <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight text-[#032b60] mb-4 group-hover:text-[#0097b2] transition-colors">Wallbox Résidentielle</h3>
-                     <p className="text-slate-500 font-medium mb-8 grow leading-relaxed text-sm md:text-base">
-                       Le point de charge connecté (7.4kW - 22kW) à domicile. Pilotez vos sessions depuis votre smartphone, trackez l'énergie en toute sécurité.
-                     </p>
-
-                     <div className="flex items-center justify-between mt-auto pt-6 border-t border-slate-100">
-                       <div className="space-y-3">
-                         <div className="flex items-center gap-3"><Cpu size={16} className="text-[#0097b2]"/> <span className="text-xs md:text-sm font-bold text-[#032b60]">App de pilotage</span></div>
-                         <div className="flex items-center gap-3"><Zap size={16} className="text-[#0097b2]"/> <span className="text-xs md:text-sm font-bold text-[#032b60]">Sécurité NFC-15-100</span></div>
-                       </div>
-                       <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-[#032b60] group-hover:bg-[#0097b2] group-hover:text-white transition-colors">
-                         <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                       </div>
+                     
+                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 relative z-10">B2C / Résidentiel</span>
+                     <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#032b60] text-center mb-8 relative z-10">Particuliers</h3>
+                     
+                     <div className="mt-auto w-full inline-flex items-center justify-center gap-3 bg-slate-50 text-[#032b60] px-6 py-4 rounded-full font-black text-sm group-hover:bg-[#FF6B00] group-hover:text-white transition-colors duration-300 relative z-10">
+                       Voir les solutions <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                      </div>
                   </a>
                 </Reveal>
@@ -370,7 +313,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* BLOC GARANTIE MCO */}
+        {/* BLOC GARANTIE MAINTENANCE */}
         <section id="engagements" className="py-20 md:py-32 bg-[#032b60] overflow-hidden relative">
           <div className="absolute inset-0 bg-grid-tech opacity-20"></div>
           <div className="hidden md:block absolute -top-50 -right-50 w-150 h-150 bg-[radial-gradient(circle,rgba(0,151,178,0.15)_0%,transparent_70%)] animate-[pulse_6s_ease-in-out_infinite] pointer-events-none"></div>
@@ -380,13 +323,13 @@ export default function App() {
               <div className="text-center max-w-3xl mx-auto mb-16 md:mb-20">
                 <div className="inline-flex items-center gap-2 text-cyan-300 font-bold text-[10px] sm:text-xs uppercase tracking-[0.2em] bg-white/10 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md mb-6">
                   <Wrench size={16} />
-                  <span>Exploitation & Fiabilité</span>
+                  <span>Suivi & Performance</span>
                 </div>
                 <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-white uppercase leading-tight mb-6">
-                  Le Maintien en <span className="text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-[#0097b2]">Condition Opérationnelle.</span>
+                  Supervision & <span className="text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-[#0097b2]">Maintenance Durable.</span>
                 </h2>
                 <p className="text-blue-100/70 font-medium text-base md:text-lg leading-relaxed">
-                  L'installation n'est que la première étape. Notre pôle MCO garantit une disponibilité maximale de vos points de charge sur le long terme.
+                  L'installation n'est que le début de notre engagement. Grâce à nos abonnements annuels de maintenance préventive et curative, nous assurons la disponibilité de vos équipements sur le long terme.
                 </p>
               </div>
             </Reveal>
@@ -397,8 +340,8 @@ export default function App() {
                   <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-[#0097b2]/20 flex items-center justify-center text-cyan-300 mb-6 md:mb-8 border border-cyan-400/30 group-hover:scale-110 transition-transform">
                     <Wifi size={24} />
                   </div>
-                  <h4 className="text-white font-black uppercase tracking-wider text-lg md:text-xl mb-3 md:mb-4">Télé-Supervision</h4>
-                  <p className="text-blue-100/70 font-medium leading-relaxed text-sm md:text-base">Monitoring de vos points de charge en temps réel. Nous anticipons et diagnostiquons 80% des anomalies à distance.</p>
+                  <h4 className="text-white font-black uppercase tracking-wider text-lg md:text-xl mb-3 md:mb-4">Supervision Logicielle</h4>
+                  <p className="text-blue-100/70 font-medium leading-relaxed text-sm md:text-base">Accès au portail de monitoring en temps réel pour un contrôle total. Nous suivons l'état de votre parc à distance en permanence.</p>
                 </div>
               </Reveal>
               
@@ -407,8 +350,8 @@ export default function App() {
                   <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-[#0097b2] flex items-center justify-center text-white mb-6 md:mb-8 shadow-[0_0_20px_rgba(0,151,178,0.5)] relative z-10 group-hover:scale-110 transition-transform">
                     <ShieldCheck size={24} />
                   </div>
-                  <h4 className="text-white font-black uppercase tracking-wider text-lg md:text-xl mb-3 md:mb-4 relative z-10">Conformité Absolue</h4>
-                  <p className="text-blue-100/70 font-medium leading-relaxed text-sm md:text-base relative z-10">Nos processus répondent aux exigences strictes du programme Advenir. Matériel audité et réception par un organisme indépendant.</p>
+                  <h4 className="text-white font-black uppercase tracking-wider text-lg md:text-xl mb-3 md:mb-4 relative z-10">La Promesse Zéro Panne</h4>
+                  <p className="text-blue-100/70 font-medium leading-relaxed text-sm md:text-base relative z-10">Dans un marché où 20% des bornes sont en panne, la fiabilité n'est pas un luxe. Notre maintenance préventive et curative garantit la disponibilité de vos points de charge.</p>
                 </div>
               </Reveal>
               
@@ -417,8 +360,8 @@ export default function App() {
                   <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-[#0097b2]/20 flex items-center justify-center text-cyan-300 mb-6 md:mb-8 border border-cyan-400/30 group-hover:scale-110 transition-transform">
                     <CheckCircle size={24} />
                   </div>
-                  <h4 className="text-white font-black uppercase tracking-wider text-lg md:text-xl mb-3 md:mb-4">Garantie & Intervention</h4>
-                  <p className="text-blue-100/70 font-medium leading-relaxed text-sm md:text-base">En cas de panne physique, notre présence exclusive en Haute-Savoie nous permet de garantir un SLA agressif sur site.</p>
+                  <h4 className="text-white font-black uppercase tracking-wider text-lg md:text-xl mb-3 md:mb-4">Intervention Réactive</h4>
+                  <p className="text-blue-100/70 font-medium leading-relaxed text-sm md:text-base">En cas d'anomalie physique, notre ancrage local en Haute-Savoie nous permet d'intervenir rapidement sur site grâce à nos abonnements annuels de maintenance.</p>
                 </div>
               </Reveal>
             </div>
@@ -426,7 +369,7 @@ export default function App() {
         </section>
 
         {/* SECTION CONTACT CORPORATE TECH */}
-        <section id="contact" className="py-20 md:py-32 bg-slate-50 relative">
+        <section id="contact" className="py-20 md:py-32 bg-slate-50 relative border-t border-slate-100">
           <div className="absolute inset-0 bg-grid-tech opacity-30"></div>
           <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-5 gap-12 md:gap-16 items-start relative z-10">
             
@@ -436,9 +379,16 @@ export default function App() {
                   <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase text-[#032b60] mb-4 md:mb-6 leading-tight">
                     Lançons <br/>l'étude de <span className="text-[#0097b2]">votre projet</span>
                   </h2>
-                  <p className="text-slate-500 font-medium leading-relaxed text-base md:text-lg">
-                    Vous souhaitez équiper votre entreprise, votre copropriété ou votre domicile ? Discutez avec nos ingénieurs IRVE.
+                  <p className="text-slate-500 font-medium leading-relaxed text-base md:text-lg mb-6">
+                    Particuliers, copropriétés ou entreprises : nos experts qualifiés IRVE vous accompagnent de A à Z dans votre transition électrique.
                   </p>
+                  
+                  <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 flex items-start gap-3 shadow-sm">
+                     <span className="text-orange-500 mt-0.5 text-lg leading-none">⚠️</span>
+                     <p className="text-xs sm:text-sm text-orange-800 font-medium leading-relaxed">
+                       Nos plannings d'intervention se remplissent vite. <span className="font-black">Contactez-nous aujourd'hui pour bloquer votre étude gratuite.</span>
+                     </p>
+                  </div>
                 </div>
               </Reveal>
 
@@ -449,8 +399,8 @@ export default function App() {
                       <MapPin size={24} />
                     </div>
                     <div className="pt-1">
-                      <p className="font-black text-[#032b60] uppercase tracking-wider text-xs md:text-sm mb-1 group-hover:text-[#0097b2] transition-colors">Base Opérationnelle</p>
-                      <p className="text-slate-500 font-medium text-sm md:text-base">8, Avenue du général De Gaulle<br/>74200 THONON-LES-BAINS</p>
+                      <p className="font-black text-[#032b60] uppercase tracking-wider text-xs md:text-sm mb-1 group-hover:text-[#0097b2] transition-colors">Zone d'intervention</p>
+                      <p className="text-slate-500 font-medium text-sm md:text-base">Chablais et Haute-Savoie</p>
                     </div>
                   </div>
                 </Reveal>
@@ -461,36 +411,26 @@ export default function App() {
                       <Phone size={24} />
                     </div>
                     <div className="pt-1">
-                      <p className="font-black text-[#032b60] uppercase tracking-wider text-xs md:text-sm mb-1 group-hover:text-[#0097b2] transition-colors">Support Commercial</p>
+                      <p className="font-black text-[#032b60] uppercase tracking-wider text-xs md:text-sm mb-1 group-hover:text-[#0097b2] transition-colors">Ligne Directe</p>
                       <a href="tel:0485692204" className="text-slate-500 font-medium text-base md:text-lg hover:text-[#0097b2] transition-colors">04 85 69 22 04</a>
-                    </div>
-                  </div>
-                </Reveal>
-
-                <Reveal delay={200}>
-                  <div className="flex items-start gap-5 md:gap-6 group">
-                    <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center text-[#032b60] shrink-0 group-hover:border-[#0097b2] group-hover:text-[#0097b2] transition-colors">
-                      <Mail size={24} />
-                    </div>
-                    <div className="pt-1">
-                      <p className="font-black text-[#032b60] uppercase tracking-wider text-xs md:text-sm mb-1 group-hover:text-[#0097b2] transition-colors">Bureau d'étude</p>
-                      <a href="mailto:contact@chargeo.fr" className="text-slate-500 font-medium text-sm md:text-base hover:text-[#0097b2] transition-colors">contact@chargeo.fr</a>
                     </div>
                   </div>
                 </Reveal>
               </div>
             </div>
 
-            <Reveal delay={300} className="lg:col-span-3 w-full bg-white p-4 sm:p-8 rounded-[2.5rem] shadow-md md:shadow-[0_20px_60px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-[#032b60] to-[#0097b2]"></div>
-              <div className="w-full relative min-h-175 h-[75vh]">
-                <iframe 
-                  className="w-full h-full border-none rounded-xl" 
-                  src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS" 
-                  title="Formulaire Contact CHARGéO" 
-                  style={{ background: 'transparent' }}
-                  loading="lazy"
-                />
+            <Reveal delay={300} className="lg:col-span-3 w-full">
+              <div className="w-full bg-white p-4 sm:p-8 rounded-[2.5rem] shadow-md md:shadow-[0_20px_60px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-[#032b60] to-[#0097b2]"></div>
+                <div className="w-full relative min-h-[600px] h-[75vh]">
+                  <iframe 
+                    className="w-full h-full border-none rounded-xl" 
+                    src="https://forms.clickup.com/90151325642/f/2kyq03ya-7815/I5ELJ3PBRLRC158WLS?Source=Site%20Web%20Accueil" 
+                    title="Formulaire Contact CHARGéO" 
+                    style={{ background: 'transparent', width: '100%', minWidth: '100%' }}
+                    loading="lazy"
+                  />
+                </div>
               </div>
             </Reveal>
 

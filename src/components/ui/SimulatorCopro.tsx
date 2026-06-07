@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Building as BuildingIcon, Users as UsersIcon, Award as AwardIcon, Phone as PhoneIcon } from 'lucide-react';
+import { Building as BuildingIcon, Users as UsersIcon, Award as AwardIcon, Phone as PhoneIcon, PiggyBank } from 'lucide-react';
 import { useAnimatedValue } from '@/hooks/useAnimatedValue';
 
 export function SimulatorCopro({ onResultChange }: { onResultChange?: (val: number) => void }) {
@@ -49,50 +49,63 @@ export function SimulatorCopro({ onResultChange }: { onResultChange?: (val: numb
         <p className="text-slate-500 font-medium text-lg max-w-2xl mx-auto">Calculer le potentiel d'aides pour votre infrastructure collective et vos installations individuelles.</p>
       </div>
       
-      <div className="grid lg:grid-cols-2 gap-10">
-        <div className="bg-slate-50 p-10 rounded-[2.5rem] border shadow-sm space-y-8 transition-all hover:shadow-xl">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
+        
+        {/* Boîte de contrôle gauche 1 : Taille du Parking */}
+        <div className="order-1 lg:row-start-1 lg:col-start-1 h-65 sm:h-70 flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
           <div className="flex justify-between items-end">
-            <div>
-              <h3 className="text-lg font-black uppercase text-[#032b60] flex items-center gap-2">
+            <div className="space-y-1">
+              <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
                 <BuildingIcon size={24} className="text-[#0097b2]" /> Taille du Parking
               </h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase italic">Nombre total de places</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Nombre total de places disponibles.</p>
             </div>
-            <span className="text-3xl font-black text-[#0097b2]">{parkingSpots} <span className="text-sm text-slate-400">places</span></span>
+            <span className={`text-3xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
+              {parkingSpots} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">places</span>
+            </span>
           </div>
-          <input type="range" min="10" max="200" step="5" value={parkingSpots} onChange={(e) => setParkingSpots(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-          
-          <div className="flex justify-between items-end pt-4 border-t border-slate-200">
-            <div>
-              <h3 className="text-lg font-black uppercase text-[#032b60] flex items-center gap-2">
+          <input type="range" aria-label="Taille du parking" min="10" max="200" step="5" value={parkingSpots} onChange={(e) => setParkingSpots(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
+          <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest"><span>Petit parking</span><span>Grand parking</span></div>
+        </div>
+        
+        {/* Boîte de contrôle gauche 2 : Résidents motivés */}
+        <div className="order-2 lg:row-start-2 lg:col-start-1 h-65 sm:h-70 flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
+          <div className="flex justify-between items-end">
+            <div className="space-y-1">
+              <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
                 <UsersIcon size={24} className="text-[#0097b2]" /> Résidents motivés
               </h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase italic">Demandes de raccordement immédiat</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Demandes de raccordement immédiat.</p>
             </div>
-            <span className="text-3xl font-black text-[#0097b2]">{interestedResidents} <span className="text-sm text-slate-400">demandes</span></span>
+            <span className={`text-3xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
+              {interestedResidents} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">demandes</span>
+            </span>
           </div>
-          <input type="range" min="1" max={Math.min(50, parkingSpots)} step="1" value={interestedResidents} onChange={(e) => setInterestedResidents(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
+          <input type="range" aria-label="Résidents motivés" min="1" max={Math.min(50, parkingSpots)} step="1" value={interestedResidents} onChange={(e) => setInterestedResidents(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
+          <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest"><span>Initial</span><span>Évolutif</span></div>
         </div>
 
-        <div ref={resultsRef} className="bg-[#032b60] p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden text-white flex flex-col justify-center gap-6">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#0097b2]/20 rounded-full blur-[80px] -mr-20 -mt-20"></div>
-          <h3 className="text-sm font-black uppercase text-blue-200 flex items-center gap-3 relative z-10"><AwardIcon size={18}/> Aides Advenir Estimées</h3>
+        {/* Boîte de résultats droite */}
+        <div ref={resultsRef} className="order-3 lg:row-start-1 lg:col-start-2 lg:row-span-2 h-full flex flex-col justify-center bg-linear-to-br from-green-50 to-emerald-100 p-8 md:p-10 rounded-[2.5rem] border border-green-200 shadow-xl relative overflow-hidden hover:shadow-2xl transition-all hover:-translate-y-1">
+          <PiggyBank className="absolute -right-10 -bottom-10 opacity-10 text-green-600 transition-transform duration-1000 hover:rotate-12" size={200} />
+          <h3 className="text-green-800 text-sm font-black uppercase tracking-widest mb-2 relative z-10">Aides Advenir Estimées</h3>
           <div className="relative z-10">
-             <span className={`text-6xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-105' : 'scale-100'} block`}>{Math.round(animatedSubventions).toLocaleString('fr-FR')} €</span>
-             <p className="text-xs text-white/50 font-bold uppercase mt-2">*Jusqu'à 8000€ pour le collectif + 600€ par résident.</p>
+             <span className={`text-6xl font-black text-green-600 transition-transform duration-300 ${isPulsing ? 'scale-105 text-emerald-500' : 'scale-100'} block`}>{Math.round(animatedSubventions).toLocaleString('fr-FR')} €</span>
+             <p className="text-xs text-green-800/60 font-bold uppercase mt-2">*Jusqu'à 8000€ pour le collectif + 600€ par résident.</p>
           </div>
-          <div className="space-y-3 relative z-10 pt-4 border-t border-white/10">
-             <div className="flex justify-between text-xs font-bold uppercase"><span className="text-white/50">Infrastructure Collective</span><span>Max 8 000€</span></div>
-             <div className="flex justify-between text-xs font-bold uppercase"><span className="text-white/50">Primes Individuelles</span><span>{interestedResidents * 600}€</span></div>
+          <div className="space-y-3 relative z-10 pt-4 border-t border-green-200">
+             <div className="flex justify-between text-xs font-bold uppercase"><span className="text-green-800/60">Infrastructure Collective</span><span className="text-green-900 font-black">Max 8 000€</span></div>
+             <div className="flex justify-between text-xs font-bold uppercase"><span className="text-green-800/60">Primes Individuelles</span><span className="text-green-900 font-black">{interestedResidents * 600}€</span></div>
           </div>
           <button 
             onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
-            className="relative overflow-hidden mt-6 bg-[#FF6B00] text-white py-4 rounded-full font-black text-base hover:scale-105 transition-all group z-10 active:scale-95"
+            className="relative overflow-hidden mt-6 bg-[#FF6B00] text-white py-4 rounded-full font-black text-base hover:scale-105 transition-all group z-10 active:scale-95 text-center"
           >
             <div className="animate-button-shine" />
-            Étude technique AG <PhoneIcon size={18} className="inline ml-2" />
+            Créer un dossier AG <PhoneIcon size={18} className="inline ml-2" />
           </button>
         </div>
+
       </div>
     </div>
   );
