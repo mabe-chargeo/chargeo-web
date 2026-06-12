@@ -285,7 +285,7 @@ export default function App() {
              <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
                 {/* BOUTON PROS */}
                 <Reveal delay={0} direction="up">
-                  <a href="/pro" className="relative flex flex-col items-center justify-center bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(3,43,96,0.1)] border border-slate-100 hover:border-[#032b60]/20 transition-all duration-500 hover:-translate-y-2 group overflow-hidden h-full">
+                  <a href="/pro" className="relative flex flex-col items-center justify-center bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(3,43,96,0.1)] border border-slate-100 hover:border-[#032b60]/20 transition-all duration-500 group overflow-hidden h-full">
                      <div className="absolute inset-0 bg-linear-to-br from-[#032b60]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                      
                      <div className="w-20 h-20 rounded-[1.5rem] bg-[#032b60] flex items-center justify-center text-white shadow-lg mb-6 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 relative z-10">
@@ -303,7 +303,7 @@ export default function App() {
 
                 {/* BOUTON COPROS */}
                 <Reveal delay={100} direction="up">
-                  <a href="/copropriete" className="relative flex flex-col items-center justify-center bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,151,178,0.15)] border border-slate-100 hover:border-[#0097b2]/30 transition-all duration-500 hover:-translate-y-2 group overflow-hidden h-full">
+                  <a href="/copropriete" className="relative flex flex-col items-center justify-center bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,151,178,0.15)] border border-slate-100 hover:border-[#0097b2]/30 transition-all duration-500 group overflow-hidden h-full">
                      <div className="absolute inset-0 bg-linear-to-br from-[#0097b2]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                      
                      <div className="w-20 h-20 rounded-[1.5rem] bg-[#0097b2] flex items-center justify-center text-white shadow-lg mb-6 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 relative z-10">
@@ -321,7 +321,7 @@ export default function App() {
 
                 {/* BOUTON PARTICULIER */}
                 <Reveal delay={200} direction="up">
-                  <a href="/particuliers" className="relative flex flex-col items-center justify-center bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.1)] border border-slate-100 hover:border-slate-300 transition-all duration-500 hover:-translate-y-2 group overflow-hidden h-full">
+                  <a href="/particuliers" className="relative flex flex-col items-center justify-center bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.1)] border border-slate-100 hover:border-slate-300 transition-all duration-500 group overflow-hidden h-full">
                      <div className="absolute inset-0 bg-linear-to-br from-slate-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                      
                      <div className="w-20 h-20 rounded-[1.5rem] bg-slate-200 flex items-center justify-center text-[#032b60] shadow-md mb-6 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 relative z-10">
