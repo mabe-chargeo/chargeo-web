@@ -493,7 +493,7 @@ export default function App() {
                       <p className="text-red-500 text-sm font-bold bg-red-50 p-3 rounded-lg border border-red-200">Une erreur est survenue lors de l'envoi. Veuillez réessayer.</p>
                     )}
 
-                    <button type="submit" disabled={formStatus === "loading"} className="w-full bg-[#FF6B00] hover:bg-[#E66000] text-white font-black rounded-xl text-sm px-5 py-4 text-center transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] disabled:opacity-70 disabled:hover:scale-100 disabled:shadow-none flex justify-center items-center gap-2">
+                    <button type="submit" disabled={formStatus === "loading"} className="relative overflow-hidden w-full bg-[#FF6B00] hover:bg-[#E66000] text-white font-black rounded-full text-sm sm:text-base px-6 py-4 text-center transition-all duration-300 shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 disabled:opacity-70 disabled:hover:scale-100 disabled:shadow-none flex justify-center items-center gap-2 group z-10"><div className="animate-button-shine" />
                       {formStatus === "loading" ? "Envoi en cours..." : "Soumettre ma demande"}
                     </button>
                     <p className="text-[10px] text-slate-400 text-center mt-4">Vos données sont sécurisées et envoyées directement à notre équipe technique.</p>

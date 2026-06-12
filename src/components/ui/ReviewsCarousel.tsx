@@ -46,7 +46,7 @@ export function ReviewsCarousel({ reviews }: ReviewsCarouselProps) {
             <div className="flex gap-1 text-yellow-400 mb-4">
                {[1,2,3,4,5].map(s => <Star key={s} size={14} fill="currentColor" stroke="none" />)}
             </div>
-            <div className="relative overflow-hidden h-32">
+            <div className="relative overflow-hidden h-48 sm:h-36">
               {reviews.map((review, idx) => (
                 <div key={idx} className={`absolute inset-0 transition-all duration-700 ${idx === currentReview ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
                   <p className="text-sm font-bold text-slate-700 italic leading-relaxed">&quot;{review.text}&quot;</p>
