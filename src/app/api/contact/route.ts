@@ -15,6 +15,12 @@ export async function POST(request: Request) {
       telFormate = '+33' + telFormate.substring(1);
     }
 
+    // Traduction du type de client pour le menu déroulant ClickUp (0=Particulier, 1=Pro, 2=Syndic)
+    let typeClientIndex = null; 
+        if (data.typeClient === "Particulier") typeClientIndex = 0;
+        if (data.typeClient === "Entreprise") typeClientIndex = 1; 
+        if (data.typeClient === "Copropriété") typeClientIndex = 2;
+
     // Envoi des données vers ClickUp
     const response = await fetch(`https://api.clickup.com/api/v2/list/${LIST_ID}/task`, {
       method: 'POST',
@@ -32,9 +38,13 @@ export async function POST(request: Request) {
             value: data.email
           },
           {
-            id: "6a120794-23be-4c50-8d25-75993f0aece4", 
-            value: telFormate // On envoie le numéro reformaté à ClickUp !
-          }
+        id: "6a120794-23be-4c50-8d25-75993f0aece4", 
+        value: telFormate
+      },
+      {
+        id: "f6b45107-9ba0-406b-8fd7-d678e6ad11dc", 
+        value: typeClientIndex
+      }
         ]
       })
     });
