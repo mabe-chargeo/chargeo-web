@@ -39,7 +39,7 @@ export default function CoproprietePage() {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nom, email, telephone, message, typeClient: "Copropriété" })
+        body: JSON.stringify({ nom, email, telephone, message, typeClient: "Copropriété", simulation: `Subventions estimées : ${Math.round(subventions)} €` })
       });
       if (res.ok) {
         setFormStatus("success");

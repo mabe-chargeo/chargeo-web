@@ -42,7 +42,7 @@ export default function ProPage() {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nom, email, telephone, message, typeClient: "Entreprise" })
+        body: JSON.stringify({ nom, email, telephone, message, typeClient: "Entreprise", simulation: `Revenus estimés : + ${Math.round(revenue)} € / an` })
       });
       if (res.ok) {
         setFormStatus("success");

@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         name: `Lead Site Web : ${data.nom}`, 
-        description: `Message envoyé par le client :\n\n"${data.message}"`,
+        description: `Résultat du simulateur : ${data.simulation || "Aucune simulation"}\n\nMessage envoyé par le client :\n\n"${data.message}"`,
         
         custom_fields: [
           {

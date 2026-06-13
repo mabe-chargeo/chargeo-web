@@ -41,7 +41,7 @@ export default function ParticuliersPage() {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nom, email, telephone, message, typeClient: "Particulier" })
+        body: JSON.stringify({ nom, email, telephone, message, typeClient: "Particulier", simulation: `Économies estimées : + ${Math.round(savings)} € / an` })
       });
       if (res.ok) {
         setFormStatus("success");
