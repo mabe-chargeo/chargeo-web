@@ -77,10 +77,16 @@ export function ContactForm({ typeClient, simulation }: ContactFormProps) {
         <p className="text-red-500 text-sm font-bold bg-red-50 p-3 rounded-lg border border-red-200">Une erreur est survenue lors de l'envoi. Veuillez réessayer.</p>
       )}
 
+      <div className="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+        <input type="checkbox" id="rgpd-consent" required className="mt-0.5 w-4 h-4 shrink-0 accent-[#0097b2] cursor-pointer" />
+        <label htmlFor="rgpd-consent" className="text-[10px] text-slate-500 leading-relaxed cursor-pointer">
+          J'accepte que les informations saisies soient exploitées par CHARGÉO pour traiter ma demande et m'envoyer des offres commerciales. Pour exercer vos droits, consultez notre <a href="/mentions-legales" className="text-[#0097b2] underline hover:text-[#032b60] transition-colors">Politique de confidentialité</a>. <span className="text-red-500">*</span>
+        </label>
+      </div>
+
       <button type="submit" disabled={formStatus === "loading"} className="relative overflow-hidden w-full bg-[#FF6B00] hover:bg-[#E66000] text-white font-black rounded-full text-sm sm:text-base px-6 py-4 text-center transition-all duration-300 shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 disabled:opacity-70 disabled:hover:scale-100 disabled:shadow-none flex justify-center items-center gap-2 group z-10"><div className="animate-button-shine" />
         {formStatus === "loading" ? "Envoi en cours..." : "Soumettre ma demande"}
       </button>
-      <p className="text-[10px] text-slate-400 text-center mt-4">Vos données sont sécurisées et envoyées directement à notre équipe technique.</p>
     </form>
   );
 }

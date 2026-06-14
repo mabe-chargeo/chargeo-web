@@ -46,8 +46,7 @@ export function Footer() {
                     </a>
                   </li>
                   <li className="pt-2 flex gap-4">
-                    <a href="#" className="text-white/40 text-[10px] font-bold uppercase tracking-wider hover:text-[#0097b2] transition-colors">Mentions Légales</a>
-                    <a href="#" className="text-white/40 text-[10px] font-bold uppercase tracking-wider hover:text-[#0097b2] transition-colors">CGV</a>
+                    <a href="/mentions-legales" className="text-white/40 text-[10px] font-bold uppercase tracking-wider hover:text-[#0097b2] transition-colors">Mentions Légales & Confidentialité</a>
                   </li>
                </ul>
             </div>

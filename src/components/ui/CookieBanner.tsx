@@ -1,0 +1,63 @@
+"use client";
+
+import React from "react";
+import CookieConsent from "react-cookie-consent";
+
+export function CookieBanner() {
+  return (
+    <CookieConsent
+      location="bottom"
+      buttonText="J'accepte"
+      declineButtonText="Je refuse"
+      enableDeclineButton
+      cookieName="chargeo-gdpr-consent"
+      disableStyles={false}
+      style={{ 
+        background: "#032b60", // Bleu marine CHARGÉO
+        color: "#fff", 
+        fontSize: "14px", 
+        alignItems: "center",
+        padding: "16px",
+        zIndex: 99999
+      }}
+      buttonStyle={{ 
+        background: "#0097b2", // Turquoise CHARGÉO
+        color: "#fff", 
+        fontSize: "14px", 
+        fontWeight: "900", 
+        borderRadius: "9999px", 
+        padding: "12px 24px",
+        cursor: "pointer"
+      }}
+      declineButtonStyle={{ 
+        background: "transparent", 
+        color: "#fff", 
+        fontSize: "14px", 
+        fontWeight: "bold",
+        border: "1px solid rgba(255,255,255,0.3)", 
+        borderRadius: "9999px", 
+        padding: "12px 24px",
+        cursor: "pointer"
+      }}
+      expires={180} // Durée légale de conservation du choix (6 mois)
+      onAccept={() => {
+        // C'est ici que nous injecterons le script Google Ads plus tard
+        console.log("Consentement Google Ads : ACCORDÉ");
+        if (typeof window !== "undefined" && (window as any).gtag) {
+            (window as any).gtag('consent', 'update', {
+                'analytics_storage': 'granted',
+                'ad_storage': 'granted'
+            });
+        }
+      }}
+      onDecline={() => {
+        console.log("Consentement Google Ads : REFUSÉ");
+      }}
+    >
+      <div className="font-medium leading-relaxed">
+        Nous utilisons des cookies pour analyser notre trafic et mesurer l'efficacité de nos campagnes publicitaires. 
+        Pour en savoir plus, consultez notre <a href="/mentions-legales" className="underline text-[#0097b2] hover:text-white transition-colors">Politique de confidentialité</a>.
+      </div>
+    </CookieConsent>
+  );
+}
