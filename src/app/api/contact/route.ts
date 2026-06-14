@@ -7,6 +7,11 @@ export async function POST(request: Request) {
     const CLICKUP_API_KEY = process.env.CLICKUP_API_KEY as string; 
     const LIST_ID = "901519702632";
 
+    // SÉCURITÉ ANTI-VIDE : On bloque le robot si un champ obligatoire manque
+    if (!data.nom || !data.email || !data.telephone) {
+      return NextResponse.json({ success: false, error: "Champs manquants" }, { status: 400 });
+    }
+
     // --- LA MAGIE : Formatage du téléphone pour ClickUp ---
     // 1. On enlève les espaces potentiels tapés par le client
     let telFormate = data.telephone.replace(/\s+/g, '');
