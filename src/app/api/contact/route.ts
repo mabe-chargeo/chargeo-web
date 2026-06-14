@@ -4,7 +4,7 @@ export async function POST(request: Request) {
   try {
     const data = await request.json();
 
-    const CLICKUP_API_KEY = "pk_206557737_6UB4JPDPYS9BIRIDMGOXGWJKHCVNL7Z9"; 
+    const CLICKUP_API_KEY = process.env.CLICKUP_API_KEY as string; 
     const LIST_ID = "901519702632";
 
     // --- LA MAGIE : Formatage du téléphone pour ClickUp ---
