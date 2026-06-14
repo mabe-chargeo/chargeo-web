@@ -19,6 +19,7 @@ export default function ProPage() {
   const [isHeroVisible, setIsHeroVisible] = useState(true);
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [revenue, setRevenue] = useState(0);
+  const [simData, setSimData] = useState("");
 
   const formRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -42,7 +43,7 @@ export default function ProPage() {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nom, email, telephone, message, typeClient: "Entreprise", simulation: `Revenus estimés : + ${Math.round(revenue)} € / an` })
+        body: JSON.stringify({ nom, email, telephone, message, typeClient: "Entreprise", simulation: `Revenus estimés : +${Math.round(revenue)}€/an | Réglages : ${simData}` })
       });
       if (res.ok) {
         setFormStatus("success");
@@ -253,7 +254,7 @@ export default function ProPage() {
 
         {/* SIMULATEUR PRO */}
         <section id="simulateur" className="py-24 bg-white scroll-mt-24">
-            <SimulatorPro onResultChange={setRevenue} />
+            <SimulatorPro onResultChange={(val, data) => { setRevenue(val); setSimData(data || ""); }} />
         </section>
 
         {/* SECTION CONTACT CORPORATE TECH (Même disposition que l'accueil) */}

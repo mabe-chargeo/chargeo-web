@@ -16,6 +16,7 @@ export default function CoproprietePage() {
   const [isHeroVisible, setIsHeroVisible] = useState(true);
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [subventions, setSubventions] = useState(0);
+  const [simData, setSimData] = useState("");
 
   const formRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -39,7 +40,7 @@ export default function CoproprietePage() {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nom, email, telephone, message, typeClient: "Copropriété", simulation: `Subventions estimées : ${Math.round(subventions)} €` })
+        body: JSON.stringify({ nom, email, telephone, message, typeClient: "Copropriété", simulation: `Subventions : +${Math.round(subventions)}€ | Réglages : ${simData}` })
       });
       if (res.ok) {
         setFormStatus("success");
@@ -252,7 +253,7 @@ export default function CoproprietePage() {
         {/* SIMULATEUR SUBVENTIONS */}
         <section id="simulateur" className="py-24 bg-white scroll-mt-24 relative overflow-hidden">
           {/* COMPOSANT SIMULATEUR ISOLÉ */}
-          <SimulatorCopro onResultChange={setSubventions} />
+          <SimulatorCopro onResultChange={(val, data) => { setSubventions(val); setSimData(data || ""); }} />
         </section>
 
         {/* SECTION CONTACT CORPORATE TECH (Même disposition que l'accueil) */}

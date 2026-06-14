@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Building as BuildingIcon, Users as UsersIcon, Award as AwardIcon, Phone as PhoneIcon, PiggyBank } from 'lucide-react';
 import { useAnimatedValue } from '@/hooks/useAnimatedValue';
 
-export function SimulatorCopro({ onResultChange }: { onResultChange?: (val: number) => void }) {
+export function SimulatorCopro({ onResultChange }: { onResultChange?: (val: number, dataStr?: string) => void }) {
     const [parkingSpots, setParkingSpots] = useState(30);
   const [interestedResidents, setInterestedResidents] = useState(3);
   const [isPulsing, setIsPulsing] = useState(false);
@@ -21,8 +21,8 @@ export function SimulatorCopro({ onResultChange }: { onResultChange?: (val: numb
     return { totalSubventions: Math.max(0, totalSubventions) };
   }, [parkingSpots, interestedResidents]);
   useEffect(() => {
-    if (onResultChange) onResultChange(results.totalSubventions);
-  }, [results.totalSubventions, onResultChange]);
+    if (onResultChange) onResultChange(results.totalSubventions, `Places parking: ${parkingSpots}, Résidents motivés: ${interestedResidents}`);
+  }, [results.totalSubventions, onResultChange, parkingSpots, interestedResidents]);
 
   const animatedSubventions = useAnimatedValue(results.totalSubventions, 1200, isInView, triggerKey);
 

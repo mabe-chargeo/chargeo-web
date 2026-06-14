@@ -18,6 +18,7 @@ export default function ParticuliersPage() {
   const [isHeroVisible, setIsHeroVisible] = useState(true);
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [savings, setSavings] = useState(0);
+  const [simData, setSimData] = useState("");
 
   const formRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -41,8 +42,7 @@ export default function ParticuliersPage() {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nom, email, telephone, message, typeClient: "Particulier", simulation: `Économies estimées : + ${Math.round(savings)} € / an` })
-      });
+body: JSON.stringify({ nom, email, telephone, message, typeClient: "Particulier", simulation: `Gain estimé : +${Math.round(savings)}€/an | Réglages : ${simData}` })      });
       if (res.ok) {
         setFormStatus("success");
         setNom(""); setEmail(""); setTelephone(""); setMessage("");
@@ -265,7 +265,7 @@ export default function ParticuliersPage() {
 
         {/* SIMULATEUR DE RENTABILITÉ */}
         <section id="simulateur" className="py-24 bg-white scroll-mt-24">
-            <SimulatorParticuliers onResultChange={setSavings} />
+            <SimulatorParticuliers onResultChange={(val, data) => { setSavings(val); setSimData(data || ""); }} />
         </section>
 
         {/* SECTION CONTACT CORPORATE TECH (Même disposition que l'accueil) */}
