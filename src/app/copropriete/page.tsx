@@ -119,7 +119,7 @@ export default function CoproprietePage() {
               <FadeIn delay={300} direction="up">
                 <div className="w-full flex justify-center mb-6">
                   <h1 className="text-[2.5rem] sm:text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase">
-                    La recharge <br/><span className="text-[#0097b2]">en copropriété.</span>
+                    Valorisez votre <br/><span className="text-[#0097b2]">copropriété.</span>
                   </h1>
                 </div>
               </FadeIn>
@@ -127,7 +127,7 @@ export default function CoproprietePage() {
               <FadeIn delay={500} direction="up">
                 <div className="w-full flex justify-center mb-10">
                   <p className="text-sm sm:text-base md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
-                    Déploiement d'une infrastructure subventionnée, préfinancement possible et supervision complète. Équipez votre parking partagé sans toucher au budget du syndic.
+                    Ne louez pas votre parking à un opérateur national. Investissez dans votre propre infrastructure pour garantir votre indépendance et sécurisez vos Assemblées Générales.
                   </p>
                 </div>
               </FadeIn>
@@ -161,19 +161,19 @@ export default function CoproprietePage() {
           <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-8">
             <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1">
               <Zap className="text-[#0097b2] mb-6" size={40} />
-              <h3 className="text-xl font-black text-[#032b60] mb-3 uppercase tracking-wider">Le droit à la prise</h3>
-              <p className="text-slate-500 font-medium text-sm leading-relaxed">La loi vous autorise à équiper votre place de parking. Nous vous fournissons tous les documents nécessaires pour la présentation en Assemblée Générale.</p>
+              <h3 className="text-xl font-black text-[#032b60] mb-3 uppercase tracking-wider">Le Droit à la prise</h3>
+              <p className="text-slate-500 font-medium text-sm leading-relaxed">Faites valoir votre droit sans conflit. Nous prenons en charge les négociations avec le syndic, l'envoi des mises en demeure et garantissons la conformité technique.</p>
             </div>
             <div className="bg-[#032b60] p-8 rounded-3xl text-white shadow-2xl transition-all hover:-translate-y-1 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-[#0097b2]/20 rounded-full blur-3xl -mr-16 -mt-16"></div>
               <PiggyBank className="text-[#0097b2] mb-6 relative z-10" size={40} />
-              <h3 className="text-xl font-black mb-3 uppercase tracking-wider relative z-10">Zéro reste à charge</h3>
-              <p className="text-white/70 font-medium text-sm leading-relaxed relative z-10">Déploiement d'une infrastructure collective 100% financée par des acteurs tiers et les primes ADVENIR. La copropriété n'a rien à décaisser.</p>
+              <h3 className="text-xl font-black mb-3 uppercase tracking-wider relative z-10">Indépendance Totale</h3>
+              <p className="text-white/70 font-medium text-sm leading-relaxed relative z-10">Fuyez les abonnements sur 15 ans. La copropriété investit et possède son propre réseau, en déduisant immédiatement les aides ADVENIR pour réduire le reste à charge.</p>
             </div>
             <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1">
               <FileText className="text-[#0097b2] mb-6" size={40} />
-              <h3 className="text-xl font-black text-[#032b60] mb-3 uppercase tracking-wider">Facturation individuelle</h3>
-              <p className="text-slate-500 font-medium text-sm leading-relaxed">Chaque utilisateur paie uniquement l'électricité qu'il consomme via un sous-compteur. Aucune répercussion sur les charges communes de l'immeuble.</p>
+              <h3 className="text-xl font-black text-[#032b60] mb-3 uppercase tracking-wider">Sérénité des Syndics</h3>
+              <p className="text-slate-500 font-medium text-sm leading-relaxed">Nous sécurisons vos AG avec un accompagnement technique et des devis standardisés (quote-part collective / individuelle claire) pour mettre fin à votre surcharge administrative.</p>
             </div>
           </div>
         </section>
@@ -192,8 +192,8 @@ export default function CoproprietePage() {
                       <ShieldCheck />
                     </div>
                     <div className="flex flex-col justify-center">
-                      <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>Gestion des sous-compteurs</h4>
-                      <p className="text-xs text-slate-400 font-medium mt-1">Finis les calculs d'apothicaire en fin d'année. Notre solution logicielle divise précisément les factures.</p>
+                      <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>Support Stratégique en AG</h4>
+                      <p className="text-xs text-slate-400 font-medium mt-1">Nous sommes présents à vos côtés lors des Assemblées Générales pour rassurer et répondre aux questions techniques des copropriétaires.</p>
                     </div>
                   </div>
 
@@ -203,8 +203,8 @@ export default function CoproprietePage() {
                       <Award />
                     </div>
                     <div className="flex flex-col justify-center">
-                      <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>Qualification IRVE</h4>
-                      <p className="text-xs text-slate-400 font-medium mt-1">C'est l'assurance pour le syndicat que l'infrastructure répond à toutes les normes de sécurité en vigueur.</p>
+                      <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>Suivi de chantier rigoureux</h4>
+                      <p className="text-xs text-slate-400 font-medium mt-1">De l'étude de faisabilité à la mise en service, nous vous garantissons une exécution rapide et conforme aux exigences sécuritaires.</p>
                     </div>
                   </div>
 
@@ -214,8 +214,8 @@ export default function CoproprietePage() {
                       <Users />
                     </div>
                     <div className="flex flex-col justify-center">
-                      <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>Évolutivité garantie</h4>
-                      <p className="text-xs text-slate-400 font-medium mt-1">Nous installons une colonne vertébrale capable d'accueillir de nouveaux résidents au fil des années.</p>
+                      <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>Gestion simplifiée</h4>
+                      <p className="text-xs text-slate-400 font-medium mt-1">Fini le goulot d'étranglement des demandes individuelles. Notre plateforme gère la facturation de chaque résident en toute transparence.</p>
                     </div>
                   </div>
                 </div>

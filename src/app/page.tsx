@@ -137,7 +137,7 @@ export default function App() {
                  <div className="w-full flex justify-center mb-6 mt-6">
                    <div className="flex items-center justify-center gap-2 text-cyan-300 font-bold text-[10px] sm:text-xs uppercase tracking-[0.2em] bg-white/10 px-4 py-2 rounded-full border border-cyan-400/30 backdrop-blur-sm">
                      <Cpu size={16} className="text-cyan-400 animate-pulse" />
-                     <span>L'installation de points de charge réinventée</span>
+                     <span>L'expertise IRVE locale en Haute-Savoie</span>
                    </div>
                  </div>
               </Reveal>
@@ -145,7 +145,7 @@ export default function App() {
               <Reveal delay={100} direction="up">
                 <div className="w-full flex justify-center mb-6">
                   <h1 className="text-[2.5rem] sm:text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase">
-                    L'intelligence <br/>au cœur de <span className="text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-[#0097b2]">la charge.</span>
+                    Passez à l'électrique <br/><span className="text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-[#0097b2]">l'esprit léger.</span>
                   </h1>
                 </div>
               </Reveal>
@@ -153,7 +153,7 @@ export default function App() {
               <Reveal delay={200} direction="up">
                 <div className="w-full flex justify-center mb-10">
                   <p className="text-sm sm:text-base md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
-                    Nous sommes l'entreprise tech spécialisée dans le déploiement et la supervision de points de charge intelligents pour les professionnels, copropriétés et particuliers en Haute-Savoie.
+                    Que vous soyez un particulier pressé, une entreprise soumise à la loi LOM ou un syndic de copropriété, nous prenons en charge l'installation, les démarches et les subventions.
                   </p>
                 </div>
               </Reveal>
@@ -261,54 +261,66 @@ export default function App() {
              <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
                 {/* BOUTON PROS */}
                 <Reveal delay={0} direction="up">
-                  <a href="/pro" className="relative flex flex-col items-center justify-center bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(3,43,96,0.1)] border border-slate-100 hover:border-[#032b60]/20 transition-all duration-500 group overflow-hidden h-full">
+                  <a href="/pro" className="relative flex flex-col items-center justify-start bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(3,43,96,0.1)] border border-slate-100 hover:border-[#032b60]/20 transition-all duration-500 group overflow-hidden h-full">
                      <div className="absolute inset-0 bg-linear-to-br from-[#032b60]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                      
                      <div className="w-20 h-20 rounded-[1.5rem] bg-[#032b60] flex items-center justify-center text-white shadow-lg mb-6 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 relative z-10">
                        <Briefcase size={32} />
                      </div>
                      
-                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 relative z-10">B2B / Flottes</span>
-                     <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#032b60] text-center mb-8 relative z-10">Entreprises</h3>
+                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 relative z-10">B2B / Flottes & Tertiaire</span>
+                     <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#032b60] text-center mb-4 relative z-10">Entreprises</h3>
+                     
+                     <p className="text-sm text-slate-600 text-center mb-8 relative z-10 font-medium flex-grow">
+                       Électrifiez votre flotte en respectant la Loi LOM. Maîtrisez votre puissance électrique via le Smart Charging et automatisez vos refacturations.
+                     </p>
                      
                      <div className="mt-auto w-full inline-flex items-center justify-center gap-3 bg-slate-50 text-[#032b60] px-6 py-4 rounded-full font-black text-sm group-hover:bg-[#FF6B00] group-hover:text-white transition-colors duration-300 relative z-10">
-                       Voir les solutions <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                       Voir les offres pro <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                      </div>
                   </a>
                 </Reveal>
 
                 {/* BOUTON COPROS */}
                 <Reveal delay={100} direction="up">
-                  <a href="/copropriete" className="relative flex flex-col items-center justify-center bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,151,178,0.15)] border border-slate-100 hover:border-[#0097b2]/30 transition-all duration-500 group overflow-hidden h-full">
+                  <a href="/copropriete" className="relative flex flex-col items-center justify-start bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,151,178,0.15)] border border-slate-100 hover:border-[#0097b2]/30 transition-all duration-500 group overflow-hidden h-full">
                      <div className="absolute inset-0 bg-linear-to-br from-[#0097b2]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                      
                      <div className="w-20 h-20 rounded-[1.5rem] bg-[#0097b2] flex items-center justify-center text-white shadow-lg mb-6 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 relative z-10">
                        <Building size={32} />
                      </div>
                      
-                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 relative z-10">Syndics</span>
-                     <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#032b60] text-center mb-8 relative z-10">Copropriétés</h3>
+                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 relative z-10">Conseils Syndicaux & Syndics</span>
+                     <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#032b60] text-center mb-4 relative z-10">Copropriétés</h3>
+                     
+                     <p className="text-sm text-slate-600 text-center mb-8 relative z-10 font-medium flex-grow">
+                       Ne louez pas votre parking à un opérateur national. Investissez dans votre propre infrastructure collective pour valoriser votre immeuble et sécuriser vos AG, sans contrat à vie.
+                     </p>
                      
                      <div className="mt-auto w-full inline-flex items-center justify-center gap-3 bg-slate-50 text-[#032b60] px-6 py-4 rounded-full font-black text-sm group-hover:bg-[#FF6B00] group-hover:text-white transition-colors duration-300 relative z-10">
-                       Voir les solutions <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                       Découvrir l'offre Copro <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                      </div>
                   </a>
                 </Reveal>
 
                 {/* BOUTON PARTICULIER */}
                 <Reveal delay={200} direction="up">
-                  <a href="/particuliers" className="relative flex flex-col items-center justify-center bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.1)] border border-slate-100 hover:border-slate-300 transition-all duration-500 group overflow-hidden h-full">
+                  <a href="/particuliers" className="relative flex flex-col items-center justify-start bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.1)] border border-slate-100 hover:border-slate-300 transition-all duration-500 group overflow-hidden h-full">
                      <div className="absolute inset-0 bg-linear-to-br from-slate-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                      
                      <div className="w-20 h-20 rounded-[1.5rem] bg-slate-200 flex items-center justify-center text-[#032b60] shadow-md mb-6 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 relative z-10">
                        <Home size={32} />
                      </div>
                      
-                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 relative z-10">B2C / Résidentiel</span>
-                     <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#032b60] text-center mb-8 relative z-10">Particuliers</h3>
+                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 relative z-10">Maison & Droit à la prise</span>
+                     <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#032b60] text-center mb-4 relative z-10">Particuliers</h3>
+                     
+                     <p className="text-sm text-slate-600 text-center mb-8 relative z-10 font-medium flex-grow">
+                       Ne pensez plus à la recharge. Maison individuelle avec prix ferme garanti ou accompagnement juridique pour votre "droit à la prise" en appartement : on s'occupe de tout.
+                     </p>
                      
                      <div className="mt-auto w-full inline-flex items-center justify-center gap-3 bg-slate-50 text-[#032b60] px-6 py-4 rounded-full font-black text-sm group-hover:bg-[#FF6B00] group-hover:text-white transition-colors duration-300 relative z-10">
-                       Voir les solutions <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                       Votre devis Particulier <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                      </div>
                   </a>
                 </Reveal>
@@ -326,13 +338,13 @@ export default function App() {
               <div className="text-center max-w-3xl mx-auto mb-16 md:mb-20">
                 <div className="inline-flex items-center gap-2 text-cyan-300 font-bold text-[10px] sm:text-xs uppercase tracking-[0.2em] bg-white/10 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md mb-6">
                   <Wrench size={16} />
-                  <span>Suivi & Performance</span>
+                  <span>Sérénité & SAV Local</span>
                 </div>
                 <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-white uppercase leading-tight mb-6">
-                  Supervision & <span className="text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-[#0097b2]">Maintenance Durable.</span>
+                  Oubliez l'angoisse de la panne, <span className="text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-[#0097b2]">on gère la technique.</span>
                 </h2>
                 <p className="text-blue-100/70 font-medium text-base md:text-lg leading-relaxed">
-                  L'installation n'est que le début de notre engagement. Grâce à nos abonnements annuels de maintenance préventive et curative, nous assurons la disponibilité de vos équipements sur le long terme.
+                  L'installation n'est que le début. Que ce soit pour garantir votre départ matinal sans angoisse ou assurer la disponibilité de votre flotte d'entreprise, nous opérons un transfert total de responsabilité technique.
                 </p>
               </div>
             </Reveal>
@@ -343,8 +355,8 @@ export default function App() {
                   <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-[#0097b2]/20 flex items-center justify-center text-cyan-300 mb-6 md:mb-8 border border-cyan-400/30 group-hover:scale-110 transition-transform">
                     <Wifi size={24} />
                   </div>
-                  <h4 className="text-white font-black uppercase tracking-wider text-lg md:text-xl mb-3 md:mb-4">Supervision Logicielle</h4>
-                  <p className="text-blue-100/70 font-medium leading-relaxed text-sm md:text-base">Accès au portail de monitoring en temps réel pour un contrôle total. Nous suivons l'état de votre parc à distance en permanence.</p>
+                  <h4 className="text-white font-black uppercase tracking-wider text-lg md:text-xl mb-3 md:mb-4">Supervision Temps Réel</h4>
+                  <p className="text-blue-100/70 font-medium leading-relaxed text-sm md:text-base">Ne vous souciez plus de la maintenance. Nous surveillons l'état de votre borne à distance pour anticiper et résoudre les anomalies avant même que vous ne les remarquiez.</p>
                 </div>
               </Reveal>
               
@@ -353,8 +365,8 @@ export default function App() {
                   <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-[#0097b2] flex items-center justify-center text-white mb-6 md:mb-8 shadow-[0_0_20px_rgba(0,151,178,0.5)] relative z-10 group-hover:scale-110 transition-transform">
                     <ShieldCheck size={24} />
                   </div>
-                  <h4 className="text-white font-black uppercase tracking-wider text-lg md:text-xl mb-3 md:mb-4 relative z-10">La Promesse Zéro Panne</h4>
-                  <p className="text-blue-100/70 font-medium leading-relaxed text-sm md:text-base relative z-10">Dans un marché où 20% des bornes sont en panne, la fiabilité n'est pas un luxe. Notre maintenance préventive et curative garantit la disponibilité de vos points de charge.</p>
+                  <h4 className="text-white font-black uppercase tracking-wider text-lg md:text-xl mb-3 md:mb-4 relative z-10">Ligne Directe SAV</h4>
+                  <p className="text-blue-100/70 font-medium leading-relaxed text-sm md:text-base relative z-10">Un doute ? Une question ? Vous appelez directement notre équipe locale. Pas de centre d'appel à l'étranger, vous parlez aux experts qui ont installé votre matériel.</p>
                 </div>
               </Reveal>
               
@@ -363,8 +375,8 @@ export default function App() {
                   <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-[#0097b2]/20 flex items-center justify-center text-cyan-300 mb-6 md:mb-8 border border-cyan-400/30 group-hover:scale-110 transition-transform">
                     <CheckCircle size={24} />
                   </div>
-                  <h4 className="text-white font-black uppercase tracking-wider text-lg md:text-xl mb-3 md:mb-4">Intervention Réactive</h4>
-                  <p className="text-blue-100/70 font-medium leading-relaxed text-sm md:text-base">En cas d'anomalie physique, notre ancrage local en Haute-Savoie nous permet d'intervenir rapidement sur site grâce à nos abonnements annuels de maintenance.</p>
+                  <h4 className="text-white font-black uppercase tracking-wider text-lg md:text-xl mb-3 md:mb-4">Intervention Locale</h4>
+                  <p className="text-blue-100/70 font-medium leading-relaxed text-sm md:text-base">Contrairement aux opérateurs nationaux injoignables, notre ancrage en Haute-Savoie nous permet de garantir un rappel sous 24h et une intervention rapide de nos techniciens.</p>
                 </div>
               </Reveal>
             </div>

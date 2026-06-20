@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { 
-  ShieldCheck, MapPin, Award, FileText, Wrench, Phone, ArrowRight, CheckCircle, Zap
+  ShieldCheck, MapPin, Award, FileText, Wrench, Phone, ArrowRight, CheckCircle, Zap, Building
 } from 'lucide-react';
 
 import { FadeIn } from '@/components/ui/FadeIn';
@@ -121,7 +121,7 @@ export default function ParticuliersPage() {
               <FadeIn delay={300} direction="up">
                 <div className="w-full flex justify-center mb-6">
                   <h1 className="text-[2.5rem] sm:text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase">
-                    La recharge <br/><span className="text-[#0097b2]">ultra-rentable.</span>
+                    L'installation <br/><span className="text-[#0097b2]">clé en main.</span>
                   </h1>
                 </div>
               </FadeIn>
@@ -129,7 +129,7 @@ export default function ParticuliersPage() {
               <FadeIn delay={500} direction="up">
                 <div className="w-full flex justify-center mb-10">
                   <p className="text-sm sm:text-base md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
-                    Simulez vos économies en passant à l'électrique et demandez une visite technique gratuite pour l'installation de votre borne certifiée IRVE.
+                    En maison individuelle ou en appartement (Droit à la prise), partez l'esprit léger. Nous gérons 100% des démarches administratives, juridiques et techniques.
                   </p>
                 </div>
               </FadeIn>
@@ -167,9 +167,9 @@ export default function ParticuliersPage() {
                 
                 <div className="space-y-6">
                   {[
-                    { i: <Zap/>, t: "Borne Intelligente", d: "7.4kW pour une charge 3x plus rapide qu'une prise standard." },
-                    { i: <FileText/>, t: "Devis Transparent", d: "Obtenez un devis clair après une visite technique gratuite." },
-                    { i: <ShieldCheck/>, t: "Qualification IRVE", d: "Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW." }
+                    { i: <Zap/>, t: "Maison Individuelle", d: "Une borne 7.4kW posée avec un prix ferme garanti. Nous gérons 100% des démarches et des aides pour que vous partiez l'esprit léger." },
+                    { i: <Building/>, t: "Appartement : Droit à la prise", d: "Peur d'affronter votre syndic ? Nous montons le dossier technique et envoyons nous-même la mise en demeure légale." },
+                    { i: <ShieldCheck/>, t: "Installation Clé en Main", d: "Nos experts s'occupent de tout, de la visite technique gratuite jusqu'à la certification finale de conformité électrique." }
                   ].map((item, idx) => (
                     <div key={idx} className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm hover:shadow-md border border-slate-100">
                       <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2] group-hover:text-white transition-colors duration-500 shrink-0 text-[#0097b2]">

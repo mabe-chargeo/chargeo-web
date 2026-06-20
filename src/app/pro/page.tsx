@@ -123,7 +123,7 @@ export default function ProPage() {
               <FadeIn delay={300} direction="up">
                 <div className="w-full flex justify-center mb-6">
                   <h1 className="text-[2.5rem] sm:text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase">
-                    L'infrastructure <br/><span className="text-[#0097b2]">pour les Pros.</span>
+                    La Loi LOM devient <br/><span className="text-[#0097b2]">une opportunité.</span>
                   </h1>
                 </div>
               </FadeIn>
@@ -131,7 +131,7 @@ export default function ProPage() {
               <FadeIn delay={500} direction="up">
                 <div className="w-full flex justify-center mb-10">
                   <p className="text-sm sm:text-base md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
-                    Électrifiez votre flotte, équipez vos collaborateurs à domicile ou monétisez votre parking client. Nous gérons votre projet de A à Z.
+                    Maîtrisez la puissance électrique de votre flotte d'entreprise, ou transformez votre parking visiteur (Hôtel, ERP) en un nouveau service attractif pour fidéliser votre clientèle.
                   </p>
                 </div>
               </FadeIn>
@@ -169,9 +169,9 @@ export default function ProPage() {
 
                 <div className="space-y-6">
                   {[
-                    { i: <Car />, t: "Cas n°1 : La Flotte d'Entreprise", d: "Électrifiez votre parking. Supervision logicielle, badges RFID pour le suivi des consos et délestage pour la sécurité de l'entreprise." },
-                    { i: <Home />, t: "Cas n°2 : Domicile Collaborateurs", d: "Offrez la recharge à la maison. Notre logiciel isole la conso pro : vous remboursez le salarié sur note de frais, sans gestion." },
-                    { i: <CreditCard />, t: "Cas n°3 : Monétisation Clientèle", d: "Attirez une clientèle premium. Fixez votre marge au kWh, le client paie par QR Code, vous générez des revenus." }
+                    { i: <Car />, t: "Flotte & PME", d: "Électrifiez votre parking. Notre technologie de Smart Charging pilote dynamiquement la charge pour éviter tout surcoût lié à votre abonnement Enedis." },
+                    { i: <Home />, t: "Domicile Collaborateurs", d: "La fin des notes de frais complexes. Grâce au Split-Billing, la consommation professionnelle de votre salarié est isolée pour un remboursement automatisé." },
+                    { i: <CreditCard />, t: "Hôtels, ERP & Tertiaire", d: "Transformez l'obligation réglementaire LOM en un nouveau service attractif. Bornes avec terminaux de paiement pour fidéliser une clientèle équipée." }
                   ].map((item, idx) => (
                     <div key={idx} className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
                       <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2] group-hover:text-white transition-colors duration-500 shrink-0 text-[#0097b2]">
