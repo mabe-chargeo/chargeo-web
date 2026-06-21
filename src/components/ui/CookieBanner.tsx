@@ -4,6 +4,24 @@ import React from "react";
 import CookieConsent from "react-cookie-consent";
 
 export function CookieBanner() {
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const match = document.cookie.match(/(^| )chargeo-gdpr-consent=([^;]+)/);
+      const consent = match ? match[2] : null;
+      if (consent) {
+        const state = consent === "true" ? "granted" : "denied";
+        (window as any).dataLayer = (window as any).dataLayer || [];
+        const gtag = function(..._args: any[]){(window as any).dataLayer.push(arguments);};
+        gtag('consent', 'update', {
+          'ad_storage': state,
+          'ad_user_data': state,
+          'ad_personalization': state,
+          'analytics_storage': state
+        });
+      }
+    }
+  }, []);
+
   return (
     <CookieConsent
       location="bottom"
