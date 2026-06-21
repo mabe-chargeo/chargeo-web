@@ -34,16 +34,7 @@ html, body {
   color: #0f172a !important; 
 }
 
-/* Animations de fond et flottantes */
-@keyframes slowPan { 
-  0% { transform: scale(1.05) translate(0, 0); } 
-  100% { transform: scale(1.15) translate(-1%, 1%); } 
-}
-.animate-bg-pan { 
-  animation: slowPan 25s ease-in-out infinite alternate; 
-  will-change: transform; 
-}
-
+/* Animations flottantes (Animation de fond retirée pour optimisation LCP) */
 @keyframes float { 
   0%, 100% { transform: translateY(0); } 
   50% { transform: translateY(-8px); } 
@@ -106,7 +97,7 @@ html, body {
 
 /* Désactivation des animations lourdes sur mobile pour les performances */
 @media (max-width: 768px) {
-  .animate-bg-pan, .animate-float, .animate-float-delayed, .animate-pulse-neon { 
+  .animate-float, .animate-float-delayed, .animate-pulse-neon { 
     animation: none !important; transform: none !important; 
   }
   .glass-tech { 

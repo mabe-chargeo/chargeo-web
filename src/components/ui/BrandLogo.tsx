@@ -10,6 +10,8 @@ export const BrandLogo = ({ name, url }: { name: string, url: string }) => {
           <img 
             src={url} 
             alt={name} 
+            fetchPriority="high"
+            loading="eager"
             onError={() => setError(true)}
             className="max-h-6 md:max-h-8 max-w-full object-contain opacity-40 grayscale transition-all duration-500 group-hover:opacity-100 group-hover:grayscale-0 group-hover:scale-110" 
           />

@@ -51,19 +51,19 @@ export default function ProPage() {
       text: "Nous voulions offrir un service de recharge à notre clientèle. CHARGéO a géré l'installation, et la borne génère aujourd'hui des revenus chaque mois.",
       author: "Directeur d'Hôtel",
       location: "74500 Évian",
-      image: "/review-hotel.png"
+      image: "/review-hotel.webp"
     },
     {
       text: "Pour nos commerciaux, la solution à domicile est parfaite. Le logiciel relève automatiquement leurs recharges pro. Gain de temps énorme.",
       author: "DRH",
       location: "74000 Annecy",
-      image: "/review-domicile.png"
+      image: "/review-domicile.webp"
     },
     {
       text: "Nous avons équipé notre parking avec délestage dynamique. Parfait pour respecter la Loi LOM, et l'amortissement comptable est un vrai plus.",
       author: "Gérant",
       location: "74200 Thonon",
-      image: "/review-flotte.png"
+      image: "/review-flotte.webp"
     }
   ];
 
@@ -106,7 +106,7 @@ export default function ProPage() {
         {/* HERO SECTION PRO */}
         <section className="relative min-h-[82vh] pt-28 pb-12 flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
-            <Image src="/hero-pro.png" alt="Bâtiment entreprise et recharge" fill sizes="100vw" priority className="object-cover opacity-40 animate-bg-pan" />
+            <Image src="/hero-pro.webp" alt="Bâtiment entreprise et recharge" fill sizes="100vw" priority fetchPriority="high" className="object-cover opacity-40" />
             <div className="absolute inset-0 bg-linear-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
           </div>
           

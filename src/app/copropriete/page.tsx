@@ -49,19 +49,19 @@ export default function CoproprietePage() {
       text: "L'IRVE collective était la seule solution pérenne pour notre parking. CHARGéO a monté le dossier Advenir pour subventionner massivement l'artère principale.",
       author: "Président du CS",
       location: "Résidence 50 lots",
-      image: "/review-cs.png"
+      image: "/review-cs.webp"
     },
     {
       text: "L'artère principale a été tirée. Aujourd'hui, n'importe quel résident peut demander le raccordement de sa place sans faire disjoncter l'immeuble.",
       author: "Copropriétaire",
       location: "Thonon",
-      image: "/review-resident.png"
+      image: "/review-resident.webp"
     },
     {
       text: "L'accompagnement et le logiciel de supervision nous déchargent totalement. Chacun est facturé au kWh consommé, et le syndic n'a plus rien à gérer.",
       author: "Syndic",
       location: "Annecy",
-      image: "/review-syndic.png"
+      image: "/review-syndic.webp"
     }
   ];
 
@@ -102,7 +102,7 @@ export default function CoproprietePage() {
         {/* HERO SECTION */}
         <section className="relative min-h-[82vh] pt-28 pb-12 flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
-            <Image src="/hero-copro.png" alt="Immeuble moderne" fill sizes="100vw" priority className="object-cover opacity-30 animate-bg-pan" />
+            <Image src="/hero-copro.webp" alt="Immeuble moderne" fill sizes="100vw" priority fetchPriority="high" className="object-cover opacity-30" />
             <div className="absolute inset-0 bg-linear-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
           </div>
           

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Star } from 'lucide-react';
+import Image from 'next/image';
 
 interface Review {
   text: string;
@@ -30,12 +31,14 @@ export function ReviewsCarousel({ reviews }: ReviewsCarouselProps) {
       
       <div className="relative w-full rounded-[2.5rem] shadow-2xl aspect-4/5 bg-slate-200 overflow-hidden border-8 border-white group">
         {reviews.map((review, idx) => (
-          <img 
+          <Image 
             key={idx}
             src={review.image} 
-            loading="lazy"
-            className={`absolute inset-0 w-full h-full object-cover object-center transition-all duration-1000 ease-in-out ${idx === currentReview ? 'opacity-100 z-10 scale-100' : 'opacity-0 z-0 scale-110'}`}
             alt={`Témoignage de ${review.author}`}
+            fill
+            sizes="(max-width: 768px) 100vw, 400px"
+            priority={idx === 0}
+            className={`object-cover object-center transition-all duration-1000 ease-in-out ${idx === currentReview ? 'opacity-100 z-10 scale-100' : 'opacity-0 z-0 scale-110'}`}
           />
         ))}
         <div className="absolute inset-0 bg-linear-to-t from-[#032b60]/80 via-transparent to-transparent z-10 opacity-60 mix-blend-multiply"></div>

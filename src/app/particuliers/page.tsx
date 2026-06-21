@@ -50,19 +50,19 @@ export default function ParticuliersPage() {
       text: "Enfin un installateur qui explique les vraies économies. J'ai divisé mon budget carburant par 4 dès le premier mois.",
       author: "Jean-Philippe",
       location: "74200 Thonon",
-      image: "/review-particulier-1.png"
+      image: "/review-particulier-1.webp"
     },
     {
       text: "La visite technique a été planifiée en 2 jours. Devis clair, sans surprise. La borne 7.4kW change tout par rapport à ma prise standard.",
       author: "Sophie",
       location: "74000 Annecy",
-      image: "/review-particulier-2.png"
+      image: "/review-particulier-2.webp"
     },
     {
       text: "Devis reçu rapidement et pose effectuée en 10 jours. L'équipe est experte et gère directement les aides de l'État.",
       author: "Marc",
       location: "74100 Annemasse",
-      image: "/review-particulier-3.png"
+      image: "/review-particulier-3.webp"
     }
   ];
 
@@ -104,7 +104,7 @@ export default function ParticuliersPage() {
         {/* HERO SECTION */}
         <section className="relative min-h-[82vh] pt-28 pb-12 flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
-            <Image src="/hero-particulier.png" alt="Hero Background" fill sizes="100vw" priority className="object-cover opacity-40 animate-bg-pan" />
+            <Image src="/hero-particulier.webp" alt="Hero Background" fill sizes="100vw" priority fetchPriority="high" className="object-cover opacity-40" />
             <div className="absolute inset-0 bg-linear-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
           </div>
           

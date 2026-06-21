@@ -128,7 +128,7 @@ export default function App() {
         <section className="relative min-h-[82vh] pt-28 pb-12 flex flex-col justify-center overflow-hidden bg-[#032b60]">
           <div className="absolute inset-0 z-0">
             <div className="absolute inset-0 bg-grid-tech opacity-30"></div>
-            <Image src="/hero-chargeo.png" alt="Installation institutionnelle" fill sizes="100vw" priority className="object-cover opacity-20 animate-bg-pan grayscale" />
+            <Image src="/hero-chargeo.webp" alt="Installation institutionnelle" fill sizes="100vw" priority fetchPriority="high" className="object-cover opacity-20 grayscale" />
             <div className="absolute inset-0 bg-linear-to-t from-[#032b60] via-[#032b60]/20 to-[#032b60]/50 opacity-90"></div>
           </div>
           
@@ -233,7 +233,7 @@ export default function App() {
                 <div className="absolute -inset-4 border border-[#0097b2]/20 rounded-[3.5rem] border-dashed animate-[spin_30s_linear_infinite]"></div>
                 
                 <ImageReveal
-                  src="/tech-chargeo.png"
+                  src="/tech-chargeo.webp"
                   alt="Technicien tech en intervention"
                   className="relative z-10 rounded-[3rem] shadow-2xl w-full h-162.5 grayscale-30 contrast-125 border-8 border-white"
                 />
