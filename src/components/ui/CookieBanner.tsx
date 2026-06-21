@@ -8,11 +8,9 @@ export function CookieBanner() {
     if (typeof window !== "undefined") {
       const match = document.cookie.match(/(^| )chargeo-gdpr-consent=([^;]+)/);
       const consent = match ? match[2] : null;
-      if (consent) {
+      if (consent && typeof (window as any).gtag === "function") {
         const state = consent === "true" ? "granted" : "denied";
-        (window as any).dataLayer = (window as any).dataLayer || [];
-        const gtag = function(..._args: any[]){(window as any).dataLayer.push(arguments);};
-        gtag('consent', 'update', {
+        (window as any).gtag('consent', 'update', {
           'ad_storage': state,
           'ad_user_data': state,
           'ad_personalization': state,
@@ -59,10 +57,8 @@ export function CookieBanner() {
       }}
       expires={180} // Durée légale de conservation du choix (6 mois)
       onAccept={() => {
-        if (typeof window !== "undefined") {
-          (window as any).dataLayer = (window as any).dataLayer || [];
-          function gtag(cmd: string, action: string, params: any){(window as any).dataLayer.push(arguments);}
-          gtag('consent', 'update', {
+        if (typeof window !== "undefined" && typeof (window as any).gtag === "function") {
+          (window as any).gtag('consent', 'update', {
             'ad_storage': 'granted',
             'ad_user_data': 'granted',
             'ad_personalization': 'granted',
@@ -71,10 +67,8 @@ export function CookieBanner() {
         }
       }}
       onDecline={() => {
-        if (typeof window !== "undefined") {
-          (window as any).dataLayer = (window as any).dataLayer || [];
-          function gtag(cmd: string, action: string, params: any){(window as any).dataLayer.push(arguments);}
-          gtag('consent', 'update', {
+        if (typeof window !== "undefined" && typeof (window as any).gtag === "function") {
+          (window as any).gtag('consent', 'update', {
             'ad_storage': 'denied',
             'ad_user_data': 'denied',
             'ad_personalization': 'denied',
