@@ -41,17 +41,28 @@ export function CookieBanner() {
       }}
       expires={180} // Durée légale de conservation du choix (6 mois)
       onAccept={() => {
-        // C'est ici que nous injecterons le script Google Ads plus tard
-        console.log("Consentement Google Ads : ACCORDÉ");
-        if (typeof window !== "undefined" && (window as any).gtag) {
-            (window as any).gtag('consent', 'update', {
-                'analytics_storage': 'granted',
-                'ad_storage': 'granted'
-            });
+        if (typeof window !== "undefined") {
+          (window as any).dataLayer = (window as any).dataLayer || [];
+          function gtag(cmd: string, action: string, params: any){(window as any).dataLayer.push(arguments);}
+          gtag('consent', 'update', {
+            'ad_storage': 'granted',
+            'ad_user_data': 'granted',
+            'ad_personalization': 'granted',
+            'analytics_storage': 'granted'
+          });
         }
       }}
       onDecline={() => {
-        console.log("Consentement Google Ads : REFUSÉ");
+        if (typeof window !== "undefined") {
+          (window as any).dataLayer = (window as any).dataLayer || [];
+          function gtag(cmd: string, action: string, params: any){(window as any).dataLayer.push(arguments);}
+          gtag('consent', 'update', {
+            'ad_storage': 'denied',
+            'ad_user_data': 'denied',
+            'ad_personalization': 'denied',
+            'analytics_storage': 'denied'
+          });
+        }
       }}
     >
       <div className="font-medium leading-relaxed">
