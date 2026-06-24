@@ -27,6 +27,14 @@ export function ContactForm({ typeClient, simulation }: ContactFormProps) {
       if (res.ok) {
         setFormStatus("success");
         setNom(""); setEmail(""); setTelephone(""); setMessage("");
+        
+        if (typeof window !== 'undefined') {
+          const dataLayer = (window as any).dataLayer = (window as any).dataLayer || [];
+          dataLayer.push({
+            event: 'form_submit_success',
+            formType: typeClient
+          });
+        }
       } else {
         setFormStatus("error");
       }
