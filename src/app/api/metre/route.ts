@@ -92,16 +92,15 @@ export async function POST(request: Request) {
       formData.get('photoBorne') as File
     ];
 
-    // L'ID de ton champ personnalisé "📸 Photos Visite"
-    const PHOTO_FIELD_ID = "5f86c070-6fae-45b7-9552-dde2f9127caf";
-
+    // 5. Upload des photos (ClickUp API v2 oblige de les mettre dans les pièces jointes générales)
     for (const file of files) {
-      if (file && file.size > 0) {
+      // On vérifie que le fichier existe bien et n'est pas "vide"
+      if (file && file.size > 0 && file.name !== 'undefined') {
         const fileData = new FormData();
-        fileData.append('attachment', file); // ClickUp attend toujours la clé 'attachment'
+        fileData.append('attachment', file);
         
-        // On cible spécifiquement l'URL du custom field, pas celle des pièces jointes générales
-        await fetch(`https://api.clickup.com/api/v2/task/${taskId}/field/${PHOTO_FIELD_ID}`, {
+        // On repasse sur l'URL d'attachement officielle de la tâche
+        await fetch(`https://api.clickup.com/api/v2/task/${taskId}/attachment`, {
           method: 'POST',
           headers: { 'Authorization': token },
           body: fileData
