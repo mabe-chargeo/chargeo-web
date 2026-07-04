@@ -25,15 +25,46 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>, setPreview: React.Dispatch<React.SetStateAction<string | null>>, photoKey: string) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setPreview(URL.createObjectURL(file));
-      try {
-        const db = await initDB();
-        db.transaction('photos', 'readwrite').objectStore('photos').put(file, `${taskId}_${photoKey}`);
-      } catch (err) {
-        console.error("Erreur IndexedDB:", err);
-      }
-    }
+    if (!file) return;
+    
+    setPreview(URL.createObjectURL(file));
+
+    // COMPRESSION DE L'IMAGE POUR ÉVITER L'ERREUR 413
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // On réduit la taille maximale (1200px)
+        if (width > 1200) {
+          height = Math.round((height * 1200) / width);
+          width = 1200;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // On convertit en JPEG allégé (70% de qualité)
+        canvas.toBlob(async (blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name || 'photo.jpg', { type: 'image/jpeg' });
+            try {
+              const db = await initDB();
+              db.transaction('photos', 'readwrite').objectStore('photos').put(compressedFile, `${taskId}_${photoKey}`);
+            } catch (err) {
+              console.error("Erreur IndexedDB:", err);
+            }
+          }
+        }, 'image/jpeg', 0.7);
+      };
+    };
   };
 
   useEffect(() => {
