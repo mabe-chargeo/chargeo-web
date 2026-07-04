@@ -7,11 +7,9 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Stockage temporaire des aperçus photo
   const [previewTableau, setPreviewTableau] = useState<string | null>(null);
   const [previewBorne, setPreviewBorne] = useState<string | null>(null);
 
-  // 🗄️ INITIALISATION DE LA BASE DE DONNÉES LOCALE (INDEXEDDB) POUR LES PHOTOS
   const initDB = (): Promise<IDBDatabase> => {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open('MetrePhotosDB', 1);
@@ -38,11 +36,9 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
     }
   };
 
-  // 💾 MAGIE HORS-LIGNE : Chargement des textes ET des photos
   useEffect(() => {
     localStorage.setItem('last_visited_task', taskId);
 
-    // 1. Restauration des textes
     const savedData = localStorage.getItem(`metreForm_${taskId}`);
     if (savedData && formRef.current) {
       const parsed = JSON.parse(savedData);
@@ -53,26 +49,33 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
       });
     }
 
-    // 2. Restauration des aperçus photos depuis IndexedDB
     const loadPhotos = async () => {
       try {
         const db = await initDB();
-        const getPhoto = (key: string): Promise<File | undefined> => new Promise(resolve => {
+        const getPhoto = (key: string): Promise<any> => new Promise(resolve => {
           const req = db.transaction('photos', 'readonly').objectStore('photos').get(`${taskId}_${key}`);
           req.onsuccess = () => resolve(req.result);
         });
 
         const fileTableau = await getPhoto('photoTableau');
-        if (fileTableau) setPreviewTableau(URL.createObjectURL(fileTableau));
+        if (fileTableau) {
+          if (fileTableau.binary) {
+            // SÉCURITÉ : Nettoyage des anciennes données corrompues de mes tests
+            db.transaction('photos', 'readwrite').objectStore('photos').clear();
+          } else {
+            setPreviewTableau(URL.createObjectURL(fileTableau));
+          }
+        }
 
         const fileBorne = await getPhoto('photoBorne');
-        if (fileBorne) setPreviewBorne(URL.createObjectURL(fileBorne));
+        if (fileBorne && !fileBorne.binary) {
+          setPreviewBorne(URL.createObjectURL(fileBorne));
+        }
       } catch (e) { console.error("Erreur chargement DB", e); }
     };
     loadPhotos();
   }, [taskId]);
 
-  // 💾 MAGIE HORS-LIGNE : Sauvegarde des textes
   const handleFormChange = () => {
     if (!formRef.current) return;
     const formData = new FormData(formRef.current);
@@ -80,7 +83,6 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
     formData.forEach((value, key) => {
       if (typeof value === 'string') dataObj[key] = value;
     });
-    // Gestion spécifique de la checkbox
     const checkbox = formRef.current.elements.namedItem('besoinDelesteur') as HTMLInputElement;
     if (checkbox) dataObj['besoinDelesteur'] = checkbox.checked ? 'true' : 'false';
     
@@ -94,14 +96,12 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
     const formData = new FormData(e.currentTarget);
     formData.append("taskId", taskId);
     
-    // Ajout spécifique de la checkbox (non incluse dans FormData si décochée)
     const checkbox = formRef.current?.elements.namedItem('besoinDelesteur') as HTMLInputElement;
     if (checkbox) formData.append('besoinDelesteur', checkbox.checked ? 'true' : 'false');
 
     try {
-      // On récupère les VRAIS fichiers depuis IndexedDB pour les envoyer
       const db = await initDB();
-      const getPhoto = (key: string): Promise<File | undefined> => new Promise(resolve => {
+      const getPhoto = (key: string): Promise<any> => new Promise(resolve => {
         const req = db.transaction('photos', 'readonly').objectStore('photos').get(`${taskId}_${key}`);
         req.onsuccess = () => resolve(req.result);
       });
@@ -109,8 +109,8 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
       const fileTableau = await getPhoto('photoTableau');
       const fileBorne = await getPhoto('photoBorne');
       
-      if (fileTableau) formData.set('photoTableau', fileTableau);
-      if (fileBorne) formData.set('photoBorne', fileBorne);
+      if (fileTableau && !fileTableau.binary) formData.set('photoTableau', fileTableau);
+      if (fileBorne && !fileBorne.binary) formData.set('photoBorne', fileBorne);
 
       const res = await fetch('/api/metre', {
         method: 'POST',
@@ -123,9 +123,12 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
         db.transaction('photos', 'readwrite').objectStore('photos').delete(`${taskId}_photoTableau`);
         db.transaction('photos', 'readwrite').objectStore('photos').delete(`${taskId}_photoBorne`);
       } else {
+        const errData = await res.json().catch(() => ({}));
+        alert("🚨 Erreur Serveur : " + (errData.error || res.status));
         setStatus("error");
       }
-    } catch (error) {
+    } catch (error: any) {
+      alert("🚨 Erreur locale : " + error.message);
       setStatus("error");
     }
   };
@@ -298,7 +301,7 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
         {status === "uploading" ? "Upload en cours..." : <><Send size={20} /> Valider le Relevé</>}
       </button>
 
-      {status === "error" && <p className="text-red-500 font-bold text-center text-sm bg-red-50 border border-red-200 p-3 rounded-lg">Erreur réseau. Ne fermez pas la page, retrouvez du réseau et réessayez.</p>}
+      {status === "error" && <p className="text-red-500 font-bold text-center text-sm bg-red-50 border border-red-200 p-3 rounded-lg">Une erreur s'est produite lors de l'envoi.</p>}
     </form>
   );
 }
