@@ -29,21 +29,12 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
     const file = e.target.files?.[0];
     if (file) {
       setPreview(URL.createObjectURL(file));
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const arrayBuffer = event.target?.result as ArrayBuffer;
-        try {
-          const db = await initDB();
-          db.transaction('photos', 'readwrite').objectStore('photos').put({
-            binary: arrayBuffer,
-            type: file.type,
-            name: file.name
-          }, `${taskId}_${photoKey}`);
-        } catch (err) {
-          console.error("Erreur IndexedDB:", err);
-        }
-      };
-      reader.readAsArrayBuffer(file);
+      try {
+        const db = await initDB();
+        db.transaction('photos', 'readwrite').objectStore('photos').put(file, `${taskId}_${photoKey}`);
+      } catch (err) {
+        console.error("Erreur IndexedDB:", err);
+      }
     }
   };
 
@@ -71,17 +62,11 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
           req.onsuccess = () => resolve(req.result);
         });
 
-        const fileTableau = await getPhoto('photoTableau') as any;
-        if (fileTableau && fileTableau.binary) {
-          const blob = new Blob([fileTableau.binary], { type: fileTableau.type });
-          setPreviewTableau(URL.createObjectURL(blob));
-        }
+        const fileTableau = await getPhoto('photoTableau');
+        if (fileTableau) setPreviewTableau(URL.createObjectURL(fileTableau));
 
-        const fileBorne = await getPhoto('photoBorne') as any;
-        if (fileBorne && fileBorne.binary) {
-          const blob = new Blob([fileBorne.binary], { type: fileBorne.type });
-          setPreviewBorne(URL.createObjectURL(blob));
-        }
+        const fileBorne = await getPhoto('photoBorne');
+        if (fileBorne) setPreviewBorne(URL.createObjectURL(fileBorne));
       } catch (e) { console.error("Erreur chargement DB", e); }
     };
     loadPhotos();
@@ -121,17 +106,11 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
         req.onsuccess = () => resolve(req.result);
       });
 
-      const fileTableau = await getPhoto('photoTableau') as any;
-      const fileBorne = await getPhoto('photoBorne') as any;
+      const fileTableau = await getPhoto('photoTableau');
+      const fileBorne = await getPhoto('photoBorne');
       
-      if (fileTableau && fileTableau.binary) {
-        const blob = new Blob([fileTableau.binary], { type: fileTableau.type });
-        formData.set('photoTableau', blob, fileTableau.name || 'tableau.jpg');
-      }
-      if (fileBorne && fileBorne.binary) {
-        const blob = new Blob([fileBorne.binary], { type: fileBorne.type });
-        formData.set('photoBorne', blob, fileBorne.name || 'borne.jpg');
-      }
+      if (fileTableau) formData.set('photoTableau', fileTableau);
+      if (fileBorne) formData.set('photoBorne', fileBorne);
 
       const res = await fetch('/api/metre', {
         method: 'POST',
