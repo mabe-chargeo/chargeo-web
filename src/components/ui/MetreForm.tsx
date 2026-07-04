@@ -11,7 +11,7 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
   const [previewTableau, setPreviewTableau] = useState<string | null>(null);
   const [previewBorne, setPreviewBorne] = useState<string | null>(null);
 
-  // INITIALISATION DE LA BASE LOCALE POUR SAUVER LES PHOTOS
+  // 🗄️ INITIALISATION DE LA BASE DE DONNÉES LOCALE (INDEXEDDB) POUR LES PHOTOS
   const initDB = (): Promise<IDBDatabase> => {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open('MetrePhotosDB', 1);
@@ -25,62 +25,89 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
     });
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>, setPreview: React.Dispatch<React.SetStateAction<string | null>>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>, setPreview: React.Dispatch<React.SetStateAction<string | null>>, photoKey: string) => {
     const file = e.target.files?.[0];
-    const photoKey = e.target.name; // Récupère automatiquement 'photoTableau' ou 'photoBorne'
-    if (file) {
-      setPreview(URL.createObjectURL(file)); 
-      
-      // Sauvegarde l'image en texte brut (Base64) pour empêcher Apple de l'effacer
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async (event) => {
-        const base64String = event.target?.result as string;
+    if (!file) return;
+
+    setPreview(URL.createObjectURL(file));
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        // Résolution max 2500px pour garder les détails sans exploser Vercel (413)
+        if (width > 2500) {
+          height = Math.round((height * 2500) / width);
+          width = 2500;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        // Sauvegarde en Base64 (texte) pour qu'Apple ne supprime rien à la fermeture
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
         try {
           const db = await initDB();
-          db.transaction('photos', 'readwrite').objectStore('photos').put(base64String, `${taskId}_${photoKey}`);
+          db.transaction('photos', 'readwrite').objectStore('photos').put(dataUrl, `${taskId}_${photoKey}`);
         } catch (err) {
           console.error("Erreur IndexedDB:", err);
         }
       };
-    }
+    };
   };
 
-  // 💾 MAGIE HORS-LIGNE : Chargement des données quand on rouvre la page
+  // 💾 MAGIE HORS-LIGNE : Chargement des textes ET des photos
   useEffect(() => {
-    // On mémorise cet ID pour que l'app s'ouvre dessus directement depuis l'écran d'accueil !
     localStorage.setItem('last_visited_task', taskId);
 
+    // 1. Restauration des textes
     const savedData = localStorage.getItem(`metreForm_${taskId}`);
     if (savedData && formRef.current) {
       const parsed = JSON.parse(savedData);
       Object.keys(parsed).forEach(key => {
         const input = formRef.current?.elements.namedItem(key) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
-        // On restaure tout, sauf les photos (sécurité des navigateurs)
-        if (input && input.type !== 'file') input.value = parsed[key];
+        if (input && input.type !== 'file' && input.type !== 'checkbox') input.value = parsed[key];
+        if (input && input.type === 'checkbox') (input as HTMLInputElement).checked = parsed[key] === 'true';
       });
     }
 
-    // Restauration des photos depuis la base locale
+    // 2. Restauration des aperçus photos depuis IndexedDB
     const loadPhotos = async () => {
       try {
         const db = await initDB();
-        const getPhoto = (key: string): Promise<string | undefined> => new Promise(resolve => {
+        const getPhoto = (key: string): Promise<any> => new Promise(resolve => {
           const req = db.transaction('photos', 'readonly').objectStore('photos').get(`${taskId}_${key}`);
           req.onsuccess = () => resolve(req.result);
         });
 
-        const photoTab = await getPhoto('photoTableau');
-        if (photoTab) setPreviewTableau(photoTab);
+        const fileTableau = await getPhoto('photoTableau');
+        if (typeof fileTableau === 'string') {
+          setPreviewTableau(fileTableau);
+        } else if (fileTableau instanceof File || fileTableau instanceof Blob) {
+          setPreviewTableau(URL.createObjectURL(fileTableau));
+        }
 
-        const photoBorne = await getPhoto('photoBorne');
-        if (photoBorne) setPreviewBorne(photoBorne);
+        const fileBorne = await getPhoto('photoBorne');
+        if (typeof fileBorne === 'string') {
+          setPreviewBorne(fileBorne);
+        } else if (fileBorne instanceof File || fileBorne instanceof Blob) {
+          setPreviewBorne(URL.createObjectURL(fileBorne));
+        }
       } catch (e) { console.error("Erreur chargement DB", e); }
     };
     loadPhotos();
   }, [taskId]);
 
-  // 💾 MAGIE HORS-LIGNE : Sauvegarde invisible à chaque fois qu'on tape une lettre
+  // 💾 MAGIE HORS-LIGNE : Sauvegarde des textes
   const handleFormChange = () => {
     if (!formRef.current) return;
     const formData = new FormData(formRef.current);
@@ -88,6 +115,10 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
     formData.forEach((value, key) => {
       if (typeof value === 'string') dataObj[key] = value;
     });
+    // Gestion spécifique de la checkbox
+    const checkbox = formRef.current.elements.namedItem('besoinDelesteur') as HTMLInputElement;
+    if (checkbox) dataObj['besoinDelesteur'] = checkbox.checked ? 'true' : 'false';
+    
     localStorage.setItem(`metreForm_${taskId}`, JSON.stringify(dataObj));
   };
 
@@ -97,8 +128,12 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
     
     const formData = new FormData(e.currentTarget);
     formData.append("taskId", taskId);
+    
+    // Ajout spécifique de la checkbox (non incluse dans FormData si décochée)
+    const checkbox = formRef.current?.elements.namedItem('besoinDelesteur') as HTMLInputElement;
+    if (checkbox) formData.append('besoinDelesteur', checkbox.checked ? 'true' : 'false');
 
-    // Outil pour retransformer le texte Base64 en vrai fichier (sans changer le poids)
+    // Convertisseur texte -> fichier
     const dataURLtoBlob = (dataurl: string) => {
       const arr = dataurl.split(',');
       const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
@@ -110,18 +145,28 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
     };
 
     try {
-      // On récupère les photos figées dans la mémoire
+      // On récupère les VRAIS fichiers depuis IndexedDB pour les envoyer
       const db = await initDB();
-      const getPhoto = (key: string): Promise<string | undefined> => new Promise(resolve => {
+      const getPhoto = (key: string): Promise<any> => new Promise(resolve => {
         const req = db.transaction('photos', 'readonly').objectStore('photos').get(`${taskId}_${key}`);
         req.onsuccess = () => resolve(req.result);
       });
 
-      const photoTab = await getPhoto('photoTableau');
-      if (photoTab) formData.set('photoTableau', dataURLtoBlob(photoTab), 'tableau.jpg');
+      const fileTableau = await getPhoto('photoTableau');
+      const fileBorne = await getPhoto('photoBorne');
+      
+      // On écrase les inputs vides par les fichiers sauvés hors-ligne
+      if (typeof fileTableau === 'string') {
+        formData.set('photoTableau', dataURLtoBlob(fileTableau), 'tableau.jpg');
+      } else if (fileTableau) {
+        formData.set('photoTableau', fileTableau);
+      }
 
-      const photoBorne = await getPhoto('photoBorne');
-      if (photoBorne) formData.set('photoBorne', dataURLtoBlob(photoBorne), 'borne.jpg');
+      if (typeof fileBorne === 'string') {
+        formData.set('photoBorne', dataURLtoBlob(fileBorne), 'borne.jpg');
+      } else if (fileBorne) {
+        formData.set('photoBorne', fileBorne);
+      }
 
       const res = await fetch('/api/metre', {
         method: 'POST',
@@ -130,12 +175,9 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
 
       if (res.ok) {
         setStatus("success");
-        // On vide la mémoire du téléphone une fois que c'est envoyé avec succès !
         localStorage.removeItem(`metreForm_${taskId}`);
-        try {
-          db.transaction('photos', 'readwrite').objectStore('photos').delete(`${taskId}_photoTableau`);
-          db.transaction('photos', 'readwrite').objectStore('photos').delete(`${taskId}_photoBorne`);
-        } catch(e) {}
+        db.transaction('photos', 'readwrite').objectStore('photos').delete(`${taskId}_photoTableau`);
+        db.transaction('photos', 'readwrite').objectStore('photos').delete(`${taskId}_photoBorne`);
       } else {
         setStatus("error");
       }
@@ -163,11 +205,14 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
         
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase">Terre (Ohms)</label>
-            <input type="number" step="0.1" name="terre" required className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-[#0097b2]" placeholder="Ex: 45" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Raccordement</label>
+            <select name="typeRaccordement" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-[#0097b2]">
+              <option value="Monophasé">Monophasé</option>
+              <option value="Triphasé">Triphasé</option>
+            </select>
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase">Puissance Dispo</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Puissance Dispo</label>
             <select name="puissance" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none">
               <option value="6 kVA">6 kVA</option>
               <option value="9 kVA">9 kVA</option>
@@ -179,44 +224,74 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase">État Tableau</label>
-            <select name="etatTableau" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none">
-              <option value="OK">OK</option>
-              <option value="A remanier">À remanier</option>
-              <option value="A remplacer">À remplacer / Saturé</option>
-            </select>
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Terre (Ohms)</label>
+            <input type="number" step="0.1" name="terre" required className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-[#0097b2]" placeholder="Ex: 45" />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase">Réseau</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Réseau</label>
             <select name="reseau" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none">
               <option value="4G OK">4G OK</option>
               <option value="WiFi OK">WiFi OK</option>
-              <option value="Câble requis">Zone Blanche (Câble requis)</option>
+              <option value="Câble requis">Zone Blanche</option>
             </select>
           </div>
         </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-bold text-slate-500 uppercase">État Tableau</label>
+          <select name="etatTableau" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none">
+            <option value="OK">OK (Conforme)</option>
+            <option value="A remanier">À remanier (Manque de place)</option>
+            <option value="A remplacer">À remplacer / Vétuste</option>
+          </select>
+        </div>
+
+        <label className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+          <input type="checkbox" name="besoinDelesteur" className="w-5 h-5 accent-[#FF6B00]" />
+          <span className="text-sm font-bold text-slate-800">Besoin d'un module Délesteur</span>
+        </label>
       </div>
 
-      {/* SECTION DISTANCES */}
+      {/* SECTION DISTANCES & PERCEMENTS */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-5">
-        <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2 border-b pb-3"><Ruler size={18} className="text-[#0097b2]"/> Câblage (mètres)</h3>
+        <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2 border-b pb-3"><Ruler size={18} className="text-[#0097b2]"/> Cheminement</h3>
         
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase">Apparent / Tube</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Apparent (m)</label>
             <input type="number" name="distApparent" defaultValue="0" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none" />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase">Vide Sanitaire</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Encastré / Goulotte (m)</label>
+            <input type="number" name="distEncastre" defaultValue="0" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Vide Sanitaire (m)</label>
             <input type="number" name="distVideSanitaire" defaultValue="0" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none" />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase">Tranchée</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Tranchée (m)</label>
             <input type="number" name="distTranchee" defaultValue="0" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none" />
           </div>
+        </div>
+
+        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-2">Percements à réaliser</h4>
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">PERCEMENTS (BÉTON)</label>
-            <input type="number" name="nbPercements" defaultValue="1" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Placo / Bois</label>
+            <input type="number" name="percementPlaco" defaultValue="0" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Brique / Parpaing</label>
+            <input type="number" name="percementBrique" defaultValue="0" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Béton / Pierre</label>
+            <input type="number" name="percementBeton" defaultValue="0" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Dalle / Sol</label>
+            <input type="number" name="percementDalle" defaultValue="0" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none" />
           </div>
         </div>
       </div>
@@ -226,7 +301,7 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
         <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2 border-b pb-3"><Hammer size={18} className="text-[#0097b2]"/> Installation</h3>
         
         <div className="space-y-2">
-          <label className="text-xs font-bold text-slate-500 uppercase">Support de Borne</label>
+          <label className="text-[10px] font-bold text-slate-500 uppercase">Support de Borne</label>
           <select name="murSupport" required className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none">
             <option value="Mur Béton/Parpaing">Mur Béton / Parpaing</option>
             <option value="Mur Placo">Mur Placo</option>
@@ -251,7 +326,7 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
             <span className="font-black text-sm text-[#032b60]">
               {previewTableau ? "📸 Reprendre la photo" : "Tableau Ouvert (Obligatoire)"}
             </span>
-            <input type="file" name="photoTableau" accept="image/*" capture="environment" required className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handlePhotoChange(e, setPreviewTableau)} />
+            <input type="file" name="photoTableau" accept="image/*" capture="environment" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handlePhotoChange(e, setPreviewTableau, 'photoTableau')} />
           </div>
 
           {/* Photo Borne */}
@@ -264,7 +339,7 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
             <span className="font-black text-sm text-[#032b60]">
               {previewBorne ? "📸 Reprendre la photo" : "Emplacement Borne"}
             </span>
-            <input type="file" name="photoBorne" accept="image/*" capture="environment" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handlePhotoChange(e, setPreviewBorne)} />
+            <input type="file" name="photoBorne" accept="image/*" capture="environment" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handlePhotoChange(e, setPreviewBorne, 'photoBorne')} />
           </div>
         </div>
       </div>
