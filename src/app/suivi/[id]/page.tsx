@@ -50,22 +50,143 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
 
         <div className="space-y-8">
           
-          {/* Bloc Statut de la borne */}
+          {/* Bloc Statut - Frise Chronologique Dynamique */}
           <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
-            <p className="text-xs font-black uppercase tracking-widest text-[#032b60] mb-4">Statut actuel</p>
-            <div className="flex items-center gap-4">
-              <span className="relative flex h-4 w-4 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0097b2] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-[#0097b2]"></span>
-              </span>
-              <p className="text-2xl font-black capitalize text-slate-800">
+            
+            <div className="flex justify-between items-center mb-8">
+              <p className="text-xs font-black uppercase tracking-widest text-[#032b60]">Avancement du dossier</p>
+              <div className="bg-slate-50 border border-slate-200 text-slate-700 px-3 py-1.5 rounded-full text-xs font-bold capitalize flex items-center gap-2 shadow-sm">
+                <span className="h-2 w-2 rounded-full bg-[#0097b2]"></span>
                 {statutActuel}
-              </p>
+              </div>
             </div>
-            <p className="text-sm text-slate-500 mt-4 leading-relaxed font-medium">
-              Ce statut reflète l'état de votre installation dans notre base de données.
-            </p>
+            
+            <div className="relative border-l-2 border-slate-100 ml-3 md:ml-4 space-y-8">
+              {(() => {
+                const s = statutActuel.toLowerCase();
+                
+                // Définition de l'étape en cours selon tes statuts ClickUp (Chantiers + Parc)
+                let currentStep = 0;
+                if (s.includes('planifié')) currentStep = 1;
+                if (s.includes('en cours')) currentStep = 2;
+                if (s.includes('réalisé') || s.includes('terminé') || s.includes('service') || s.includes('surveillance') || s.includes('panne')) currentStep = 3;
+                if (s.includes('annulé') || s.includes('hors service')) currentStep = -1; // Mode erreur
+
+                const steps = [
+                  { title: "Préparation du dossier", desc: "Vos informations sont en cours d'analyse et de préparation." },
+                  { title: "Intervention planifiée", desc: "Une date a été fixée avec notre équipe technique." },
+                  { title: "Chantier en cours", desc: "Nos techniciens sont mobilisés sur votre installation." },
+                  { title: "Mise en service", desc: "Votre installation est finalisée et opérationnelle." }
+                ];
+
+                return steps.map((step, index) => {
+                  const isActive = currentStep === index;
+                  const isCompleted = currentStep > index;
+                  const isUpcoming = currentStep < index;
+                  
+                  // Gestion spéciale si la borne est en panne dans le Parc Installé
+                  const showSavWarning = isActive && index === 3 && (s.includes('surveillance') || s.includes('panne'));
+
+                  return (
+                    <div key={index} className="relative pl-8 transition-all duration-300">
+                      
+                      {/* Le point sur la frise */}
+                      <div className={`absolute -left-[11px] top-1 h-5 w-5 rounded-full border-4 border-white flex items-center justify-center z-10
+                        ${isActive && !showSavWarning ? 'bg-[#FF6B00] shadow-[0_0_12px_rgba(255,107,0,0.4)]' : ''}
+                        ${isCompleted ? 'bg-[#0097b2]' : ''}
+                        ${isUpcoming ? 'bg-slate-200' : ''}
+                        ${showSavWarning ? 'bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.4)]' : ''}
+                      `}>
+                        {/* Animation de pulsation uniquement sur l'étape active */}
+                        {isActive && !showSavWarning && <span className="absolute h-full w-full rounded-full bg-[#FF6B00] opacity-50 animate-ping"></span>}
+                        {showSavWarning && <span className="absolute h-full w-full rounded-full bg-red-500 opacity-50 animate-ping"></span>}
+                      </div>
+
+                      {/* Le texte de l'étape */}
+                      <h4 className={`text-lg font-black tracking-tight
+                        ${isActive && !showSavWarning ? 'text-[#FF6B00]' : ''}
+                        ${isCompleted ? 'text-slate-800' : ''}
+                        ${isUpcoming ? 'text-slate-400' : ''}
+                        ${showSavWarning ? 'text-red-500' : ''}
+                      `}>
+                        {step.title}
+                      </h4>
+                      
+                      <p className={`text-sm font-medium mt-1.5 leading-relaxed 
+                        ${isActive || isCompleted ? 'text-slate-500' : 'text-slate-300'}
+                      `}>
+                        {showSavWarning ? "Votre borne nécessite une assistance. Notre équipe technique est sur le coup." : step.desc}
+                      </p>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
           </div>
+
+          {/* NOUVEAU BLOC : Détails des champs personnalisés */}
+          {(() => {
+            // Fonction pour extraire intelligemment la valeur d'un champ par son nom
+            const getCustomFieldValue = (fieldName: string) => {
+              const field = taskData.custom_fields?.find((f: any) => f.name.includes(fieldName));
+              if (!field || field.value == null) return null;
+              
+              // Si c'est un menu déroulant (dropdown)
+              if (field.type === 'drop_down' && field.type_config?.options) {
+                // ClickUp stocke parfois l'index, parfois l'ID
+                const option = field.type_config.options.find(
+                  (opt: any) => opt.orderindex === field.value || opt.id === field.value
+                );
+                return option ? option.name : null;
+              }
+              
+              // Si c'est une date
+              if (field.type === 'date') {
+                return new Date(parseInt(field.value)).toLocaleDateString('fr-FR');
+              }
+
+              // Pour le texte simple
+              return field.value;
+            };
+
+            // On récupère les valeurs basées sur les noms de tes champs dans ClickUp
+            const modeleBorne = getCustomFieldValue("Modèle de Borne");
+            const typeContrat = getCustomFieldValue("Type de Contrat");
+            const finGarantie = getCustomFieldValue("Fin de Garantie");
+
+            // Si au moins un champ est rempli, on affiche le bloc
+            if (modeleBorne || typeContrat || finGarantie) {
+              return (
+                <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
+                  <p className="text-xs font-black uppercase tracking-widest text-[#032b60] mb-6">Détails de votre installation</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {modeleBorne && (
+                      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Matériel</p>
+                        <p className="text-sm font-black text-slate-800">{modeleBorne}</p>
+                      </div>
+                    )}
+                    
+                    {typeContrat && (
+                      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Contrat Actif</p>
+                        <p className="text-sm font-black text-[#0097b2]">{typeContrat}</p>
+                      </div>
+                    )}
+                    
+                    {finGarantie && (
+                      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Fin de garantie</p>
+                        <p className="text-sm font-black text-slate-800">{finGarantie}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {/* Bloc Formulaire SAV */}
           <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
