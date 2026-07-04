@@ -126,13 +126,11 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
       
       if (fileTableau && fileTableau.binary) {
         const blob = new Blob([fileTableau.binary], { type: fileTableau.type });
-        const file = new File([blob], fileTableau.name || 'tableau.jpg', { type: fileTableau.type });
-        formData.set('photoTableau', file);
+        formData.set('photoTableau', blob, fileTableau.name || 'tableau.jpg');
       }
       if (fileBorne && fileBorne.binary) {
         const blob = new Blob([fileBorne.binary], { type: fileBorne.type });
-        const file = new File([blob], fileBorne.name || 'borne.jpg', { type: fileBorne.type });
-        formData.set('photoBorne', file);
+        formData.set('photoBorne', blob, fileBorne.name || 'borne.jpg');
       }
 
       const res = await fetch('/api/metre', {
