@@ -21,10 +21,44 @@ async function getClickUpTask(taskId: string) {
   }
 }
 
+async function getDevisClient(taskData: any) {
+  const token = process.env.COSTRUCTOR_API_KEY;
+  if (!token) return [];
+
+  const lienField = taskData.custom_fields?.find(
+    (f: any) => f.id === 'd9f88e8f-4e20-4a98-aee8-3ded30fef5fc'
+  );
+  const match = (lienField?.value || '').match(/cnt_[a-z0-9]+/i);
+  if (!match) return [];
+  const contactId = match[0];
+
+  try {
+    const res = await fetch(
+      `https://api.costructor.co/external/v1/quotes?customer=${contactId}&limit=50`,
+      { headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store' }
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+
+    return (json.data || [])
+      .filter((q: any) => q.status !== 'draft' && q.status !== 'deleted' && q.status !== 'lost')
+      .map((q: any) => ({
+        numero: q.number,
+        nom: q.name || 'Devis',
+        accepte: q.status === 'accepted',
+        total: (q.total / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }),
+        pdfId: q.pdf?.id || null,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export default async function SuiviClientPage({ params }: { params: Promise<{ id: string }> }) {
   // Déballage de la promesse (Spécifique Next.js 15)
   const resolvedParams = await params;
   const taskData = await getClickUpTask(resolvedParams.id);
+  const devis = taskData ? await getDevisClient(taskData) : [];
 
   // Si on ne trouve pas le dossier, on affiche une page 404
   if (!taskData) {
@@ -202,7 +236,31 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
               </p>
             </div>
             
-            <SavForm clientId={resolvedParams.id} nomClient={nomChantier} />
+            {devis.length > 0 && (
+  <div className="mt-8 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+    <span className="text-[10px] font-black uppercase tracking-widest text-[#032b60]">Vos devis</span>
+    <div className="mt-4 space-y-3">
+      {devis.map((d: any) => (
+        <div key={d.numero + (d.pdfId || '')} className="flex items-center justify-between rounded-xl border border-slate-100 p-4">
+          <div>
+            <p className="font-semibold text-slate-800">{d.nom}</p>
+            <p className="text-sm text-slate-500">
+              N° {d.numero} · {d.total}
+              {d.accepte && <span className="ml-2 font-semibold text-[#0097b2]">✓ Accepté</span>}
+            </p>
+          </div>
+          {d.pdfId && (
+            <a href={`/api/devis-pdf/${d.pdfId}`} target="_blank" className="rounded-lg bg-[#0097b2] px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
+              Voir le devis
+            </a>
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
+<SavForm clientId={resolvedParams.id} nomClient={nomChantier} />
           </div>
 
         </div>
