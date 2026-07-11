@@ -126,8 +126,14 @@ const costructorPayload = {
 companyName:  isCompany ? clientName : undefined,
 firstName:  isCompany ? undefined : firstName,
 lastName:  isCompany ? undefined : lastName,
+  emails:  (!isCompany && clientEmail) ? [{ email: clientEmail, primary: true }] : undefined,
+phones:  (!isCompany && formattedPhone) ? [{ phone: formattedPhone, primary: true }] : undefined,
+contacts:  isCompany ? [{
+  firstName: firstName || undefined,
+  lastName: lastName || undefined,
   emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
-  phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
+  phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined
+}] : undefined,
   addresses:  addressObj ? [{ address: addressObj, primary: true }] : []
 
 
