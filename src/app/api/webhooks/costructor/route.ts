@@ -108,10 +108,7 @@ export async function POST(request: Request) {
       city = rawCity.replace(/,?\s*France$/i, '').trim();
     }
 
-    // On sépare proprement en 2 lignes distinctes comme l'exige le validateur de Costructor
-    const line1 = street;
-    const line2 = `${postalCode} ${city}`.trim();
-
+    // Alignement chirurgical sur la documentation officielle de Costructor
     const costructorPayload = {
       type: 'client',
       legalStatus: isCompany ? 'company' : 'individual',
@@ -121,13 +118,13 @@ export async function POST(request: Request) {
       emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
       phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
       
-      // Envoi du tableau à 2 entrées [Rue, CP Ville]
-      addresses: addressStr ? [
-        {
-          address: [line1, line2],
-          primary: true
-        }
-      ] : undefined
+      // Uniquement les clés validées par ta capture d'écran pour éviter le rejet
+      address: addressStr ? {
+        street: street,
+        postal_code: postalCode, // Requis (en rouge sur ta doc)
+        city: city,               // Requis (en rouge sur ta doc)
+        country: 'France'         // Requis (en rouge sur ta doc)
+      } : undefined
     };
 
     console.log("Payload final envoyé à Costructor:", JSON.stringify(costructorPayload));
