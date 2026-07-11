@@ -223,7 +223,7 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
           })()}
 
           {devis.length > 0 && (
-  <div className="mt-8 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+  <div className="mt-8 bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
     <span className="text-[10px] font-black uppercase tracking-widest text-[#032b60]">Vos devis</span>
     <div className="mt-4 space-y-3">
       {devis.map((d: any) => (
