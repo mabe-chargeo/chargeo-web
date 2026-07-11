@@ -161,8 +161,21 @@ contacts:  isCompany ? [{
       throw new Error("Erreur lors de la création dans Costructor");
     }
 
+    // On récupère l'ID du contact créé et on le stocke dans ClickUp
+    const costructorData = JSON.parse(responseText);
+    const costructorId = costructorData.id;
+    const costructorUrl = `https://app.costructor.co/contacts/${costructorId}`;
+
+    if (costructorId) {
+      await fetch(`https://api.clickup.com/api/v2/task/${taskId}/field/d9f88e8f-4e20-4a98-aee8-3ded30fef5fc`, {
+        method: 'POST',
+        headers: { 'Authorization': clickUpToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: costructorUrl })
+      });
+    }
+
     // Si tout s'est bien passé
-    return NextResponse.json({ success: true, message: `Fiche de ${clientName} créée avec succès !` });
+    return NextResponse.json({ success: true, message: `Fiche de ${clientName} créée et liée !` });
 
   } catch (error) {
     console.error("Erreur Webhook Costructor :", error);
