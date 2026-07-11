@@ -108,20 +108,7 @@ export async function POST(request: Request) {
       city = rawCity.replace(/,?\s*France$/i, '').trim();
     }
 
-    // Objet d'adresse ultra-complet avec toutes les clés possibles du web
-    const robustAddress = addressStr ? {
-      street: street,
-      line1: street,
-      address: street,
-      postalCode: postalCode,
-      postal_code: postalCode,
-      zipCode: postalCode,
-      zip: postalCode,
-      city: city,
-      country: 'France',
-      primary: true
-    } : undefined;
-
+    // L'API Costructor refuse le découpage. Elle veut uniquement la clé 'address' sous forme de tableau [].
     const costructorPayload = {
       type: 'client',
       legalStatus: isCompany ? 'company' : 'individual',
@@ -131,9 +118,13 @@ export async function POST(request: Request) {
       emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
       phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
       
-      // On envoie sous forme d'objet ET sous forme de tableau pour forcer le passage
-      address: robustAddress,
-      addresses: robustAddress ? [robustAddress] : undefined
+      // On respecte l'exigence exacte du log : addresses -> tableau d'objets -> clé 'address' qui est un tableau de texte
+      addresses: addressStr ? [
+        {
+          address: [addressStr], // L'adresse complète est passée directement dans le tableau exigé
+          primary: true
+        }
+      ] : undefined
     };
 
     console.log("Payload final envoyé à Costructor:", JSON.stringify(costructorPayload));
