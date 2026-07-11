@@ -112,9 +112,9 @@ export async function POST(request: Request) {
 let addressObj = undefined;
 if (addressStr && postalCode && city) {
   addressObj = {
-    street: street ? street.replace(/\bRte\b/i, 'Route') : '',
+    street: street,
     postal_code: postalCode,
-    city: city.toUpperCase().replace(/-/g, ' '),
+    city: city,
     country: 'France'
   };
 }
