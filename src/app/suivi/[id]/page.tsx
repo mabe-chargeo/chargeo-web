@@ -231,7 +231,7 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
           key={d.numero + (d.pdfId || '')}
           href={d.pdfId ? `/api/devis-pdf/${d.pdfId}` : undefined}
           target="_blank"
-          className={`flex items-center justify-between rounded-xl border border-slate-100 p-4 transition ${d.pdfId ? 'cursor-pointer hover:border-[#0097b2] hover:shadow-sm' : ''}`}
+          className={`flex items-center justify-between rounded-2xl border border-slate-100 p-4 transition ${d.pdfId ? 'cursor-pointer hover:border-[#0097b2] hover:shadow-sm' : ''}`}
         >
           <div>
             <p className="font-semibold text-slate-800">{d.nom}</p>
