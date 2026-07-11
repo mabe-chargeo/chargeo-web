@@ -108,7 +108,10 @@ export async function POST(request: Request) {
       city = rawCity.replace(/,?\s*France$/i, '').trim();
     }
 
-    // L'API Costructor refuse le découpage. Elle veut uniquement la clé 'address' sous forme de tableau [].
+    // On sépare proprement en 2 lignes distinctes comme l'exige le validateur de Costructor
+    const line1 = street;
+    const line2 = `${postalCode} ${city}`.trim();
+
     const costructorPayload = {
       type: 'client',
       legalStatus: isCompany ? 'company' : 'individual',
@@ -118,10 +121,10 @@ export async function POST(request: Request) {
       emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
       phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
       
-      // On respecte l'exigence exacte du log : addresses -> tableau d'objets -> clé 'address' qui est un tableau de texte
+      // Envoi du tableau à 2 entrées [Rue, CP Ville]
       addresses: addressStr ? [
         {
-          address: [addressStr], // L'adresse complète est passée directement dans le tableau exigé
+          address: [line1, line2],
           primary: true
         }
       ] : undefined
