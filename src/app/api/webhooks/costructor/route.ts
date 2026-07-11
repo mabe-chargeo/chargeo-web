@@ -72,14 +72,24 @@ export async function POST(request: Request) {
       formattedPhone = '+33' + formattedPhone.substring(1);
     }
 
+    // Extraction sécurisée du texte si l'adresse ClickUp est un objet de géolocalisation
+    let addressStr = '';
+    if (clientAddress) {
+      if (typeof clientAddress === 'object') {
+        addressStr = clientAddress.formatted_address || clientAddress.text || JSON.stringify(clientAddress);
+      } else {
+        addressStr = String(clientAddress);
+      }
+    }
+
     // Découpage automatique et intelligent de l'adresse (Rue, Code Postal, Ville)
-    const zipMatch = clientAddress ? clientAddress.match(/\b\d{5}\b/) : null;
+    const zipMatch = addressStr ? addressStr.match(/\b\d{5}\b/) : null;
     const postalCode = zipMatch ? zipMatch[0] : '';
-    let street = clientAddress || '';
+    let street = addressStr;
     let city = '';
 
-    if (zipMatch && clientAddress) {
-      const parts = clientAddress.split(postalCode);
+    if (zipMatch && addressStr) {
+      const parts = addressStr.split(postalCode);
       street = parts[0].trim().replace(/,$/, '').trim(); // Tout ce qui est avant le CP
       city = parts[1] ? parts[1].trim().replace(/^,/, '').trim() : ''; // Tout ce qui est après
     }
@@ -94,12 +104,12 @@ export async function POST(request: Request) {
       emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
       phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
       
-      // On arrose large avec toutes les variantes de clés d'adresse possibles pour garantir l'impact
-      address: clientAddress ? {
+      // Envoi de l'adresse nettoyée sous toutes ses formes
+      address: addressStr ? {
         street: street,
         line1: street,
         address: street,
-        text: clientAddress,
+        text: addressStr,
         postalCode: postalCode,
         postal_code: postalCode,
         zipCode: postalCode,
