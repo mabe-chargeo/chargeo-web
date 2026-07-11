@@ -60,7 +60,6 @@ export async function POST(request: Request) {
     const lastName = nameParts[0] || '';
     const firstName = nameParts.slice(1).join(' ') || '';
 
-    // Détermination résiliente du statut Pro ou Particulier
     const isCompany = clientType && (
       clientType.toLowerCase().includes('pro') || 
       clientType.toLowerCase().includes('b2b') || 
@@ -74,15 +73,12 @@ export async function POST(request: Request) {
       firstName: firstName,
       lastName: lastName,
       
-      // On envoie les formats standards ET les formats liste pour saturer les clés possibles de Costructor
-      email: clientEmail,
-      emails: clientEmail ? [clientEmail] : undefined,
-      phone: clientPhone,
-      phones: clientPhone ? [clientPhone] : undefined,
-      phoneNumber: clientPhone,
+      // On structure les e-mails et téléphones sous forme d'objets dans le tableau
+      emails: clientEmail ? [{ email: clientEmail }] : undefined,
+      phones: clientPhone ? [{ phone: clientPhone }] : undefined,
       
-      // On ajoute l'adresse reçue de ClickUp
-      address: clientAddress ? { text: clientAddress, full: clientAddress, address: clientAddress } : undefined
+      // Structure standard pour l'adresse
+      address: clientAddress ? { text: clientAddress } : undefined
     };
 
     // 5. On envoie l'ordre de création à Costructor
