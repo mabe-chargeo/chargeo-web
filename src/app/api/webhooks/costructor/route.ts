@@ -72,13 +72,23 @@ export async function POST(request: Request) {
       formattedPhone = '+33' + formattedPhone.substring(1);
     }
 
-    // Extraction sécurisée du texte si l'adresse ClickUp est un objet de géolocalisation
+    // Extraction ultra-sécurisée du texte de l'emplacement ClickUp
     let addressStr = '';
     if (clientAddress) {
       if (typeof clientAddress === 'object') {
-        addressStr = clientAddress.formatted_address || clientAddress.text || JSON.stringify(clientAddress);
-      } else {
-        addressStr = String(clientAddress);
+        addressStr = clientAddress.formatted_address || clientAddress.text || '';
+      } else if (typeof clientAddress === 'string') {
+        const trimmed = clientAddress.trim();
+        if (trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            addressStr = parsed.formatted_address || parsed.text || '';
+          } catch (e) {
+            addressStr = clientAddress;
+          }
+        } else {
+          addressStr = clientAddress;
+        }
       }
     }
 
@@ -91,7 +101,8 @@ export async function POST(request: Request) {
     if (zipMatch && addressStr) {
       const parts = addressStr.split(postalCode);
       street = parts[0].trim().replace(/,$/, '').trim(); // Tout ce qui est avant le CP
-      city = parts[1] ? parts[1].trim().replace(/^,/, '').trim() : ''; // Tout ce qui est après
+      const rawCity = parts[1] ? parts[1].trim().replace(/^,/, '').trim() : '';
+      city = rawCity.replace(/,?\s*France$/i, '').trim(); // On enlève le ", France" inutile à la fin
     }
 
     const costructorPayload = {
@@ -104,16 +115,12 @@ export async function POST(request: Request) {
       emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
       phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
       
-      // Envoi de l'adresse nettoyée sous toutes ses formes
+      // Envoi de l'adresse nettoyée avec les clés exactes et épurées
       address: addressStr ? {
         street: street,
-        line1: street,
         address: street,
-        text: addressStr,
         postalCode: postalCode,
         postal_code: postalCode,
-        zipCode: postalCode,
-        zip_code: postalCode,
         city: city,
         country: 'France'
       } : undefined
