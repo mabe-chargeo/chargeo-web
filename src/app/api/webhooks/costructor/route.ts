@@ -168,7 +168,7 @@ contacts:  isCompany ? [{
 
     console.log("ID Costructor extrait:", costructorId);
     if (costructorId) {
-      const cuRes = await fetch(`https://api.clickup.com/api/v2/task/${taskId}/field/d9f88e8f-4e20-4a98-aee8-3ded30fef5fc?custom_task_ids=true&team_id=90151325642`, {
+      const cuRes = await fetch(`https://api.clickup.com/api/v2/task/${taskData.id}/field/d9f88e8f-4e20-4a98-aee8-3ded30fef5fc`, {
         method: 'POST',
         headers: { 'Authorization': clickUpToken, 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: costructorUrl })
