@@ -131,8 +131,8 @@ phones:  (!isCompany && formattedPhone) ? [{ phone: formattedPhone, primary: tru
 contacts:  isCompany ? [{
   firstName: firstName || undefined,
   lastName: lastName || undefined,
-  emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
-  phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined
+  email: clientEmail || undefined,
+  phone: formattedPhone || undefined
 }] : undefined,
   addresses:  addressObj ? [{ address: addressObj, primary: true }] : []
 
