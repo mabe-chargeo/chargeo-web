@@ -122,9 +122,10 @@ if (addressStr && postalCode && city) {
 const costructorPayload = {
   type: 'client',
   legalStatus: isCompany ? 'company' : 'individual',
-  name: clientName,
-  firstName: firstName,
-  lastName: lastName,
+  name:  clientName,
+companyName:  isCompany ? clientName : undefined,
+firstName:  isCompany ? undefined : firstName,
+lastName:  isCompany ? undefined : lastName,
   emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
   phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
   addresses:  addressObj ? [{ address: addressObj, primary: true }] : []
