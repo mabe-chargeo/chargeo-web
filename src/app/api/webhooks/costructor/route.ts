@@ -72,6 +72,18 @@ export async function POST(request: Request) {
       formattedPhone = '+33' + formattedPhone.substring(1);
     }
 
+    // Découpage automatique et intelligent de l'adresse (Rue, Code Postal, Ville)
+    const zipMatch = clientAddress ? clientAddress.match(/\b\d{5}\b/) : null;
+    const postalCode = zipMatch ? zipMatch[0] : '';
+    let street = clientAddress || '';
+    let city = '';
+
+    if (zipMatch && clientAddress) {
+      const parts = clientAddress.split(postalCode);
+      street = parts[0].trim().replace(/,$/, '').trim(); // Tout ce qui est avant le CP
+      city = parts[1] ? parts[1].trim().replace(/^,/, '').trim() : ''; // Tout ce qui est après
+    }
+
     const costructorPayload = {
       type: 'client',
       legalStatus: isCompany ? 'company' : 'individual',
@@ -79,11 +91,22 @@ export async function POST(request: Request) {
       firstName: firstName,
       lastName: lastName,
       
-      // Ajout de la clé 'primary' exigée par l'API Costructor
       emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
       phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
       
-      address: clientAddress ? { text: clientAddress } : undefined
+      // On arrose large avec toutes les variantes de clés d'adresse possibles pour garantir l'impact
+      address: clientAddress ? {
+        street: street,
+        line1: street,
+        address: street,
+        text: clientAddress,
+        postalCode: postalCode,
+        postal_code: postalCode,
+        zipCode: postalCode,
+        zip_code: postalCode,
+        city: city,
+        country: 'France'
+      } : undefined
     };
 
     // 5. On envoie l'ordre de création à Costructor
