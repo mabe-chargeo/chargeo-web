@@ -118,24 +118,13 @@ export async function POST(request: Request) {
       emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
       phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
       
-      // Correction de l'abréviation 'Rte' en 'Route' pour valider le contrôle strict de Costructor
+      // Uniquement l'objet 'address' exact de ta capture d'écran, SANS le champ 'addresses' qui fait planter
       address: addressStr ? {
         street: street.replace(/\bRte\b/i, 'Route'),
         postal_code: postalCode, 
-        city: city,               
+        city: city.toUpperCase().replace(/-/g, ' '), // Forçage en MAJUSCULES et sans tirets comme sur ton exemple
         country: 'France'             
-      } : undefined,
-
-      // On ajoute le tableau de lignes avec la correction pour doubler les chances de validation
-      addresses: addressStr ? [
-        {
-          address: [
-            street.replace(/\bRte\b/i, 'Route'),
-            `${postalCode} ${city}`.trim()
-          ],
-          primary: true
-        }
-      ] : undefined
+      } : undefined
     };
 
     console.log("Payload final envoyé à Costructor:", JSON.stringify(costructorPayload));
