@@ -108,24 +108,28 @@ export async function POST(request: Request) {
       city = rawCity.replace(/,?\s*France$/i, '').trim();
     }
 
-    // Alignement chirurgical sur la documentation officielle de Costructor
-    const costructorPayload = {
-      type: 'client',
-      legalStatus: isCompany ? 'company' : 'individual',
-      name: clientName,
-      firstName: firstName,
-      lastName: lastName,
-      emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
-      phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
-      
-      // Uniquement l'objet 'address' exact de ta capture d'écran, SANS le champ 'addresses' qui fait planter
-      address: addressStr ? {
-        street: street.replace(/\bRte\b/i, 'Route'),
-        postal_code: postalCode, 
-        city: city.toUpperCase().replace(/-/g, ' '), // Forçage en MAJUSCULES et sans tirets comme sur ton exemple
-        country: 'France'             
-      } : undefined
-    };
+// Alignement chirurgical sur la documentation officielle de Costructor
+let addressObj = undefined;
+if (addressStr && postalCode && city) {
+  addressObj = {
+    street: street ? street.replace(/\bRte\b/i, 'Route') : '',
+    postal_code: postalCode,
+    city: city.toUpperCase().replace(/-/g, ' '),
+    country: 'France'
+  };
+}
+
+const costructorPayload = {
+  type: 'client',
+  legalStatus: isCompany ? 'company' : 'individual',
+  name: clientName,
+  firstName: firstName,
+  lastName: lastName,
+  emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
+  phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
+  address: addressObj
+};
+
 
     console.log("Payload final envoyé à Costructor:", JSON.stringify(costructorPayload));
 
