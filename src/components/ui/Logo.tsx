@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 
 export const Logo = ({ light = false, className = "" }: { light?: boolean, className?: string }) => {
   const [imgError, setImgError] = useState(false);
-  const logoSrc = light ? "/CHARGEO_LOGO_BLANC.png" : "/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png";
+  const logoSrc = light ? "/logo-chargeo-blanc.svg" : "/logo-chargeo.svg";
   
   return (
     <a href="/" className={`relative h-12 sm:h-14 md:h-16 inline-flex items-center select-none cursor-pointer hover:scale-105 transition-transform duration-300 ${className}`}>
