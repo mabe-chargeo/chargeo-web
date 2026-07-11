@@ -44,12 +44,19 @@ export async function POST(request: Request) {
     const clientPhone = getField("Téléphone");
     const clientType = getField("Type de client"); // Ex: "Pro" ou "Particulier"
 
-    // 4. On prépare le paquet de données formaté exactement comme Costructor le demande
+    // 4. On prépare le paquet de données formaté pour l'API de Costructor
+    const nameParts = clientName ? clientName.trim().split(' ') : [];
+    const lastName = nameParts[0] || '';
+    const firstName = nameParts.slice(1).join(' ') || '';
+
     const costructorPayload = {
       type: 'client',
       legalStatus: (clientType === 'Pro' || clientType === 'B2B') ? 'company' : 'individual',
-      // Selon l'API Costructor, les infos de contact vont souvent dans un objet 'address' ou à la racine.
-      // À ajuster si besoin en fonction de la création de contact.
+      name: clientName,
+      firstName: firstName,
+      lastName: lastName,
+      email: clientEmail,
+      phone: clientPhone
     };
 
     // 5. On envoie l'ordre de création à Costructor
