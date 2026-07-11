@@ -34,29 +34,55 @@ export async function POST(request: Request) {
     // 3. Extraction du nom et des champs personnalisés (Email, Téléphone)
     const clientName = taskData.name;
     
-    // Fonction utilitaire pour trouver un champ personnalisé par son nom
+    // Fonction magique qui ignore les accents/majuscules et extrait le texte des listes déroulantes
     const getField = (fieldName: string) => {
-      const field = taskData.custom_fields?.find((f: any) => f.name === fieldName);
-      return field ? field.value : undefined;
+      const clean = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+      const target = clean(fieldName);
+      const field = taskData.custom_fields?.find((f: any) => f.name && clean(f.name) === target);
+      
+      if (!field || field.value === undefined) return undefined;
+      
+      // Si c'est une liste déroulante (comme Type Client), on récupère le vrai texte au lieu de l'ID
+      if (field.type === 'drop_down' && field.type_config?.options) {
+        const option = field.type_config.options.find((o: any) => o.orderindex === field.value || o.id === field.value);
+        return option ? option.name : field.value;
+      }
+      return field.value;
     };
 
     const clientEmail = getField("Email");
-    const clientPhone = getField("Téléphone");
-    const clientType = getField("Type de client"); // Ex: "Pro" ou "Particulier"
+    const clientPhone = getField("Telephone"); // Repère "Telephone" sans accent
+    const clientType = getField("Type Client");   // Repère "Type Client" sans le "de"
+    const clientAddress = getField("Adresse");
 
     // 4. On prépare le paquet de données formaté pour l'API de Costructor
     const nameParts = clientName ? clientName.trim().split(' ') : [];
     const lastName = nameParts[0] || '';
     const firstName = nameParts.slice(1).join(' ') || '';
 
+    // Détermination résiliente du statut Pro ou Particulier
+    const isCompany = clientType && (
+      clientType.toLowerCase().includes('pro') || 
+      clientType.toLowerCase().includes('b2b') || 
+      clientType.toLowerCase().includes('professionnel')
+    );
+
     const costructorPayload = {
       type: 'client',
-      legalStatus: (clientType === 'Pro' || clientType === 'B2B') ? 'company' : 'individual',
+      legalStatus: isCompany ? 'company' : 'individual',
       name: clientName,
       firstName: firstName,
       lastName: lastName,
+      
+      // On envoie les formats standards ET les formats liste pour saturer les clés possibles de Costructor
       email: clientEmail,
-      phone: clientPhone
+      emails: clientEmail ? [clientEmail] : undefined,
+      phone: clientPhone,
+      phones: clientPhone ? [clientPhone] : undefined,
+      phoneNumber: clientPhone,
+      
+      // On ajoute l'adresse reçue de ClickUp
+      address: clientAddress ? { text: clientAddress, full: clientAddress, address: clientAddress } : undefined
     };
 
     // 5. On envoie l'ordre de création à Costructor
