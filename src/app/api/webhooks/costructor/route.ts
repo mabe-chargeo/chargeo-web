@@ -166,12 +166,15 @@ contacts:  isCompany ? [{
     const costructorId = costructorData.data?.id;
     const costructorUrl = `https://app.costructor.co/contacts/${costructorId}`;
 
+    console.log("ID Costructor extrait:", costructorId);
     if (costructorId) {
-      await fetch(`https://api.clickup.com/api/v2/task/${taskId}/field/d9f88e8f-4e20-4a98-aee8-3ded30fef5fc`, {
+      const cuRes = await fetch(`https://api.clickup.com/api/v2/task/${taskId}/field/d9f88e8f-4e20-4a98-aee8-3ded30fef5fc`, {
         method: 'POST',
         headers: { 'Authorization': clickUpToken, 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: costructorUrl })
       });
+      const cuText = await cuRes.text();
+      console.log("=== RÉPONSE CLICKUP (écriture champ) ===", cuRes.status, cuText);
     }
 
     // Si tout s'est bien passé
