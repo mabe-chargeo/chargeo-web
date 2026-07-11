@@ -163,7 +163,7 @@ contacts:  isCompany ? [{
 
     // On récupère l'ID du contact créé et on le stocke dans ClickUp
     const costructorData = JSON.parse(responseText);
-    const costructorId = costructorData.id;
+    const costructorId = costructorData.data?.id;
     const costructorUrl = `https://app.costructor.co/contacts/${costructorId}`;
 
     if (costructorId) {
