@@ -118,12 +118,12 @@ export async function POST(request: Request) {
       emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
       phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
       
-      // Utilisation du code ISO-2 'FR' indispensable pour le validateur Costructor
+      // Retour à 'France' en toutes lettres, le format 'FR' étant rejeté silencieusement par leur base
       address: addressStr ? {
         street: street,
         postal_code: postalCode, 
         city: city,               
-        country: 'FR'             
+        country: 'France'             
       } : undefined
     };
 
