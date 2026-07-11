@@ -41,7 +41,7 @@ async function getDevisClient(taskData: any) {
     const json = await res.json();
 
     return (json.data || [])
-      .filter((q: any) => q.status !== 'draft' && q.status !== 'deleted' && q.status !== 'lost')
+      .filter((q: any) => q.status !== 'deleted')
       .map((q: any) => ({
         numero: q.number,
         nom: q.name || 'Devis',
