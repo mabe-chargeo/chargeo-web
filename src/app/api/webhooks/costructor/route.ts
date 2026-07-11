@@ -66,6 +66,12 @@ export async function POST(request: Request) {
       clientType.toLowerCase().includes('professionnel')
     );
 
+    // Nettoyage et conversion du téléphone au format international (+336...)
+    let formattedPhone = clientPhone ? clientPhone.replace(/[\s.-]/g, '') : '';
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '+33' + formattedPhone.substring(1);
+    }
+
     const costructorPayload = {
       type: 'client',
       legalStatus: isCompany ? 'company' : 'individual',
@@ -73,11 +79,10 @@ export async function POST(request: Request) {
       firstName: firstName,
       lastName: lastName,
       
-      // On structure les e-mails et téléphones sous forme d'objets dans le tableau
-      emails: clientEmail ? [{ email: clientEmail }] : undefined,
-      phones: clientPhone ? [{ phone: clientPhone }] : undefined,
+      // Ajout de la clé 'primary' exigée par l'API Costructor
+      emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
+      phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
       
-      // Structure standard pour l'adresse
       address: clientAddress ? { text: clientAddress } : undefined
     };
 
