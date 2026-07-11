@@ -66,23 +66,25 @@ export async function POST(request: Request) {
       clientType.toLowerCase().includes('professionnel')
     );
 
-    // Nettoyage et conversion du téléphone au format international (+336...)
     let formattedPhone = clientPhone ? clientPhone.replace(/[\s.-]/g, '') : '';
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '+33' + formattedPhone.substring(1);
     }
 
-    // Extraction ultra-sécurisée du texte de l'emplacement ClickUp
+    // LOGS DE SÉCURITÉ : On écrit dans Vercel pour voir ce que ClickUp donne
+    console.log("=== DEBUG WEBHOOK ===");
+    console.log("Raw Client Address de ClickUp:", typeof clientAddress, JSON.stringify(clientAddress));
+
     let addressStr = '';
     if (clientAddress) {
       if (typeof clientAddress === 'object') {
-        addressStr = clientAddress.formatted_address || clientAddress.text || '';
+        addressStr = clientAddress.formatted_address || clientAddress.text || clientAddress.address || '';
       } else if (typeof clientAddress === 'string') {
         const trimmed = clientAddress.trim();
         if (trimmed.startsWith('{')) {
           try {
             const parsed = JSON.parse(trimmed);
-            addressStr = parsed.formatted_address || parsed.text || '';
+            addressStr = parsed.formatted_address || parsed.text || parsed.address || trimmed;
           } catch (e) {
             addressStr = clientAddress;
           }
@@ -92,7 +94,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Découpage automatique et intelligent de l'adresse (Rue, Code Postal, Ville)
+    console.log("Texte de l'adresse extrait :", addressStr);
+
     const zipMatch = addressStr ? addressStr.match(/\b\d{5}\b/) : null;
     const postalCode = zipMatch ? zipMatch[0] : '';
     let street = addressStr;
@@ -100,10 +103,24 @@ export async function POST(request: Request) {
 
     if (zipMatch && addressStr) {
       const parts = addressStr.split(postalCode);
-      street = parts[0].trim().replace(/,$/, '').trim(); // Tout ce qui est avant le CP
+      street = parts[0].trim().replace(/,$/, '').trim();
       const rawCity = parts[1] ? parts[1].trim().replace(/^,/, '').trim() : '';
-      city = rawCity.replace(/,?\s*France$/i, '').trim(); // On enlève le ", France" inutile à la fin
+      city = rawCity.replace(/,?\s*France$/i, '').trim();
     }
+
+    // Objet d'adresse ultra-complet avec toutes les clés possibles du web
+    const robustAddress = addressStr ? {
+      street: street,
+      line1: street,
+      address: street,
+      postalCode: postalCode,
+      postal_code: postalCode,
+      zipCode: postalCode,
+      zip: postalCode,
+      city: city,
+      country: 'France',
+      primary: true
+    } : undefined;
 
     const costructorPayload = {
       type: 'client',
@@ -111,20 +128,15 @@ export async function POST(request: Request) {
       name: clientName,
       firstName: firstName,
       lastName: lastName,
-      
       emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
       phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
       
-      // Envoi de l'adresse nettoyée avec les clés exactes et épurées
-      address: addressStr ? {
-        street: street,
-        address: street,
-        postalCode: postalCode,
-        postal_code: postalCode,
-        city: city,
-        country: 'France'
-      } : undefined
+      // On envoie sous forme d'objet ET sous forme de tableau pour forcer le passage
+      address: robustAddress,
+      addresses: robustAddress ? [robustAddress] : undefined
     };
+
+    console.log("Payload final envoyé à Costructor:", JSON.stringify(costructorPayload));
 
     // 5. On envoie l'ordre de création à Costructor
     const costructorRes = await fetch('https://api.costructor.co/external/v1/contacts', {
