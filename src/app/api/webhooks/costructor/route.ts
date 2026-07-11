@@ -118,12 +118,12 @@ export async function POST(request: Request) {
       emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
       phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
       
-      // Uniquement les clés validées par ta capture d'écran pour éviter le rejet
+      // Utilisation du code ISO-2 'FR' indispensable pour le validateur Costructor
       address: addressStr ? {
         street: street,
-        postal_code: postalCode, // Requis (en rouge sur ta doc)
-        city: city,               // Requis (en rouge sur ta doc)
-        country: 'France'         // Requis (en rouge sur ta doc)
+        postal_code: postalCode, 
+        city: city,               
+        country: 'FR'             
       } : undefined
     };
 
@@ -139,9 +139,12 @@ export async function POST(request: Request) {
       body: JSON.stringify(costructorPayload)
     });
 
+    // On force la lecture de la réponse de leur serveur avant de vérifier si c'est OK
+    const responseText = await costructorRes.text();
+    console.log("=== RÉPONSE BRUTE DE COSTRUCTOR ===", responseText);
+
     if (!costructorRes.ok) {
-      const errorText = await costructorRes.text();
-      console.error("L'API Costructor a refusé la requête :", errorText);
+      console.error("L'API Costructor a refusé la requête :", responseText);
       throw new Error("Erreur lors de la création dans Costructor");
     }
 
