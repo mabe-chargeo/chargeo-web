@@ -127,7 +127,7 @@ const costructorPayload = {
   lastName: lastName,
   emails: clientEmail ? [{ email: clientEmail, primary: true }] : undefined,
   phones: formattedPhone ? [{ phone: formattedPhone, primary: true }] : undefined,
-  address: addressObj
+  addresses: addressObj
 };
 
 
