@@ -60,10 +60,14 @@ export async function POST(request: Request) {
     const lastName = nameParts[0] || '';
     const firstName = nameParts.slice(1).join(' ') || '';
 
+    // Ajout des mots-clés liés aux syndics de copropriété pour les traiter comme des entreprises
     const isCompany = clientType && (
       clientType.toLowerCase().includes('pro') || 
       clientType.toLowerCase().includes('b2b') || 
-      clientType.toLowerCase().includes('professionnel')
+      clientType.toLowerCase().includes('professionnel') ||
+      clientType.toLowerCase().includes('syndic') ||
+      clientType.toLowerCase().includes('sdc') ||
+      clientType.toLowerCase().includes('copro')
     );
 
     let formattedPhone = clientPhone ? clientPhone.replace(/[\s.-]/g, '') : '';
