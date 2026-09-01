@@ -22,7 +22,7 @@ async function getClickUpTaskData(taskId: string) {
       segment = SEGMENT_OPTIONS[idx] || '';
     }
 
-    return { name: data.name, segment };
+    return { name: data.name as string, segment };
   } catch (error) {
     return null;
   }
@@ -44,7 +44,7 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
           <div className="flex justify-between items-start mb-2">
             <p className="text-cyan-300 font-black uppercase tracking-[0.2em] text-[10px] mt-1">Visite Technique</p>
             <a href="/interne" className="text-white bg-white/20 text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-sm">
-              \u2190 Retour
+              ← Retour
             </a>
           </div>
           <h1 className="text-2xl font-black leading-tight truncate">{taskData.name}</h1>
