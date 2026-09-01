@@ -117,7 +117,6 @@ export async function POST(request: Request) {
       { id: "e6ec48b2-77c7-45ff-bcfa-6de603dc731b", value: percementBrique },
       { id: "77120088-4d88-4675-a7ac-d34f8eb5ffa7", value: percementBeton },
       { id: "bda05bcd-b5f1-424f-bda4-ad435f06e32f", value: percementDalle },
-      // Support Borne
       // Notes
       { id: "1442f71a-830e-4a77-8d78-0c30f45c4b23", value: notesFinales },
     ];
@@ -165,13 +164,11 @@ export async function POST(request: Request) {
       })
     ));
 
-    // 5. Upload des photos
-    const files = [
-      formData.get('photoTableau') as File, 
-      formData.get('photoBorne') as File
-    ];
-    for (const file of files) {
-      if (file && file.size > 0 && file.name !== 'undefined') {
+    // 5. Upload des photos : on parcourt tous les champs 'photo*' de la checklist
+    for (const [key, value] of formData.entries()) {
+      if (!key.startsWith('photo')) continue;
+      const file = value as File;
+      if (file && typeof file !== 'string' && file.size > 0 && file.name !== 'undefined') {
         const fileData = new FormData();
         fileData.append('attachment', file);
         await fetch(`https://api.clickup.com/api/v2/task/${taskId}/attachment`, {
