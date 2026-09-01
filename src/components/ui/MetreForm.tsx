@@ -4,16 +4,30 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag } from 'lucide-react';
 
 const INFRA_SEGMENTS = ['COP', 'FLT', 'TER'];
+const COPRO_PHOTO_SEGMENTS = ['COP', 'PAR', 'FLT', 'TER'];
+
+// Checklist photos : les 5 premières pour tous, les 4 suivantes pour copro/flotte/tertiaire
+const PHOTOS = [
+  { key: 'photoTableauFerme', label: 'Tableau fermé', scope: 'all' },
+  { key: 'photoTableauOuvert', label: 'Tableau ouvert', scope: 'all' },
+  { key: 'photoEmplacementBorne', label: 'Emplacement borne', scope: 'all' },
+  { key: 'photoCompteurPDL', label: 'Compteur / PDL', scope: 'all' },
+  { key: 'photoPriseTerre', label: 'Prise de terre', scope: 'all' },
+  { key: 'photoTGBT', label: 'TGBT parties communes', scope: 'copro' },
+  { key: 'photoArtere', label: 'Cheminement artère', scope: 'copro' },
+  { key: 'photoParking', label: 'Vue parking', scope: 'copro' },
+  { key: 'photoLocalTech', label: 'Local technique / TD', scope: 'copro' },
+];
 
 export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string, taskName: string, initialSegment?: string }) {
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [segment, setSegment] = useState(initialSegment || '');
+  const [previews, setPreviews] = useState<Record<string, string | null>>({});
   const formRef = useRef<HTMLFormElement>(null);
 
-  const [previewTableau, setPreviewTableau] = useState<string | null>(null);
-  const [previewBorne, setPreviewBorne] = useState<string | null>(null);
-
   const showInfra = INFRA_SEGMENTS.includes(segment);
+  const showCoproPhotos = COPRO_PHOTO_SEGMENTS.includes(segment);
+  const visiblePhotos = PHOTOS.filter(p => p.scope === 'all' || (p.scope === 'copro' && showCoproPhotos));
 
   // IndexedDB pour les photos
   const initDB = (): Promise<IDBDatabase> => {
@@ -29,10 +43,10 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
     });
   };
 
-  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>, setPreview: React.Dispatch<React.SetStateAction<string | null>>, photoKey: string) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>, photoKey: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPreview(URL.createObjectURL(file));
+    setPreviews(prev => ({ ...prev, [photoKey]: URL.createObjectURL(file) }));
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
@@ -84,12 +98,13 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
           const req = db.transaction('photos', 'readonly').objectStore('photos').get(`${taskId}_${key}`);
           req.onsuccess = () => resolve(req.result);
         });
-        const fileTableau = await getPhoto('photoTableau');
-        if (typeof fileTableau === 'string') setPreviewTableau(fileTableau);
-        else if (fileTableau instanceof File || fileTableau instanceof Blob) setPreviewTableau(URL.createObjectURL(fileTableau));
-        const fileBorne = await getPhoto('photoBorne');
-        if (typeof fileBorne === 'string') setPreviewBorne(fileBorne);
-        else if (fileBorne instanceof File || fileBorne instanceof Blob) setPreviewBorne(URL.createObjectURL(fileBorne));
+        const restored: Record<string, string | null> = {};
+        for (const p of PHOTOS) {
+          const f = await getPhoto(p.key);
+          if (typeof f === 'string') restored[p.key] = f;
+          else if (f instanceof File || f instanceof Blob) restored[p.key] = URL.createObjectURL(f);
+        }
+        setPreviews(restored);
       } catch (e) { console.error("Erreur chargement DB", e); }
     };
     loadPhotos();
@@ -113,6 +128,16 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
     handleFormChange();
   }, [segment]);
 
+  const dataURLtoBlob = (dataurl: string) => {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) u8arr[n] = bstr.charCodeAt(n);
+    return new Blob([u8arr], { type: mime });
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setStatus("uploading");
@@ -122,35 +147,26 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
     const checkbox = formRef.current?.elements.namedItem('besoinDelesteur') as HTMLInputElement;
     if (checkbox) formData.append('besoinDelesteur', checkbox.checked ? 'true' : 'false');
 
-    const dataURLtoBlob = (dataurl: string) => {
-      const arr = dataurl.split(',');
-      const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
-      const bstr = atob(arr[1]);
-      let n = bstr.length;
-      const u8arr = new Uint8Array(n);
-      while (n--) u8arr[n] = bstr.charCodeAt(n);
-      return new Blob([u8arr], { type: mime });
-    };
-
     try {
       const db = await initDB();
       const getPhoto = (key: string): Promise<any> => new Promise(resolve => {
         const req = db.transaction('photos', 'readonly').objectStore('photos').get(`${taskId}_${key}`);
         req.onsuccess = () => resolve(req.result);
       });
-      const fileTableau = await getPhoto('photoTableau');
-      const fileBorne = await getPhoto('photoBorne');
-      if (typeof fileTableau === 'string') formData.set('photoTableau', dataURLtoBlob(fileTableau), 'tableau.jpg');
-      else if (fileTableau) formData.set('photoTableau', fileTableau);
-      if (typeof fileBorne === 'string') formData.set('photoBorne', dataURLtoBlob(fileBorne), 'borne.jpg');
-      else if (fileBorne) formData.set('photoBorne', fileBorne);
+      // Recharge chaque photo depuis IndexedDB et l'ajoute au formData
+      for (const p of PHOTOS) {
+        const f = await getPhoto(p.key);
+        if (typeof f === 'string') formData.set(p.key, dataURLtoBlob(f), `${p.key}.jpg`);
+        else if (f) formData.set(p.key, f);
+      }
 
       const res = await fetch('/api/metre', { method: 'POST', body: formData });
       if (res.ok) {
         setStatus("success");
         localStorage.removeItem(`metreForm_${taskId}`);
-        db.transaction('photos', 'readwrite').objectStore('photos').delete(`${taskId}_photoTableau`);
-        db.transaction('photos', 'readwrite').objectStore('photos').delete(`${taskId}_photoBorne`);
+        for (const p of PHOTOS) {
+          db.transaction('photos', 'readwrite').objectStore('photos').delete(`${taskId}_${p.key}`);
+        }
       } else {
         setStatus("error");
       }
@@ -171,6 +187,7 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
 
   const inputClass = "w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-[#0097b2]";
   const labelClass = "text-[10px] font-bold text-slate-500 uppercase";
+  const photosPrises = visiblePhotos.filter(p => previews[p.key]).length;
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} onChange={handleFormChange} className="space-y-6 pb-12">
@@ -379,33 +396,29 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
         </div>
       </div>
 
-      {/* PHOTOS */}
+      {/* PHOTOS TERRAIN : checklist guidée */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-5">
-        <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2 border-b pb-3"><Camera size={18} className="text-[#0097b2]"/> Photos Terrain</h3>
-        <p className="text-[11px] text-slate-400 font-medium -mt-2">Astuce : pour plus de photos, ajoute-les directement en pièces jointes depuis l'app ClickUp.</p>
+        <div className="flex items-center justify-between border-b pb-3">
+          <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2"><Camera size={18} className="text-[#0097b2]"/> Photos Terrain</h3>
+          <span className="text-[11px] font-black text-[#0097b2] bg-[#0097b2]/10 px-2 py-1 rounded-md">{photosPrises}/{visiblePhotos.length}</span>
+        </div>
+        <p className="text-[11px] text-slate-400 font-medium">Prends chaque photo de la liste. Pour d'autres clichés, ajoute-les en pièces jointes depuis l'app ClickUp.</p>
+        
         <div className="space-y-4">
-          <div className="relative overflow-hidden w-full bg-[#032b60]/5 border-2 border-dashed border-[#032b60]/30 rounded-2xl p-4 text-center active:bg-[#032b60]/10 transition-colors">
-            {previewTableau ? (
-              <img src={previewTableau} alt="Aperçu Tableau" className="w-full h-40 object-cover rounded-xl mb-3 shadow-sm" />
-            ) : (
-              <Camera size={32} className="mx-auto text-[#032b60] mb-2" />
-            )}
-            <span className="font-black text-sm text-[#032b60]">
-              {previewTableau ? "📸 Reprendre la photo" : "Tableau Ouvert (Obligatoire)"}
-            </span>
-            <input type="file" name="photoTableau" accept="image/*" capture="environment" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handlePhotoChange(e, setPreviewTableau, 'photoTableau')} />
-          </div>
-          <div className="relative overflow-hidden w-full bg-[#032b60]/5 border-2 border-dashed border-[#032b60]/30 rounded-2xl p-4 text-center active:bg-[#032b60]/10 transition-colors">
-            {previewBorne ? (
-              <img src={previewBorne} alt="Aperçu Borne" className="w-full h-40 object-cover rounded-xl mb-3 shadow-sm" />
-            ) : (
-              <Camera size={32} className="mx-auto text-[#032b60] mb-2" />
-            )}
-            <span className="font-black text-sm text-[#032b60]">
-              {previewBorne ? "📸 Reprendre la photo" : "Emplacement Borne"}
-            </span>
-            <input type="file" name="photoBorne" accept="image/*" capture="environment" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handlePhotoChange(e, setPreviewBorne, 'photoBorne')} />
-          </div>
+          {visiblePhotos.map(p => (
+            <div key={p.key} className={`relative overflow-hidden w-full border-2 border-dashed rounded-2xl p-4 text-center active:bg-[#032b60]/10 transition-colors ${previews[p.key] ? 'bg-green-50 border-green-300' : 'bg-[#032b60]/5 border-[#032b60]/30'}`}>
+              {previews[p.key] ? (
+                <img src={previews[p.key] as string} alt={p.label} className="w-full h-40 object-cover rounded-xl mb-3 shadow-sm" />
+              ) : (
+                <Camera size={32} className="mx-auto text-[#032b60] mb-2" />
+              )}
+              <span className="font-black text-sm text-[#032b60] flex items-center justify-center gap-2">
+                {previews[p.key] && <CheckCircle size={16} className="text-green-600" />}
+                {previews[p.key] ? `${p.label} — reprendre` : p.label}
+              </span>
+              <input type="file" name={p.key} accept="image/*" capture="environment" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handlePhotoChange(e, p.key)} />
+            </div>
+          ))}
         </div>
       </div>
 
