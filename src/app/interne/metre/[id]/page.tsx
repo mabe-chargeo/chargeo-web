@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation';
 import { MetreForm } from '@/components/ui/MetreForm';
 
-async function getClickUpTaskName(taskId: string) {
+const SEGMENT_OPTIONS: Record<number, string> = { 0: 'RES', 1: 'DAP', 2: 'COP', 3: 'PAR', 4: 'FLT', 5: 'TER' };
+
+async function getClickUpTaskData(taskId: string) {
   const token = process.env.CLICKUP_API_KEY;
   if (!token) return null;
   try {
@@ -11,7 +13,16 @@ async function getClickUpTaskName(taskId: string) {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    return data.name;
+
+    // Extraire le segment s'il est déjà posé
+    const segmentField = data.custom_fields?.find((f: any) => f.id === 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2');
+    let segment = '';
+    if (segmentField && segmentField.value !== undefined && segmentField.value !== null) {
+      const idx = typeof segmentField.value === 'number' ? segmentField.value : parseInt(segmentField.value);
+      segment = SEGMENT_OPTIONS[idx] || '';
+    }
+
+    return { name: data.name as string, segment };
   } catch (error) {
     return null;
   }
@@ -19,9 +30,9 @@ async function getClickUpTaskName(taskId: string) {
 
 export default async function MetrePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
-  const taskName = await getClickUpTaskName(resolvedParams.id);
+  const taskData = await getClickUpTaskData(resolvedParams.id);
 
-  if (!taskName) {
+  if (!taskData) {
     notFound();
   }
 
@@ -36,12 +47,12 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
               ← Retour
             </a>
           </div>
-          <h1 className="text-2xl font-black leading-tight truncate">{taskName}</h1>
+          <h1 className="text-2xl font-black leading-tight truncate">{taskData.name}</h1>
         </div>
       </div>
 
       <main className="px-4 max-w-lg mx-auto">
-        <MetreForm taskId={resolvedParams.id} taskName={taskName} />
+        <MetreForm taskId={resolvedParams.id} taskName={taskData.name} initialSegment={taskData.segment} />
       </main>
     </div>
   );
