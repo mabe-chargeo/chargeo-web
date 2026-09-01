@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     
     const murSupport = formData.get('murSupport') as string || "";
     const notesBrutes = formData.get('notes') as string || "";
-    const notesFinales = `SUPPORT PR\u00c9VU : ${murSupport}\n\nOBSERVATIONS :\n${notesBrutes}`;
+    const notesFinales = `SUPPORT PRÉVU : ${murSupport}\n\nOBSERVATIONS :\n${notesBrutes}`;
 
     // 2. Traduction des menus déroulants par index
     // Segment : RES=0, DAP=1, COP=2, PAR=3, FLT=4, TER=5
@@ -48,6 +48,13 @@ export async function POST(request: Request) {
     if (puissanceViseeStr === '7.4') puissanceViseeIndex = 1;
     if (puissanceViseeStr === '11') puissanceViseeIndex = 2;
     if (puissanceViseeStr === '22') puissanceViseeIndex = 3;
+
+    // Support Borne : Mur Beton/Parpaing=0, Mur Placo=1, Mur Bois=2, Sur Pied=3
+    let murSupportIndex: number | null = null;
+    if (murSupport.includes('Béton') || murSupport.includes('Beton') || murSupport.includes('Parpaing')) murSupportIndex = 0;
+    else if (murSupport.includes('Placo')) murSupportIndex = 1;
+    else if (murSupport.includes('Bois')) murSupportIndex = 2;
+    else if (murSupport.includes('Pied')) murSupportIndex = 3;
 
     const raccordementStr = formData.get('typeRaccordement') as string || "";
     let raccordementIndex = 0;
@@ -68,7 +75,7 @@ export async function POST(request: Request) {
     const reseauStr = formData.get('reseau') as string || "";
     let reseauIndex = 1;
     if (reseauStr.includes('WiFi')) reseauIndex = 0;
-    if (reseauStr.includes('C\u00e2ble')) reseauIndex = 2;
+    if (reseauStr.includes('Câble')) reseauIndex = 2;
 
     const tailleHUBStr = formData.get('tailleHUB') as string || "";
     let tailleHUBIndex: number | null = null;
@@ -82,44 +89,50 @@ export async function POST(request: Request) {
     if (zoneDeplStr === 'Z2') zoneDeplIndex = 1;
     if (zoneDeplStr === 'Z3') zoneDeplIndex = 2;
 
-    // 3. Mise \u00e0 jour de la description
+    // 3. Mise à jour de la description
     await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
       method: 'PUT',
       headers: { 'Authorization': token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ description: notesFinales })
     });
 
-    // 4. Champs personnalis\u00e9s
+    // 4. Champs personnalisés
     const customFields: { id: string; value: any }[] = [
       { id: "f122fe49-8a32-4fbd-a374-f27eeb4e25c1", value: raccordementIndex }, // Type Raccordement
       { id: "586b30e6-c225-4ee1-a9cb-2f2dc332fab9", value: terre }, // Terre
-      { id: "bbef17d5-bdb2-4c25-bacc-00accdcdcbbf", value: besoinDelesteur }, // Besoin D\u00e9lesteur
+      { id: "bbef17d5-bdb2-4c25-bacc-00accdcdcbbf", value: besoinDelesteur }, // Besoin Délesteur
       { id: "6a592626-ac8f-4a28-99a0-f1c6bdde09ea", value: puissanceIndex }, // Puissance Dispo
       { id: "965fbd93-9c39-4dc4-9d3e-17aa63f667df", value: etatIndex }, // Etat Tableau
-      { id: "fe5e2142-8191-4e61-86ee-d1e88ed4dc44", value: reseauIndex }, // R\u00e9seau
+      { id: "fe5e2142-8191-4e61-86ee-d1e88ed4dc44", value: reseauIndex }, // Réseau
       // 7 distances
       { id: "5370ee5e-8bed-435f-a924-70fa117ed78a", value: distApparent }, // Dist Tube Apparent
       { id: "cccfa938-5bec-459c-85b8-6574a32ef89d", value: distGoulotte }, // Dist Goulotte
-      { id: "c0c89b35-f1a2-41a8-8602-81391b421715", value: distEncastre }, // Dist Encastr\u00e9
+      { id: "c0c89b35-f1a2-41a8-8602-81391b421715", value: distEncastre }, // Dist Encastré
       { id: "d938dd22-2f04-4aba-a6db-f8fa8b62d1ee", value: distVideSanitaire }, // Dist Vide Sanitaire
-      { id: "b89814c1-e0e9-4997-886e-d8637006afc0", value: distCDC }, // Dist Chemin de C\u00e2bles
+      { id: "b89814c1-e0e9-4997-886e-d8637006afc0", value: distCDC }, // Dist Chemin de Câbles
       { id: "ae081f1f-0a23-4a3d-918e-a8396e091214", value: distTirage }, // Dist Tirage Existant
-      { id: "47a7156e-0852-4690-b747-e583f2b560a7", value: distTranchee }, // Dist Tranch\u00e9e
+      { id: "47a7156e-0852-4690-b747-e583f2b560a7", value: distTranchee }, // Dist Tranchée
       // Percements
       { id: "8c57869c-447f-4350-b6d3-a02bc738bddd", value: percementPlaco },
       { id: "e6ec48b2-77c7-45ff-bcfa-6de603dc731b", value: percementBrique },
       { id: "77120088-4d88-4675-a7ac-d34f8eb5ffa7", value: percementBeton },
       { id: "bda05bcd-b5f1-424f-bda4-ad435f06e32f", value: percementDalle },
+      // Support Borne
       // Notes
       { id: "1442f71a-830e-4a77-8d78-0c30f45c4b23", value: notesFinales },
     ];
+
+    // Support Borne (dropdown par index)
+    if (murSupportIndex !== null) {
+      customFields.push({ id: "02d61a39-eb1d-417c-953a-c1504dbfae50", value: murSupportIndex });
+    }
 
     // Segment
     if (segmentIndex !== null) {
       customFields.push({ id: "dbdacf18-1d26-4c58-9bbb-b4a9e443daa2", value: segmentIndex });
     }
 
-    // Puissance Vis\u00e9e PDC
+    // Puissance Visée PDC
     if (puissanceViseeIndex !== null) {
       customFields.push({ id: "ddadfb52-ea48-4aca-9e85-86a4eca6615b", value: puissanceViseeIndex });
     }
@@ -143,7 +156,7 @@ export async function POST(request: Request) {
       customFields.push({ id: "0f9043bf-ec87-4534-b8ea-af41734bdfed", value: zoneDeplIndex });
     }
 
-    // Envoi en parall\u00e8le
+    // Envoi en parallèle
     await Promise.all(customFields.map(field => 
       fetch(`https://api.clickup.com/api/v2/task/${taskId}/field/${field.id}`, {
         method: 'POST',
