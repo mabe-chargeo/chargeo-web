@@ -89,7 +89,6 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
       savePhotoArray(photoKey, updated[photoKey]);
       return updated;
     });
-    // Reset l'input pour pouvoir reprendre la même scène plusieurs fois
     e.target.value = '';
   };
 
@@ -130,7 +129,7 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
         for (const p of PHOTOS) {
           const f = await getPhoto(p.key);
           if (Array.isArray(f)) restored[p.key] = f;
-          else if (typeof f === 'string') restored[p.key] = [f]; // rétro-compat ancien format
+          else if (typeof f === 'string') restored[p.key] = [f];
         }
         setPhotos(restored);
       } catch (e) { console.error("Erreur chargement DB", e); }
@@ -174,31 +173,41 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
     formData.append("segment", segment);
     const checkbox = formRef.current?.elements.namedItem('besoinDelesteur') as HTMLInputElement;
     if (checkbox) formData.append('besoinDelesteur', checkbox.checked ? 'true' : 'false');
+    // On retire tout éventuel champ fichier du POST principal (les photos partent séparément)
+    for (const p of PHOTOS) formData.delete(p.key);
 
     try {
+      // 1) Envoi des CHAMPS (corps léger)
+      const res = await fetch('/api/metre', { method: 'POST', body: formData });
+      if (!res.ok) { setStatus("error"); return; }
+
+      // 2) Envoi des PHOTOS une par une (depuis IndexedDB), pour ne jamais dépasser la limite de corps
       const db = await initDB();
       const getPhoto = (key: string): Promise<any> => new Promise(resolve => {
         const req = db.transaction('photos', 'readonly').objectStore('photos').get(`${taskId}_${key}`);
         req.onsuccess = () => resolve(req.result);
       });
-      // Pour chaque emplacement, recharge le tableau depuis IndexedDB et ajoute chaque photo
+
+      let toutesEnvoyees = true;
       for (const p of PHOTOS) {
         const f = await getPhoto(p.key);
         const arr: string[] = Array.isArray(f) ? f : (typeof f === 'string' ? [f] : []);
-        arr.forEach((dataUrl, i) => {
-          formData.set(`${p.key}_${i}`, dataURLtoBlob(dataUrl), `${p.key}_${i}.jpg`);
-        });
+        for (let i = 0; i < arr.length; i++) {
+          const photoData = new FormData();
+          photoData.append('taskId', taskId);
+          photoData.append('photo', dataURLtoBlob(arr[i]), `${p.key}_${i}.jpg`);
+          const pr = await fetch('/api/metre/photo', { method: 'POST', body: photoData });
+          if (!pr.ok) toutesEnvoyees = false;
+        }
       }
 
-      const res = await fetch('/api/metre', { method: 'POST', body: formData });
-      if (res.ok) {
-        setStatus("success");
-        localStorage.removeItem(`metreForm_${taskId}`);
-        for (const p of PHOTOS) {
-          db.transaction('photos', 'readwrite').objectStore('photos').delete(`${taskId}_${p.key}`);
-        }
-      } else {
-        setStatus("error");
+      if (!toutesEnvoyees) { setStatus("error"); return; }
+
+      // 3) Succès complet : on purge le stockage local
+      setStatus("success");
+      localStorage.removeItem(`metreForm_${taskId}`);
+      for (const p of PHOTOS) {
+        db.transaction('photos', 'readwrite').objectStore('photos').delete(`${taskId}_${p.key}`);
       }
     } catch (error) {
       setStatus("error");
