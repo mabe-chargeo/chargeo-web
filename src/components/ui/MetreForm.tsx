@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag } from 'lucide-react';
+import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag, X } from 'lucide-react';
 
 const INFRA_SEGMENTS = ['COP', 'FLT', 'TER'];
 const COPRO_PHOTO_SEGMENTS = ['COP', 'PAR', 'FLT', 'TER'];
@@ -22,14 +22,15 @@ const PHOTOS = [
 export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string, taskName: string, initialSegment?: string }) {
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [segment, setSegment] = useState(initialSegment || '');
-  const [previews, setPreviews] = useState<Record<string, string | null>>({});
+  // Chaque emplacement -> tableau de photos (base64)
+  const [photos, setPhotos] = useState<Record<string, string[]>>({});
   const formRef = useRef<HTMLFormElement>(null);
 
   const showInfra = INFRA_SEGMENTS.includes(segment);
   const showCoproPhotos = COPRO_PHOTO_SEGMENTS.includes(segment);
   const visiblePhotos = PHOTOS.filter(p => p.scope === 'all' || (p.scope === 'copro' && showCoproPhotos));
 
-  // IndexedDB pour les photos
+  // IndexedDB : une entrée par emplacement = tableau de dataURLs base64
   const initDB = (): Promise<IDBDatabase> => {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open('MetrePhotosDB', 1);
@@ -43,16 +44,23 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
     });
   };
 
-  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>, photoKey: string) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPreviews(prev => ({ ...prev, [photoKey]: URL.createObjectURL(file) }));
+  const savePhotoArray = async (photoKey: string, arr: string[]) => {
+    try {
+      const db = await initDB();
+      db.transaction('photos', 'readwrite').objectStore('photos').put(arr, `${taskId}_${photoKey}`);
+    } catch (err) {
+      console.error("Erreur IndexedDB:", err);
+    }
+  };
+
+  // Compresse un fichier en dataURL base64
+  const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
       const img = new Image();
       img.src = event.target?.result as string;
-      img.onload = async () => {
+      img.onload = () => {
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
@@ -64,15 +72,35 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-        try {
-          const db = await initDB();
-          db.transaction('photos', 'readwrite').objectStore('photos').put(dataUrl, `${taskId}_${photoKey}`);
-        } catch (err) {
-          console.error("Erreur IndexedDB:", err);
-        }
+        resolve(canvas.toDataURL('image/jpeg', 0.9));
       };
     };
+  });
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>, photoKey: string) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const newDataUrls: string[] = [];
+    for (const file of files) {
+      newDataUrls.push(await fileToDataUrl(file));
+    }
+    setPhotos(prev => {
+      const updated = { ...prev, [photoKey]: [...(prev[photoKey] || []), ...newDataUrls] };
+      savePhotoArray(photoKey, updated[photoKey]);
+      return updated;
+    });
+    // Reset l'input pour pouvoir reprendre la même scène plusieurs fois
+    e.target.value = '';
+  };
+
+  const removePhoto = (photoKey: string, index: number) => {
+    setPhotos(prev => {
+      const arr = [...(prev[photoKey] || [])];
+      arr.splice(index, 1);
+      const updated = { ...prev, [photoKey]: arr };
+      savePhotoArray(photoKey, arr);
+      return updated;
+    });
   };
 
   // Restauration hors-ligne
@@ -98,13 +126,13 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
           const req = db.transaction('photos', 'readonly').objectStore('photos').get(`${taskId}_${key}`);
           req.onsuccess = () => resolve(req.result);
         });
-        const restored: Record<string, string | null> = {};
+        const restored: Record<string, string[]> = {};
         for (const p of PHOTOS) {
           const f = await getPhoto(p.key);
-          if (typeof f === 'string') restored[p.key] = f;
-          else if (f instanceof File || f instanceof Blob) restored[p.key] = URL.createObjectURL(f);
+          if (Array.isArray(f)) restored[p.key] = f;
+          else if (typeof f === 'string') restored[p.key] = [f]; // rétro-compat ancien format
         }
-        setPreviews(restored);
+        setPhotos(restored);
       } catch (e) { console.error("Erreur chargement DB", e); }
     };
     loadPhotos();
@@ -153,11 +181,13 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
         const req = db.transaction('photos', 'readonly').objectStore('photos').get(`${taskId}_${key}`);
         req.onsuccess = () => resolve(req.result);
       });
-      // Recharge chaque photo depuis IndexedDB et l'ajoute au formData
+      // Pour chaque emplacement, recharge le tableau depuis IndexedDB et ajoute chaque photo
       for (const p of PHOTOS) {
         const f = await getPhoto(p.key);
-        if (typeof f === 'string') formData.set(p.key, dataURLtoBlob(f), `${p.key}.jpg`);
-        else if (f) formData.set(p.key, f);
+        const arr: string[] = Array.isArray(f) ? f : (typeof f === 'string' ? [f] : []);
+        arr.forEach((dataUrl, i) => {
+          formData.set(`${p.key}_${i}`, dataURLtoBlob(dataUrl), `${p.key}_${i}.jpg`);
+        });
       }
 
       const res = await fetch('/api/metre', { method: 'POST', body: formData });
@@ -187,7 +217,7 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
 
   const inputClass = "w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-[#0097b2]";
   const labelClass = "text-[10px] font-bold text-slate-500 uppercase";
-  const photosPrises = visiblePhotos.filter(p => previews[p.key]).length;
+  const photosPrises = visiblePhotos.filter(p => (photos[p.key] || []).length > 0).length;
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} onChange={handleFormChange} className="space-y-6 pb-12">
@@ -396,29 +426,49 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
         </div>
       </div>
 
-      {/* PHOTOS TERRAIN : checklist guidée */}
+      {/* PHOTOS TERRAIN : checklist guidée, multi-photos par emplacement */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-5">
         <div className="flex items-center justify-between border-b pb-3">
           <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2"><Camera size={18} className="text-[#0097b2]"/> Photos Terrain</h3>
           <span className="text-[11px] font-black text-[#0097b2] bg-[#0097b2]/10 px-2 py-1 rounded-md">{photosPrises}/{visiblePhotos.length}</span>
         </div>
-        <p className="text-[11px] text-slate-400 font-medium">Prends chaque photo de la liste. Pour d'autres clichés, ajoute-les en pièces jointes depuis l'app ClickUp.</p>
+        <p className="text-[11px] text-slate-400 font-medium">Prends une ou plusieurs photos par emplacement. Tu peux en cumuler autant que nécessaire.</p>
         
-        <div className="space-y-4">
-          {visiblePhotos.map(p => (
-            <div key={p.key} className={`relative overflow-hidden w-full border-2 border-dashed rounded-2xl p-4 text-center active:bg-[#032b60]/10 transition-colors ${previews[p.key] ? 'bg-green-50 border-green-300' : 'bg-[#032b60]/5 border-[#032b60]/30'}`}>
-              {previews[p.key] ? (
-                <img src={previews[p.key] as string} alt={p.label} className="w-full h-40 object-cover rounded-xl mb-3 shadow-sm" />
-              ) : (
-                <Camera size={32} className="mx-auto text-[#032b60] mb-2" />
-              )}
-              <span className="font-black text-sm text-[#032b60] flex items-center justify-center gap-2">
-                {previews[p.key] && <CheckCircle size={16} className="text-green-600" />}
-                {previews[p.key] ? `${p.label} — reprendre` : p.label}
-              </span>
-              <input type="file" name={p.key} accept="image/*" capture="environment" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handlePhotoChange(e, p.key)} />
-            </div>
-          ))}
+        <div className="space-y-5">
+          {visiblePhotos.map(p => {
+            const shots = photos[p.key] || [];
+            return (
+              <div key={p.key} className={`rounded-2xl border-2 p-4 space-y-3 ${shots.length > 0 ? 'bg-green-50 border-green-300' : 'bg-[#032b60]/5 border-dashed border-[#032b60]/30'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-sm text-[#032b60] flex items-center gap-2">
+                    {shots.length > 0 && <CheckCircle size={16} className="text-green-600" />}
+                    {p.label}
+                  </span>
+                  {shots.length > 0 && <span className="text-[10px] font-black text-green-700 bg-green-100 px-2 py-0.5 rounded-md">{shots.length} photo{shots.length > 1 ? 's' : ''}</span>}
+                </div>
+
+                {shots.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {shots.map((src, i) => (
+                      <div key={i} className="relative">
+                        <img src={src} alt={`${p.label} ${i + 1}`} className="w-full h-24 object-cover rounded-lg shadow-sm" />
+                        <button type="button" onClick={() => removePhoto(p.key, i)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md active:scale-90">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="relative overflow-hidden w-full bg-white border border-[#0097b2]/40 rounded-xl p-3 text-center active:bg-[#0097b2]/5 transition-colors">
+                  <span className="font-bold text-xs text-[#0097b2] flex items-center justify-center gap-2">
+                    <Camera size={16} /> {shots.length > 0 ? 'Ajouter une photo' : 'Prendre une photo'}
+                  </span>
+                  <input type="file" accept="image/*" capture="environment" multiple className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handlePhotoChange(e, p.key)} />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
