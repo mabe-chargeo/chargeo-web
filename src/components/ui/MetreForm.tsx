@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText } from 'lucide-react';
+import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Truck } from 'lucide-react';
 
 export function MetreForm({ taskId, taskName }: { taskId: string, taskName: string }) {
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
@@ -292,6 +292,53 @@ export function MetreForm({ taskId, taskName }: { taskId: string, taskName: stri
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-500 uppercase">Dalle / Sol</label>
             <input type="number" name="percementDalle" defaultValue="0" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none" />
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION INFRASTRUCTURE COPRO */}
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-5">
+        <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2 border-b pb-3"><Building2 size={18} className="text-[#0097b2]"/> Infrastructure Copro</h3>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Nb Places Parking</label>
+            <input type="number" name="nbPlacesParking" defaultValue="0" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-[#0097b2]" placeholder="Ex: 24" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Longueur Artère (m)</label>
+            <input type="number" name="longueurArtere" defaultValue="0" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-[#0097b2]" placeholder="Ex: 45" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Dist. TGBT → TD (m)</label>
+            <input type="number" name="distTGBT" defaultValue="0" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-[#0097b2]" placeholder="Ex: 12" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Dist. Routeur → TD (m)</label>
+            <input type="number" name="distRouteur" defaultValue="0" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-[#0097b2]" placeholder="Ex: 5" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Taille HUB</label>
+            <select name="tailleHUB" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-[#0097b2]">
+              <option value="">Non concerné</option>
+              <option value="10">HUB 10</option>
+              <option value="20">HUB 20</option>
+              <option value="150">HUB 150</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Zone Déplacement</label>
+            <select name="zoneDepl" className="w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-[#0097b2]">
+              <option value="Z1">Z1 (≤ 30 min)</option>
+              <option value="Z2">Z2 (30 min à 1h)</option>
+              <option value="Z3">Z3 (1h à 1h30)</option>
+            </select>
           </div>
         </div>
       </div>
