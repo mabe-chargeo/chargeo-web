@@ -165,22 +165,8 @@ export async function POST(request: Request) {
       })
     ));
 
-    // 5. Upload des photos : on parcourt tous les champs 'photo*' de la checklist
-    for (const [key, value] of formData.entries()) {
-      if (!key.startsWith('photo')) continue;
-      const file = value as File;
-      if (file && typeof file !== 'string' && file.size > 0 && file.name !== 'undefined') {
-        const fileData = new FormData();
-        fileData.append('attachment', file);
-        await fetch(`https://api.clickup.com/api/v2/task/${taskId}/attachment`, {
-          method: 'POST',
-          headers: { 'Authorization': token },
-          body: fileData
-        });
-      }
-    }
-
-    // 6. Changement automatique de statut
+    // 5. Changement automatique de statut
+    // (les photos sont envoyées séparément par le client via /api/metre/photo)
     await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
       method: 'PUT',
       headers: { 'Authorization': token, 'Content-Type': 'application/json' },
