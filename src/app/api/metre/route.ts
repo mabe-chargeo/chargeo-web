@@ -6,18 +6,21 @@ export async function POST(request: Request) {
     const taskId = formData.get('taskId') as string;
     const token = process.env.CLICKUP_API_KEY as string;
 
-    // 1. Récupération et formatage mathématique rigoureux
+    // 1. Récupération et formatage
     // Électricité
     const terre = parseFloat(formData.get('terre') as string) || 0;
     const besoinDelesteur = formData.get('besoinDelesteur') === 'true';
     
-    // Distances
+    // Distances (7 méthodes de pose Costructor)
     const distApparent = parseFloat(formData.get('distApparent') as string) || 0;
-    const distVideSanitaire = parseFloat(formData.get('distVideSanitaire') as string) || 0;
-    const distTranchee = parseFloat(formData.get('distTranchee') as string) || 0;
+    const distGoulotte = parseFloat(formData.get('distGoulotte') as string) || 0;
     const distEncastre = parseFloat(formData.get('distEncastre') as string) || 0;
+    const distVideSanitaire = parseFloat(formData.get('distVideSanitaire') as string) || 0;
+    const distCDC = parseFloat(formData.get('distCDC') as string) || 0;
+    const distTirage = parseFloat(formData.get('distTirage') as string) || 0;
+    const distTranchee = parseFloat(formData.get('distTranchee') as string) || 0;
 
-    // Percements (séparés par type de mur)
+    // Percements
     const percementPlaco = parseFloat(formData.get('percementPlaco') as string) || 0;
     const percementBrique = parseFloat(formData.get('percementBrique') as string) || 0;
     const percementBeton = parseFloat(formData.get('percementBeton') as string) || 0;
@@ -31,29 +34,27 @@ export async function POST(request: Request) {
     
     const murSupport = formData.get('murSupport') as string || "";
     const notesBrutes = formData.get('notes') as string || "";
-    
-    // On sécurise l'info du mur en l'intégrant aux notes
     const notesFinales = `SUPPORT PR\u00c9VU : ${murSupport}\n\nOBSERVATIONS :\n${notesBrutes}`;
 
-    // 2. Traduction des menus déroulants (Les bons index de ton ClickUp)
+    // 2. Traduction des menus déroulants par index
     const raccordementStr = formData.get('typeRaccordement') as string || "";
-    let raccordementIndex = 0; // Mono (Index 0)
+    let raccordementIndex = 0;
     if (raccordementStr.includes('Tri')) raccordementIndex = 1;
 
     const puissanceStr = formData.get('puissance') as string || "";
-    let puissanceIndex = 1; // 6 kVA (Index 1)
+    let puissanceIndex = 1;
     if (puissanceStr.includes('3')) puissanceIndex = 0;
     if (puissanceStr.includes('9')) puissanceIndex = 2;
     if (puissanceStr.includes('12')) puissanceIndex = 3;
     if (puissanceStr.includes('18')) puissanceIndex = 4;
 
     const etatStr = formData.get('etatTableau') as string || "";
-    let etatIndex = 0; // OK (Index 0)
+    let etatIndex = 0;
     if (etatStr.includes('remanier')) etatIndex = 1;
     if (etatStr.includes('remplacer')) etatIndex = 2;
 
     const reseauStr = formData.get('reseau') as string || "";
-    let reseauIndex = 1; // 4G OK (Index 1)
+    let reseauIndex = 1;
     if (reseauStr.includes('WiFi')) reseauIndex = 0;
     if (reseauStr.includes('C\u00e2ble')) reseauIndex = 2;
 
@@ -66,48 +67,65 @@ export async function POST(request: Request) {
 
     // Zone Déplacement : Z1 = index 0, Z2 = index 1, Z3 = index 2
     const zoneDeplStr = formData.get('zoneDepl') as string || "";
-    let zoneDeplIndex = 0; // Z1 par défaut
+    let zoneDeplIndex: number | null = null;
+    if (zoneDeplStr === 'Z1') zoneDeplIndex = 0;
     if (zoneDeplStr === 'Z2') zoneDeplIndex = 1;
     if (zoneDeplStr === 'Z3') zoneDeplIndex = 2;
 
-    // 3. Mise à jour de la description classique de la tâche
+    // 3. Mise à jour de la description
     await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
       method: 'PUT',
       headers: { 'Authorization': token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ description: notesFinales })
     });
 
-    // 4. Envoi des VRAIS champs personnalisés (ClickUp exige un POST par champ pour les mises à jour)
+    // 4. Champs personnalisés communs (électricité + distances + percements + notes)
     const customFields: { id: string; value: any }[] = [
       { id: "f122fe49-8a32-4fbd-a374-f27eeb4e25c1", value: raccordementIndex }, // Type Raccordement
       { id: "586b30e6-c225-4ee1-a9cb-2f2dc332fab9", value: terre }, // Terre
       { id: "bbef17d5-bdb2-4c25-bacc-00accdcdcbbf", value: besoinDelesteur }, // Besoin Délesteur
-      { id: "6a592626-ac8f-4a28-99a0-f1c6bdde09ea", value: puissanceIndex }, // Puissance
+      { id: "6a592626-ac8f-4a28-99a0-f1c6bdde09ea", value: puissanceIndex }, // Puissance Dispo
       { id: "965fbd93-9c39-4dc4-9d3e-17aa63f667df", value: etatIndex }, // Etat Tableau
       { id: "fe5e2142-8191-4e61-86ee-d1e88ed4dc44", value: reseauIndex }, // Réseau
-      { id: "5370ee5e-8bed-435f-a924-70fa117ed78a", value: distApparent }, // Dist Apparent
-      { id: "d938dd22-2f04-4aba-a6db-f8fa8b62d1ee", value: distVideSanitaire }, // Dist Vide Sanitaire
-      { id: "47a7156e-0852-4690-b747-e583f2b560a7", value: distTranchee }, // Dist Tranchée
+      // 7 distances
+      { id: "5370ee5e-8bed-435f-a924-70fa117ed78a", value: distApparent }, // Dist Tube Apparent
+      { id: "cccfa938-5bec-459c-85b8-6574a32ef89d", value: distGoulotte }, // Dist Goulotte
       { id: "c0c89b35-f1a2-41a8-8602-81391b421715", value: distEncastre }, // Dist Encastré
-      { id: "8c57869c-447f-4350-b6d3-a02bc738bddd", value: percementPlaco }, // Percement Placo
-      { id: "e6ec48b2-77c7-45ff-bcfa-6de603dc731b", value: percementBrique }, // Percement Brique
-      { id: "77120088-4d88-4675-a7ac-d34f8eb5ffa7", value: percementBeton }, // Percement Béton
-      { id: "bda05bcd-b5f1-424f-bda4-ad435f06e32f", value: percementDalle }, // Percement Dalle
-      { id: "1442f71a-830e-4a77-8d78-0c30f45c4b23", value: notesFinales }, // Notes
-      // --- Infrastructure Copro ---
-      { id: "dd19d42f-8d9f-4657-bac5-942de6822468", value: nbPlacesParking }, // Nb Places Parking
-      { id: "dc5878d3-dac5-4426-bfae-43c3ba3eaacc", value: longueurArtere }, // Longueur Artère
-      { id: "c555210d-1b5e-4ab8-ba7f-ffc7811ebc14", value: distTGBT }, // Dist TGBT -> TD IRVE
-      { id: "0ebc0cc5-97ae-4525-bc8d-ab98c3a3bd81", value: distRouteur }, // Dist Routeur -> TD IRVE
-      { id: "0f9043bf-ec87-4534-b8ea-af41734bdfed", value: zoneDeplIndex }, // Zone Déplacement
+      { id: "d938dd22-2f04-4aba-a6db-f8fa8b62d1ee", value: distVideSanitaire }, // Dist Vide Sanitaire
+      { id: "b89814c1-e0e9-4997-886e-d8637006afc0", value: distCDC }, // Dist Chemin de Câbles
+      { id: "ae081f1f-0a23-4a3d-918e-a8396e091214", value: distTirage }, // Dist Tirage Existant
+      { id: "47a7156e-0852-4690-b747-e583f2b560a7", value: distTranchee }, // Dist Tranchée
+      // Percements
+      { id: "8c57869c-447f-4350-b6d3-a02bc738bddd", value: percementPlaco },
+      { id: "e6ec48b2-77c7-45ff-bcfa-6de603dc731b", value: percementBrique },
+      { id: "77120088-4d88-4675-a7ac-d34f8eb5ffa7", value: percementBeton },
+      { id: "bda05bcd-b5f1-424f-bda4-ad435f06e32f", value: percementDalle },
+      // Notes
+      { id: "1442f71a-830e-4a77-8d78-0c30f45c4b23", value: notesFinales },
     ];
 
-    // Taille HUB : on n'envoie que si sélectionné (sinon "Non concerné")
+    // Champs infra : n'écrire QUE si au moins une valeur infra est > 0 (ne pas polluer les relevés RES/DAP)
+    const hasInfra = nbPlacesParking > 0 || longueurArtere > 0 || distTGBT > 0 || distRouteur > 0;
+    if (hasInfra) {
+      customFields.push(
+        { id: "dd19d42f-8d9f-4657-bac5-942de6822468", value: nbPlacesParking },
+        { id: "dc5878d3-dac5-4426-bfae-43c3ba3eaacc", value: longueurArtere },
+        { id: "c555210d-1b5e-4ab8-ba7f-ffc7811ebc14", value: distTGBT },
+        { id: "0ebc0cc5-97ae-4525-bc8d-ab98c3a3bd81", value: distRouteur },
+      );
+    }
+
+    // Taille HUB : seulement si sélectionné
     if (tailleHUBIndex !== null) {
       customFields.push({ id: "85f237d4-792e-4851-89f9-675ae1144a73", value: tailleHUBIndex });
     }
 
-    // On tire toutes les requêtes en même temps pour gagner du temps
+    // Zone Déplacement : seulement si sélectionné explicitement
+    if (zoneDeplIndex !== null) {
+      customFields.push({ id: "0f9043bf-ec87-4534-b8ea-af41734bdfed", value: zoneDeplIndex });
+    }
+
+    // Envoi en parallèle
     await Promise.all(customFields.map(field => 
       fetch(`https://api.clickup.com/api/v2/task/${taskId}/field/${field.id}`, {
         method: 'POST',
@@ -116,20 +134,16 @@ export async function POST(request: Request) {
       })
     ));
 
-    // 5. Upload des photos dans le champ personnalisé spécifique "Photos Visite"
+    // 5. Upload des photos
     const files = [
       formData.get('photoTableau') as File, 
       formData.get('photoBorne') as File
     ];
 
-    // 5. Upload des photos (ClickUp API v2 oblige de les mettre dans les pièces jointes générales)
     for (const file of files) {
-      // On vérifie que le fichier existe bien et n'est pas "vide"
       if (file && file.size > 0 && file.name !== 'undefined') {
         const fileData = new FormData();
         fileData.append('attachment', file);
-        
-        // On repasse sur l'URL d'attachement officielle de la tâche
         await fetch(`https://api.clickup.com/api/v2/task/${taskId}/attachment`, {
           method: 'POST',
           headers: { 'Authorization': token },
@@ -137,6 +151,14 @@ export async function POST(request: Request) {
         });
       }
     }
+
+    // 6. Changement automatique de statut : la t\u00e2che passe en "devis \u00e0 faire"
+    // Cela la retire de /interne (qui filtre sur "VISITER") et cr\u00e9e la to-do bureau
+    await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
+      method: 'PUT',
+      headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: "\ud83d\udcdd devis \u00e0 faire" })
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
