@@ -41,6 +41,13 @@ export async function POST(request: Request) {
     const segmentMap: Record<string, number> = { 'RES': 0, 'DAP': 1, 'COP': 2, 'PAR': 3, 'FLT': 4, 'TER': 5 };
     const segmentIndex = segmentMap[segmentStr] ?? null;
 
+    // Source de raccordement : Tableau individuel=0, TGBT services generaux=1, PDL dedie=2
+    const sourceRaccStr = formData.get('sourceRacc') as string || "";
+    let sourceRaccIndex: number | null = null;
+    if (sourceRaccStr.includes('individuel')) sourceRaccIndex = 0;
+    else if (sourceRaccStr.includes('TGBT')) sourceRaccIndex = 1;
+    else if (sourceRaccStr.includes('PDL')) sourceRaccIndex = 2;
+
     // Puissance Visée PDC : 3.7=0, 7.4=1, 11=2, 22=3
     const puissanceViseeStr = formData.get('puissanceVisee') as string || "";
     let puissanceViseeIndex: number | null = null;
@@ -68,14 +75,16 @@ export async function POST(request: Request) {
     if (puissanceStr.includes('18')) puissanceIndex = 4;
 
     const etatStr = formData.get('etatTableau') as string || "";
-    let etatIndex = 0;
-    if (etatStr.includes('remanier')) etatIndex = 1;
-    if (etatStr.includes('remplacer')) etatIndex = 2;
+    let etatIndex: number | null = null;
+    if (etatStr === 'OK') etatIndex = 0;
+    else if (etatStr.includes('remanier')) etatIndex = 1;
+    else if (etatStr.includes('remplacer')) etatIndex = 2;
 
     const reseauStr = formData.get('reseau') as string || "";
-    let reseauIndex = 1;
+    let reseauIndex: number | null = null;
     if (reseauStr.includes('WiFi')) reseauIndex = 0;
-    if (reseauStr.includes('Câble')) reseauIndex = 2;
+    else if (reseauStr.includes('4G')) reseauIndex = 1;
+    else if (reseauStr.includes('Cable') || reseauStr.includes('Câble')) reseauIndex = 2;
 
     const tailleHUBStr = formData.get('tailleHUB') as string || "";
     let tailleHUBIndex: number | null = null;
@@ -97,13 +106,9 @@ export async function POST(request: Request) {
     });
 
     // 4. Champs personnalisés
-    // Champs non-numériques : toujours écrits (une valeur est toujours choisie)
     const customFields: { id: string; value: any }[] = [
       { id: "f122fe49-8a32-4fbd-a374-f27eeb4e25c1", value: raccordementIndex }, // Type Raccordement
-      { id: "965fbd93-9c39-4dc4-9d3e-17aa63f667df", value: etatIndex }, // Etat Tableau
-      { id: "fe5e2142-8191-4e61-86ee-d1e88ed4dc44", value: reseauIndex }, // Réseau
       { id: "6a592626-ac8f-4a28-99a0-f1c6bdde09ea", value: puissanceIndex }, // Puissance Dispo
-      { id: "bbef17d5-bdb2-4c25-bacc-00accdcdcbbf", value: besoinDelesteur }, // Besoin Délesteur
       { id: "1442f71a-830e-4a77-8d78-0c30f45c4b23", value: notesFinales }, // Notes
     ];
 
@@ -111,10 +116,22 @@ export async function POST(request: Request) {
     const pushIfPositive = (id: string, value: number) => {
       if (value > 0) customFields.push({ id, value });
     };
+    // Helper : ajoute un dropdown SEULEMENT s'il a une valeur (champ masqué = rien écrit)
+    const pushIfSet = (id: string, value: number | null) => {
+      if (value !== null) customFields.push({ id, value });
+    };
 
-    // Terre (si mesurée)
+    // Champs conditionnels (masqués selon segment => non transmis => on n'écrit rien)
+    pushIfSet("965fbd93-9c39-4dc4-9d3e-17aa63f667df", etatIndex);        // Etat Tableau
+    pushIfSet("fe5e2142-8191-4e61-86ee-d1e88ed4dc44", reseauIndex);      // Réseau
+    if (formData.get('besoinDelesteur') !== null) {
+      customFields.push({ id: "bbef17d5-bdb2-4c25-bacc-00accdcdcbbf", value: besoinDelesteur }); // Besoin Délesteur
+    }
+
+    pushIfSet("2db3f8ea-8fae-4f9f-80ca-3ea9a512ebbb", sourceRaccIndex);  // Source de raccordement
+
+    // Terre + distances + percements
     pushIfPositive("586b30e6-c225-4ee1-a9cb-2f2dc332fab9", terre);
-    // 7 distances
     pushIfPositive("5370ee5e-8bed-435f-a924-70fa117ed78a", distApparent);
     pushIfPositive("cccfa938-5bec-459c-85b8-6574a32ef89d", distGoulotte);
     pushIfPositive("c0c89b35-f1a2-41a8-8602-81391b421715", distEncastre);
@@ -122,39 +139,22 @@ export async function POST(request: Request) {
     pushIfPositive("b89814c1-e0e9-4997-886e-d8637006afc0", distCDC);
     pushIfPositive("ae081f1f-0a23-4a3d-918e-a8396e091214", distTirage);
     pushIfPositive("47a7156e-0852-4690-b747-e583f2b560a7", distTranchee);
-    // Percements
     pushIfPositive("8c57869c-447f-4350-b6d3-a02bc738bddd", percementPlaco);
     pushIfPositive("e6ec48b2-77c7-45ff-bcfa-6de603dc731b", percementBrique);
     pushIfPositive("77120088-4d88-4675-a7ac-d34f8eb5ffa7", percementBeton);
     pushIfPositive("bda05bcd-b5f1-424f-bda4-ad435f06e32f", percementDalle);
-    // Infrastructure (chaque champ indépendamment, seulement si > 0)
+    // Infrastructure
     pushIfPositive("dd19d42f-8d9f-4657-bac5-942de6822468", nbPlacesParking);
     pushIfPositive("dc5878d3-dac5-4426-bfae-43c3ba3eaacc", longueurArtere);
     pushIfPositive("c555210d-1b5e-4ab8-ba7f-ffc7811ebc14", distTGBT);
     pushIfPositive("0ebc0cc5-97ae-4525-bc8d-ab98c3a3bd81", distRouteur);
 
-    // Support Borne (dropdown par index)
-    if (murSupportIndex !== null) {
-      customFields.push({ id: "02d61a39-eb1d-417c-953a-c1504dbfae50", value: murSupportIndex });
-    }
-
-    // Segment
-    if (segmentIndex !== null) {
-      customFields.push({ id: "dbdacf18-1d26-4c58-9bbb-b4a9e443daa2", value: segmentIndex });
-    }
-
-    // Puissance Visée PDC
-    if (puissanceViseeIndex !== null) {
-      customFields.push({ id: "ddadfb52-ea48-4aca-9e85-86a4eca6615b", value: puissanceViseeIndex });
-    }
-
-    if (tailleHUBIndex !== null) {
-      customFields.push({ id: "85f237d4-792e-4851-89f9-675ae1144a73", value: tailleHUBIndex });
-    }
-
-    if (zoneDeplIndex !== null) {
-      customFields.push({ id: "0f9043bf-ec87-4534-b8ea-af41734bdfed", value: zoneDeplIndex });
-    }
+    // Support Borne, Segment, Puissance Visée, HUB, Zone (dropdowns, seulement si transmis)
+    pushIfSet("02d61a39-eb1d-417c-953a-c1504dbfae50", murSupportIndex);
+    pushIfSet("dbdacf18-1d26-4c58-9bbb-b4a9e443daa2", segmentIndex);
+    pushIfSet("ddadfb52-ea48-4aca-9e85-86a4eca6615b", puissanceViseeIndex);
+    pushIfSet("85f237d4-792e-4851-89f9-675ae1144a73", tailleHUBIndex);
+    pushIfSet("0f9043bf-ec87-4534-b8ea-af41734bdfed", zoneDeplIndex);
 
     // Envoi en parallèle
     await Promise.all(customFields.map(field => 
@@ -166,7 +166,6 @@ export async function POST(request: Request) {
     ));
 
     // 5. Changement automatique de statut
-    // (les photos sont envoyées séparément par le client via /api/metre/photo)
     await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
       method: 'PUT',
       headers: { 'Authorization': token, 'Content-Type': 'application/json' },
