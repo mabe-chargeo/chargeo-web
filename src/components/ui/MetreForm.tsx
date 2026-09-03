@@ -385,8 +385,8 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
             <div className="space-y-2"><label className={labelClass}>Longueur Artere (m)</label><input type="number" name="longueurArtere" defaultValue="0" className={inputClass} placeholder="Ex: 45" /></div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2"><label className={labelClass}>Dist. TGBT -> TD (m)</label><input type="number" name="distTGBT" defaultValue="0" className={inputClass} placeholder="Ex: 12" /></div>
-            <div className="space-y-2"><label className={labelClass}>Dist. Routeur -> TD (m)</label><input type="number" name="distRouteur" defaultValue="0" className={inputClass} placeholder="Ex: 5" /></div>
+            <div className="space-y-2"><label className={labelClass}>Dist. TGBT vers TD (m)</label><input type="number" name="distTGBT" defaultValue="0" className={inputClass} placeholder="Ex: 12" /></div>
+            <div className="space-y-2"><label className={labelClass}>Dist. Routeur vers TD (m)</label><input type="number" name="distRouteur" defaultValue="0" className={inputClass} placeholder="Ex: 5" /></div>
           </div>
           <div className="space-y-2">
             <label className={labelClass}>Taille HUB</label>
@@ -418,8 +418,8 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
           <div className="space-y-2">
             <label className={labelClass}>Zone Deplacement</label>
             <select name="zoneDepl" className={inputClass}>
-              <option value="">—</option>
-              <option value="Z1">Z1 (<= 30 min)</option>
+              <option value="">A preciser</option>
+              <option value="Z1">Z1 (max 30 min)</option>
               <option value="Z2">Z2 (30 min a 1h)</option>
               <option value="Z3">Z3 (1h a 1h30)</option>
             </select>
