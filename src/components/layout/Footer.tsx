@@ -12,7 +12,7 @@ export function Footer() {
             <Logo light={true} className="scale-100 sm:scale-110 origin-left" />
             <div className="space-y-2 mt-4">
                <p className="text-white/80 font-medium text-sm sm:text-base leading-relaxed">
-                 8, Avenue du général De Gaulle<br />
+                 89, chemin de la Ballastière<br />
                  74200 THONON-LES-BAINS
                </p>
                <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest mt-4">Entreprise en cours de création</p>

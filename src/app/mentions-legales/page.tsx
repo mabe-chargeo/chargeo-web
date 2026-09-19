@@ -24,7 +24,7 @@ export default function MentionsLegalesPage() {
               <h2 className="text-lg font-black text-[#032b60] uppercase tracking-wider">1. Éditeur et Hébergement</h2>
               <p>
                 <strong>Propriétaire / Éditeur :</strong> CHARGéO (Entreprise en cours de création)<br />
-                <strong>Siège social :</strong> 8, Avenue du général De Gaulle, 74200 THONON-LES-BAINS<br />
+                <strong>Siège social :</strong> 89, chemin de la Ballastière, 74200 THONON-LES-BAINS<br />
                 <strong>Directeur de la publication :</strong> Matthieu BELENGRI<br />
                 <strong>Contact :</strong> contact@chargeo.fr | 04 85 69 22 04
               </p>
