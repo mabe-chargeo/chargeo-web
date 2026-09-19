@@ -4,7 +4,7 @@ import { Footer } from '@/components/layout/Footer';
 
 export default function MentionsLegalesPage() {
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#0097b2]">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#0097b2]/20">
       <Navbar isHome={false} />
 
       <main className="max-w-4xl mx-auto px-6 pt-32 pb-20">
