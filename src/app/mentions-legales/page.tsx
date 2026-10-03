@@ -24,7 +24,7 @@ export default function MentionsLegalesPage() {
               <h2 className="text-lg font-black text-[#032b60] uppercase tracking-wider">1. Éditeur et Hébergement</h2>
               <p>
                 <strong>Propriétaire / Éditeur :</strong> CHARGéO (Entreprise en cours de création)<br />
-                <strong>Siège social :</strong> 8, Avenue du général De Gaulle, 74200 THONON-LES-BAINS<br />
+                <strong>Siège social :</strong> 89, chemin de la Ballastière, 74200 THONON-LES-BAINS<br />
                 <strong>Directeur de la publication :</strong> Matthieu BELENGRI<br />
                 <strong>Contact :</strong> contact@chargeo.fr | 04 85 69 22 04
               </p>
@@ -70,7 +70,14 @@ export default function MentionsLegalesPage() {
             </section>
 
             <section className="space-y-3 border-t border-slate-100 pt-6">
-              <h2 className="text-lg font-black text-[#032b60] uppercase tracking-wider">3. Cookies et traceurs publicitaires</h2>
+              <h2 className="text-lg font-black text-[#032b60] uppercase tracking-wider">3. Candidatures</h2>
+              <p>
+                Les informations transmises par le formulaire de recrutement (identité, coordonnées, diplôme, permis, formation, CV) servent uniquement à étudier votre candidature. Elles sont enregistrées dans notre outil de gestion (ClickUp Inc.) et conservées au plus 2 ans après notre dernier contact, puis supprimées. Vous pouvez à tout moment demander à les consulter, les corriger ou les supprimer en écrivant à : <strong>contact@chargeo.fr</strong>.
+              </p>
+            </section>
+
+            <section className="space-y-3 border-t border-slate-100 pt-6">
+              <h2 className="text-lg font-black text-[#032b60] uppercase tracking-wider">4. Cookies et traceurs publicitaires</h2>
               <p>
                 Lors de votre navigation sur le site, des cookies peuvent être déposés sur votre terminal, sous réserve de votre consentement explicite via notre bandeau dédié.
               </p>
@@ -80,7 +87,7 @@ export default function MentionsLegalesPage() {
             </section>
 
             <section className="space-y-3 border-t border-slate-100 pt-6">
-              <h2 className="text-lg font-black text-[#032b60] uppercase tracking-wider">4. Vos droits</h2>
+              <h2 className="text-lg font-black text-[#032b60] uppercase tracking-wider">5. Vos droits</h2>
               <p>
                 Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, de suppression et d'opposition au traitement de vos données. Pour les exercer, contactez-nous directement à : <strong>contact@chargeo.fr</strong>.
               </p>

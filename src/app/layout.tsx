@@ -34,7 +34,7 @@ export default function RootLayout({
     "description": "Installateur et Opérateur de Points de Charge pour véhicules électriques en Haute-Savoie.",
     "address": {
       "@type": "PostalAddress",
-      "streetAddress": "8, Avenue du général De Gaulle",
+      "streetAddress": "89, chemin de la Ballastière",
       "addressLocality": "THONON-LES-BAINS",
       "postalCode": "74200",
       "addressCountry": "FR"
