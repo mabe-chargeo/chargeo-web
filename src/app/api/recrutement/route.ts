@@ -35,7 +35,9 @@ function texte(v: FormDataEntryValue | null): string {
 
 export async function POST(request: Request) {
   try {
-    const CLICKUP_API_KEY = process.env.CLICKUP_API_KEY as string;
+    // Cle du compte invite "site" (pour que Matthieu recoive la notif d'assignation).
+    // Sans elle, on retombe sur la cle principale : ca marche, mais sans notif.
+    const CLICKUP_API_KEY = (process.env.CLICKUP_API_KEY_SITE || process.env.CLICKUP_API_KEY) as string;
     const form = await request.formData();
 
     // Pot de miel anti-robot : champ invisible, rempli seulement par les robots.
