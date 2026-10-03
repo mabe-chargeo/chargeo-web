@@ -12,7 +12,7 @@ export function Footer() {
             <Logo light={true} className="scale-100 sm:scale-110 origin-left" />
             <div className="space-y-2 mt-4">
                <p className="text-white/80 font-medium text-sm sm:text-base leading-relaxed">
-                 8, Avenue du général De Gaulle<br />
+                 89, chemin de la Ballastière<br />
                  74200 THONON-LES-BAINS
                </p>
                <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest mt-4">Entreprise en cours de création</p>
@@ -27,6 +27,7 @@ export function Footer() {
                   <li><a href="/pro" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Entreprises</a></li>
                   <li><a href="/copropriete" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Copropriétés</a></li>
                   <li><a href="/particuliers" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Particuliers</a></li>
+                  <li><a href="/recrutement" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">On recrute</a></li>
                </ul>
             </div>
             
