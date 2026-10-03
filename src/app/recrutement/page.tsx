@@ -12,8 +12,9 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { RecrutementForm } from '@/components/ui/RecrutementForm';
 
-// Brochure PDF a deposer dans /public sous ce nom exact.
-const BROCHURE_PDF = "/brochure-recrutement-poseur.pdf";
+// Brochure PDF hebergee sur le Drive (partage : tous les utilisateurs disposant du lien, lecteur).
+// Pour la mettre a jour sans casser le lien : Drive > Gerer les versions > Importer une nouvelle version.
+const BROCHURE_PDF = "https://drive.google.com/file/d/1CXRE-PEHDua-cXb6ggUBP3wHSxL_UerY/view";
 
 export default function RecrutementPage() {
   const [isHeroVisible, setIsHeroVisible] = useState(true);
