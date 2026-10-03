@@ -132,7 +132,7 @@ export default function RecrutementPage() {
             </FadeIn>
             <FadeIn delay={200}>
               <p className="text-lg text-slate-500 font-medium leading-relaxed">
-                CHARGéO vient de naître à Thonon-les-Bains. Derrière, il y a Matthieu, électricien de métier, passé par la pose, le chiffrage et la conduite de chantier. L'idée n'est pas de faire un coup, c'est de construire une entreprise solide, avec une équipe, des process clairs et des clients qui nous restent fidèles. Tu ne rejoins pas une grosse structure où on t'oublie : tu rejoins le projet au départ, et tu grandis avec lui.
+                CHARGéO vient de naître à Thonon-les-Bains. Derrière, il y a Matthieu, électricien de métier, passé par des chantiers en France et en Suisse, de la pose au chiffrage. L'idée n'est pas de faire un coup, c'est de construire une entreprise solide, avec une équipe, des process clairs et des clients qui nous restent fidèles. Tu ne rejoins pas une grosse structure où on t'oublie : tu rejoins le projet au départ, et tu grandis avec lui.
               </p>
             </FadeIn>
           </div>
