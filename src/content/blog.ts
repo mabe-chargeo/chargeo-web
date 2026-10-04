@@ -3,6 +3,7 @@
 // Pour ajouter un article : copier un bloc { ... } dans la liste `articles`, changer le slug (adresse), le titre, la date et le contenu.
 // Images : couverture = une photo de /public ; schémas = fichiers SVG dans /public/blog.
 // Chiffres ADVENIR vérifiés le 04/10/2026 sur advenir.mobi (barème résidentiel collectif du 1er avril 2026).
+// Droit à la prise : art. L.113-16 et R.113-8 s. du CCH (décret n° 2020-1720). TVA 5,5 % : art. 278-0 bis N du CGI.
 
 export type Block =
   | { type: "h2"; text: string }
@@ -33,7 +34,7 @@ export const articles: Article[] = [
     date: "2026-10-04",
     readingMinutes: 5,
     category: "Copropriété",
-    cover: { src: "/tech-chargeo.webp", alt: "Technicien en intervention sur une installation de recharge" },
+    cover: { src: "/tech-chargeo.webp", alt: "Intervention sur une installation de recharge" },
     cta: { label: "Étudier mon projet", href: "/particuliers" },
     blocks: [
       {
@@ -43,7 +44,7 @@ export const articles: Article[] = [
       { type: "h2", text: "Le droit à la prise, c'est quoi ?" },
       {
         type: "p",
-        text: "Créé en 2011 et renforcé par la loi d'orientation des mobilités (LOM) de 2019, le droit à la prise permet à tout copropriétaire, mais aussi à un locataire ou à un occupant de bonne foi, d'installer à ses frais un point de recharge sur sa place de stationnement dans le parking de l'immeuble. La copropriété ne peut pas simplement refuser : pour s'y opposer, elle doit saisir le tribunal, et seulement pour un motif sérieux et légitime.",
+        text: "Inscrit dans le Code de la construction et de l'habitation et renforcé par la loi d'orientation des mobilités (LOM) de 2019, le droit à la prise permet à tout copropriétaire, mais aussi à un locataire ou à un occupant de bonne foi, d'installer à ses frais un point de recharge sur sa place de stationnement dans le parking de l'immeuble, avec un comptage individuel de sa consommation. La copropriété ne peut pas simplement refuser : pour s'y opposer, le syndic doit saisir le tribunal judiciaire, et seulement pour un motif sérieux et légitime.",
       },
       { type: "h2", text: "Les démarches, étape par étape" },
       {
@@ -57,21 +58,21 @@ export const articles: Article[] = [
         type: "ol",
         items: [
           "Faire réaliser une étude technique par un installateur qualifié IRVE : d'où partir (votre compteur, le tableau des services généraux ou un nouveau point de livraison), par où passer le câble, quelle puissance est disponible.",
-          "Envoyer au syndic une lettre recommandée avec accusé de réception, avec un descriptif détaillé des travaux, un plan et un schéma de l'installation. L'installateur vous fournit ces documents.",
-          "Le syndic inscrit le projet à l'ordre du jour de la prochaine assemblée générale, pour information. Il n'y a pas de vote : vous n'avez pas besoin de l'accord des autres copropriétaires.",
-          "À compter de la réception de votre courrier, la copropriété dispose de 3 mois pour saisir le tribunal si elle veut s'opposer. Passé ce délai, vous pouvez lancer les travaux.",
-          "Installation, mise en service et remise de l'attestation de conformité par l'installateur.",
+          "Notifier votre projet au syndic par lettre recommandée avec accusé de réception, avec un descriptif détaillé des travaux, un plan technique et un schéma de raccordement électrique. L'installateur vous prépare ces documents.",
+          "Le syndic inscrit une information sur votre projet à l'ordre du jour de la prochaine assemblée générale. Il n'y a pas de vote : vous n'avez pas besoin de l'accord des autres copropriétaires.",
+          "À compter de la réception de votre courrier, le syndic dispose de 3 mois pour saisir le tribunal s'il veut s'opposer. Sans saisine dans ce délai, vous pouvez lancer les travaux, même si l'assemblée générale n'a pas encore eu lieu.",
+          "Le syndic signe avec l'installateur une convention qui fixe les conditions d'accès aux parties communes (sans vote de l'assemblée), puis viennent la pose, la mise en service et la remise de l'attestation de conformité.",
         ],
       },
       { type: "h2", text: "Vous êtes locataire ?" },
       {
         type: "p",
-        text: "Le principe est le même, avec une étape en plus : vous informez d'abord votre propriétaire par lettre recommandée, avec le descriptif des travaux. Il dispose lui aussi de 3 mois pour s'y opposer devant le tribunal, pour un motif sérieux et légitime, puis il transmet le dossier au syndic.",
+        text: "Le principe est le même, avec une étape en plus : vous notifiez votre projet à votre propriétaire par lettre recommandée, avec copie au syndic. Votre propriétaire a un mois pour transmettre le dossier au syndic, et c'est ensuite le syndic qui dispose des 3 mois pour s'opposer devant le tribunal, pour un motif sérieux et légitime.",
       },
       { type: "h2", text: "Quels motifs peuvent bloquer le projet ?" },
       {
         type: "p",
-        text: "Ils sont rares. Le cas le plus fréquent : la copropriété a déjà décidé d'installer une infrastructure collective de recharge dans un délai raisonnable. Dans ce cas, mieux vaut s'y raccorder. Un problème technique avéré ou un projet non conforme peut aussi justifier une opposition, d'où l'intérêt d'un dossier technique propre dès le départ.",
+        text: "Ils sont rares. Le cas le plus fréquent : la copropriété a décidé d'équiper elle-même le parking avec une infrastructure collective. Dans ce cas, elle doit tenir ses engagements : si les travaux ne sont pas lancés dans les 3 mois suivant la saisine du tribunal, ou pas terminés dans les 6 mois, vous reprenez la main. Un problème technique avéré ou un projet non conforme peut aussi justifier une opposition, d'où l'intérêt d'un dossier technique propre dès le départ.",
       },
       { type: "h2", text: "Qui paie quoi ?" },
       {
@@ -80,7 +81,7 @@ export const articles: Article[] = [
       },
       {
         type: "callout",
-        text: "Bon à savoir : en copropriété, la prime ADVENIR finance 50 % de votre borne individuelle, jusqu'à 1 000 € HT, sous conditions techniques (borne pilotée notamment). C'est l'installateur qui monte le dossier et déduit la prime de votre facture.",
+        text: "Bon à savoir : en copropriété, la prime ADVENIR finance 50 % de votre borne individuelle, jusqu'à 1 000 € HT, sous conditions techniques (borne pilotable notamment). Le dossier est monté par un installateur dont l'offre est labellisée ADVENIR, avant le début des travaux, et la prime est déduite de votre facture.",
       },
       {
         type: "callout",
@@ -88,7 +89,7 @@ export const articles: Article[] = [
       },
       {
         type: "p",
-        text: "Chez CHARGéO, on prépare le dossier technique à envoyer au syndic (descriptif, plan, schéma) et on réalise l'installation dans tout le Chablais, avec un prix ferme annoncé avant les travaux.",
+        text: "Chez CHARGéO, on prépare le dossier technique à joindre à votre courrier (descriptif, plan, schéma) et on réalise l'installation dans tout le Chablais, avec un prix ferme annoncé avant les travaux.",
       },
     ],
   },
@@ -112,7 +113,7 @@ export const articles: Article[] = [
         type: "ul",
         items: [
           "Prise domestique classique (environ 2,3 kW) : à réserver au dépannage. Elle récupère environ 10 à 15 km d'autonomie par heure et n'est pas conçue pour débiter fort pendant des heures, chaque nuit.",
-          "Prise renforcée (environ 3,2 à 3,7 kW) : une prise spéciale sur un circuit dédié. Environ 15 à 20 km par heure, soit 120 à 150 km sur une nuit de 8 heures.",
+          "Prise renforcée (environ 3,2 à 3,7 kW) : une prise spéciale sur un circuit dédié. Environ 15 à 20 km par heure, soit 120 à 160 km sur une nuit de 8 heures.",
           "Borne murale ou wallbox (7,4 kW en monophasé) : environ 35 à 45 km par heure. La batterie se recharge en une nuit, même après une grosse journée.",
         ],
       },
@@ -137,7 +138,7 @@ export const articles: Article[] = [
         type: "ul",
         items: [
           "Moins de 50 km par jour (trajets en ville, Thonon–Évian) : une prise renforcée peut suffire.",
-          "Frontalier ou gros rouleur (un aller-retour Thonon–Genève fait souvent 80 à 100 km) : la wallbox 7,4 kW devient vite indispensable, surtout l'hiver.",
+          "Frontalier ou gros rouleur (un aller-retour Thonon–Genève fait souvent 70 à 100 km) : la wallbox 7,4 kW devient vite indispensable, surtout l'hiver.",
           "Deux voitures électriques ou un véhicule professionnel : wallbox, avec pilotage de la puissance.",
         ],
       },
@@ -153,7 +154,7 @@ export const articles: Article[] = [
       },
       {
         type: "callout",
-        text: "À savoir : au-delà de 3,7 kW, l'installation doit obligatoirement être réalisée par un électricien qualifié IRVE. C'est une question de sécurité et d'assurance. Côté aides en maison individuelle, le crédit d'impôt a disparu au 1er janvier 2026 et la prime ADVENIR est réservée au logement collectif : il reste la TVA réduite à 5,5 % pour un logement achevé depuis plus de 2 ans.",
+        text: "À savoir : au-delà de 3,7 kW, l'installation doit obligatoirement être réalisée par un électricien qualifié IRVE. C'est une question de sécurité et d'assurance. Côté aides en maison individuelle, le crédit d'impôt a disparu au 1er janvier 2026 et la prime ADVENIR est réservée au logement collectif : il reste la TVA réduite à 5,5 %, quand la borne et sa pose sont facturées ensemble par un installateur qualifié IRVE.",
       },
       {
         type: "p",
@@ -194,13 +195,13 @@ export const articles: Article[] = [
         type: "ul",
         items: [
           "L'infrastructure collective : 50 % des coûts HT, jusqu'à 12 500 € HT pour un parking jusqu'à 100 places, plus 125 € HT par place au-delà.",
-          "Les travaux en extérieur (voirie, cheminement de câbles dehors) : une surprime de 50 %, jusqu'à 8 000 € HT pour 100 places extérieures.",
+          "Les travaux en extérieur (voirie, cheminement de câbles dehors) : 50 % en plus, jusqu'à 8 000 € HT pour 100 places extérieures, plus 80 € HT par place extérieure au-delà.",
           "Les bornes individuelles raccordées ensuite : 50 % du coût, jusqu'à 1 000 € HT par borne, cumulable avec l'aide à l'infrastructure.",
         ],
       },
       {
         type: "callout",
-        text: "Ce barème s'applique depuis le 1er avril 2026, à condition que le vote en assemblée générale ait eu lieu à partir de cette date (le procès-verbal fait foi). Le programme est prolongé jusqu'au 31 décembre 2027. Montants indicatifs à la date de publication : on vérifie toujours le barème en vigueur avant de chiffrer votre projet.",
+        text: "Ce barème s'applique depuis le 1er avril 2026 : pour l'infrastructure collective, à condition que le vote en assemblée générale ait eu lieu à partir de cette date (le procès-verbal fait foi) ; pour les bornes individuelles, aux dossiers signés depuis cette date. Le programme est prolongé jusqu'au 31 décembre 2027. Montants indicatifs à la date de publication : on vérifie toujours le barème en vigueur avant de chiffrer votre projet.",
       },
       { type: "h2", text: "Votre immeuble est-il éligible ?" },
       {
@@ -213,9 +214,9 @@ export const articles: Article[] = [
         items: [
           "Le conseil syndical ou le syndic demande une étude : nombre de places, puissance disponible au compteur des services généraux, cheminement dans le parking.",
           "L'installateur remet un devis détaillé, avec le montant d'aide ADVENIR estimé et la puissance à réserver pour la recharge.",
-          "Le projet est inscrit à l'ordre du jour de l'assemblée générale. Depuis la loi LOM, ces travaux se votent à la majorité simple des copropriétaires présents ou représentés.",
-          "La demande de prime est déposée sur la plateforme ADVENIR, par le syndic accompagné de l'installateur, avec le devis et le procès-verbal d'assemblée générale.",
-          "Travaux et mise en service, puis versement de la prime sur présentation de la facture.",
+          "Le projet est inscrit à l'ordre du jour de l'assemblée générale. Ces travaux se votent à la majorité simple des copropriétaires présents ou représentés (article 24 de la loi de 1965).",
+          "La demande de prime est déposée sur la plateforme ADVENIR, avec le devis et le procès-verbal d'assemblée générale, par un porteur dont l'offre est labellisée ADVENIR. L'offre de prime doit être signée avant tout démarrage des travaux.",
+          "Travaux et mise en service, contrôle de conformité par un organisme d'inspection, puis versement de la prime sur présentation de la facture.",
         ],
       },
       { type: "h2", text: "Quelle puissance faut-il prévoir ?" },

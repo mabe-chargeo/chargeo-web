@@ -3,11 +3,11 @@
   <text x="40" y="66" font-size="28" font-weight="700" fill="#032b60">Kilomètres récupérés par heure de charge</text>
 
   <text x="40" y="130" font-size="24" font-weight="700" fill="#032b60">Prise classique · 2,3 kW</text>
-  <rect x="40" y="146" width="105" height="38" rx="8" fill="#94a3b8"/>
-  <rect x="145" y="146" width="35" height="38" rx="8" fill="#94a3b8" opacity="0.45"/>
-  <text x="196" y="174" font-size="24" font-weight="700" fill="#475569">10 à 15 km/h</text>
+  <rect x="40" y="146" width="70" height="38" rx="8" fill="#94a3b8"/>
+  <rect x="110" y="146" width="35" height="38" rx="8" fill="#94a3b8" opacity="0.45"/>
+  <text x="161" y="174" font-size="24" font-weight="700" fill="#475569">10 à 15 km/h</text>
 
-  <text x="40" y="240" font-size="24" font-weight="700" fill="#032b60">Prise renforcée · 3,7 kW</text>
+  <text x="40" y="240" font-size="24" font-weight="700" fill="#032b60">Prise renforcée · 3,2 à 3,7 kW</text>
   <rect x="40" y="256" width="105" height="38" rx="8" fill="#5fc3d6"/>
   <rect x="145" y="256" width="35" height="38" rx="8" fill="#5fc3d6" opacity="0.45"/>
   <text x="196" y="284" font-size="24" font-weight="700" fill="#475569">15 à 20 km/h</text>
