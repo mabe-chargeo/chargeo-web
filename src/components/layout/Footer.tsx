@@ -15,6 +15,9 @@ export function Footer() {
                  89, chemin de la Ballastière<br />
                  74200 THONON-LES-BAINS
                </p>
+               <p className="text-white/60 text-xs sm:text-sm leading-relaxed">
+                 Installateur de bornes de recharge à Thonon-les-Bains, Évian, Douvaine et dans tout le Chablais.
+               </p>
                <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest mt-4">Entreprise en cours de création</p>
             </div>
          </div>
