@@ -92,9 +92,10 @@ export function RecrutementForm() {
           <label className={etiquette}>Email</label>
           <input type="email" name="email" className={champ} placeholder="leo@exemple.com" />
         </div>
-        <div className="space-y-2">
+        <div className="space-y-2 min-w-0">
           <label className={etiquette}>Quand peux-tu commencer ?</label>
-          <input type="date" name="disponibilite" className={champ} />
+          {/* iPhone : le champ date a une largeur et une hauteur propres, on les aligne sur les autres champs */}
+          <input type="date" name="disponibilite" className={`${champ} appearance-none min-w-0 max-w-full h-[50px] text-left [&::-webkit-date-and-time-value]:text-left`} />
         </div>
       </div>
 
