@@ -33,6 +33,39 @@ function texte(v: FormDataEntryValue | null): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
+// --- ANTI-ROBOTS ---
+const DUREE_MIN_MS = 4000; // un humain met plus de 4 secondes a remplir le formulaire
+
+// Telephone francais (+33 + 9 chiffres) ou suisse (+41 + 9 chiffres)
+function normaliserTelephone(brut: string): string {
+  let t = brut.replace(/[\s.\-()]/g, '');
+  if (t.startsWith('00')) t = '+' + t.substring(2);
+  if (t.startsWith('0')) t = '+33' + t.substring(1);
+  return t;
+}
+function telephoneValide(t: string): boolean {
+  return /^\+33[1-9]\d{8}$/.test(t) || /^\+41\d{9}$/.test(t);
+}
+
+// "Prenom Nom" : au moins 2 mots de lettres, sans melange de casse aleatoire (ex. "VCtZVPIr")
+function nomValide(nom: string): boolean {
+  const mots = nom.split(/\s+/).filter(Boolean);
+  if (mots.length < 2 || nom.length > 60) return false;
+  return mots.every((m) => {
+    if (!/^[A-Za-zÀ-ÖØ-öø-ÿ'’-]+$/.test(m)) return false;
+    const sautsCasse = (m.match(/[a-zà-öø-ÿ][A-ZÀ-ÖØ-Þ]/g) || []).length;
+    return sautsCasse <= 1; // "McDonald" passe, "VCtZVPIr" non
+  });
+}
+
+// Disponibilite : entre il y a 1 mois et dans 2 ans
+function dispoValide(d: string): boolean {
+  const t = new Date(d + "T08:00:00").getTime();
+  if (Number.isNaN(t)) return false;
+  const maintenant = Date.now();
+  return t >= maintenant - 31 * 86400000 && t <= maintenant + 2 * 365 * 86400000;
+}
+
 export async function POST(request: Request) {
   try {
     // Cle du compte invite "site" (pour que Matthieu recoive la notif d'assignation).
@@ -42,6 +75,14 @@ export async function POST(request: Request) {
 
     // Pot de miel anti-robot : champ invisible, rempli seulement par les robots.
     if (texte(form.get("site_web"))) {
+      console.log("Recrutement ignore : pot de miel rempli");
+      return NextResponse.json({ success: true });
+    }
+
+    // Temps de remplissage mesure par la page. Absent = envoi direct par un robot.
+    const duree = Number(texte(form.get("duree")));
+    if (!Number.isFinite(duree) || duree < DUREE_MIN_MS) {
+      console.log("Recrutement ignore : rempli trop vite ou hors page", duree);
       return NextResponse.json({ success: true });
     }
 
@@ -60,10 +101,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Champs manquants" }, { status: 400 });
     }
 
-    // Telephone au format +33 (comme /api/contact)
-    let telFormate = telephone.replace(/[\s.\-]/g, '');
-    if (telFormate.startsWith('0')) telFormate = '+33' + telFormate.substring(1);
-    const telValide = /^\+\d{8,15}$/.test(telFormate);
+    // Controles de format : on renvoie le champ en cause pour que le candidat corrige
+    if (!nomValide(nom)) {
+      return NextResponse.json({ success: false, champ: "nom" }, { status: 400 });
+    }
+    const telFormate = normaliserTelephone(telephone);
+    if (!telephoneValide(telFormate)) {
+      return NextResponse.json({ success: false, champ: "telephone" }, { status: 400 });
+    }
+    if (disponibilite && !dispoValide(disponibilite)) {
+      return NextResponse.json({ success: false, champ: "disponibilite" }, { status: 400 });
+    }
+
+    const telValide = true;
     const emailValide = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
     const custom_fields: { id: string; value: unknown }[] = [

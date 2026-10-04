@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Upload } from 'lucide-react';
 
 const CV_MAX_OCTETS = 4 * 1024 * 1024;
@@ -13,6 +13,11 @@ export function RecrutementForm() {
   const [formStatus, setFormStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [erreurCv, setErreurCv] = useState("");
   const [nomCv, setNomCv] = useState("");
+  const [champErreur, setChampErreur] = useState("");
+  const debut = useRef(0);
+
+  // Anti-robots : on mesure le temps de remplissage
+  useEffect(() => { debut.current = Date.now(); }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -26,6 +31,9 @@ export function RecrutementForm() {
     }
     if (cv && typeof cv !== "string" && cv.size === 0) data.delete("cv");
 
+    data.set("duree", String(debut.current ? Date.now() - debut.current : 0));
+
+    setChampErreur("");
     setFormStatus("loading");
     try {
       const res = await fetch('/api/recrutement', { method: 'POST', body: data });
@@ -38,6 +46,8 @@ export function RecrutementForm() {
           dataLayer.push({ event: 'form_submit_success', formType: 'Recrutement' });
         }
       } else {
+        const retour = await res.json().catch(() => ({}));
+        setChampErreur(typeof retour.champ === "string" ? retour.champ : "");
         setFormStatus("error");
       }
     } catch (err) {
@@ -140,7 +150,12 @@ export function RecrutementForm() {
       </div>
 
       {formStatus === "error" && (
-        <p className="text-red-500 text-sm font-bold bg-red-50 p-3 rounded-lg border border-red-200">Une erreur est survenue lors de l'envoi. Réessaie, ou appelle-nous au 04 85 69 22 04.</p>
+        <p className="text-red-500 text-sm font-bold bg-red-50 p-3 rounded-lg border border-red-200">
+          {champErreur === "nom" && "Indique ton prénom et ton nom (par exemple : Léo Martin)."}
+          {champErreur === "telephone" && "Vérifie ton numéro : il doit être français ou suisse (par exemple : 06 12 34 56 78)."}
+          {champErreur === "disponibilite" && "Vérifie ta date de disponibilité."}
+          {!["nom", "telephone", "disponibilite"].includes(champErreur) && "Une erreur est survenue lors de l'envoi. Réessaie, ou appelle-nous au 04 85 69 22 04."}
+        </p>
       )}
 
       <div className="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
