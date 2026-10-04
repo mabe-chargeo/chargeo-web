@@ -9,7 +9,6 @@ import { Navbar } from '@/components/layout/Navbar';
 import { TrustedBrands } from '@/components/layout/TrustedBrands';
 import { SimulatorCopro } from '@/components/ui/SimulatorCopro';
 import { ContactForm } from '@/components/ui/ContactForm';
-import { ReviewsCarousel } from '@/components/ui/ReviewsCarousel';
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { Footer } from '@/components/layout/Footer';
 
@@ -44,29 +43,15 @@ export default function CoproprietePage() {
     };
   }, []);
 
-  const reviews = [
-    {
-      text: "L'IRVE collective était la seule solution pérenne pour notre parking. CHARGéO a monté le dossier Advenir pour subventionner massivement l'artère principale.",
-      author: "Président du CS",
-      location: "Résidence 50 lots",
-      image: "/review-cs.webp"
-    },
-    {
-      text: "L'artère principale a été tirée. Aujourd'hui, n'importe quel résident peut demander le raccordement de sa place sans faire disjoncter l'immeuble.",
-      author: "Copropriétaire",
-      location: "Thonon",
-      image: "/review-resident.webp"
-    },
-    {
-      text: "L'accompagnement et le logiciel de supervision nous déchargent totalement. Chacun est facturé au kWh consommé, et le syndic n'a plus rien à gérer.",
-      author: "Syndic",
-      location: "Annecy",
-      image: "/review-syndic.webp"
-    }
+  // Nos engagements (remplacent les témoignages tant qu'il n'y a pas de vrais avis clients)
+  const engagements = [
+    "Vous restez propriétaires de l'infrastructure, sans contrat d'opérateur.",
+    "Un prix ferme, avec le calcul des aides ADVENIR intégré au devis.",
+    "Un interlocuteur local à Thonon, joignable en direct.",
   ];
 
   const faqs = [
-    { q: "L'infrastructure IRVE collective a-t-elle un coût pour l'immeuble ?", a: "L'installation est lourdement subventionnée (jusqu'à 50% par la Prime Advenir avec un plafond de 8 000€). Le reste à charge éventuel dépend de la complexité technique du parking et de sa configuration." },
+    { q: "L'infrastructure IRVE collective a-t-elle un coût pour l'immeuble ?", a: "Elle est subventionnée à 50 % par la prime Advenir, jusqu'à 12 500 € HT pour un parking jusqu'à 100 places (+125 € HT par place au-delà), pour un vote en AG à partir du 1er avril 2026. Une surprime jusqu'à 8 000 € HT couvre les travaux en extérieur. Le reste à charge éventuel dépend de la complexité technique du parking et de sa configuration." },
     { q: "Comment est facturée l'électricité ?", a: "Notre solution de supervision gère tout de A à Z. Chaque résident équipé dispose de son propre sous-compteur intelligent. Les factures lui sont envoyées directement (prélèvement automatique), en fonction de sa consommation réelle." },
     { q: "Et si l'infrastructure collective n'est pas votée en AG ?", a: "En dernier recours, il est possible d'envisager un branchement individuel 'Droit à la Prise'. C'est une démarche légale où le résident paie son propre tirage, mais elle est souvent moins évolutive que le collectif." },
     { q: "L'immeuble risque-t-il de disjoncter ?", a: "Absolument pas. L'infrastructure collective intègre un système de délestage dynamique (Load Balancing) qui répartit intelligemment la puissance disponible entre tous les véhicules branchés." }
@@ -178,7 +163,7 @@ export default function CoproprietePage() {
           </div>
         </section>
 
-        {/* MÉTHODOLOGIE + CARROUSEL AVIS */}
+        {/* MÉTHODOLOGIE + ENGAGEMENTS */}
         <section id="concept" className="py-24 bg-slate-50 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-20 items-center">
              <div className="space-y-8">
@@ -221,8 +206,20 @@ export default function CoproprietePage() {
                 </div>
              </div>
              
-             {/* COMPOSANT AVIS ISOLÉ */}
-             <ReviewsCarousel reviews={reviews} />
+             {/* BLOC ENGAGEMENTS (remplace le carrousel d'avis en attendant de vrais avis clients) */}
+             <div className="relative aspect-4/5 w-full rounded-[2.5rem] overflow-hidden shadow-2xl bg-[#032b60]">
+               <Image src="/hero-copro.webp" alt="Parking de copropriété prêt pour la recharge" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
+               <div className="absolute inset-0 bg-linear-to-t from-[#032b60] via-[#032b60]/60 to-transparent"></div>
+               <div className="absolute bottom-0 left-0 right-0 p-8 md:p-10 space-y-5">
+                 <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">Nos engagements</p>
+                 {engagements.map((item) => (
+                   <div key={item} className="flex items-start gap-3">
+                     <CheckCircle size={20} className="text-[#0097b2] shrink-0 mt-0.5" />
+                     <p className="text-white font-bold text-base md:text-lg leading-snug">{item}</p>
+                   </div>
+                 ))}
+               </div>
+             </div>
           </div>
         </section>
 
