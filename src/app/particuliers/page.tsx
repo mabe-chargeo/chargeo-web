@@ -45,29 +45,30 @@ export default function ParticuliersPage() {
     };
   }, []);
 
-  const reviews = [
+  // Exemples de projets types (pas des avis clients). À remplacer par de vrais avis, avec variant="avis", dès les premiers chantiers.
+  const casTypes = [
     {
-      text: "Enfin un installateur qui explique les vraies économies. J'ai divisé mon budget carburant par 4 dès le premier mois.",
-      author: "Jean-Philippe",
-      location: "74200 Thonon",
-      image: "/review-particulier-1.webp"
+      text: "Maison avec un abonnement 9 kVA : wallbox 7,4 kW avec délesteur, la recharge baisse toute seule quand le four tourne. Prix ferme annoncé après la visite gratuite.",
+      author: "Maison individuelle",
+      location: "Thonon-les-Bains",
+      image: "/hero-particulier.webp"
     },
     {
-      text: "La visite technique a été planifiée en 2 jours. Devis clair, sans surprise. La borne 7.4kW change tout par rapport à ma prise standard.",
-      author: "Sophie",
-      location: "74000 Annecy",
-      image: "/review-particulier-2.webp"
+      text: "Aller-retour Thonon–Genève chaque jour : la wallbox récupère environ 40 km par heure, la batterie est pleine le matin, au tarif des heures creuses.",
+      author: "Frontalier",
+      location: "Chablais",
+      image: "/tech-chargeo.webp"
     },
     {
-      text: "Devis reçu rapidement et pose effectuée en 10 jours. L'équipe est experte et gère directement les aides de l'État.",
-      author: "Marc",
-      location: "74100 Annemasse",
-      image: "/review-particulier-3.webp"
+      text: "Appartement avec place de parking : dossier technique préparé pour le syndic, borne posée après le délai légal, prime Advenir jusqu'à 1 000 € HT.",
+      author: "Droit à la prise",
+      location: "Évian-les-Bains",
+      image: "/hero-copro.webp"
     }
   ];
 
   const faqs = [
-    { q: "Quelles sont les aides de l'État ?", a: "En choisissant CHARGéO, installateur qualifié IRVE, bénéficiez de la Prime Advenir (jusqu'à 600€) et de la TVA réduite à 5,5%. Nous gérons tout l'administratif." },
+    { q: "Quelles sont les aides de l'État ?", a: "En maison individuelle, la pose d'une borne bénéficie d'une TVA réduite à 5,5 % dans un logement de plus de 2 ans (le crédit d'impôt a disparu au 1er janvier 2026). En appartement, la prime Advenir finance 50 % de votre borne, jusqu'à 1 000 € HT. Nous gérons tout l'administratif." },
     { q: "Quel est le délai d'installation ?", a: "Après votre demande de devis, une visite technique gratuite est planifiée. L'installation se fait généralement sous 10 à 15 jours après validation du devis." },
     { q: "Compatibilité véhicule ?", a: "Standard européen Type 2, compatible avec 100% des véhicules électriques et hybrides du marché." },
     { q: "Qualification IRVE ?", a: "Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Elle garantit votre sécurité, la validité de votre assurance habitation et la garantie de votre véhicule." }
@@ -158,7 +159,7 @@ export default function ParticuliersPage() {
         {/* BANDEAU CONFIANCE */}
         <TrustedBrands />
 
-        {/* MÉTHODOLOGIE + CARROUSEL AVIS */}
+        {/* MÉTHODOLOGIE + CARROUSEL CAS TYPES */}
         <section id="concept" className="py-24 bg-slate-50 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-20 items-center">
              <div className="space-y-8">
@@ -184,7 +185,8 @@ export default function ParticuliersPage() {
                 </div>
              </div>
              
-             <ReviewsCarousel reviews={reviews} />
+             {/* CARROUSEL CAS TYPES (à basculer en variant="avis" avec de vrais avis clients) */}
+             <ReviewsCarousel reviews={casTypes} variant="cas" />
           </div>
         </section>
 
@@ -207,8 +209,8 @@ export default function ParticuliersPage() {
                 </p>
                 <div className="flex items-center gap-6 pt-4">
                   <div className="flex -space-x-4">
-                    <img className="w-12 h-12 rounded-full border-2 border-[#032b60] object-cover hover:-translate-y-1 transition-transform" src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100&h=100&fit=crop&crop=faces" alt="Technicien CHARGéO" />
-                    <img className="w-12 h-12 rounded-full border-2 border-[#032b60] object-cover hover:-translate-y-1 transition-transform" src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=faces" alt="Expert CHARGéO" />
+                    <div className="w-12 h-12 rounded-full border-2 border-[#032b60] bg-white flex items-center justify-center text-[#032b60] hover:-translate-y-1 transition-transform"><Wrench size={18} /></div>
+                    <div className="w-12 h-12 rounded-full border-2 border-[#032b60] bg-white/90 flex items-center justify-center text-[#0097b2] hover:-translate-y-1 transition-transform"><ShieldCheck size={18} /></div>
                     <div className="w-12 h-12 rounded-full border-2 border-[#032b60] bg-[#0097b2] flex items-center justify-center text-white font-black text-[10px] hover:-translate-y-1 transition-transform">IRVE</div>
                   </div>
                   <div className="text-sm font-bold">
@@ -228,7 +230,7 @@ export default function ParticuliersPage() {
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
                   <FileText className="text-[#0097b2] mb-4" size={32} />
                   <h4 className="text-white font-black uppercase tracking-wider mb-2">Administratif Inclus</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed grow">Nous montons de A à Z vos dossiers de Prime Advenir (jusqu'à 600€) et la demande de TVA réduite.</p>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed grow">Nous montons votre dossier de prime Advenir en appartement (jusqu'à 1 000 € HT) et appliquons la TVA réduite à 5,5 % quand votre logement y a droit.</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 sm:col-span-2">
                   <Wrench className="text-[#0097b2] mb-4" size={32} />

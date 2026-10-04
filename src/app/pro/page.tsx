@@ -46,23 +46,24 @@ export default function ProPage() {
     };
   }, []);
 
-  const reviews = [
+  // Exemples de projets types (pas des avis clients). À remplacer par de vrais avis, avec variant="avis", dès les premiers chantiers.
+  const casTypes = [
     {
-      text: "Nous voulions offrir un service de recharge à notre clientèle. CHARGéO a géré l'installation, et la borne génère aujourd'hui des revenus chaque mois.",
-      author: "Directeur d'Hôtel",
-      location: "74500 Évian",
+      text: "Hôtel avec parking visiteurs : bornes avec paiement par QR code, vous fixez le tarif au kWh et les revenus vous sont reversés chaque mois.",
+      author: "Hôtel & tertiaire",
+      location: "Évian-les-Bains",
       image: "/review-hotel.webp"
     },
     {
-      text: "Pour nos commerciaux, la solution à domicile est parfaite. Le logiciel relève automatiquement leurs recharges pro. Gain de temps énorme.",
-      author: "DRH",
-      location: "74000 Annecy",
+      text: "Commerciaux qui rechargent à la maison : badge RFID, consommation pro isolée, relevé mensuel pour le remboursement en note de frais.",
+      author: "Domicile collaborateurs",
+      location: "Annemasse",
       image: "/review-domicile.webp"
     },
     {
-      text: "Nous avons équipé notre parking avec délestage dynamique. Parfait pour respecter la Loi LOM, et l'amortissement comptable est un vrai plus.",
-      author: "Gérant",
-      location: "74200 Thonon",
+      text: "Parking de PME avec plusieurs véhicules électriques : pilotage dynamique de la charge pour recharger toute la flotte sans augmenter l'abonnement.",
+      author: "Flotte & PME",
+      location: "Thonon-les-Bains",
       image: "/review-flotte.webp"
     }
   ];
@@ -186,7 +187,8 @@ export default function ProPage() {
                 </div>
              </div>
 
-             <ReviewsCarousel reviews={reviews} />
+             {/* CARROUSEL CAS TYPES (à basculer en variant="avis" avec de vrais avis clients) */}
+             <ReviewsCarousel reviews={casTypes} variant="cas" />
           </div>
         </section>
 
