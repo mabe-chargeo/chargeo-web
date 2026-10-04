@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 640" width="720" height="640" font-family="Arial, Helvetica, sans-serif">
+  <rect x="0" y="0" width="720" height="640" rx="32" fill="#f1f9fb"/>
+  <text x="40" y="62" font-size="30" font-weight="700" fill="#032b60">Puissance réelle de recharge (kW)</text>
+  <text x="40" y="98" font-size="20" fill="#64748b">C'est toujours la plus faible entre la borne et la voiture</text>
+
+  <rect x="30" y="130" width="250" height="80" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="45" y="165" font-size="19" font-weight="700" fill="#032b60">Chargeur</text>
+  <text x="45" y="191" font-size="19" font-weight="700" fill="#032b60">de la voiture</text>
+
+  <rect x="280" y="130" width="140" height="80" fill="#032b60" stroke="#cbd5e1"/>
+  <text x="350" y="163" font-size="18" fill="#ffffff" text-anchor="middle">Borne</text>
+  <text x="350" y="191" font-size="20" font-weight="700" fill="#ffffff" text-anchor="middle">7,4 mono</text>
+  <rect x="420" y="130" width="140" height="80" fill="#032b60" stroke="#cbd5e1"/>
+  <text x="490" y="163" font-size="18" fill="#ffffff" text-anchor="middle">Borne</text>
+  <text x="490" y="191" font-size="20" font-weight="700" fill="#ffffff" text-anchor="middle">11 tri</text>
+  <rect x="560" y="130" width="140" height="80" fill="#032b60" stroke="#cbd5e1"/>
+  <text x="630" y="163" font-size="18" fill="#ffffff" text-anchor="middle">Borne</text>
+  <text x="630" y="191" font-size="20" font-weight="700" fill="#ffffff" text-anchor="middle">22 tri</text>
+
+  <rect x="30" y="210" width="250" height="100" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="45" y="252" font-size="24" font-weight="700" fill="#032b60">7,4 kW</text>
+  <text x="45" y="282" font-size="20" fill="#475569">monophasé</text>
+  <rect x="280" y="210" width="140" height="100" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="350" y="271" font-size="30" font-weight="700" fill="#032b60" text-anchor="middle">7,4</text>
+  <rect x="420" y="210" width="140" height="100" fill="#FF6B00" stroke="#cbd5e1"/>
+  <text x="490" y="271" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle">3,7</text>
+  <rect x="560" y="210" width="140" height="100" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="630" y="271" font-size="30" font-weight="700" fill="#032b60" text-anchor="middle">7,4</text>
+
+  <rect x="30" y="310" width="250" height="100" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="45" y="352" font-size="24" font-weight="700" fill="#032b60">11 kW</text>
+  <text x="45" y="382" font-size="20" fill="#475569">triphasé</text>
+  <rect x="280" y="310" width="140" height="100" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="350" y="371" font-size="24" font-weight="700" fill="#032b60" text-anchor="middle">3,7 à 7,4*</text>
+  <rect x="420" y="310" width="140" height="100" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="490" y="371" font-size="30" font-weight="700" fill="#0097b2" text-anchor="middle">11</text>
+  <rect x="560" y="310" width="140" height="100" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="630" y="371" font-size="30" font-weight="700" fill="#0097b2" text-anchor="middle">11</text>
+
+  <rect x="30" y="410" width="250" height="100" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="45" y="452" font-size="24" font-weight="700" fill="#032b60">22 kW</text>
+  <text x="45" y="482" font-size="20" fill="#475569">triphasé</text>
+  <rect x="280" y="410" width="140" height="100" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="350" y="471" font-size="30" font-weight="700" fill="#032b60" text-anchor="middle">7,4</text>
+  <rect x="420" y="410" width="140" height="100" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="490" y="471" font-size="30" font-weight="700" fill="#0097b2" text-anchor="middle">11</text>
+  <rect x="560" y="410" width="140" height="100" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="630" y="471" font-size="30" font-weight="700" fill="#0097b2" text-anchor="middle">22</text>
+
+  <rect x="40" y="540" width="22" height="22" rx="4" fill="#FF6B00"/>
+  <text x="74" y="558" font-size="18" fill="#475569">Le piège : voiture monophasée sur borne triphasée 11 kW</text>
+  <text x="40" y="592" font-size="18" fill="#475569">* selon le modèle : vérifiez la « charge AC monophasée »</text>
+  <text x="680" y="620" font-size="18" fill="#94a3b8" text-anchor="end">chargeo.fr</text>
+</svg>
