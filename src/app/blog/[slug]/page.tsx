@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
@@ -28,6 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: article.description,
       publishedTime: article.date,
       locale: "fr_FR",
+      images: [{ url: article.cover.src, alt: article.cover.alt }],
     },
   };
 }
@@ -60,6 +62,22 @@ function BlockView({ block }: { block: Block }) {
           {block.text}
         </div>
       );
+    case "figure":
+      return (
+        <figure className="py-2">
+          <Image
+            src={block.src}
+            alt={block.alt}
+            width={block.width}
+            height={block.height}
+            unoptimized
+            className="w-full h-auto max-w-xl mx-auto rounded-2xl"
+          />
+          {block.caption && (
+            <figcaption className="text-center text-sm text-slate-400 font-medium mt-3">{block.caption}</figcaption>
+          )}
+        </figure>
+      );
     default:
       return null;
   }
@@ -75,6 +93,7 @@ export default async function ArticlePage({ params }: Props) {
     "@type": "BlogPosting",
     headline: article.title,
     description: article.description,
+    image: `https://www.chargeo.fr${article.cover.src}`,
     datePublished: article.date,
     dateModified: article.date,
     inLanguage: "fr-FR",
@@ -105,9 +124,20 @@ export default async function ArticlePage({ params }: Props) {
 
         <span className="block text-[10px] font-black uppercase tracking-widest text-[#0097b2] mb-4">{article.category}</span>
         <h1 className="text-3xl md:text-5xl font-black text-[#032b60] tracking-tighter leading-tight mb-6">{article.title}</h1>
-        <p className="flex items-center gap-2 text-xs text-slate-400 font-bold mb-10">
+        <p className="flex items-center gap-2 text-xs text-slate-400 font-bold mb-8">
           <Clock size={14} /> {article.readingMinutes} min de lecture · Publié le {formatDate(article.date)}
         </p>
+
+        <div className="relative aspect-video rounded-[2rem] overflow-hidden mb-10 bg-[#032b60] shadow-sm">
+          <Image
+            src={article.cover.src}
+            alt={article.cover.alt}
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, 768px"
+            className="object-cover"
+          />
+        </div>
 
         <article className="bg-white p-6 sm:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
           {article.blocks.map((block, i) => (

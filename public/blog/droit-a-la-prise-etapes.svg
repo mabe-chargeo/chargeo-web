@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 880" width="720" height="880" font-family="Arial, Helvetica, sans-serif">
+  <rect x="0" y="0" width="720" height="880" rx="32" fill="#f1f9fb"/>
+  <text x="40" y="66" font-size="30" font-weight="700" fill="#032b60">Droit à la prise : les 5 étapes</text>
+  <line x1="90" y1="140" x2="90" y2="780" stroke="#0097b2" stroke-width="4" stroke-dasharray="10 8"/>
+
+  <circle cx="90" cy="140" r="34" fill="#0097b2"/>
+  <text x="90" y="151" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
+  <text x="150" y="132" font-size="28" font-weight="700" fill="#032b60">Étude technique</text>
+  <text x="150" y="168" font-size="22" fill="#475569">Par un installateur qualifié IRVE</text>
+
+  <circle cx="90" cy="300" r="34" fill="#0097b2"/>
+  <text x="90" y="311" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle">2</text>
+  <text x="150" y="292" font-size="28" font-weight="700" fill="#032b60">Courrier au syndic</text>
+  <text x="150" y="328" font-size="22" fill="#475569">Recommandé + descriptif, plan, schéma</text>
+
+  <circle cx="90" cy="460" r="34" fill="#0097b2"/>
+  <text x="90" y="471" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle">3</text>
+  <text x="150" y="452" font-size="28" font-weight="700" fill="#032b60">Assemblée générale</text>
+  <text x="150" y="488" font-size="22" fill="#475569">Pour information, sans vote</text>
+
+  <circle cx="90" cy="620" r="34" fill="#0097b2"/>
+  <text x="90" y="631" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle">4</text>
+  <text x="150" y="612" font-size="28" font-weight="700" fill="#032b60">3 mois de délai</text>
+  <text x="150" y="648" font-size="22" fill="#475569">Pour une éventuelle opposition au tribunal</text>
+
+  <circle cx="90" cy="780" r="34" fill="#FF6B00"/>
+  <text x="90" y="791" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle">5</text>
+  <text x="150" y="772" font-size="28" font-weight="700" fill="#032b60">Travaux et mise en service</text>
+  <text x="150" y="808" font-size="22" fill="#475569">Attestation de conformité remise</text>
+
+  <text x="680" y="856" font-size="18" fill="#94a3b8" text-anchor="end">chargeo.fr</text>
+</svg>

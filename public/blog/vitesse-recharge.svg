@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 580" width="720" height="580" font-family="Arial, Helvetica, sans-serif">
+  <rect x="0" y="0" width="720" height="580" rx="32" fill="#f1f9fb"/>
+  <text x="40" y="66" font-size="28" font-weight="700" fill="#032b60">Kilomètres récupérés par heure de charge</text>
+
+  <text x="40" y="130" font-size="24" font-weight="700" fill="#032b60">Prise classique · 2,3 kW</text>
+  <rect x="40" y="146" width="105" height="38" rx="8" fill="#94a3b8"/>
+  <rect x="145" y="146" width="35" height="38" rx="8" fill="#94a3b8" opacity="0.45"/>
+  <text x="196" y="174" font-size="24" font-weight="700" fill="#475569">10 à 15 km/h</text>
+
+  <text x="40" y="240" font-size="24" font-weight="700" fill="#032b60">Prise renforcée · 3,7 kW</text>
+  <rect x="40" y="256" width="105" height="38" rx="8" fill="#5fc3d6"/>
+  <rect x="145" y="256" width="35" height="38" rx="8" fill="#5fc3d6" opacity="0.45"/>
+  <text x="196" y="284" font-size="24" font-weight="700" fill="#475569">15 à 20 km/h</text>
+
+  <text x="40" y="350" font-size="24" font-weight="700" fill="#032b60">Wallbox · 7,4 kW (monophasé)</text>
+  <rect x="40" y="366" width="245" height="38" rx="8" fill="#0097b2"/>
+  <rect x="285" y="366" width="70" height="38" rx="8" fill="#0097b2" opacity="0.45"/>
+  <text x="371" y="394" font-size="24" font-weight="700" fill="#0097b2">35 à 45 km/h</text>
+
+  <text x="40" y="460" font-size="24" font-weight="700" fill="#032b60">Wallbox · 11 kW (triphasé)</text>
+  <rect x="40" y="476" width="385" height="38" rx="8" fill="#032b60"/>
+  <rect x="425" y="476" width="70" height="38" rx="8" fill="#032b60" opacity="0.45"/>
+  <text x="511" y="504" font-size="24" font-weight="700" fill="#032b60">55 à 65 km/h</text>
+
+  <text x="40" y="556" font-size="17" fill="#64748b">Valeurs indicatives pour un véhicule consommant environ 17 kWh aux 100 km.</text>
+</svg>

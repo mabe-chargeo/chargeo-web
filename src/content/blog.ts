@@ -1,13 +1,15 @@
 // src/content/blog.ts
 // Contenu du blog "Guides & conseils".
 // Pour ajouter un article : copier un bloc { ... } dans la liste `articles`, changer le slug (adresse), le titre, la date et le contenu.
+// Images : couverture = une photo de /public ; schémas = fichiers SVG dans /public/blog.
 
 export type Block =
   | { type: "h2"; text: string }
   | { type: "p"; text: string }
   | { type: "ul"; items: string[] }
   | { type: "ol"; items: string[] }
-  | { type: "callout"; text: string };
+  | { type: "callout"; text: string }
+  | { type: "figure"; src: string; alt: string; caption?: string; width: number; height: number };
 
 export interface Article {
   slug: string;
@@ -16,6 +18,7 @@ export interface Article {
   date: string; // AAAA-MM-JJ
   readingMinutes: number;
   category: string;
+  cover: { src: string; alt: string };
   cta: { label: string; href: string };
   blocks: Block[];
 }
@@ -29,6 +32,7 @@ export const articles: Article[] = [
     date: "2026-10-04",
     readingMinutes: 5,
     category: "Copropriété",
+    cover: { src: "/tech-chargeo.webp", alt: "Technicien en intervention sur une installation de recharge" },
     cta: { label: "Étudier mon projet", href: "/particuliers" },
     blocks: [
       {
@@ -41,6 +45,13 @@ export const articles: Article[] = [
         text: "Créé en 2011 et renforcé par la loi d'orientation des mobilités (LOM) de 2019, le droit à la prise permet à tout copropriétaire, mais aussi à un locataire ou à un occupant de bonne foi, d'installer à ses frais un point de recharge sur sa place de stationnement dans le parking de l'immeuble. La copropriété ne peut pas simplement refuser : pour s'y opposer, elle doit saisir le tribunal, et seulement pour un motif sérieux et légitime.",
       },
       { type: "h2", text: "Les démarches, étape par étape" },
+      {
+        type: "figure",
+        src: "/blog/droit-a-la-prise-etapes.svg",
+        alt: "Les 5 étapes du droit à la prise : étude technique, courrier au syndic, assemblée générale pour information, 3 mois de délai, travaux et mise en service",
+        width: 720,
+        height: 880,
+      },
       {
         type: "ol",
         items: [
@@ -84,6 +95,7 @@ export const articles: Article[] = [
     date: "2026-10-04",
     readingMinutes: 4,
     category: "Particuliers",
+    cover: { src: "/hero-particulier.webp", alt: "Recharge d'une voiture électrique à domicile" },
     cta: { label: "Simuler mon installation", href: "/particuliers" },
     blocks: [
       {
@@ -98,6 +110,13 @@ export const articles: Article[] = [
           "Prise renforcée (environ 3,2 à 3,7 kW) : une prise spéciale sur un circuit dédié. Environ 15 à 20 km par heure, soit 120 à 150 km sur une nuit de 8 heures.",
           "Borne murale ou wallbox (7,4 kW en monophasé) : environ 35 à 45 km par heure. La batterie se recharge en une nuit, même après une grosse journée.",
         ],
+      },
+      {
+        type: "figure",
+        src: "/blog/vitesse-recharge.svg",
+        alt: "Comparatif des kilomètres récupérés par heure : prise classique 10 à 15 km, prise renforcée 15 à 20 km, wallbox 7,4 kW 35 à 45 km, wallbox 11 kW 55 à 65 km",
+        width: 720,
+        height: 580,
       },
       {
         type: "p",
@@ -145,6 +164,7 @@ export const articles: Article[] = [
     date: "2026-10-04",
     readingMinutes: 5,
     category: "Copropriété",
+    cover: { src: "/hero-copro.webp", alt: "Immeuble en copropriété avec parking" },
     cta: { label: "Découvrir l'offre copropriété", href: "/copropriete" },
     blocks: [
       {
@@ -155,6 +175,14 @@ export const articles: Article[] = [
       {
         type: "p",
         text: "On installe une fois pour toutes l'ossature électrique du parking : une alimentation dédiée, un tableau pour la recharge et un câble principal qui longe les places. Chaque résident qui le souhaite fait ensuite poser sa borne et la raccorde sur ce câble, sans nouveaux gros travaux. L'immeuble est prêt pour tout le monde, et il prend de la valeur.",
+      },
+      {
+        type: "figure",
+        src: "/blog/infrastructure-collective.svg",
+        alt: "Schéma d'une infrastructure collective : compteur des services généraux, tableau de recharge, câble principal le long des places, bornes raccordées au fil des demandes",
+        caption: "Le câble principal est posé une fois : chaque résident s'y raccorde quand il passe à l'électrique.",
+        width: 720,
+        height: 560,
       },
       { type: "h2", text: "Ce que finance ADVENIR" },
       {

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, BookOpen, Clock } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -37,18 +38,29 @@ export default function BlogPage() {
             <Link
               key={article.slug}
               href={`/blog/${article.slug}`}
-              className="group flex flex-col bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md hover:border-[#0097b2]/30 transition-all"
+              className="group flex flex-col bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md hover:border-[#0097b2]/30 transition-all overflow-hidden"
             >
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#0097b2] mb-3">{article.category}</span>
-              <h2 className="text-xl md:text-2xl font-black text-[#032b60] tracking-tight leading-snug mb-3 group-hover:text-[#0097b2] transition-colors">
-                {article.title}
-              </h2>
-              <p className="text-sm text-slate-500 leading-relaxed mb-6 flex-grow">{article.description}</p>
-              <div className="flex items-center justify-between text-xs text-slate-400 font-bold">
-                <span className="flex items-center gap-2">
-                  <Clock size={14} /> {article.readingMinutes} min · {formatDate(article.date)}
-                </span>
-                <ArrowRight size={18} className="text-[#032b60] group-hover:translate-x-1 transition-transform" />
+              <div className="relative aspect-video overflow-hidden bg-[#032b60]">
+                <Image
+                  src={article.cover.src}
+                  alt={article.cover.alt}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  className="object-cover group-hover:scale-105 transition-transform duration-700"
+                />
+              </div>
+              <div className="flex flex-col flex-grow p-8">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#0097b2] mb-3">{article.category}</span>
+                <h2 className="text-xl md:text-2xl font-black text-[#032b60] tracking-tight leading-snug mb-3 group-hover:text-[#0097b2] transition-colors">
+                  {article.title}
+                </h2>
+                <p className="text-sm text-slate-500 leading-relaxed mb-6 flex-grow">{article.description}</p>
+                <div className="flex items-center justify-between text-xs text-slate-400 font-bold">
+                  <span className="flex items-center gap-2">
+                    <Clock size={14} /> {article.readingMinutes} min · {formatDate(article.date)}
+                  </span>
+                  <ArrowRight size={18} className="text-[#032b60] group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
             </Link>
           ))}
