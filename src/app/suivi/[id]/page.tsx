@@ -3,39 +3,120 @@ import { notFound, redirect } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { SavForm } from '@/components/ui/SavForm';
-import { ESPACE_CLIENT_COOKIE, getClickUpTask, tokenAllowsDossier } from '@/lib/espace-client';
+import { ESPACE_CLIENT_COOKIE, getClickUpTask, getTaskEmail, tokenAllowsDossier } from '@/lib/espace-client';
 
+// Devis jamais montrés au client : brouillons, anciennes versions révisées, supprimés, annulés
+const STATUTS_MASQUES = ['draft', 'revised', 'deleted', 'cancelled'];
+
+// Mots trop génériques pour reconnaître une copropriété par son nom
+const MOTS_GENERIQUES = new Set([
+  'synd', 'syndicat', 'copro', 'copr', 'copropriete', 'coproprietaires', 'residence', 'domaine',
+  'sdc', 'les', 'des', 'chez', 'societe', 'mairie', 'commune',
+]);
+
+function normaliser(s: string): string {
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function motsCles(s: string): string[] {
+  return normaliser(s)
+    .split(/[^a-z0-9]+/)
+    .filter((m) => m.length >= 4 && !MOTS_GENERIQUES.has(m));
+}
+
+async function fetchQuotes(token: string, query: string): Promise<any[]> {
+  try {
+    const res = await fetch(`https://api.costructor.co/external/v1/quotes?${query}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return Array.isArray(json?.data) ? json.data : [];
+  } catch {
+    return [];
+  }
+}
+
+const estVisible = (q: any) => !STATUTS_MASQUES.includes(q?.status);
+const lienPartage = (q: any): string => String(q?.hostedUrl || q?.hosted_url || '');
+
+// Retrouve les devis du client, dans cet ordre :
+// 1. contact Costructor indiqué dans "Lien Costructor" (cnt_...)
+// 2. sinon, si ce champ contient un lien de partage de devis, le client de ce devis
+// 3. sinon, le client Costructor qui a le même email que le dossier (si plusieurs, celui dont le nom ressemble au dossier)
 async function getDevisClient(taskData: any) {
   const token = process.env.COSTRUCTOR_API_KEY;
   if (!token) return [];
 
-  const lienField = taskData.custom_fields?.find(
-    (f: any) => f.id === 'd9f88e8f-4e20-4a98-aee8-3ded30fef5fc'
-  );
-  const match = (lienField?.value || '').match(/cnt_[a-z0-9]+/i);
-  if (!match) return [];
-  const contactId = match[0];
+  const fields: any[] = taskData.custom_fields || [];
+  const lienField =
+    fields.find((f) => f.id === 'd9f88e8f-4e20-4a98-aee8-3ded30fef5fc') ||
+    fields.find((f) => normaliser(f.name).includes('costructor'));
+  const lien = String(lienField?.value || '').trim();
+  const contactMatch = lien.match(/cnt_[a-z0-9]+/i);
+  const emailDossier = getTaskEmail(taskData);
 
-  try {
-    const res = await fetch(
-      `https://api.costructor.co/external/v1/quotes?customer=${contactId}&limit=50`,
-      { headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store' }
-    );
-    if (!res.ok) return [];
-    const json = await res.json();
+  let quotes: any[] = [];
 
-    return (json.data || [])
-      .filter((q: any) => q.status !== 'deleted')
-      .map((q: any) => ({
-        numero: q.number,
-        nom: q.name || 'Devis',
-        accepte: q.status === 'accepted',
-        total: (q.total / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }),
-        pdfId: q.pdf?.id || null,
-      }));
-  } catch {
-    return [];
+  if (contactMatch) {
+    quotes = (await fetchQuotes(token, `customer=${contactMatch[0]}&limit=50`)).filter(estVisible);
   }
+
+  if (quotes.length === 0 && (lien || emailDossier)) {
+    const tous = await fetchQuotes(token, 'limit=100');
+    let clientId: string | null = null;
+
+    // Lien de partage d'un devis collé dans le champ
+    if (lien) {
+      const viaLien = tous.find((q) => lienPartage(q) && lienPartage(q) === lien);
+      clientId = viaLien?.customer?.id || null;
+    }
+
+    // Même email que le dossier
+    if (!clientId && emailDossier) {
+      const clients = new Map<string, string>();
+      for (const q of tous) {
+        const email = String(q?.customer?.email || '').trim().toLowerCase();
+        if (q?.customer?.id && email === emailDossier) {
+          clients.set(q.customer.id, q.customer.fullName || q.customer.companyName || '');
+        }
+      }
+      if (clients.size === 1) {
+        clientId = [...clients.keys()][0];
+      } else if (clients.size > 1) {
+        // Un syndic gère souvent plusieurs copropriétés avec le même email : on prend celle dont le nom ressemble au dossier
+        const motsDossier = new Set(motsCles(taskData.name || ''));
+        let meilleur: string | null = null;
+        let meilleurScore = 0;
+        let egalite = false;
+        for (const [id, nom] of clients) {
+          const score = motsCles(nom).filter((m) => motsDossier.has(m)).length;
+          if (score > meilleurScore) {
+            meilleur = id;
+            meilleurScore = score;
+            egalite = false;
+          } else if (score === meilleurScore && score > 0) {
+            egalite = true;
+          }
+        }
+        clientId = meilleurScore > 0 && !egalite ? meilleur : null;
+      }
+    }
+
+    if (clientId) {
+      quotes = tous.filter((q) => q?.customer?.id === clientId && estVisible(q));
+    }
+  }
+
+  return quotes.map((q: any) => ({
+    numero: q.number,
+    nom: q.name || 'Devis',
+    accepte: q.status === 'accepted',
+    total: (q.total / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }),
+    pdfId: q.pdf?.id || null,
+    lienEnLigne: lienPartage(q) || null,
+  }));
 }
 
 export default async function SuiviClientPage({ params }: { params: Promise<{ id: string }> }) {
@@ -214,35 +295,41 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
           })()}
 
           {devis.length > 0 && (
-  <div className="mt-8 bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
-    <span className="text-[10px] font-black uppercase tracking-widest text-[#032b60]">Vos devis</span>
-    <div className="mt-4 space-y-3">
-      {devis.map((d: any) => (
-        <a
-          key={d.numero + (d.pdfId || '')}
-          href={d.pdfId ? `/api/devis-pdf/${d.pdfId}` : undefined}
-          target="_blank"
-          className={`flex items-center justify-between rounded-2xl border border-slate-100 p-4 transition ${d.pdfId ? 'cursor-pointer hover:border-[#0097b2] hover:shadow-sm' : ''}`}
-        >
-          <div>
-            <p className="font-semibold text-slate-800">{d.nom}</p>
-            <p className="text-sm text-slate-500">
-              N° {d.numero} · {d.total}
-              {d.accepte && <span className="ml-2 font-semibold text-[#0097b2]">✓ Accepté</span>}
-            </p>
-          </div>
-          {d.pdfId ? (
-            <span className="rounded-lg bg-[#0097b2] px-4 py-2 text-sm font-semibold text-white">Voir le devis →</span>
-          ) : (
-            <span className="text-xs text-slate-400">PDF bientôt dispo</span>
+            <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#032b60]">Vos devis</span>
+              <div className="mt-4 space-y-3">
+                {devis.map((d: any) => {
+                  // Lien de partage Costructor en priorité (consultation + signature en ligne), sinon le PDF
+                  const href = d.lienEnLigne || (d.pdfId ? `/api/devis-pdf/${d.pdfId}` : undefined);
+                  const libelle = d.lienEnLigne && !d.accepte ? 'Voir et signer →' : 'Voir le devis →';
+                  return (
+                    <a
+                      key={d.numero + (d.pdfId || d.lienEnLigne || '')}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center justify-between gap-4 rounded-2xl border border-slate-100 p-4 transition ${href ? 'cursor-pointer hover:border-[#0097b2] hover:shadow-sm' : ''}`}
+                    >
+                      <div>
+                        <p className="font-semibold text-slate-800">{d.nom}</p>
+                        <p className="text-sm text-slate-500">
+                          N° {d.numero} · {d.total}
+                          {d.accepte && <span className="ml-2 font-semibold text-[#0097b2]">✓ Accepté</span>}
+                        </p>
+                      </div>
+                      {href ? (
+                        <span className="shrink-0 rounded-lg bg-[#0097b2] px-4 py-2 text-sm font-semibold text-white">{libelle}</span>
+                      ) : (
+                        <span className="shrink-0 text-xs text-slate-400">PDF bientôt dispo</span>
+                      )}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
           )}
-        </a>
-      ))}
-    </div>
-  </div>
-)}
 
-{/* Bloc Formulaire SAV */}
+          {/* Bloc Formulaire SAV */}
           <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
             <div className="mb-8">
               <div className="inline-flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-full border border-slate-200 mb-4">
@@ -255,9 +342,8 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
                 Utilisez ce formulaire pour nous signaler tout dysfonctionnement. Votre demande sera traitée en priorité par nos techniciens locaux.
               </p>
             </div>
-          
 
-<SavForm clientId={resolvedParams.id} nomClient={nomChantier} />
+            <SavForm clientId={resolvedParams.id} nomClient={nomChantier} />
           </div>
 
         </div>
