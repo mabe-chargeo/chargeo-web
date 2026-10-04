@@ -2,6 +2,7 @@
 // Contenu du blog "Guides & conseils".
 // Pour ajouter un article : copier un bloc { ... } dans la liste `articles`, changer le slug (adresse), le titre, la date et le contenu.
 // Images : couverture = une photo de /public ; schémas = fichiers SVG dans /public/blog.
+// Chiffres ADVENIR vérifiés le 04/10/2026 sur advenir.mobi (barème résidentiel collectif du 1er avril 2026).
 
 export type Block =
   | { type: "h2"; text: string }
@@ -75,7 +76,11 @@ export const articles: Article[] = [
       { type: "h2", text: "Qui paie quoi ?" },
       {
         type: "p",
-        text: "Les travaux sont à votre charge : le câble, les protections, la borne et la pose. Si la borne est raccordée sur l'électricité des parties communes, votre consommation doit être comptée à part (sous-comptage) pour que la copropriété vous la refacture au juste prix. Au-delà de 3,7 kW, la pose doit obligatoirement être réalisée par un professionnel qualifié IRVE, c'est aussi une condition pour bénéficier des aides.",
+        text: "Les travaux sont à votre charge : le câble, les protections, la borne et la pose. Si la borne est raccordée sur l'électricité des parties communes, votre consommation doit être comptée à part (sous-comptage) pour que la copropriété vous la refacture au juste prix. Au-delà de 3,7 kW, la pose doit obligatoirement être réalisée par un professionnel qualifié IRVE.",
+      },
+      {
+        type: "callout",
+        text: "Bon à savoir : en copropriété, la prime ADVENIR finance 50 % de votre borne individuelle, jusqu'à 1 000 € HT, sous conditions techniques (borne pilotée notamment). C'est l'installateur qui monte le dossier et déduit la prime de votre facture.",
       },
       {
         type: "callout",
@@ -148,7 +153,7 @@ export const articles: Article[] = [
       },
       {
         type: "callout",
-        text: "À savoir : au-delà de 3,7 kW, l'installation doit obligatoirement être réalisée par un électricien qualifié IRVE. C'est une question de sécurité, et une condition pour bénéficier des aides. Dans un logement achevé depuis plus de 2 ans, la pose peut bénéficier d'une TVA réduite à 5,5 %.",
+        text: "À savoir : au-delà de 3,7 kW, l'installation doit obligatoirement être réalisée par un électricien qualifié IRVE. C'est une question de sécurité et d'assurance. Côté aides en maison individuelle, le crédit d'impôt a disparu au 1er janvier 2026 et la prime ADVENIR est réservée au logement collectif : il reste la TVA réduite à 5,5 % pour un logement achevé depuis plus de 2 ans.",
       },
       {
         type: "p",
@@ -160,7 +165,7 @@ export const articles: Article[] = [
     slug: "prime-advenir-copropriete-infrastructure-collective",
     title: "Prime ADVENIR en copropriété : financer l'infrastructure de recharge collective",
     description:
-      "Syndics et conseils syndicaux du Chablais : comment fonctionne la prime ADVENIR pour équiper le parking de votre immeuble, qui est éligible, et les étapes jusqu'au vote en assemblée générale.",
+      "Syndics et conseils syndicaux du Chablais : barème ADVENIR 2026 (jusqu'à 12 500 € HT), éligibilité de votre immeuble et étapes jusqu'au vote en assemblée générale.",
     date: "2026-10-04",
     readingMinutes: 5,
     category: "Copropriété",
@@ -184,23 +189,23 @@ export const articles: Article[] = [
         width: 720,
         height: 560,
       },
-      { type: "h2", text: "Ce que finance ADVENIR" },
+      { type: "h2", text: "Ce que finance ADVENIR en 2026" },
       {
         type: "ul",
         items: [
-          "L'infrastructure collective : jusqu'à 50 % des coûts, avec un plafond de 12 500 € HT pour une copropriété jusqu'à 100 places, majoré au-delà.",
-          "Les chemins de câbles : pris en charge à 50 % pour les parkings de moins de 40 places, à 25 % au-delà.",
-          "Les bornes individuelles raccordées ensuite : une prime par point de charge, cumulable avec l'aide à l'infrastructure.",
+          "L'infrastructure collective : 50 % des coûts HT, jusqu'à 12 500 € HT pour un parking jusqu'à 100 places, plus 125 € HT par place au-delà.",
+          "Les travaux en extérieur (voirie, cheminement de câbles dehors) : une surprime de 50 %, jusqu'à 8 000 € HT pour 100 places extérieures.",
+          "Les bornes individuelles raccordées ensuite : 50 % du coût, jusqu'à 1 000 € HT par borne, cumulable avec l'aide à l'infrastructure.",
         ],
       },
       {
         type: "callout",
-        text: "Les montants et les conditions du programme évoluent régulièrement. Ceux indiqués ici le sont à titre indicatif, à la date de publication : on vérifie toujours le barème en vigueur avant de chiffrer votre projet.",
+        text: "Ce barème s'applique depuis le 1er avril 2026, à condition que le vote en assemblée générale ait eu lieu à partir de cette date (le procès-verbal fait foi). Le programme est prolongé jusqu'au 31 décembre 2027. Montants indicatifs à la date de publication : on vérifie toujours le barème en vigueur avant de chiffrer votre projet.",
       },
       { type: "h2", text: "Votre immeuble est-il éligible ?" },
       {
         type: "p",
-        text: "L'éligibilité dépend surtout de la date du permis de construire. Les immeubles les plus anciens (permis déposé avant 2017) sont les mieux couverts. Pour un permis déposé entre 2017 et mars 2021, l'aide porte sur une partie réduite des travaux. Les immeubles plus récents doivent normalement déjà être pré-équipés par le promoteur et ne sont, en principe, plus éligibles.",
+        text: "L'éligibilité dépend surtout de la date de dépôt du permis de construire. Avant 2017, l'ensemble de l'infrastructure est pris en compte. Entre le 1er janvier 2017 et le 10 mars 2021, l'aide ne porte que sur le pilotage et les chemins de câbles (à 50 % pour les parkings de moins de 40 places, à 25 % au-delà). Les immeubles plus récents doivent déjà être pré-équipés par le promoteur et ne sont pas éligibles.",
       },
       { type: "h2", text: "Les étapes jusqu'aux travaux" },
       {
@@ -209,8 +214,8 @@ export const articles: Article[] = [
           "Le conseil syndical ou le syndic demande une étude : nombre de places, puissance disponible au compteur des services généraux, cheminement dans le parking.",
           "L'installateur remet un devis détaillé, avec le montant d'aide ADVENIR estimé et la puissance à réserver pour la recharge.",
           "Le projet est inscrit à l'ordre du jour de l'assemblée générale. Depuis la loi LOM, ces travaux se votent à la majorité simple des copropriétaires présents ou représentés.",
-          "Le dossier ADVENIR est déposé avant le démarrage des travaux, par un installateur labellisé ADVENIR.",
-          "Travaux et mise en service, puis versement de la prime une fois le chantier terminé et les justificatifs transmis.",
+          "La demande de prime est déposée sur la plateforme ADVENIR, par le syndic accompagné de l'installateur, avec le devis et le procès-verbal d'assemblée générale.",
+          "Travaux et mise en service, puis versement de la prime sur présentation de la facture.",
         ],
       },
       { type: "h2", text: "Quelle puissance faut-il prévoir ?" },
