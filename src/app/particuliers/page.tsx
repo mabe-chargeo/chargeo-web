@@ -68,7 +68,7 @@ export default function ParticuliersPage() {
   ];
 
   const faqs = [
-    { q: "Quelles sont les aides de l'État ?", a: "En maison individuelle, la pose d'une borne bénéficie d'une TVA réduite à 5,5 % dans un logement de plus de 2 ans (le crédit d'impôt a disparu au 1er janvier 2026). En appartement, la prime Advenir finance 50 % de votre borne, jusqu'à 1 000 € HT. Nous gérons tout l'administratif." },
+    { q: "Quelles sont les aides de l'État ?", a: "En maison comme en appartement, la borne et sa pose bénéficient d'une TVA réduite à 5,5 % lorsqu'elles sont facturées ensemble par un installateur qualifié IRVE (le crédit d'impôt a disparu au 1er janvier 2026). En appartement, la prime Advenir finance en plus 50 % de votre borne, jusqu'à 1 000 € HT. Nous gérons tout l'administratif." },
     { q: "Quel est le délai d'installation ?", a: "Après votre demande de devis, une visite technique gratuite est planifiée. L'installation se fait généralement sous 10 à 15 jours après validation du devis." },
     { q: "Compatibilité véhicule ?", a: "Standard européen Type 2, compatible avec 100% des véhicules électriques et hybrides du marché." },
     { q: "Qualification IRVE ?", a: "Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Elle garantit votre sécurité, la validité de votre assurance habitation et la garantie de votre véhicule." }
@@ -169,7 +169,7 @@ export default function ParticuliersPage() {
                 <div className="space-y-6">
                   {[
                     { i: <Zap/>, t: "Maison Individuelle", d: "Une borne 7.4kW posée avec un prix ferme garanti. Nous gérons 100% des démarches et des aides pour que vous partiez l'esprit léger." },
-                    { i: <Building/>, t: "Appartement : Droit à la prise", d: "Peur d'affronter votre syndic ? Nous montons le dossier technique et envoyons nous-même la mise en demeure légale." },
+                    { i: <Building/>, t: "Appartement : Droit à la prise", d: "Peur d'affronter votre syndic ? Nous préparons le dossier technique et le courrier de notification au syndic, prêts à envoyer en recommandé." },
                     { i: <ShieldCheck/>, t: "Installation Clé en Main", d: "Nos experts s'occupent de tout, de la visite technique gratuite jusqu'à la certification finale de conformité électrique." }
                   ].map((item, idx) => (
                     <div key={idx} className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm hover:shadow-md border border-slate-100">
@@ -230,7 +230,7 @@ export default function ParticuliersPage() {
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
                   <FileText className="text-[#0097b2] mb-4" size={32} />
                   <h4 className="text-white font-black uppercase tracking-wider mb-2">Administratif Inclus</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed grow">Nous montons votre dossier de prime Advenir en appartement (jusqu'à 1 000 € HT) et appliquons la TVA réduite à 5,5 % quand votre logement y a droit.</p>
+                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed grow">Nous montons votre dossier de prime Advenir en appartement (jusqu'à 1 000 € HT) et appliquons la TVA réduite à 5,5 % sur la fourniture et la pose de votre borne.</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 sm:col-span-2">
                   <Wrench className="text-[#0097b2] mb-4" size={32} />

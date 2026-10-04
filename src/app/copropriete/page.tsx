@@ -86,9 +86,10 @@ export default function CoproprietePage() {
       <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-60 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 ${showFloatingCta ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex flex-col">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Aides Débloquées</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Aides possibles</p>
             <p className="text-xl sm:text-2xl font-black text-green-600">
-+{Math.round(subventions).toLocaleString('fr-FR')}€ d'aides            </p>
+              +{Math.round(subventions).toLocaleString('fr-FR')}€ d'aides
+            </p>
           </div>
           <button 
             onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} 
@@ -163,13 +164,13 @@ export default function CoproprietePage() {
             <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1">
               <Zap className="text-[#0097b2] mb-6" size={40} />
               <h3 className="text-xl font-black text-[#032b60] mb-3 uppercase tracking-wider">Le Droit à la prise</h3>
-              <p className="text-slate-500 font-medium text-sm leading-relaxed">Faites valoir votre droit sans conflit. Nous prenons en charge les négociations avec le syndic, l'envoi des mises en demeure et garantissons la conformité technique.</p>
+              <p className="text-slate-500 font-medium text-sm leading-relaxed">Faites valoir votre droit sans conflit. Nous préparons le dossier de notification au syndic (descriptif, plan, schéma), échangeons avec lui sur la partie technique et garantissons la conformité de l'installation.</p>
             </div>
             <div className="bg-[#032b60] p-8 rounded-3xl text-white shadow-2xl transition-all hover:-translate-y-1 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-[#0097b2]/20 rounded-full blur-3xl -mr-16 -mt-16"></div>
               <PiggyBank className="text-[#0097b2] mb-6 relative z-10" size={40} />
               <h3 className="text-xl font-black mb-3 uppercase tracking-wider relative z-10">Indépendance Totale</h3>
-              <p className="text-white/70 font-medium text-sm leading-relaxed relative z-10">Fuyez les abonnements sur 15 ans. La copropriété investit et possède son propre réseau, en déduisant immédiatement les aides ADVENIR pour réduire le reste à charge.</p>
+              <p className="text-white/70 font-medium text-sm leading-relaxed relative z-10">Fuyez les abonnements sur 15 ans. La copropriété investit et possède son propre réseau, et mobilise les aides ADVENIR pour réduire le reste à charge.</p>
             </div>
             <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1">
               <FileText className="text-[#0097b2] mb-6" size={40} />

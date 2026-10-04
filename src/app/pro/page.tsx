@@ -71,8 +71,8 @@ export default function ProPage() {
   const faqs = [
     { q: "Comment fonctionne la monétisation ?", a: "C'est très simple : nous installons des bornes communicantes. Vous décidez du tarif appliqué au kWh. Notre logiciel s'occupe de facturer l'utilisateur final par QR Code et vous reverse les revenus mensuellement." },
     { q: "Domicile Collaborateurs : Comment rembourser l'électricité ?", a: "Notre logiciel isole la consommation liée au véhicule professionnel grâce au badge RFID du salarié. Chaque mois, un relevé certifié permet le remboursement en note de frais." },
-    { q: "Quelles sont les obligations de la Loi LOM ?", a: "La Loi LOM oblige les entreprises (parc > 100 véhicules) à intégrer un pourcentage de véhicules à faibles émissions. Équiper vos parkings devient une nécessité légale." },
-    { q: "Quels sont les avantages fiscaux ?", a: "L'électrification permet une exonération totale de la TVS. De plus, l'entreprise bénéficie d'un plafond d'amortissement rehaussé et la TVA sur l'électricité consommée est récupérable." }
+    { q: "Quelles sont les obligations de la Loi LOM ?", a: "Les entreprises qui gèrent plus de 100 véhicules légers doivent intégrer une part minimale de véhicules à faibles émissions dans leur flotte, sous peine d'une taxe annuelle. Équiper vos parkings devient une nécessité." },
+    { q: "Quels sont les avantages fiscaux ?", a: "Les véhicules 100 % électriques sont exonérés des taxes annuelles sur les véhicules de tourisme (ex-TVS). L'entreprise bénéficie aussi d'un plafond d'amortissement rehaussé et la TVA sur l'électricité consommée est récupérable. À valider avec votre expert-comptable selon votre situation." }
   ];
 
   return (
@@ -217,13 +217,13 @@ export default function ProPage() {
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl">
                   <FileText className="text-[#0097b2] mb-4" size={32} />
-                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Exonération TVS</h4>
-                  <p className="text-blue-100/70 text-xs">Exonération totale de la Taxe sur les Véhicules de Société pour les flottes électriques.</p>
+                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Exonération ex-TVS</h4>
+                  <p className="text-blue-100/70 text-xs">Exonération totale des taxes annuelles CO2 et polluants (ex-TVS) pour les véhicules 100 % électriques.</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl sm:col-span-2">
                   <Award className="text-[#0097b2] mb-4" size={32} />
                   <h4 className="text-white font-black uppercase tracking-wider mb-2">Amortissement & TVA</h4>
-                  <p className="text-blue-100/70 text-xs">Plafond d'amortissement rehaussé (30 000€) et récupération totale de la TVA sur l'électricité consommée.</p>
+                  <p className="text-blue-100/70 text-xs">Plafond d'amortissement rehaussé (30 000€) pour les véhicules électriques et récupération de la TVA sur l'électricité consommée.</p>
                 </div>
               </div>
             </div>
