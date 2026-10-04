@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { articles, formatDate, getArticle, type Block } from "@/content/blog";
+import { articles, formatDate, getArticle, type Article, type Block } from "@/content/blog";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -34,17 +35,54 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+// Transforme les liens écrits [texte](/adresse) dans le contenu en vrais liens cliquables
+const LIEN = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+const STYLE_LIEN = "font-semibold text-[#0097b2] underline underline-offset-4 decoration-[#0097b2]/40 hover:decoration-[#0097b2]";
+
+function Inline({ text }: { text: string }) {
+  const parts: ReactNode[] = [];
+  let last = 0;
+  let i = 0;
+  let m: RegExpExecArray | null;
+  LIEN.lastIndex = 0;
+  while ((m = LIEN.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    const label = m[1];
+    const href = m[2];
+    parts.push(
+      href.startsWith("/") ? (
+        <Link key={i++} href={href} className={STYLE_LIEN}>
+          {label}
+        </Link>
+      ) : (
+        <a key={i++} href={href} target="_blank" rel="noopener noreferrer" className={STYLE_LIEN}>
+          {label}
+        </a>
+      )
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
+}
+
 function BlockView({ block }: { block: Block }) {
   switch (block.type) {
     case "h2":
       return <h2 className="text-2xl md:text-3xl font-black text-[#032b60] tracking-tight pt-6">{block.text}</h2>;
     case "p":
-      return <p className="text-slate-600 text-base md:text-lg leading-relaxed">{block.text}</p>;
+      return (
+        <p className="text-slate-600 text-base md:text-lg leading-relaxed">
+          <Inline text={block.text} />
+        </p>
+      );
     case "ul":
       return (
         <ul className="list-disc pl-6 space-y-3 text-slate-600 text-base md:text-lg leading-relaxed marker:text-[#0097b2]">
           {block.items.map((item, i) => (
-            <li key={i}>{item}</li>
+            <li key={i}>
+              <Inline text={item} />
+            </li>
           ))}
         </ul>
       );
@@ -52,14 +90,16 @@ function BlockView({ block }: { block: Block }) {
       return (
         <ol className="list-decimal pl-6 space-y-3 text-slate-600 text-base md:text-lg leading-relaxed marker:font-black marker:text-[#0097b2]">
           {block.items.map((item, i) => (
-            <li key={i}>{item}</li>
+            <li key={i}>
+              <Inline text={item} />
+            </li>
           ))}
         </ol>
       );
     case "callout":
       return (
         <div className="bg-[#0097b2]/10 border border-[#0097b2]/20 rounded-2xl p-5 md:p-6 text-[#032b60] font-medium leading-relaxed">
-          {block.text}
+          <Inline text={block.text} />
         </div>
       );
     case "figure":
@@ -83,10 +123,20 @@ function BlockView({ block }: { block: Block }) {
   }
 }
 
+// 2 guides à lire ensuite : d'abord ceux de la même catégorie, puis les autres
+function guidesLies(article: Article): Article[] {
+  const autres = articles.filter((a) => a.slug !== article.slug);
+  const memeCategorie = autres.filter((a) => a.category === article.category);
+  const reste = autres.filter((a) => a.category !== article.category);
+  return [...memeCategorie, ...reste].slice(0, 2);
+}
+
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
   const article = getArticle(slug);
   if (!article) notFound();
+
+  const lies = guidesLies(article);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -144,6 +194,27 @@ export default async function ArticlePage({ params }: Props) {
             <BlockView key={i} block={block} />
           ))}
         </article>
+
+        {lies.length > 0 && (
+          <section className="mt-10">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#032b60] mb-4">À lire aussi</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {lies.map((a) => (
+                <Link
+                  key={a.slug}
+                  href={`/blog/${a.slug}`}
+                  className="group bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:border-[#0097b2] transition-colors"
+                >
+                  <span className="block text-[10px] font-black uppercase tracking-widest text-[#0097b2] mb-2">{a.category}</span>
+                  <span className="block font-black text-[#032b60] leading-snug group-hover:text-[#0097b2] transition-colors">{a.title}</span>
+                  <span className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-slate-500">
+                    Lire le guide <ArrowRight size={14} />
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         <div className="mt-10 bg-[#032b60] rounded-[2rem] p-8 md:p-10 text-center">
           <p className="text-white font-black text-xl md:text-2xl uppercase tracking-tight mb-3">Un projet de borne dans le Chablais ?</p>

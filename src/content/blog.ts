@@ -1,6 +1,7 @@
 // src/content/blog.ts
 // Contenu du blog "Guides & conseils".
 // Pour ajouter un article : copier un bloc { ... } dans la liste `articles`, changer le slug (adresse), le titre, la date et le contenu.
+// Liens dans le texte : écrire [texte du lien](/adresse), par exemple [notre offre copropriété](/copropriete).
 // Images : couverture = une photo de /public (ou /public/blog) ; schémas = fichiers SVG dans /public/blog.
 // Chiffres ADVENIR vérifiés le 04/10/2026 sur advenir.mobi (barème résidentiel collectif du 1er avril 2026).
 // Droit à la prise : art. L.113-16, L.113-17 et R.113-8 s. du CCH (décret n° 2020-1720). TVA 5,5 % : art. 278-0 bis N du CGI et art. 30-0 H ann. IV.
@@ -47,7 +48,7 @@ export const articles: Article[] = [
       { type: "h2", text: "Droit à la prise ou projet collectif : deux chemins différents" },
       {
         type: "p",
-        text: "Un résident qui veut sa borne n'a pas besoin de vote : il utilise le droit à la prise et notifie son projet au syndic (voir notre guide dédié). Dès que la copropriété veut équiper le parking pour tout le monde, avec une infrastructure collective sur laquelle chacun se raccordera ensuite, c'est l'assemblée générale qui décide.",
+        text: "Un résident qui veut sa borne n'a pas besoin de vote : il utilise le droit à la prise et notifie son projet au syndic (voir notre [guide du droit à la prise](/blog/droit-a-la-prise-copropriete-borne-recharge)). Dès que la copropriété veut équiper le parking pour tout le monde, avec une infrastructure collective sur laquelle chacun se raccordera ensuite, c'est l'assemblée générale qui décide.",
       },
       { type: "h2", text: "Quelle majorité pour quelle décision ?" },
       {
@@ -94,11 +95,11 @@ export const articles: Article[] = [
       { type: "h2", text: "Qui paie, et comment ?" },
       {
         type: "p",
-        text: "L'infrastructure collective est une dépense de la copropriété : elle est répartie entre les copropriétaires selon les règles de répartition des charges de l'immeuble, et appelée par le syndic. La prime ADVENIR vient en déduction : 50 % des coûts, jusqu'à 12 500 € HT pour un parking jusqu'à 100 places selon le barème en vigueur. Chaque résident paie ensuite sa propre borne quand il se raccorde, avec une aide possible de 1 000 € HT.",
+        text: "L'infrastructure collective est une dépense de la copropriété : elle est répartie entre les copropriétaires selon les règles de répartition des charges de l'immeuble, et appelée par le syndic. La [prime ADVENIR](/blog/prime-advenir-copropriete-infrastructure-collective) vient en déduction : 50 % des coûts, jusqu'à 12 500 € HT pour un parking jusqu'à 100 places selon le barème en vigueur. Chaque résident paie ensuite sa propre borne quand il se raccorde, avec une aide possible de 1 000 € HT.",
       },
       {
         type: "p",
-        text: "CHARGéO prépare pour vos assemblées un dossier complet : étude, devis standardisés avec la part collective et la part individuelle, estimation de l'aide ADVENIR, et présence en assemblée pour répondre aux questions techniques.",
+        text: "CHARGéO prépare pour vos assemblées un dossier complet : étude, devis standardisés avec la part collective et la part individuelle, estimation de l'aide ADVENIR, et présence en assemblée pour répondre aux questions techniques. Découvrez [notre offre copropriété](/copropriete).",
       },
     ],
   },
@@ -128,7 +129,7 @@ export const articles: Article[] = [
       },
       {
         type: "p",
-        text: "Ces montants s'entendent avec la TVA à 5,5 % et pour une installation standard : borne à quelques mètres du tableau, câble apparent ou sous goulotte, tableau en bon état. Au-delà, ce sont les travaux annexes qui font monter la note.",
+        text: "Ces montants s'entendent avec la TVA à 5,5 % et pour une installation standard : borne à quelques mètres du tableau, câble apparent ou sous goulotte, tableau en bon état. Au-delà, ce sont les travaux annexes qui font monter la note. Vous hésitez entre les deux solutions ? Lisez notre comparatif [prise renforcée ou borne murale](/blog/prise-renforcee-ou-wallbox-que-choisir).",
       },
       { type: "h2", text: "Les 5 postes qui font varier un devis" },
       {
@@ -154,7 +155,7 @@ export const articles: Article[] = [
         items: [
           "La TVA à 5,5 % sur l'installation de la borne dans votre logement, quand elle respecte les exigences techniques prévues par la loi et qu'elle est réalisée par un professionnel répondant aux exigences de qualification (qualification IRVE au-delà de 3,7 kW).",
           "Le crédit d'impôt pour l'achat et la pose d'une borne a pris fin : il ne s'applique plus aux dépenses payées depuis le 1er janvier 2026.",
-          "La prime ADVENIR ne concerne pas les maisons individuelles : elle est réservée notamment aux copropriétés et aux entreprises.",
+          "La prime ADVENIR ne concerne pas les maisons individuelles : elle est réservée notamment aux [copropriétés](/blog/prime-advenir-copropriete-infrastructure-collective) et aux entreprises.",
         ],
       },
       { type: "h2", text: "Les pièges à éviter" },
@@ -164,7 +165,7 @@ export const articles: Article[] = [
           "Un devis sans visite technique : sans mesurer les distances ni ouvrir le tableau, un prix n'est qu'une estimation, et le supplément arrive le jour de la pose.",
           "Un installateur non qualifié IRVE : au-delà de 3,7 kW, c'est obligatoire, et c'est aussi une condition de la TVA réduite.",
           "Une borne non pilotable : vous perdez la programmation en heures creuses et la gestion de la puissance.",
-          "Une borne surdimensionnée : une 22 kW ne rechargera pas plus vite une voiture limitée à 7,4 ou 11 kW (voir notre guide sur la puissance).",
+          "Une borne surdimensionnée : une 22 kW ne rechargera pas plus vite une voiture limitée à 7,4 ou 11 kW (voir notre guide [monophasé ou triphasé](/blog/monophase-ou-triphase-quelle-puissance-de-borne)).",
         ],
       },
       {
@@ -173,7 +174,7 @@ export const articles: Article[] = [
       },
       {
         type: "p",
-        text: "Vous êtes à Thonon, Évian, Douvaine ou ailleurs dans le Chablais ? L'étude est gratuite.",
+        text: "Vous êtes à Thonon, Évian, Douvaine ou ailleurs dans le Chablais ? [Estimez votre installation](/particuliers) : l'étude est gratuite.",
       },
     ],
   },
@@ -234,7 +235,7 @@ export const articles: Article[] = [
       },
       {
         type: "p",
-        text: "Pour la plupart des frontaliers, une borne 7,4 kW monophasée suffit donc. Le triphasé devient intéressant si la maison l'est déjà, si deux voitures électriques se partagent la borne, ou pour un très gros rouleur.",
+        text: "Pour la plupart des frontaliers, une borne 7,4 kW monophasée suffit donc. Le triphasé devient intéressant si la maison l'est déjà, si deux voitures électriques se partagent la borne, ou pour un très gros rouleur. Le comparatif détaillé est dans notre guide [prise renforcée ou borne murale](/blog/prise-renforcee-ou-wallbox-que-choisir).",
       },
       { type: "h2", text: "Faut-il passer en triphasé ?" },
       {
@@ -244,6 +245,10 @@ export const articles: Article[] = [
       {
         type: "callout",
         text: "Chez CHARGéO, on vérifie votre raccordement, votre abonnement et la fiche technique de votre voiture avant de vous conseiller une puissance. Pas de borne surdimensionnée, pas de coupure le soir.",
+      },
+      {
+        type: "p",
+        text: "Pour le budget, consultez notre guide sur le [prix d'une borne à la maison](/blog/prix-borne-recharge-maison-haute-savoie).",
       },
     ],
   },
@@ -306,11 +311,11 @@ export const articles: Article[] = [
       },
       {
         type: "callout",
-        text: "Notre conseil : avant d'envoyer votre courrier, demandez au syndic si un projet d'infrastructure collective est à l'étude. Si ce n'est pas le cas, proposer ce projet en assemblée générale peut coûter moins cher à tout le monde, grâce aux aides du programme ADVENIR.",
+        text: "Notre conseil : avant d'envoyer votre courrier, demandez au syndic si un projet d'infrastructure collective est à l'étude. Si ce n'est pas le cas, proposer ce projet en assemblée générale peut coûter moins cher à tout le monde, grâce aux [aides du programme ADVENIR](/blog/prime-advenir-copropriete-infrastructure-collective). Voir aussi notre guide sur le [vote en assemblée générale](/blog/vote-borne-recharge-assemblee-generale-copropriete).",
       },
       {
         type: "p",
-        text: "Chez CHARGéO, on prépare le dossier technique à joindre à votre courrier (descriptif, plan, schéma) et on réalise l'installation dans tout le Chablais, avec un prix ferme annoncé avant les travaux.",
+        text: "Chez CHARGéO, on prépare le dossier technique à joindre à votre courrier (descriptif, plan, schéma) et on réalise l'installation dans tout le Chablais, avec un prix ferme annoncé avant les travaux. Découvrez [notre accompagnement en copropriété](/copropriete).",
       },
     ],
   },
@@ -352,7 +357,7 @@ export const articles: Article[] = [
       { type: "h2", text: "Et le 11 ou le 22 kW ?" },
       {
         type: "p",
-        text: "Une borne 11 kW demande un abonnement triphasé et un véhicule capable de charger à 11 kW en courant alternatif. C'est pertinent pour un gros rouleur ou pour plusieurs véhicules. Le 22 kW, à la maison, est rarement utile : peu de voitures en profitent et il impose souvent de revoir l'abonnement.",
+        text: "Une borne 11 kW demande un abonnement triphasé et un véhicule capable de charger à 11 kW en courant alternatif. C'est pertinent pour un gros rouleur ou pour plusieurs véhicules. Le 22 kW, à la maison, est rarement utile : peu de voitures en profitent et il impose souvent de revoir l'abonnement. Tout est expliqué dans notre guide [monophasé ou triphasé](/blog/monophase-ou-triphase-quelle-puissance-de-borne).",
       },
       { type: "h2", text: "Comment choisir selon vos trajets" },
       {
@@ -369,7 +374,7 @@ export const articles: Article[] = [
         items: [
           "La puissance de votre abonnement : avec 6 ou 9 kVA, une borne 7,4 kW peut faire disjoncter si le four et le chauffage tournent en même temps. La solution : un délesteur, qui baisse automatiquement la recharge quand la maison consomme beaucoup.",
           "L'état du tableau électrique et la qualité de la terre : la borne a besoin de protections dédiées (disjoncteur et différentiel adaptés).",
-          "La distance entre le tableau et l'emplacement de la borne : c'est elle qui fait varier le prix, avec le mode de passage du câble (apparent, encastré, enterré, vide sanitaire).",
+          "La distance entre le tableau et l'emplacement de la borne : c'est elle qui fait varier le [prix de l'installation](/blog/prix-borne-recharge-maison-haute-savoie), avec le mode de passage du câble (apparent, encastré, enterré, vide sanitaire).",
           "Les heures creuses : une borne pilotée recharge la nuit, au tarif le plus bas.",
         ],
       },
@@ -379,7 +384,7 @@ export const articles: Article[] = [
       },
       {
         type: "p",
-        text: "Chez CHARGéO, l'étude est gratuite : on mesure les distances, on vérifie votre tableau et votre abonnement, et vous recevez un prix ferme. Pas de surprise le jour de la pose.",
+        text: "Chez CHARGéO, l'étude est gratuite : on mesure les distances, on vérifie votre tableau et votre abonnement, et vous recevez un prix ferme. Pas de surprise le jour de la pose. [Simulez votre installation](/particuliers) en deux minutes.",
       },
     ],
   },
@@ -396,7 +401,7 @@ export const articles: Article[] = [
     blocks: [
       {
         type: "p",
-        text: "De plus en plus de copropriétaires roulent à l'électrique, et les demandes de droit à la prise se multiplient. Plutôt que de laisser chaque résident tirer son propre câble, beaucoup de copropriétés choisissent d'installer une infrastructure collective : un réseau commun dans le parking, sur lequel chacun raccorde ensuite sa borne. Le programme ADVENIR finance une bonne partie de ces travaux.",
+        text: "De plus en plus de copropriétaires roulent à l'électrique, et les demandes de [droit à la prise](/blog/droit-a-la-prise-copropriete-borne-recharge) se multiplient. Plutôt que de laisser chaque résident tirer son propre câble, beaucoup de copropriétés choisissent d'installer une infrastructure collective : un réseau commun dans le parking, sur lequel chacun raccorde ensuite sa borne. Le programme ADVENIR finance une bonne partie de ces travaux.",
       },
       { type: "h2", text: "Infrastructure collective : de quoi parle-t-on ?" },
       {
@@ -435,7 +440,7 @@ export const articles: Article[] = [
         items: [
           "Le conseil syndical ou le syndic demande une étude : nombre de places, puissance disponible au compteur des services généraux, cheminement dans le parking.",
           "L'installateur remet un devis détaillé, avec le montant d'aide ADVENIR estimé et la puissance à réserver pour la recharge.",
-          "Le projet est inscrit à l'ordre du jour de l'assemblée générale. Les travaux d'infrastructure se votent à la majorité des voix de tous les copropriétaires (article 25 j de la loi de 1965) ; si le projet a recueilli au moins un tiers des voix, un second vote immédiat à la majorité simple est possible (article 25-1).",
+          "Le projet est inscrit à l'ordre du jour de l'assemblée générale. Les travaux d'infrastructure se votent à la majorité des voix de tous les copropriétaires (article 25 j de la loi de 1965) ; si le projet a recueilli au moins un tiers des voix, un second vote immédiat à la majorité simple est possible (article 25-1). Le détail est dans notre guide sur le [vote en assemblée générale](/blog/vote-borne-recharge-assemblee-generale-copropriete).",
           "La demande de prime est déposée sur la plateforme ADVENIR, avec le devis et le procès-verbal d'assemblée générale, par un porteur dont l'offre est labellisée ADVENIR. L'offre de prime doit être signée avant tout démarrage des travaux.",
           "Travaux et mise en service, contrôle de conformité par un organisme d'inspection, puis versement de la prime sur présentation de la facture.",
         ],
@@ -451,7 +456,7 @@ export const articles: Article[] = [
       },
       {
         type: "p",
-        text: "CHARGéO accompagne les syndics et les conseils syndicaux de Thonon, Évian, Douvaine et de tout le Chablais : étude, devis avec le calcul de l'aide, puis travaux.",
+        text: "CHARGéO accompagne les syndics et les conseils syndicaux de Thonon, Évian, Douvaine et de tout le Chablais : étude, devis avec le calcul de l'aide, puis travaux. [Estimez vos aides ADVENIR](/copropriete) avec notre simulateur.",
       },
     ],
   },
