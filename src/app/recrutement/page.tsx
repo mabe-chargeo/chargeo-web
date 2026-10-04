@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import {
   ArrowRight, Download, MapPin, Wrench, Zap, ClipboardCheck, User, ShieldCheck, Clock, Award,
-  CheckCircle, Phone
+  CheckCircle, Phone, Euro, Truck, CalendarCheck, GraduationCap
 } from 'lucide-react';
 
 import { FadeIn } from '@/components/ui/FadeIn';
@@ -39,20 +39,37 @@ export default function RecrutementPage() {
   const metier = [
     { i: <Wrench />, t: "La pose", d: "Fixation de la borne, passage des câbles, protections dans le tableau, raccordement. Chez des particuliers, en copropriété et dans des entreprises." },
     { i: <Zap />, t: "Le test", d: "Essais, mesures, paramétrage de la borne et de sa connexion. On ne quitte pas un chantier tant que la borne ne charge pas." },
-    { i: <ClipboardCheck />, t: "La preuve", d: "Photos, check-list et rapport depuis ton téléphone. C'est ce qui débloque les aides du client, et ce qui prouve la qualité de ton travail." },
+    { i: <ClipboardCheck />, t: "Le compte-rendu", d: "Photos, check-list et rapport depuis ton téléphone. C'est ce qui débloque les aides du client, et ce qui prouve la qualité de ton travail." },
+  ];
+
+  const gains = [
+    { i: <Euro size={22} />, t: "14 à 16 € brut de l'heure", d: "Bien au-dessus du SMIC, plus 10 % de fin de mission et 10 % de congés payés." },
+    { i: <Truck size={22} />, t: "Véhicule, tenue et outillage fournis", d: "Tu arrives le matin, tout est prêt." },
+    { i: <Clock size={22} />, t: "Horaires de journée", d: "8h-12h / 13h-17h." },
+    { i: <CalendarCheck size={22} />, t: "Missions planifiées à la semaine", d: "Tu connais ton planning à l'avance." },
+    { i: <GraduationCap size={22} />, t: "Formé sur le terrain", d: "Et accompagné jusqu'à ton habilitation électrique." },
+  ];
+
+  const journee = [
+    { h: "8h", d: "Départ de Thonon avec le véhicule chargé." },
+    { h: "Matin", d: "La pose et le raccordement." },
+    { h: "12h-13h", d: "La pause." },
+    { h: "Après-midi", d: "La mise en service, les tests et les photos." },
+    { h: "17h", d: "Fin de journée : la borne charge." },
   ];
 
   const fiche = [
     { i: <Wrench size={20} />, t: "Le poste", s: "Poseur de bornes de recharge", d: "Pose, raccordement, mise en service et compte-rendu des bornes de recharge, chez des particuliers, en copropriété et en entreprise. Débutant accepté." },
     { i: <User size={20} />, t: "Le profil", s: "Ce qu'on attend", d: "CAP, Bac pro électricité ou équivalent. Permis B. De la rigueur, le soin des finitions, et une vraie politesse avec le client chez lui." },
     { i: <ShieldCheck size={20} />, t: "L'habilitation", s: "Électrique, NF C 18-510", d: "Une formation à l'habilitation électrique est un plus. L'habilitation elle-même, c'est nous qui la délivrons, après ta formation." },
-    { i: <Clock size={20} />, t: "Le contrat", s: "Pour démarrer", d: "Missions d'intérim au démarrage, chantier par chantier. Notre objectif : passer nos meilleurs poseurs en CDI dès que l'activité est stable." },
+    { i: <Euro size={20} />, t: "La rémunération", s: "Selon ton profil", d: "14 à 16 € brut de l'heure, plus 10 % de fin de mission et 10 % de congés payés versés par l'agence d'intérim." },
+    { i: <Clock size={20} />, t: "Le contrat", s: "Pour démarrer", d: "Missions d'intérim planifiées à la semaine, de 8h à 12h et de 13h à 17h. Notre objectif : passer nos meilleurs poseurs en CDI dès que l'activité est stable." },
     { i: <MapPin size={20} />, t: "Le secteur", s: "Où tu travailles", d: "Chantiers dans le Chablais et en Haute-Savoie, au départ de Thonon-les-Bains." },
-    { i: <Award size={20} />, t: "Ce qu'on t'apporte", s: "Pour progresser", d: "Une formation à notre méthode et aux bornes de recharge, du matériel de qualité, un électricien expérimenté à tes côtés sur les premiers chantiers, et une évolution vers chef de chantier." },
+    { i: <Award size={20} />, t: "Ce qu'on t'apporte", s: "Pour progresser", d: "Véhicule, tenue et outillage fournis, une formation à notre méthode et aux bornes de recharge, un électricien expérimenté à tes côtés sur les premiers chantiers, et une évolution vers chef de chantier." },
   ];
 
   const parcours = [
-    { t: "Découvrir", d: "Tu démarres en missions d'intérim, chantier par chantier. On apprend à se connaître sur le terrain." },
+    { t: "Découvrir", d: "Tu démarres en missions d'intérim planifiées à la semaine. On apprend à se connaître sur le terrain." },
     { t: "Apprendre", d: "Tu es formé à notre méthode et aux bornes de recharge, et tu gagnes en autonomie sur les poses." },
     { t: "T'installer", d: "Notre objectif : passer nos meilleurs poseurs en CDI dès que l'activité est stable." },
     { t: "Encadrer", d: "Tu deviens chef de chantier : tu gères l'équipe, les plannings et les commandes de matériel." },
@@ -94,16 +111,16 @@ export default function RecrutementPage() {
 
             <FadeIn delay={300} direction="up">
               <h1 className="text-[2.5rem] sm:text-5xl md:text-[5.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase mb-6 max-w-5xl">
-                Construis avec nous <br /><span className="text-[#0097b2]">la recharge de demain.</span>
+                Électricien débutant ? <br /><span className="text-[#0097b2]">Deviens poseur de bornes.</span>
               </h1>
             </FadeIn>
 
             <FadeIn delay={500} direction="up">
               <p className="text-sm sm:text-base md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl mb-8">
-                CHARGéO est une jeune entreprise du Chablais qui installe et entretient des bornes de recharge pour véhicules électriques. On démarre, on a envie de durer et de grandir, et on cherche la première personne qui posera nos bornes avec nous.
+                Tu as un CAP ou un Bac pro électricité et envie d'apprendre un métier d'avenir ? On te forme à la pose de bornes de recharge, avec du matériel neuf et une méthode claire. Missions planifiées à la semaine, au départ de Thonon.
               </p>
               <div className="flex flex-wrap gap-3 mb-10">
-                {["Débutant accepté", "Formé à notre méthode", "Évolution vers chef de chantier"].map((p) => (
+                {["14 à 16 € brut/h + 20 % de primes intérim", "Véhicule, tenue et outillage fournis", "Horaires de journée"].map((p) => (
                   <span key={p} className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-white bg-white/10 border border-[#0097b2]/60 px-4 py-2 rounded-full">{p}</span>
                 ))}
               </div>
@@ -123,7 +140,29 @@ export default function RecrutementPage() {
           </div>
         </section>
 
-        {/* 2. QUI ON EST */}
+        {/* 2. CE QUE TU GAGNES */}
+        <section className="py-20 bg-white border-b border-slate-100">
+          <div className="max-w-7xl mx-auto px-6 space-y-10">
+            <FadeIn delay={0}>
+              <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>
+                Ce que <span style={{ color: brandTeal }}>tu gagnes.</span>
+              </h2>
+            </FadeIn>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              {gains.map((g, idx) => (
+                <FadeIn key={g.t} delay={idx * 80}>
+                  <div className="h-full bg-slate-50 border border-slate-100 rounded-3xl p-6">
+                    <div className="w-12 h-12 rounded-2xl bg-[#0097b2] text-white flex items-center justify-center mb-4">{g.i}</div>
+                    <h3 className="font-black text-sm uppercase tracking-wider mb-2" style={{ color: brandNavy }}>{g.t}</h3>
+                    <p className="text-sm text-slate-500 font-medium leading-relaxed">{g.d}</p>
+                  </div>
+                </FadeIn>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* 3. QUI ON EST */}
         <section className="py-24 bg-slate-50 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-16 items-center">
             <FadeIn delay={0}>
@@ -133,13 +172,13 @@ export default function RecrutementPage() {
             </FadeIn>
             <FadeIn delay={200}>
               <p className="text-lg text-slate-500 font-medium leading-relaxed">
-                CHARGéO vient de naître à Thonon-les-Bains. Derrière, il y a Matthieu, électricien de métier, passé par des chantiers en France et en Suisse, de la pose au chiffrage. L'idée n'est pas de faire un coup, c'est de construire une entreprise solide, avec une équipe, des process clairs et des clients qui nous restent fidèles. Tu ne rejoins pas une grosse structure où on t'oublie : tu rejoins le projet au départ, et tu grandis avec lui.
+                CHARGéO est une jeune entreprise de Thonon-les-Bains qui installe et entretient des bornes de recharge pour les maisons, les copropriétés et les entreprises du Chablais. On démarre, on veut durer, et on construit l'équipe dès maintenant. Ici, tu n'es pas un numéro : tu rejoins le projet au départ.
               </p>
             </FadeIn>
           </div>
         </section>
 
-        {/* 3. TON METIER */}
+        {/* 4. TON METIER */}
         <section className="py-24 bg-white">
           <div className="max-w-7xl mx-auto px-6 space-y-12">
             <FadeIn delay={0}>
@@ -166,7 +205,28 @@ export default function RecrutementPage() {
           </div>
         </section>
 
-        {/* 4. LA FICHE DE POSTE */}
+        {/* 5. TA JOURNEE */}
+        <section className="py-24 bg-white border-t border-slate-100">
+          <div className="max-w-7xl mx-auto px-6 space-y-12">
+            <FadeIn delay={0}>
+              <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>
+                Ta journée, <br /><span style={{ color: brandTeal }}>en vrai.</span>
+              </h2>
+            </FadeIn>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              {journee.map((j, idx) => (
+                <FadeIn key={j.h} delay={idx * 80}>
+                  <div className="h-full border-l-4 border-[#0097b2] bg-slate-50 rounded-r-2xl p-5">
+                    <p className="font-black text-lg text-[#0097b2] mb-1">{j.h}</p>
+                    <p className="text-sm text-slate-600 font-medium leading-relaxed">{j.d}</p>
+                  </div>
+                </FadeIn>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* 6. LA FICHE DE POSTE */}
         <section className="py-24 bg-slate-50 border-t border-slate-100">
           <div className="max-w-7xl mx-auto px-6 space-y-12">
             <FadeIn delay={0}>
@@ -191,7 +251,7 @@ export default function RecrutementPage() {
           </div>
         </section>
 
-        {/* 5. TON PARCOURS */}
+        {/* 7. TON PARCOURS */}
         <section className="py-24 bg-[#032b60] relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-[#0097b2]/30 rounded-full blur-[120px] -mr-20 -mt-20 pointer-events-none"></div>
           <div className="max-w-7xl mx-auto px-6 relative z-10 space-y-12">
@@ -217,7 +277,7 @@ export default function RecrutementPage() {
           </div>
         </section>
 
-        {/* 6. LE FORMULAIRE */}
+        {/* 8. LE FORMULAIRE */}
         <section id="formulaire-candidature" ref={formRef} className="py-20 md:py-32 bg-slate-50 relative border-t border-slate-100 scroll-mt-24">
           <div className="absolute inset-0 bg-grid-tech opacity-30"></div>
           <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-5 gap-12 md:gap-16 items-start relative z-10">
