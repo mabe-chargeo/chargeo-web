@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ChevronRight, Menu, Phone, X, LucideIcon } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Menu, Phone, User, X, LucideIcon } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 
 interface NavbarProps {
@@ -45,8 +45,17 @@ export function Navbar({
           </Link>
         )}
 
-        {/* BOUTON D'ACTION (CTA) */}
+        {/* ESPACE CLIENT + BOUTON D'ACTION (CTA) */}
         <div className="flex items-center gap-2 relative z-50">
+          <Link
+            href="/espace-client"
+            aria-label="Espace client"
+            className="flex items-center gap-2 text-[#032b60] hover:text-[#0097b2] font-bold text-xs sm:text-sm bg-white hover:bg-slate-100 w-10 h-10 sm:w-auto sm:h-auto justify-center sm:px-4 sm:py-2.5 rounded-full border border-slate-200 transition-all shadow-sm"
+          >
+            <User size={16} />
+            <span className="hidden sm:inline">Espace client</span>
+          </Link>
+
           {isHome ? (
             <a href="#contact" className="relative overflow-hidden px-5 sm:px-6 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all group bg-[#032b60] text-white hover:bg-[#0097b2]">
               <div className="animate-button-shine" />
@@ -71,11 +80,12 @@ export function Navbar({
 
       {/* MENU MOBILE (ACCUEIL SEULEMENT) */}
       {isHome && (
-        <div className={`md:hidden absolute top-full left-0 w-full bg-white border-b border-slate-200 shadow-xl overflow-hidden transition-all duration-300 ${isMobileMenuOpen ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className={`md:hidden absolute top-full left-0 w-full bg-white border-b border-slate-200 shadow-xl overflow-hidden transition-all duration-300 ${isMobileMenuOpen ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="px-6 py-4 flex flex-col gap-4">
             <a onClick={() => setIsMobileMenuOpen(false)} href="#groupe" className="text-base font-bold text-[#032b60] py-2 border-b border-slate-100 flex justify-between items-center">Notre ADN <ChevronRight size={16}/></a>
             <a onClick={() => setIsMobileMenuOpen(false)} href="#expertises" className="text-base font-bold text-[#032b60] py-2 border-b border-slate-100 flex justify-between items-center">Points de charge <ChevronRight size={16}/></a>
-            <a onClick={() => setIsMobileMenuOpen(false)} href="#engagements" className="text-base font-bold text-[#032b60] py-2 flex justify-between items-center">Maintenance & Suivi <ChevronRight size={16}/></a>
+            <a onClick={() => setIsMobileMenuOpen(false)} href="#engagements" className="text-base font-bold text-[#032b60] py-2 border-b border-slate-100 flex justify-between items-center">Maintenance & Suivi <ChevronRight size={16}/></a>
+            <Link onClick={() => setIsMobileMenuOpen(false)} href="/espace-client" className="text-base font-bold text-[#0097b2] py-2 flex justify-between items-center">Espace client <ChevronRight size={16}/></Link>
           </div>
         </div>
       )}

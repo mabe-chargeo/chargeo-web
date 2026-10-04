@@ -1,62 +1,177 @@
-import { notFound } from 'next/navigation';
+import { cookies } from 'next/headers';
+import { notFound, redirect } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { SavForm } from '@/components/ui/SavForm';
+import { ESPACE_CLIENT_COOKIE, getClickUpTask, getTaskEmail, tokenAllowsDossier } from '@/lib/espace-client';
 
-// L'appel sécurisé vers ClickUp pour lire l'état de la borne (côté serveur)
-async function getClickUpTask(taskId: string) {
-  const token = process.env.CLICKUP_API_KEY;
-  if (!token) return null;
+// Devis jamais montrés au client : brouillons, anciennes versions révisées, supprimés, annulés
+const STATUTS_MASQUES = ['draft', 'revised', 'deleted', 'cancelled'];
 
-  try {
-    const res = await fetch(`https://api.clickup.com/api/v2/task/${taskId}?custom_task_ids=true`, {
-      headers: { 'Authorization': token },
-      cache: 'no-store', // Pas de cache, on veut le statut en direct
-    });
+// Mots trop génériques pour reconnaître une copropriété par son nom
+const MOTS_GENERIQUES = new Set([
+  'synd', 'syndicat', 'copro', 'copr', 'copropriete', 'coproprietaires', 'residence', 'domaine',
+  'sdc', 'les', 'des', 'chez', 'societe', 'mairie', 'commune',
+]);
 
-    if (!res.ok) return null;
-    return res.json();
-  } catch (error) {
-    return null;
-  }
+function normaliser(s: string): string {
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-async function getDevisClient(taskData: any) {
-  const token = process.env.COSTRUCTOR_API_KEY;
-  if (!token) return [];
+function motsCles(s: string): string[] {
+  return normaliser(s)
+    .split(/[^a-z0-9]+/)
+    .filter((m) => m.length >= 4 && !MOTS_GENERIQUES.has(m));
+}
 
-  const lienField = taskData.custom_fields?.find(
-    (f: any) => f.id === 'd9f88e8f-4e20-4a98-aee8-3ded30fef5fc'
-  );
-  const match = (lienField?.value || '').match(/cnt_[a-z0-9]+/i);
-  if (!match) return [];
-  const contactId = match[0];
+// Lien sans ?f=share ni slash final, pour comparer deux liens de partage
+function lienSansParametres(u: string): string {
+  return (u || '').trim().split('?')[0].split('#')[0].replace(/\/+$/, '');
+}
 
+async function fetchQuotes(token: string, query: string): Promise<any[]> {
   try {
-    const res = await fetch(
-      `https://api.costructor.co/external/v1/quotes?customer=${contactId}&limit=50`,
-      { headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store' }
-    );
+    const res = await fetch(`https://api.costructor.co/external/v1/quotes?${query}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
     if (!res.ok) return [];
     const json = await res.json();
-
-    return (json.data || [])
-      .filter((q: any) => q.status !== 'deleted')
-      .map((q: any) => ({
-        numero: q.number,
-        nom: q.name || 'Devis',
-        accepte: q.status === 'accepted',
-        total: (q.total / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }),
-        pdfId: q.pdf?.id || null,
-      }));
+    return Array.isArray(json?.data) ? json.data : [];
   } catch {
     return [];
   }
 }
 
+// L'API Costructor attend "_limit" (et non "limit") et renvoie 10 devis par défaut, les plus récents d'abord.
+// Elle ne filtre pas par client : on récupère tout et on filtre nous-mêmes.
+async function fetchTousLesDevis(token: string): Promise<any[]> {
+  for (const taille of [100, 50]) {
+    const tous: any[] = [];
+    const vus = new Set<string>();
+    for (let page = 1; page <= 10; page++) {
+      const lot = await fetchQuotes(token, `_limit=${taille}&limit=${taille}&_page=${page}&page=${page}`);
+      const nouveaux = lot.filter((q) => q?.id && !vus.has(q.id));
+      if (nouveaux.length === 0) break; // fin de liste (ou pagination non gérée par l'API)
+      for (const q of nouveaux) {
+        vus.add(q.id);
+        tous.push(q);
+      }
+    }
+    if (tous.length > 0) return tous; // sinon on retente avec une page plus petite
+  }
+  return [];
+}
+
+const estVisible = (q: any) => !STATUTS_MASQUES.includes(q?.status);
+const lienPartage = (q: any): string => String(q?.hostedUrl || q?.hosted_url || '');
+
+// Retrouve les devis du client, dans cet ordre :
+// 1. contact Costructor indiqué dans "Lien Costructor" (cnt_...)
+// 2. sinon, si ce champ contient un lien de partage de devis, le client de ce devis
+// 3. sinon, le client Costructor qui a le même email que le dossier (si plusieurs, celui dont le nom ressemble au dossier)
+// Un dossier ne voit JAMAIS que les devis d'un seul client Costructor.
+async function getDevisClient(taskData: any) {
+  const token = process.env.COSTRUCTOR_API_KEY;
+  if (!token) return [];
+
+  const fields: any[] = taskData.custom_fields || [];
+  const lienField =
+    fields.find((f) => f.id === 'd9f88e8f-4e20-4a98-aee8-3ded30fef5fc') ||
+    fields.find((f) => normaliser(f.name).includes('costructor'));
+  const lien = String(lienField?.value || '').trim();
+  const contactMatch = lien.match(/cnt_[a-z0-9]+/i);
+  const emailDossier = getTaskEmail(taskData);
+
+  if (!lien && !emailDossier) return [];
+
+  const tous = await fetchTousLesDevis(token);
+  const devisDe = (clientId: string) => tous.filter((q) => q?.customer?.id === clientId && estVisible(q));
+
+  let quotes: any[] = [];
+
+  // 1. Contact indiqué dans le champ
+  if (contactMatch) {
+    quotes = devisDe(contactMatch[0]);
+  }
+
+  if (quotes.length === 0) {
+    let clientId: string | null = null;
+    let devisDuLien: any = null;
+
+    // 2. Lien de partage d'un devis collé dans le champ
+    if (lien && !contactMatch) {
+      const cible = lienSansParametres(lien);
+      devisDuLien = tous.find((q) => lienPartage(q) && lienSansParametres(lienPartage(q)) === cible) || null;
+      clientId = devisDuLien?.customer?.id || null;
+    }
+
+    // 3. Même email que le dossier
+    if (!clientId && emailDossier) {
+      const clients = new Map<string, string>();
+      for (const q of tous) {
+        const email = String(q?.customer?.email || '').trim().toLowerCase();
+        if (q?.customer?.id && email === emailDossier) {
+          clients.set(q.customer.id, q.customer.fullName || q.customer.companyName || '');
+        }
+      }
+      if (clients.size === 1) {
+        clientId = [...clients.keys()][0];
+      } else if (clients.size > 1) {
+        // Un syndic gère souvent plusieurs copropriétés avec le même email : on prend celle dont le nom ressemble au dossier
+        const motsDossier = new Set(motsCles(taskData.name || ''));
+        let meilleur: string | null = null;
+        let meilleurScore = 0;
+        let egalite = false;
+        for (const [id, nom] of clients) {
+          const score = motsCles(nom).filter((m) => motsDossier.has(m)).length;
+          if (score > meilleurScore) {
+            meilleur = id;
+            meilleurScore = score;
+            egalite = false;
+          } else if (score === meilleurScore && score > 0) {
+            egalite = true;
+          }
+        }
+        clientId = meilleurScore > 0 && !egalite ? meilleur : null;
+      }
+    }
+
+    if (clientId) {
+      quotes = devisDe(clientId);
+    } else if (devisDuLien && estVisible(devisDuLien)) {
+      quotes = [devisDuLien];
+    }
+  }
+
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+
+  return quotes.map((q: any) => {
+    const accepte = q.status === 'accepted';
+    const expireLe = typeof q.expireAt === 'string' ? q.expireAt.slice(0, 10) : null;
+    return {
+      numero: q.number,
+      nom: q.name || 'Devis',
+      accepte,
+      expire: !accepte && !!expireLe && expireLe < aujourdhui,
+      expireLe: expireLe ? new Date(expireLe).toLocaleDateString('fr-FR') : null,
+      total: (q.total / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }),
+      pdfId: q.pdf?.id || null,
+      lienEnLigne: lienPartage(q) || null,
+    };
+  });
+}
+
 export default async function SuiviClientPage({ params }: { params: Promise<{ id: string }> }) {
-  // Déballage de la promesse (Spécifique Next.js 15)
+  // Déballage de la promesse (Spécifique Next.js 15+)
   const resolvedParams = await params;
+
+  // Accès réservé : il faut s'être identifié dans l'Espace client (n° de dossier + email)
+  const cookieStore = await cookies();
+  if (!tokenAllowsDossier(cookieStore.get(ESPACE_CLIENT_COOKIE)?.value, resolvedParams.id)) {
+    redirect(`/espace-client?dossier=${encodeURIComponent(resolvedParams.id)}`);
+  }
+
   const taskData = await getClickUpTask(resolvedParams.id);
   const devis = taskData ? await getDevisClient(taskData) : [];
 
@@ -98,15 +213,33 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
             <div className="relative border-l-2 border-slate-100 ml-3 md:ml-4 space-y-8">
               {(() => {
                 const s = statutActuel.toLowerCase();
-                
-                // Définition de l'étape en cours selon tes statuts ClickUp (Chantiers + Parc)
-                let currentStep = 0;
-                if (s.includes('planifié')) currentStep = 1;
-                if (s.includes('en cours')) currentStep = 2;
-                if (s.includes('réalisé') || s.includes('terminé') || s.includes('service') || s.includes('surveillance') || s.includes('panne')) currentStep = 3;
-                if (s.includes('annulé') || s.includes('hors service')) currentStep = -1; // Mode erreur
+
+                // Phase commerciale (liste Qualification) : visite, devis, négociation
+                const phaseDevis = s.includes('visiter') || s.includes('devis') || s.includes('négociation') || s.includes('negociation');
+                const devisEnAttente = s.includes('envoy') || s.includes('négociation') || s.includes('negociation');
+
+                // Étape en cours selon les statuts ClickUp (Qualification + Chantiers + Parc)
+                let currentStep = 1; // par défaut : devis signé, dossier en préparation (ex : "gagné")
+                if (phaseDevis) currentStep = 0;
+                if (s.includes('planifié')) currentStep = 2;
+                if (s.includes('en cours')) currentStep = 3;
+                if (s.includes('réalisé') || s.includes('terminé') || s.includes('service') || s.includes('surveillance') || s.includes('panne')) currentStep = 4;
+                if (s.includes('annulé') || s.includes('hors service') || s.includes('perdu')) currentStep = -1; // Mode erreur
+
+                const etapeDevis =
+                  currentStep > 0
+                    ? { title: 'Devis validé', desc: 'Merci pour votre confiance : votre projet est lancé.' }
+                    : devisEnAttente
+                      ? {
+                          title: 'En attente de votre validation',
+                          desc: devis.length > 0
+                            ? 'Votre devis vous attend ci-dessous : consultez-le et signez-le en ligne pour lancer votre projet.'
+                            : 'Votre devis vous a été envoyé : consultez-le et validez-le pour lancer votre projet.',
+                        }
+                      : { title: 'Étude de votre projet', desc: 'Nous étudions votre installation et préparons votre devis.' };
 
                 const steps = [
+                  etapeDevis,
                   { title: "Préparation du dossier", desc: "Vos informations sont en cours d'analyse et de préparation." },
                   { title: "Intervention planifiée", desc: "Une date a été fixée avec notre équipe technique." },
                   { title: "Chantier en cours", desc: "Nos techniciens sont mobilisés sur votre installation." },
@@ -119,7 +252,7 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
                   const isUpcoming = currentStep < index;
                   
                   // Gestion spéciale si la borne est en panne dans le Parc Installé
-                  const showSavWarning = isActive && index === 3 && (s.includes('surveillance') || s.includes('panne'));
+                  const showSavWarning = isActive && index === 4 && (s.includes('surveillance') || s.includes('panne'));
 
                   return (
                     <div key={index} className="relative pl-8 transition-all duration-300">
@@ -223,35 +356,46 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
           })()}
 
           {devis.length > 0 && (
-  <div className="mt-8 bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
-    <span className="text-[10px] font-black uppercase tracking-widest text-[#032b60]">Vos devis</span>
-    <div className="mt-4 space-y-3">
-      {devis.map((d: any) => (
-        <a
-          key={d.numero + (d.pdfId || '')}
-          href={d.pdfId ? `/api/devis-pdf/${d.pdfId}` : undefined}
-          target="_blank"
-          className={`flex items-center justify-between rounded-2xl border border-slate-100 p-4 transition ${d.pdfId ? 'cursor-pointer hover:border-[#0097b2] hover:shadow-sm' : ''}`}
-        >
-          <div>
-            <p className="font-semibold text-slate-800">{d.nom}</p>
-            <p className="text-sm text-slate-500">
-              N° {d.numero} · {d.total}
-              {d.accepte && <span className="ml-2 font-semibold text-[#0097b2]">✓ Accepté</span>}
-            </p>
-          </div>
-          {d.pdfId ? (
-            <span className="rounded-lg bg-[#0097b2] px-4 py-2 text-sm font-semibold text-white">Voir le devis →</span>
-          ) : (
-            <span className="text-xs text-slate-400">PDF bientôt dispo</span>
+            <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#032b60]">Vos devis</span>
+              <div className="mt-4 space-y-3">
+                {devis.map((d: any) => {
+                  // Lien de partage Costructor en priorité (consultation + signature en ligne), sinon le PDF
+                  const href = d.lienEnLigne || (d.pdfId ? `/api/devis-pdf/${d.pdfId}` : undefined);
+                  const libelle = d.lienEnLigne && !d.accepte && !d.expire ? 'Voir et signer →' : 'Voir le devis →';
+                  return (
+                    <a
+                      key={d.numero + (d.pdfId || d.lienEnLigne || '')}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center justify-between gap-4 rounded-2xl border border-slate-100 p-4 transition ${href ? 'cursor-pointer hover:border-[#0097b2] hover:shadow-sm' : ''}`}
+                    >
+                      <div>
+                        <p className="font-semibold text-slate-800">{d.nom}</p>
+                        <p className="text-sm text-slate-500">
+                          N° {d.numero} · {d.total}
+                          {d.accepte && <span className="ml-2 font-semibold text-[#0097b2]">✓ Accepté</span>}
+                        </p>
+                        {d.expire && (
+                          <p className="mt-1 text-xs font-semibold text-amber-600">
+                            Expiré le {d.expireLe} : contactez-nous pour un devis à jour.
+                          </p>
+                        )}
+                      </div>
+                      {href ? (
+                        <span className="shrink-0 rounded-lg bg-[#0097b2] px-4 py-2 text-sm font-semibold text-white">{libelle}</span>
+                      ) : (
+                        <span className="shrink-0 text-xs text-slate-400">PDF bientôt dispo</span>
+                      )}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
           )}
-        </a>
-      ))}
-    </div>
-  </div>
-)}
 
-{/* Bloc Formulaire SAV */}
+          {/* Bloc Formulaire SAV */}
           <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
             <div className="mb-8">
               <div className="inline-flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-full border border-slate-200 mb-4">
@@ -264,9 +408,8 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
                 Utilisez ce formulaire pour nous signaler tout dysfonctionnement. Votre demande sera traitée en priorité par nos techniciens locaux.
               </p>
             </div>
-          
 
-<SavForm clientId={resolvedParams.id} nomClient={nomChantier} />
+            <SavForm clientId={resolvedParams.id} nomClient={nomChantier} />
           </div>
 
         </div>
