@@ -3,7 +3,7 @@
 // Pour ajouter un article : copier un bloc { ... } dans la liste `articles`, changer le slug (adresse), le titre, la date et le contenu.
 // Images : couverture = une photo de /public ; schémas = fichiers SVG dans /public/blog.
 // Chiffres ADVENIR vérifiés le 04/10/2026 sur advenir.mobi (barème résidentiel collectif du 1er avril 2026).
-// Droit à la prise : art. L.113-16 et R.113-8 s. du CCH (décret n° 2020-1720). TVA 5,5 % : art. 278-0 bis N du CGI.
+// Droit à la prise : art. L.113-16, L.113-17 et R.113-8 s. du CCH (décret n° 2020-1720). TVA 5,5 % : art. 278-0 bis N du CGI et art. 30-0 H ann. IV.
 
 export type Block =
   | { type: "h2"; text: string }
@@ -154,7 +154,7 @@ export const articles: Article[] = [
       },
       {
         type: "callout",
-        text: "À savoir : au-delà de 3,7 kW, l'installation doit obligatoirement être réalisée par un électricien qualifié IRVE. C'est une question de sécurité et d'assurance. Côté aides en maison individuelle, le crédit d'impôt a disparu au 1er janvier 2026 et la prime ADVENIR est réservée au logement collectif : il reste la TVA réduite à 5,5 %, quand la borne et sa pose sont facturées ensemble par un installateur qualifié IRVE.",
+        text: "À savoir : au-delà de 3,7 kW, l'installation doit obligatoirement être réalisée par un électricien qualifié IRVE. C'est une question de sécurité et d'assurance. Côté aides en maison individuelle, le crédit d'impôt a disparu au 1er janvier 2026 et la prime ADVENIR est réservée au logement collectif : il reste la TVA réduite à 5,5 % sur l'installation de la borne par un installateur qualifié IRVE.",
       },
       {
         type: "p",
