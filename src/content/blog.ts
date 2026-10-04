@@ -1,7 +1,7 @@
 // src/content/blog.ts
 // Contenu du blog "Guides & conseils".
 // Pour ajouter un article : copier un bloc { ... } dans la liste `articles`, changer le slug (adresse), le titre, la date et le contenu.
-// Images : couverture = une photo de /public ; schémas = fichiers SVG dans /public/blog.
+// Images : couverture = une photo de /public (ou /public/blog) ; schémas = fichiers SVG dans /public/blog.
 // Chiffres ADVENIR vérifiés le 04/10/2026 sur advenir.mobi (barème résidentiel collectif du 1er avril 2026).
 // Droit à la prise : art. L.113-16, L.113-17 et R.113-8 s. du CCH (décret n° 2020-1720). TVA 5,5 % : art. 278-0 bis N du CGI et art. 30-0 H ann. IV.
 // Majorités en AG (vérifiées sur Légifrance le 04/10/2026, version du 18/06/2025) : étude et décision d'équiper = art. 24 II i ;
@@ -37,7 +37,7 @@ export const articles: Article[] = [
     date: "2026-10-04",
     readingMinutes: 6,
     category: "Copropriété",
-    cover: { src: "/hero-copro.webp", alt: "Immeuble en copropriété avec parking" },
+    cover: { src: "/blog/couverture-vote-ag-copropriete.webp", alt: "Parking souterrain de copropriété équipé de bornes de recharge murales" },
     cta: { label: "Préparer mon assemblée générale", href: "/copropriete" },
     blocks: [
       {
@@ -110,7 +110,7 @@ export const articles: Article[] = [
     date: "2026-10-04",
     readingMinutes: 5,
     category: "Particuliers",
-    cover: { src: "/hero-particulier.webp", alt: "Recharge d'une voiture électrique à domicile" },
+    cover: { src: "/blog/couverture-prix-borne-maison.webp", alt: "Borne de recharge murale installée sur une maison du Chablais, montagnes en arrière-plan" },
     cta: { label: "Simuler mon installation", href: "/particuliers" },
     blocks: [
       {
@@ -185,7 +185,7 @@ export const articles: Article[] = [
     date: "2026-10-04",
     readingMinutes: 5,
     category: "Particuliers",
-    cover: { src: "/tech-chargeo.webp", alt: "Intervention sur une installation électrique" },
+    cover: { src: "/blog/couverture-monophase-triphase.webp", alt: "Électricien intervenant sur un tableau électrique" },
     cta: { label: "Simuler mon installation", href: "/particuliers" },
     blocks: [
       {
