@@ -16,8 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Installateur Borne de Recharge Haute-Savoie (74) | CHARGÉO",
-  description: "Spécialiste de l'installation de bornes de recharge pour véhicules électriques en Haute-Savoie. Simulateur en ligne et devis gratuit pour particuliers, pros et syndics.",
+  metadataBase: new URL("https://www.chargeo.fr"),
+  title: "Installateur Borne de Recharge à Thonon-les-Bains & Chablais | CHARGÉO",
+  description: "Installateur de bornes de recharge IRVE à Thonon-les-Bains, Évian et dans tout le Chablais (Haute-Savoie). Particuliers, entreprises et copropriétés : simulateur en ligne, prix ferme et devis gratuit.",
 };
 
 export default function RootLayout({
@@ -28,10 +29,11 @@ export default function RootLayout({
   // Les données structurées pour Google (SEO Local)
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "LocalBusiness",
+    "@type": "Electrician",
     "name": "CHARGÉO",
+    "url": "https://www.chargeo.fr",
     "image": "https://www.chargeo.fr/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png",
-    "description": "Installateur et Opérateur de Points de Charge pour véhicules électriques en Haute-Savoie.",
+    "description": "Installateur de bornes de recharge pour véhicules électriques à Thonon-les-Bains, dans le Chablais et en Haute-Savoie.",
     "address": {
       "@type": "PostalAddress",
       "streetAddress": "89, chemin de la Ballastière",
@@ -40,7 +42,8 @@ export default function RootLayout({
       "addressCountry": "FR"
     },
     "telephone": "+33485692204",
-    "areaServed": ["Chablais", "Haute-Savoie", "Annecy", "Genevois"],
+    "email": "contact@chargeo.fr",
+    "areaServed": ["Thonon-les-Bains", "Évian-les-Bains", "Douvaine", "Chablais", "Haute-Savoie", "Annecy", "Genevois"],
     "priceRange": "$$"
   };
 
