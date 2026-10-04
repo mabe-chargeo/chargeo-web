@@ -4,6 +4,14 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Building as BuildingIcon, Users as UsersIcon, Award as AwardIcon, Phone as PhoneIcon, PiggyBank } from 'lucide-react';
 import { useAnimatedValue } from '@/hooks/useAnimatedValue';
 
+// Barème ADVENIR résidentiel collectif en vigueur depuis le 1er avril 2026 (source : advenir.mobi, communiqué du 23/03/2026)
+// - Infrastructure collective : 50 % des coûts HT, plafond 12 500 € jusqu'à 100 places, + 125 € par place au-delà
+// - Point de recharge individuel : 50 % des coûts HT, plafond 1 000 €
+// Applicable si le vote en AG est intervenu à partir du 1er avril 2026 (PV d'AG faisant foi).
+const ADVENIR_INFRA_PLAFOND = 12500;
+const ADVENIR_INFRA_PAR_PLACE_SUP = 125;
+const ADVENIR_PDC_INDIVIDUEL = 1000;
+
 export function SimulatorCopro({ onResultChange }: { onResultChange?: (val: number, dataStr?: string) => void }) {
     const [parkingSpots, setParkingSpots] = useState(30);
   const [interestedResidents, setInterestedResidents] = useState(3);
@@ -13,12 +21,14 @@ export function SimulatorCopro({ onResultChange }: { onResultChange?: (val: numb
 
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  // Calcul Subventions Copro
+  // Calcul Subventions Copro (plafonds ADVENIR)
   const results = useMemo(() => {
     const safeParkingSpots = isNaN(parkingSpots) ? 0 : parkingSpots;
     const safeInterested = isNaN(interestedResidents) ? 0 : interestedResidents;
-    const totalSubventions = 8000 + (safeInterested * 600);
-    return { totalSubventions: Math.max(0, totalSubventions) };
+    const plafondInfra = ADVENIR_INFRA_PLAFOND + Math.max(0, safeParkingSpots - 100) * ADVENIR_INFRA_PAR_PLACE_SUP;
+    const primesIndividuelles = safeInterested * ADVENIR_PDC_INDIVIDUEL;
+    const totalSubventions = plafondInfra + primesIndividuelles;
+    return { totalSubventions: Math.max(0, totalSubventions), plafondInfra, primesIndividuelles };
   }, [parkingSpots, interestedResidents]);
   useEffect(() => {
     if (onResultChange) onResultChange(results.totalSubventions, `Places parking: ${parkingSpots}, Résidents motivés: ${interestedResidents}`);
@@ -88,14 +98,14 @@ export function SimulatorCopro({ onResultChange }: { onResultChange?: (val: numb
         {/* Boîte de résultats droite */}
         <div ref={resultsRef} className="order-3 lg:row-start-1 lg:col-start-2 lg:row-span-2 h-full flex flex-col justify-center bg-linear-to-br from-green-50 to-emerald-100 p-8 md:p-10 rounded-[2.5rem] border border-green-200 shadow-xl relative overflow-hidden hover:shadow-2xl transition-all hover:-translate-y-1">
           <PiggyBank className="absolute -right-10 -bottom-10 opacity-10 text-green-600 transition-transform duration-1000 hover:rotate-12" size={200} />
-          <h3 className="text-green-800 text-sm font-black uppercase tracking-widest mb-2 relative z-10">Aides Advenir Estimées</h3>
+          <h3 className="text-green-800 text-sm font-black uppercase tracking-widest mb-2 relative z-10">Aides Advenir jusqu'à</h3>
           <div className="relative z-10">
              <span className={`text-6xl font-black text-green-600 transition-transform duration-300 ${isPulsing ? 'scale-105 text-emerald-500' : 'scale-100'} block`}>{Math.round(animatedSubventions).toLocaleString('fr-FR')} €</span>
-             <p className="text-xs text-green-800/60 font-bold uppercase mt-2">*Jusqu'à 8000€ pour le collectif + 600€ par résident.</p>
+             <p className="text-xs text-green-800/60 font-bold uppercase mt-2">*Plafonds HT du barème Advenir au 1er avril 2026 : 50 % des coûts, jusqu'à 12 500 € pour le collectif (+125 € par place au-delà de 100) et 1 000 € par borne individuelle.</p>
           </div>
           <div className="space-y-3 relative z-10 pt-4 border-t border-green-200">
-             <div className="flex justify-between text-xs font-bold uppercase"><span className="text-green-800/60">Infrastructure Collective</span><span className="text-green-900 font-black">Max 8 000€</span></div>
-             <div className="flex justify-between text-xs font-bold uppercase"><span className="text-green-800/60">Primes Individuelles</span><span className="text-green-900 font-black">{interestedResidents * 600}€</span></div>
+             <div className="flex justify-between text-xs font-bold uppercase"><span className="text-green-800/60">Infrastructure Collective</span><span className="text-green-900 font-black">Max {results.plafondInfra.toLocaleString('fr-FR')}€</span></div>
+             <div className="flex justify-between text-xs font-bold uppercase"><span className="text-green-800/60">Primes Individuelles</span><span className="text-green-900 font-black">{results.primesIndividuelles.toLocaleString('fr-FR')}€</span></div>
           </div>
           <button 
             onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 

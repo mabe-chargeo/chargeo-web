@@ -44,29 +44,30 @@ export default function CoproprietePage() {
     };
   }, []);
 
-  const reviews = [
+  // Exemples de projets types (pas des avis clients). À remplacer par de vrais avis, avec variant="avis", dès les premiers chantiers.
+  const casTypes = [
     {
-      text: "L'IRVE collective était la seule solution pérenne pour notre parking. CHARGéO a monté le dossier Advenir pour subventionner massivement l'artère principale.",
-      author: "Président du CS",
-      location: "Résidence 50 lots",
-      image: "/review-cs.webp"
+      text: "Résidence de 30 places : artère posée une fois pour toutes, 3 résidents raccordés dès le départ. ADVENIR finance 50 % de l'infrastructure, jusqu'à 12 500 € HT.",
+      author: "Infrastructure collective",
+      location: "Thonon-les-Bains",
+      image: "/hero-copro.webp"
     },
     {
-      text: "L'artère principale a été tirée. Aujourd'hui, n'importe quel résident peut demander le raccordement de sa place sans faire disjoncter l'immeuble.",
-      author: "Copropriétaire",
-      location: "Thonon",
-      image: "/review-resident.webp"
+      text: "Un résident veut sa borne : on vérifie la puissance, on prépare le dossier pour le syndic, et la recharge est pilotée pour ne jamais faire disjoncter l'immeuble.",
+      author: "Droit à la prise",
+      location: "Évian-les-Bains",
+      image: "/tech-chargeo.webp"
     },
     {
-      text: "L'accompagnement et le logiciel de supervision nous déchargent totalement. Chacun est facturé au kWh consommé, et le syndic n'a plus rien à gérer.",
-      author: "Syndic",
-      location: "Annecy",
-      image: "/review-syndic.webp"
+      text: "Côté syndic, rien à gérer : chaque résident équipé a son sous-compteur et reçoit sa facture au kWh réellement consommé.",
+      author: "Gestion simplifiée",
+      location: "Chablais",
+      image: "/hero-chargeo.webp"
     }
   ];
 
   const faqs = [
-    { q: "L'infrastructure IRVE collective a-t-elle un coût pour l'immeuble ?", a: "L'installation est lourdement subventionnée (jusqu'à 50% par la Prime Advenir avec un plafond de 8 000€). Le reste à charge éventuel dépend de la complexité technique du parking et de sa configuration." },
+    { q: "L'infrastructure IRVE collective a-t-elle un coût pour l'immeuble ?", a: "Elle est subventionnée à 50 % par la prime Advenir, jusqu'à 12 500 € HT pour un parking jusqu'à 100 places (+125 € HT par place au-delà), pour un vote en AG à partir du 1er avril 2026. Une surprime jusqu'à 8 000 € HT couvre les travaux en extérieur. Le reste à charge éventuel dépend de la complexité technique du parking et de sa configuration." },
     { q: "Comment est facturée l'électricité ?", a: "Notre solution de supervision gère tout de A à Z. Chaque résident équipé dispose de son propre sous-compteur intelligent. Les factures lui sont envoyées directement (prélèvement automatique), en fonction de sa consommation réelle." },
     { q: "Et si l'infrastructure collective n'est pas votée en AG ?", a: "En dernier recours, il est possible d'envisager un branchement individuel 'Droit à la Prise'. C'est une démarche légale où le résident paie son propre tirage, mais elle est souvent moins évolutive que le collectif." },
     { q: "L'immeuble risque-t-il de disjoncter ?", a: "Absolument pas. L'infrastructure collective intègre un système de délestage dynamique (Load Balancing) qui répartit intelligemment la puissance disponible entre tous les véhicules branchés." }
@@ -85,9 +86,10 @@ export default function CoproprietePage() {
       <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-60 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 ${showFloatingCta ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex flex-col">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Aides Débloquées</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Aides possibles</p>
             <p className="text-xl sm:text-2xl font-black text-green-600">
-+{Math.round(subventions).toLocaleString('fr-FR')}€ d'aides            </p>
+              +{Math.round(subventions).toLocaleString('fr-FR')}€ d'aides
+            </p>
           </div>
           <button 
             onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} 
@@ -162,13 +164,13 @@ export default function CoproprietePage() {
             <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1">
               <Zap className="text-[#0097b2] mb-6" size={40} />
               <h3 className="text-xl font-black text-[#032b60] mb-3 uppercase tracking-wider">Le Droit à la prise</h3>
-              <p className="text-slate-500 font-medium text-sm leading-relaxed">Faites valoir votre droit sans conflit. Nous prenons en charge les négociations avec le syndic, l'envoi des mises en demeure et garantissons la conformité technique.</p>
+              <p className="text-slate-500 font-medium text-sm leading-relaxed">Faites valoir votre droit sans conflit. Nous préparons le dossier de notification au syndic (descriptif, plan, schéma), échangeons avec lui sur la partie technique et garantissons la conformité de l'installation.</p>
             </div>
             <div className="bg-[#032b60] p-8 rounded-3xl text-white shadow-2xl transition-all hover:-translate-y-1 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-[#0097b2]/20 rounded-full blur-3xl -mr-16 -mt-16"></div>
               <PiggyBank className="text-[#0097b2] mb-6 relative z-10" size={40} />
               <h3 className="text-xl font-black mb-3 uppercase tracking-wider relative z-10">Indépendance Totale</h3>
-              <p className="text-white/70 font-medium text-sm leading-relaxed relative z-10">Fuyez les abonnements sur 15 ans. La copropriété investit et possède son propre réseau, en déduisant immédiatement les aides ADVENIR pour réduire le reste à charge.</p>
+              <p className="text-white/70 font-medium text-sm leading-relaxed relative z-10">Fuyez les abonnements sur 15 ans. La copropriété investit et possède son propre réseau, et mobilise les aides ADVENIR pour réduire le reste à charge.</p>
             </div>
             <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1">
               <FileText className="text-[#0097b2] mb-6" size={40} />
@@ -178,7 +180,7 @@ export default function CoproprietePage() {
           </div>
         </section>
 
-        {/* MÉTHODOLOGIE + CARROUSEL AVIS */}
+        {/* MÉTHODOLOGIE + CARROUSEL CAS TYPES */}
         <section id="concept" className="py-24 bg-slate-50 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-20 items-center">
              <div className="space-y-8">
@@ -221,8 +223,8 @@ export default function CoproprietePage() {
                 </div>
              </div>
              
-             {/* COMPOSANT AVIS ISOLÉ */}
-             <ReviewsCarousel reviews={reviews} />
+             {/* CARROUSEL CAS TYPES (à basculer en variant="avis" avec de vrais avis clients) */}
+             <ReviewsCarousel reviews={casTypes} variant="cas" />
           </div>
         </section>
 

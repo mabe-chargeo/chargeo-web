@@ -13,10 +13,14 @@ interface Review {
 
 interface ReviewsCarouselProps {
   reviews: Review[];
+  // "avis" (par défaut) = vrais avis clients, avec étoiles et guillemets.
+  // "cas" = exemples de projets types, clairement présentés comme tels (pas d'étoiles, badge "Exemple de projet").
+  variant?: "avis" | "cas";
 }
 
-export function ReviewsCarousel({ reviews }: ReviewsCarouselProps) {
+export function ReviewsCarousel({ reviews, variant = "avis" }: ReviewsCarouselProps) {
   const [currentReview, setCurrentReview] = useState(0);
+  const isCas = variant === "cas";
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -34,7 +38,7 @@ export function ReviewsCarousel({ reviews }: ReviewsCarouselProps) {
           <Image 
             key={idx}
             src={review.image} 
-            alt={`Témoignage de ${review.author}`}
+            alt={isCas ? `Illustration : ${review.author}` : `Témoignage de ${review.author}`}
             fill
             sizes="(max-width: 768px) 100vw, 400px"
             priority={idx === 0}
@@ -46,13 +50,21 @@ export function ReviewsCarousel({ reviews }: ReviewsCarouselProps) {
 
       <div className="absolute -bottom-10 -left-4 md:-left-10 bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-slate-100 w-[90%] sm:max-w-md min-h-55 flex flex-col justify-between z-20 hover:-translate-y-2 transition-transform duration-500">
         <div>
-            <div className="flex gap-1 text-yellow-400 mb-4">
-               {[1,2,3,4,5].map(s => <Star key={s} size={14} fill="currentColor" stroke="none" />)}
-            </div>
+            {isCas ? (
+              <span className="inline-block text-[10px] font-black uppercase tracking-widest text-[#0097b2] bg-[#0097b2]/10 px-3 py-1 rounded-full mb-4">Exemple de projet</span>
+            ) : (
+              <div className="flex gap-1 text-yellow-400 mb-4">
+                 {[1,2,3,4,5].map(s => <Star key={s} size={14} fill="currentColor" stroke="none" />)}
+              </div>
+            )}
             <div className="relative overflow-hidden h-48 sm:h-36">
               {reviews.map((review, idx) => (
                 <div key={idx} className={`absolute inset-0 transition-all duration-700 ${idx === currentReview ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
-                  <p className="text-sm font-bold text-slate-700 italic leading-relaxed">&quot;{review.text}&quot;</p>
+                  {isCas ? (
+                    <p className="text-sm font-bold text-slate-700 leading-relaxed">{review.text}</p>
+                  ) : (
+                    <p className="text-sm font-bold text-slate-700 italic leading-relaxed">&quot;{review.text}&quot;</p>
+                  )}
                   <p className="mt-3 font-black text-[10px] uppercase tracking-widest text-[#0097b2]">&mdash; {review.author}, {review.location}</p>
                 </div>
               ))}
@@ -63,7 +75,7 @@ export function ReviewsCarousel({ reviews }: ReviewsCarouselProps) {
                 <button 
                     key={idx} 
                     onClick={() => setCurrentReview(idx)}
-                    aria-label={`Voir le témoignage ${idx + 1}`}
+                    aria-label={isCas ? `Voir l'exemple ${idx + 1}` : `Voir le témoignage ${idx + 1}`}
                     className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentReview ? 'w-6 bg-[#0097b2]' : 'w-2 bg-slate-200 hover:bg-slate-300'}`} 
                 ></button>
             ))}

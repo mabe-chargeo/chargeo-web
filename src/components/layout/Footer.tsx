@@ -30,6 +30,7 @@ export function Footer() {
                   <li><a href="/pro" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Entreprises</a></li>
                   <li><a href="/copropriete" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Copropriétés</a></li>
                   <li><a href="/particuliers" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Particuliers</a></li>
+                  <li><a href="/blog" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Guides & conseils</a></li>
                   <li><a href="/recrutement" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">On recrute</a></li>
                </ul>
             </div>
