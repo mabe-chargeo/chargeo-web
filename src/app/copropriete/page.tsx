@@ -9,6 +9,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { TrustedBrands } from '@/components/layout/TrustedBrands';
 import { SimulatorCopro } from '@/components/ui/SimulatorCopro';
 import { ContactForm } from '@/components/ui/ContactForm';
+import { ReviewsCarousel } from '@/components/ui/ReviewsCarousel';
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { Footer } from '@/components/layout/Footer';
 
@@ -43,11 +44,26 @@ export default function CoproprietePage() {
     };
   }, []);
 
-  // Nos engagements (remplacent les témoignages tant qu'il n'y a pas de vrais avis clients)
-  const engagements = [
-    "Vous restez propriétaires de l'infrastructure, sans contrat d'opérateur.",
-    "Un prix ferme, avec le calcul des aides ADVENIR intégré au devis.",
-    "Un interlocuteur local à Thonon, joignable en direct.",
+  // Exemples de projets types (pas des avis clients). À remplacer par de vrais avis, avec variant="avis", dès les premiers chantiers.
+  const casTypes = [
+    {
+      text: "Résidence de 30 places : artère posée une fois pour toutes, 3 résidents raccordés dès le départ. ADVENIR finance 50 % de l'infrastructure, jusqu'à 12 500 € HT.",
+      author: "Infrastructure collective",
+      location: "Thonon-les-Bains",
+      image: "/hero-copro.webp"
+    },
+    {
+      text: "Un résident veut sa borne : on vérifie la puissance, on prépare le dossier pour le syndic, et la recharge est pilotée pour ne jamais faire disjoncter l'immeuble.",
+      author: "Droit à la prise",
+      location: "Évian-les-Bains",
+      image: "/tech-chargeo.webp"
+    },
+    {
+      text: "Côté syndic, rien à gérer : chaque résident équipé a son sous-compteur et reçoit sa facture au kWh réellement consommé.",
+      author: "Gestion simplifiée",
+      location: "Chablais",
+      image: "/hero-chargeo.webp"
+    }
   ];
 
   const faqs = [
@@ -163,7 +179,7 @@ export default function CoproprietePage() {
           </div>
         </section>
 
-        {/* MÉTHODOLOGIE + ENGAGEMENTS */}
+        {/* MÉTHODOLOGIE + CARROUSEL CAS TYPES */}
         <section id="concept" className="py-24 bg-slate-50 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-20 items-center">
              <div className="space-y-8">
@@ -206,20 +222,8 @@ export default function CoproprietePage() {
                 </div>
              </div>
              
-             {/* BLOC ENGAGEMENTS (remplace le carrousel d'avis en attendant de vrais avis clients) */}
-             <div className="relative aspect-4/5 w-full rounded-[2.5rem] overflow-hidden shadow-2xl bg-[#032b60]">
-               <Image src="/hero-copro.webp" alt="Parking de copropriété prêt pour la recharge" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
-               <div className="absolute inset-0 bg-linear-to-t from-[#032b60] via-[#032b60]/60 to-transparent"></div>
-               <div className="absolute bottom-0 left-0 right-0 p-8 md:p-10 space-y-5">
-                 <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">Nos engagements</p>
-                 {engagements.map((item) => (
-                   <div key={item} className="flex items-start gap-3">
-                     <CheckCircle size={20} className="text-[#0097b2] shrink-0 mt-0.5" />
-                     <p className="text-white font-bold text-base md:text-lg leading-snug">{item}</p>
-                   </div>
-                 ))}
-               </div>
-             </div>
+             {/* CARROUSEL CAS TYPES (à basculer en variant="avis" avec de vrais avis clients) */}
+             <ReviewsCarousel reviews={casTypes} variant="cas" />
           </div>
         </section>
 
