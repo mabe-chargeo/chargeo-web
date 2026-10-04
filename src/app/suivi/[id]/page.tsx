@@ -43,15 +43,15 @@ async function fetchQuotes(token: string, query: string): Promise<any[]> {
   }
 }
 
-// Costructor renvoie les devis page par page (les plus récents d'abord) :
-// on parcourt toutes les pages pour retrouver aussi les anciens devis.
+// L'API Costructor attend "_limit" (et non "limit") et renvoie 10 devis par défaut, les plus récents d'abord.
+// Elle ne filtre pas par client : on récupère tout et on filtre nous-mêmes.
 async function fetchTousLesDevis(token: string): Promise<any[]> {
   const tous: any[] = [];
   const vus = new Set<string>();
-  for (let page = 1; page <= 20; page++) {
-    const lot = await fetchQuotes(token, `limit=50&page=${page}`);
+  for (let page = 1; page <= 10; page++) {
+    const lot = await fetchQuotes(token, `_limit=500&limit=100&_page=${page}&page=${page}`);
     const nouveaux = lot.filter((q) => q?.id && !vus.has(q.id));
-    if (nouveaux.length === 0) break; // fin de liste (ou pagination ignorée par l'API)
+    if (nouveaux.length === 0) break; // fin de liste (ou pagination non gérée par l'API)
     for (const q of nouveaux) {
       vus.add(q.id);
       tous.push(q);
@@ -67,6 +67,7 @@ const lienPartage = (q: any): string => String(q?.hostedUrl || q?.hosted_url || 
 // 1. contact Costructor indiqué dans "Lien Costructor" (cnt_...)
 // 2. sinon, si ce champ contient un lien de partage de devis, le client de ce devis
 // 3. sinon, le client Costructor qui a le même email que le dossier (si plusieurs, celui dont le nom ressemble au dossier)
+// Un dossier ne voit JAMAIS que les devis d'un seul client Costructor.
 async function getDevisClient(taskData: any) {
   const token = process.env.COSTRUCTOR_API_KEY;
   if (!token) return [];
@@ -79,25 +80,30 @@ async function getDevisClient(taskData: any) {
   const contactMatch = lien.match(/cnt_[a-z0-9]+/i);
   const emailDossier = getTaskEmail(taskData);
 
+  if (!lien && !emailDossier) return [];
+
+  const tous = await fetchTousLesDevis(token);
+  const devisDe = (clientId: string) => tous.filter((q) => q?.customer?.id === clientId && estVisible(q));
+
   let quotes: any[] = [];
 
+  // 1. Contact indiqué dans le champ
   if (contactMatch) {
-    quotes = (await fetchQuotes(token, `customer=${contactMatch[0]}&limit=50`)).filter(estVisible);
+    quotes = devisDe(contactMatch[0]);
   }
 
-  if (quotes.length === 0 && (lien || emailDossier)) {
-    const tous = await fetchTousLesDevis(token);
+  if (quotes.length === 0) {
     let clientId: string | null = null;
     let devisDuLien: any = null;
 
-    // Lien de partage d'un devis collé dans le champ
+    // 2. Lien de partage d'un devis collé dans le champ
     if (lien && !contactMatch) {
       const cible = lienSansParametres(lien);
       devisDuLien = tous.find((q) => lienPartage(q) && lienSansParametres(lienPartage(q)) === cible) || null;
       clientId = devisDuLien?.customer?.id || null;
     }
 
-    // Même email que le dossier
+    // 3. Même email que le dossier
     if (!clientId && emailDossier) {
       const clients = new Map<string, string>();
       for (const q of tous) {
@@ -129,7 +135,7 @@ async function getDevisClient(taskData: any) {
     }
 
     if (clientId) {
-      quotes = tous.filter((q) => q?.customer?.id === clientId && estVisible(q));
+      quotes = devisDe(clientId);
     } else if (devisDuLien && estVisible(devisDuLien)) {
       quotes = [devisDuLien];
     }
@@ -204,15 +210,33 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
             <div className="relative border-l-2 border-slate-100 ml-3 md:ml-4 space-y-8">
               {(() => {
                 const s = statutActuel.toLowerCase();
-                
-                // Définition de l'étape en cours selon tes statuts ClickUp (Chantiers + Parc)
-                let currentStep = 0;
-                if (s.includes('planifié')) currentStep = 1;
-                if (s.includes('en cours')) currentStep = 2;
-                if (s.includes('réalisé') || s.includes('terminé') || s.includes('service') || s.includes('surveillance') || s.includes('panne')) currentStep = 3;
-                if (s.includes('annulé') || s.includes('hors service')) currentStep = -1; // Mode erreur
+
+                // Phase commerciale (liste Qualification) : visite, devis, négociation
+                const phaseDevis = s.includes('visiter') || s.includes('devis') || s.includes('négociation') || s.includes('negociation');
+                const devisEnAttente = s.includes('envoy') || s.includes('négociation') || s.includes('negociation');
+
+                // Étape en cours selon les statuts ClickUp (Qualification + Chantiers + Parc)
+                let currentStep = 1; // par défaut : devis signé, dossier en préparation (ex : "gagné")
+                if (phaseDevis) currentStep = 0;
+                if (s.includes('planifié')) currentStep = 2;
+                if (s.includes('en cours')) currentStep = 3;
+                if (s.includes('réalisé') || s.includes('terminé') || s.includes('service') || s.includes('surveillance') || s.includes('panne')) currentStep = 4;
+                if (s.includes('annulé') || s.includes('hors service') || s.includes('perdu')) currentStep = -1; // Mode erreur
+
+                const etapeDevis =
+                  currentStep > 0
+                    ? { title: 'Devis validé', desc: 'Merci pour votre confiance : votre projet est lancé.' }
+                    : devisEnAttente
+                      ? {
+                          title: 'En attente de votre validation',
+                          desc: devis.length > 0
+                            ? 'Votre devis vous attend ci-dessous : consultez-le et signez-le en ligne pour lancer votre projet.'
+                            : 'Votre devis vous a été envoyé : consultez-le et validez-le pour lancer votre projet.',
+                        }
+                      : { title: 'Étude de votre projet', desc: 'Nous étudions votre installation et préparons votre devis.' };
 
                 const steps = [
+                  etapeDevis,
                   { title: "Préparation du dossier", desc: "Vos informations sont en cours d'analyse et de préparation." },
                   { title: "Intervention planifiée", desc: "Une date a été fixée avec notre équipe technique." },
                   { title: "Chantier en cours", desc: "Nos techniciens sont mobilisés sur votre installation." },
@@ -225,7 +249,7 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
                   const isUpcoming = currentStep < index;
                   
                   // Gestion spéciale si la borne est en panne dans le Parc Installé
-                  const showSavWarning = isActive && index === 3 && (s.includes('surveillance') || s.includes('panne'));
+                  const showSavWarning = isActive && index === 4 && (s.includes('surveillance') || s.includes('panne'));
 
                   return (
                     <div key={index} className="relative pl-8 transition-all duration-300">
