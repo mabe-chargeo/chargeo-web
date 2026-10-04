@@ -24,6 +24,11 @@ function motsCles(s: string): string[] {
     .filter((m) => m.length >= 4 && !MOTS_GENERIQUES.has(m));
 }
 
+// Lien sans ?f=share ni slash final, pour comparer deux liens de partage
+function lienSansParametres(u: string): string {
+  return (u || '').trim().split('?')[0].split('#')[0].replace(/\/+$/, '');
+}
+
 async function fetchQuotes(token: string, query: string): Promise<any[]> {
   try {
     const res = await fetch(`https://api.costructor.co/external/v1/quotes?${query}`, {
@@ -36,6 +41,23 @@ async function fetchQuotes(token: string, query: string): Promise<any[]> {
   } catch {
     return [];
   }
+}
+
+// Costructor renvoie les devis page par page (les plus récents d'abord) :
+// on parcourt toutes les pages pour retrouver aussi les anciens devis.
+async function fetchTousLesDevis(token: string): Promise<any[]> {
+  const tous: any[] = [];
+  const vus = new Set<string>();
+  for (let page = 1; page <= 20; page++) {
+    const lot = await fetchQuotes(token, `limit=50&page=${page}`);
+    const nouveaux = lot.filter((q) => q?.id && !vus.has(q.id));
+    if (nouveaux.length === 0) break; // fin de liste (ou pagination ignorée par l'API)
+    for (const q of nouveaux) {
+      vus.add(q.id);
+      tous.push(q);
+    }
+  }
+  return tous;
 }
 
 const estVisible = (q: any) => !STATUTS_MASQUES.includes(q?.status);
@@ -64,13 +86,15 @@ async function getDevisClient(taskData: any) {
   }
 
   if (quotes.length === 0 && (lien || emailDossier)) {
-    const tous = await fetchQuotes(token, 'limit=100');
+    const tous = await fetchTousLesDevis(token);
     let clientId: string | null = null;
+    let devisDuLien: any = null;
 
     // Lien de partage d'un devis collé dans le champ
-    if (lien) {
-      const viaLien = tous.find((q) => lienPartage(q) && lienPartage(q) === lien);
-      clientId = viaLien?.customer?.id || null;
+    if (lien && !contactMatch) {
+      const cible = lienSansParametres(lien);
+      devisDuLien = tous.find((q) => lienPartage(q) && lienSansParametres(lienPartage(q)) === cible) || null;
+      clientId = devisDuLien?.customer?.id || null;
     }
 
     // Même email que le dossier
@@ -106,17 +130,27 @@ async function getDevisClient(taskData: any) {
 
     if (clientId) {
       quotes = tous.filter((q) => q?.customer?.id === clientId && estVisible(q));
+    } else if (devisDuLien && estVisible(devisDuLien)) {
+      quotes = [devisDuLien];
     }
   }
 
-  return quotes.map((q: any) => ({
-    numero: q.number,
-    nom: q.name || 'Devis',
-    accepte: q.status === 'accepted',
-    total: (q.total / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }),
-    pdfId: q.pdf?.id || null,
-    lienEnLigne: lienPartage(q) || null,
-  }));
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+
+  return quotes.map((q: any) => {
+    const accepte = q.status === 'accepted';
+    const expireLe = typeof q.expireAt === 'string' ? q.expireAt.slice(0, 10) : null;
+    return {
+      numero: q.number,
+      nom: q.name || 'Devis',
+      accepte,
+      expire: !accepte && !!expireLe && expireLe < aujourdhui,
+      expireLe: expireLe ? new Date(expireLe).toLocaleDateString('fr-FR') : null,
+      total: (q.total / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }),
+      pdfId: q.pdf?.id || null,
+      lienEnLigne: lienPartage(q) || null,
+    };
+  });
 }
 
 export default async function SuiviClientPage({ params }: { params: Promise<{ id: string }> }) {
@@ -301,7 +335,7 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
                 {devis.map((d: any) => {
                   // Lien de partage Costructor en priorité (consultation + signature en ligne), sinon le PDF
                   const href = d.lienEnLigne || (d.pdfId ? `/api/devis-pdf/${d.pdfId}` : undefined);
-                  const libelle = d.lienEnLigne && !d.accepte ? 'Voir et signer →' : 'Voir le devis →';
+                  const libelle = d.lienEnLigne && !d.accepte && !d.expire ? 'Voir et signer →' : 'Voir le devis →';
                   return (
                     <a
                       key={d.numero + (d.pdfId || d.lienEnLigne || '')}
@@ -316,6 +350,11 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
                           N° {d.numero} · {d.total}
                           {d.accepte && <span className="ml-2 font-semibold text-[#0097b2]">✓ Accepté</span>}
                         </p>
+                        {d.expire && (
+                          <p className="mt-1 text-xs font-semibold text-amber-600">
+                            Expiré le {d.expireLe} : contactez-nous pour un devis à jour.
+                          </p>
+                        )}
                       </div>
                       {href ? (
                         <span className="shrink-0 rounded-lg bg-[#0097b2] px-4 py-2 text-sm font-semibold text-white">{libelle}</span>
