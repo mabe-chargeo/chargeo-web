@@ -46,18 +46,21 @@ async function fetchQuotes(token: string, query: string): Promise<any[]> {
 // L'API Costructor attend "_limit" (et non "limit") et renvoie 10 devis par défaut, les plus récents d'abord.
 // Elle ne filtre pas par client : on récupère tout et on filtre nous-mêmes.
 async function fetchTousLesDevis(token: string): Promise<any[]> {
-  const tous: any[] = [];
-  const vus = new Set<string>();
-  for (let page = 1; page <= 10; page++) {
-    const lot = await fetchQuotes(token, `_limit=500&limit=100&_page=${page}&page=${page}`);
-    const nouveaux = lot.filter((q) => q?.id && !vus.has(q.id));
-    if (nouveaux.length === 0) break; // fin de liste (ou pagination non gérée par l'API)
-    for (const q of nouveaux) {
-      vus.add(q.id);
-      tous.push(q);
+  for (const taille of [100, 50]) {
+    const tous: any[] = [];
+    const vus = new Set<string>();
+    for (let page = 1; page <= 10; page++) {
+      const lot = await fetchQuotes(token, `_limit=${taille}&limit=${taille}&_page=${page}&page=${page}`);
+      const nouveaux = lot.filter((q) => q?.id && !vus.has(q.id));
+      if (nouveaux.length === 0) break; // fin de liste (ou pagination non gérée par l'API)
+      for (const q of nouveaux) {
+        vus.add(q.id);
+        tous.push(q);
+      }
     }
+    if (tous.length > 0) return tous; // sinon on retente avec une page plus petite
   }
-  return tous;
+  return [];
 }
 
 const estVisible = (q: any) => !STATUTS_MASQUES.includes(q?.status);
