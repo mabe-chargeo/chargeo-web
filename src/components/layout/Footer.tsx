@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, Mail } from 'lucide-react';
+import { Phone, Mail, User } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 
 export function Footer() {
@@ -48,6 +48,12 @@ export function Footer() {
                     <a href="mailto:contact@chargeo.fr" className="text-white font-bold text-base sm:text-lg hover:text-[#0097b2] transition-colors flex items-center gap-3">
                       <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0"><Mail size={14} /></span>
                       contact@chargeo.fr
+                    </a>
+                  </li>
+                  <li>
+                    <a href="/espace-client" className="text-white font-bold text-base sm:text-lg hover:text-[#0097b2] transition-colors flex items-center gap-3">
+                      <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0"><User size={14} /></span>
+                      Espace client
                     </a>
                   </li>
                   <li className="pt-2 flex gap-4">

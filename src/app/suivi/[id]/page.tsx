@@ -1,25 +1,9 @@
-import { notFound } from 'next/navigation';
+import { cookies } from 'next/headers';
+import { notFound, redirect } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { SavForm } from '@/components/ui/SavForm';
-
-// L'appel sécurisé vers ClickUp pour lire l'état de la borne (côté serveur)
-async function getClickUpTask(taskId: string) {
-  const token = process.env.CLICKUP_API_KEY;
-  if (!token) return null;
-
-  try {
-    const res = await fetch(`https://api.clickup.com/api/v2/task/${taskId}?custom_task_ids=true`, {
-      headers: { 'Authorization': token },
-      cache: 'no-store', // Pas de cache, on veut le statut en direct
-    });
-
-    if (!res.ok) return null;
-    return res.json();
-  } catch (error) {
-    return null;
-  }
-}
+import { ESPACE_CLIENT_COOKIE, getClickUpTask, tokenAllowsDossier } from '@/lib/espace-client';
 
 async function getDevisClient(taskData: any) {
   const token = process.env.COSTRUCTOR_API_KEY;
@@ -55,8 +39,15 @@ async function getDevisClient(taskData: any) {
 }
 
 export default async function SuiviClientPage({ params }: { params: Promise<{ id: string }> }) {
-  // Déballage de la promesse (Spécifique Next.js 15)
+  // Déballage de la promesse (Spécifique Next.js 15+)
   const resolvedParams = await params;
+
+  // Accès réservé : il faut s'être identifié dans l'Espace client (n° de dossier + email)
+  const cookieStore = await cookies();
+  if (!tokenAllowsDossier(cookieStore.get(ESPACE_CLIENT_COOKIE)?.value, resolvedParams.id)) {
+    redirect(`/espace-client?dossier=${encodeURIComponent(resolvedParams.id)}`);
+  }
+
   const taskData = await getClickUpTask(resolvedParams.id);
   const devis = taskData ? await getDevisClient(taskData) : [];
 
