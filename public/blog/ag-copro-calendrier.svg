@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 980" width="720" height="980" font-family="Arial, Helvetica, sans-serif">
+  <rect x="0" y="0" width="720" height="980" rx="32" fill="#f1f9fb"/>
+  <text x="40" y="66" font-size="30" font-weight="700" fill="#032b60">Copropriété : du projet aux travaux</text>
+  <line x1="90" y1="150" x2="90" y2="870" stroke="#0097b2" stroke-width="4" stroke-dasharray="10 8"/>
+
+  <circle cx="90" cy="150" r="34" fill="#0097b2"/>
+  <text x="90" y="161" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
+  <text x="150" y="142" font-size="28" font-weight="700" fill="#032b60">Étude technique</text>
+  <text x="150" y="178" font-size="22" fill="#475569">Puissance, places, cheminement</text>
+
+  <circle cx="90" cy="294" r="34" fill="#0097b2"/>
+  <text x="90" y="305" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle">2</text>
+  <text x="150" y="286" font-size="28" font-weight="700" fill="#032b60">Inscription à l'ordre du jour</text>
+  <text x="150" y="322" font-size="22" fill="#475569">Demande au syndic, devis joints</text>
+
+  <circle cx="90" cy="438" r="34" fill="#0097b2"/>
+  <text x="90" y="449" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle">3</text>
+  <text x="150" y="430" font-size="28" font-weight="700" fill="#032b60">Convocation</text>
+  <text x="150" y="466" font-size="22" fill="#475569">Au moins 21 jours avant l'AG</text>
+
+  <circle cx="90" cy="582" r="34" fill="#0097b2"/>
+  <text x="90" y="593" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle">4</text>
+  <text x="150" y="574" font-size="28" font-weight="700" fill="#032b60">Vote en assemblée générale</text>
+  <text x="150" y="610" font-size="22" fill="#475569">Art. 25, passerelle art. 24 si au moins 1/3</text>
+
+  <circle cx="90" cy="726" r="34" fill="#0097b2"/>
+  <text x="90" y="737" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle">5</text>
+  <text x="150" y="718" font-size="28" font-weight="700" fill="#032b60">2 mois de délai</text>
+  <text x="150" y="754" font-size="22" fill="#475569">Recours possible des opposants et absents</text>
+
+  <circle cx="90" cy="870" r="34" fill="#FF6B00"/>
+  <text x="90" y="881" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle">6</text>
+  <text x="150" y="862" font-size="28" font-weight="700" fill="#032b60">ADVENIR puis travaux</text>
+  <text x="150" y="898" font-size="22" fill="#475569">Offre de prime signée avant le chantier</text>
+
+  <text x="680" y="956" font-size="18" fill="#94a3b8" text-anchor="end">chargeo.fr</text>
+</svg>
