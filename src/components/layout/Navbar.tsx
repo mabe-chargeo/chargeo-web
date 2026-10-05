@@ -1,94 +1,166 @@
 "use client";
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, ChevronRight, Menu, Phone, User, X, LucideIcon } from 'lucide-react';
-import { Logo } from '@/components/ui/Logo';
+// Menu commun à tout le site (charte 2026).
+// Mêmes props qu'avant pour ne casser aucune page : isHome, showFloatingCta, onCtaClick, ctaText, ctaIcon.
+// Nouveau : "transparent" pour les pages qui démarrent sur un haut de page navy (le menu devient blanc au défilement).
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { ArrowRight, Menu, User, X, LucideIcon } from "lucide-react";
+
+const NAVY = "#032b60";
+const CYAN = "#0097b2";
+const ORANGE = "#FF6B00";
+
+const LIENS = [
+  { label: "Particuliers", href: "/particuliers" },
+  { label: "Copropriétés", href: "/copropriete" },
+  { label: "Entreprises", href: "/pro" },
+  { label: "Guides", href: "/blog" },
+  { label: "Recrutement", href: "/recrutement" },
+];
 
 interface NavbarProps {
   isHome?: boolean;
   showFloatingCta?: boolean;
   onCtaClick?: () => void;
-  ctaText?: string; // Paramètre pour le texte du bouton
-  ctaIcon?: LucideIcon; // Paramètre pour l'icône du bouton
+  ctaText?: string;
+  ctaIcon?: LucideIcon;
+  ctaHref?: string;
+  transparent?: boolean;
 }
 
-export function Navbar({ 
-  isHome = false, 
-  showFloatingCta = false, 
-  onCtaClick, 
-  ctaText = "Contact", 
-  ctaIcon: CtaIcon = Phone 
+export function Navbar({
+  isHome = false,
+  showFloatingCta = true,
+  onCtaClick,
+  ctaText,
+  ctaIcon: CtaIcon = ArrowRight,
+  ctaHref,
+  transparent = false,
 }: NavbarProps) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const pathname = usePathname() || "/";
+  const [scrolled, setScrolled] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const solid = !transparent || scrolled || open;
+  const ink = solid ? NAVY : "#ffffff";
+  const libelle = ctaText && ctaText !== "Contact" ? ctaText : "Étude gratuite";
+  const lienCta = ctaHref || (isHome ? "#contact" : "/#contact");
+  const actif = (href: string) => pathname === href || pathname.startsWith(href + "/");
+
+  const BoutonCta = ({ mobile = false }: { mobile?: boolean }) => {
+    const cls = mobile
+      ? "mt-3 flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-[16px] font-semibold text-white"
+      : "inline-flex items-center gap-2 whitespace-nowrap rounded-full px-6 py-3 text-[15px] font-semibold text-white transition-transform hover:scale-[1.03]";
+    const style = { backgroundColor: ORANGE, boxShadow: "0 6px 18px rgba(255,107,0,0.28)" };
+    const contenu = (
+      <>
+        {libelle} <CtaIcon size={17} />
+      </>
+    );
+    if (onCtaClick) {
+      return (
+        <button type="button" onClick={() => { setOpen(false); onCtaClick(); }} className={cls} style={style}>
+          {contenu}
+        </button>
+      );
+    }
+    return (
+      <a href={lienCta} onClick={() => setOpen(false)} className={cls} style={style}>
+        {contenu}
+      </a>
+    );
+  };
 
   return (
-    <nav className="fixed top-0 left-0 w-full z-50 bg-white/85 backdrop-blur-md shadow-sm py-3 md:py-4 border-b border-slate-200/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-2">
-        
-        <div className="shrink-0 relative z-50">
-          <Logo light={false} className="scale-75 sm:scale-100 origin-left -ml-2 sm:ml-0" />
-        </div>
+    <header
+      className="fixed inset-x-0 top-0 z-50 transition-colors duration-300"
+      style={{ backgroundColor: solid ? "#ffffff" : "transparent", boxShadow: solid ? "0 8px 22px rgba(3,43,96,0.08)" : "none" }}
+    >
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-5 sm:px-6 lg:h-24">
+        <Link href="/" aria-label="CHARGéO, accueil" className="shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={solid ? "/logo-chargeo-slogan-navy.svg" : "/logo-chargeo-slogan-blanc.svg"}
+            alt="CHARGéO, installateur de bornes de recharge"
+            className="h-11 w-auto sm:h-12 lg:h-14"
+          />
+        </Link>
 
-        {/* SI ACCUEIL : Menu Central | SI PAGE : Bouton Retour */}
-        {isHome ? (
-          <div className="hidden md:flex items-center p-1.5 rounded-full border bg-white/50 border-slate-200 shadow-[inset_0_1px_3px_rgba(0,0,0,0.05)]">
-            <a href="#groupe" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white">Notre ADN</a>
-            <a href="#expertises" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white">Points de charge</a>
-            <a href="#engagements" className="px-6 py-2 rounded-full text-sm font-bold transition-all text-slate-600 hover:text-[#032b60] hover:bg-white">Maintenance & Suivi</a>
-          </div>
-        ) : (
-          <Link href="/" className="flex items-center gap-2 text-slate-500 hover:text-[#032b60] font-bold text-sm bg-white hover:bg-slate-100 px-4 py-2 sm:py-2.5 rounded-full border border-slate-200 transition-all shadow-sm">
-            <ArrowLeft size={16} />
-            <span className="hidden sm:inline">Retour à l'accueil</span>
-            <span className="sm:hidden">Retour</span>
+        <nav className="hidden items-center gap-6 xl:gap-7 lg:flex">
+          {LIENS.map((l) => (
+            <Link key={l.href} href={l.href} className="group relative text-[15px] font-medium" style={{ color: ink }}>
+              {l.label}
+              <span
+                className={`absolute -bottom-1.5 left-0 h-[3px] rounded-full transition-all duration-300 group-hover:w-full ${actif(l.href) ? "w-full" : "w-0"}`}
+                style={{ backgroundColor: CYAN }}
+              />
+            </Link>
+          ))}
+          <Link
+            href="/espace-client"
+            className="inline-flex items-center gap-2 rounded-full border-2 px-5 py-2.5 text-[15px] font-semibold transition-colors"
+            style={{ borderColor: CYAN, color: solid ? CYAN : "#ffffff" }}
+          >
+            <User size={17} /> Espace client
           </Link>
-        )}
+          {showFloatingCta !== false || isHome ? <BoutonCta /> : null}
+        </nav>
 
-        {/* ESPACE CLIENT + BOUTON D'ACTION (CTA) */}
-        <div className="flex items-center gap-2 relative z-50">
+        <div className="flex items-center gap-2 lg:hidden">
           <Link
             href="/espace-client"
             aria-label="Espace client"
-            className="flex items-center gap-2 text-[#032b60] hover:text-[#0097b2] font-bold text-xs sm:text-sm bg-white hover:bg-slate-100 w-10 h-10 sm:w-auto sm:h-auto justify-center sm:px-4 sm:py-2.5 rounded-full border border-slate-200 transition-all shadow-sm"
+            className="flex h-11 w-11 items-center justify-center rounded-full border-2"
+            style={{ borderColor: CYAN, color: solid ? CYAN : "#ffffff" }}
           >
-            <User size={16} />
-            <span className="hidden sm:inline">Espace client</span>
+            <User size={19} />
           </Link>
-
-          {isHome ? (
-            <a href="#contact" className="relative overflow-hidden px-5 sm:px-6 py-2 sm:py-2.5 rounded-full font-black text-xs sm:text-sm flex items-center gap-2 transition-all group bg-[#032b60] text-white hover:bg-[#0097b2]">
-              <div className="animate-button-shine" />
-              Contact <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform hidden sm:block text-cyan-400" />
-            </a>
-          ) : (
-            <div className={`hidden lg:flex shrink-0 transition-all duration-500 ${showFloatingCta ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
-              <button onClick={onCtaClick} className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-2.5 rounded-full font-black text-sm flex items-center gap-2 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)]">
-                <div className="animate-button-shine" />
-                {ctaText} <CtaIcon size={16} className="group-hover:rotate-12 transition-transform" />
-              </button>
-            </div>
-          )}
-          
-          {isHome && (
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full text-[#032b60]">
-              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
-          )}
+          <button
+            type="button"
+            aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
+            onClick={() => setOpen((o) => !o)}
+            className="flex h-11 w-11 items-center justify-center"
+            style={{ color: ink }}
+          >
+            {open ? <X size={28} /> : <Menu size={28} />}
+          </button>
         </div>
       </div>
 
-      {/* MENU MOBILE (ACCUEIL SEULEMENT) */}
-      {isHome && (
-        <div className={`md:hidden absolute top-full left-0 w-full bg-white border-b border-slate-200 shadow-xl overflow-hidden transition-all duration-300 ${isMobileMenuOpen ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="px-6 py-4 flex flex-col gap-4">
-            <a onClick={() => setIsMobileMenuOpen(false)} href="#groupe" className="text-base font-bold text-[#032b60] py-2 border-b border-slate-100 flex justify-between items-center">Notre ADN <ChevronRight size={16}/></a>
-            <a onClick={() => setIsMobileMenuOpen(false)} href="#expertises" className="text-base font-bold text-[#032b60] py-2 border-b border-slate-100 flex justify-between items-center">Points de charge <ChevronRight size={16}/></a>
-            <a onClick={() => setIsMobileMenuOpen(false)} href="#engagements" className="text-base font-bold text-[#032b60] py-2 border-b border-slate-100 flex justify-between items-center">Maintenance & Suivi <ChevronRight size={16}/></a>
-            <Link onClick={() => setIsMobileMenuOpen(false)} href="/espace-client" className="text-base font-bold text-[#0097b2] py-2 flex justify-between items-center">Espace client <ChevronRight size={16}/></Link>
-          </div>
+      {open && (
+        <div className="border-t bg-white px-6 pb-6 lg:hidden" style={{ borderColor: "#eceef1" }}>
+          {LIENS.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-between border-b py-3.5 text-[17px] font-medium"
+              style={{ color: NAVY, borderColor: "#eceef1" }}
+            >
+              {l.label}
+              {actif(l.href) && <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: CYAN }} />}
+            </Link>
+          ))}
+          <Link
+            href="/espace-client"
+            onClick={() => setOpen(false)}
+            className="mt-4 flex items-center justify-center gap-2 rounded-full border-2 py-3 text-[16px] font-semibold"
+            style={{ borderColor: CYAN, color: CYAN }}
+          >
+            <User size={18} /> Espace client
+          </Link>
+          <BoutonCta mobile />
         </div>
       )}
-    </nav>
+    </header>
   );
 }

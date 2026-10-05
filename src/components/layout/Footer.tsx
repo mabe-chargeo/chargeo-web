@@ -1,68 +1,57 @@
-import React from 'react';
-import { Phone, Mail, User } from 'lucide-react';
-import { Logo } from '@/components/ui/Logo';
+// Pied de page commun (charte 2026) : vrais liens, standard, filigrane é.
+import React from "react";
+import Link from "next/link";
+
+const COLONNES = [
+  { titre: "Nos offres", liens: [["Particuliers", "/particuliers"], ["Copropriétés", "/copropriete"], ["Entreprises", "/pro"]] },
+  { titre: "CHARGéO", liens: [["Guides & conseils", "/blog"], ["Recrutement", "/recrutement"], ["Mentions légales", "/mentions-legales"]] },
+  { titre: "Clients", liens: [["Espace client", "/espace-client"], ["Étude gratuite", "/#contact"]] },
+];
 
 export function Footer() {
   return (
-    <footer className="bg-[#032B60] py-16 md:py-24 border-t border-white/5 overflow-hidden relative">
-      <div className="hidden md:block absolute -bottom-40 -right-40 w-96 h-96 bg-[radial-gradient(circle,rgba(0,151,178,0.3)_0%,transparent_70%)] pointer-events-none"></div>
-      <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-start gap-12 md:gap-16 relative z-10">
-         
-         <div className="space-y-6 text-left max-w-sm">
-            <Logo light={true} className="scale-100 sm:scale-110 origin-left" />
-            <div className="space-y-2 mt-4">
-               <p className="text-white/80 font-medium text-sm sm:text-base leading-relaxed">
-                 89, chemin de la Ballastière<br />
-                 74200 THONON-LES-BAINS
-               </p>
-               <p className="text-white/60 text-xs sm:text-sm leading-relaxed">
-                 Installateur de bornes de recharge à Thonon-les-Bains, Évian, Douvaine et dans tout le Chablais.
-               </p>
-               <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest mt-4">Entreprise en cours de création</p>
+    <footer className="relative overflow-hidden" style={{ backgroundColor: "#032b60" }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/filigrane-e.svg"
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute select-none"
+        style={{ bottom: "-55%", right: "-8%", width: "min(620px, 90vw)" }}
+      />
+      <div className="relative mx-auto max-w-7xl px-6 pb-10 pt-16">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr_1.3fr]">
+          <div>
+            <Link href="/" aria-label="CHARGéO, accueil">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo-chargeo-slogan-blanc.svg" alt="CHARGéO, installateur de bornes de recharge" className="h-20 w-auto sm:h-24" />
+            </Link>
+          </div>
+          {COLONNES.map((col) => (
+            <div key={col.titre}>
+              <p className="text-[13px] font-extrabold uppercase tracking-[0.14em]" style={{ color: "#69e8ff" }}>{col.titre}</p>
+              <ul className="mt-4 space-y-3">
+                {col.liens.map(([label, href]) => (
+                  <li key={href}>
+                    <Link href={href} className="text-[16px] font-medium text-white transition-colors hover:text-[#69e8ff]">{label}</Link>
+                  </li>
+                ))}
+              </ul>
             </div>
-         </div>
-         
-         <div className="flex flex-col sm:flex-row gap-12 md:gap-24 text-left">
-            <div className="space-y-5">
-               <h4 className="text-white/40 font-bold text-xs uppercase tracking-[0.2em]">Navigation</h4>
-               <ul className="space-y-3">
-                  <li><a href="/" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Accueil</a></li>
-                  <li><a href="/pro" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Entreprises</a></li>
-                  <li><a href="/copropriete" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Copropriétés</a></li>
-                  <li><a href="/particuliers" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Particuliers</a></li>
-                  <li><a href="/blog" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">Guides & conseils</a></li>
-                  <li><a href="/recrutement" className="text-white/80 text-sm font-medium hover:text-[#0097b2] hover:translate-x-1 transition-all inline-block">On recrute</a></li>
-               </ul>
-            </div>
-            
-            <div className="space-y-5">
-               <h4 className="text-white/40 font-bold text-xs uppercase tracking-[0.2em]">Assistance</h4>
-               <ul className="space-y-4">
-                  <li>
-                    <a href="tel:0485692204" className="text-white font-bold text-base sm:text-lg hover:text-[#0097b2] transition-colors flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0"><Phone size={14} /></span>
-                      04 85 69 22 04
-                    </a>
-                  </li>
-                  <li>
-                    <a href="mailto:contact@chargeo.fr" className="text-white font-bold text-base sm:text-lg hover:text-[#0097b2] transition-colors flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0"><Mail size={14} /></span>
-                      contact@chargeo.fr
-                    </a>
-                  </li>
-                  <li>
-                    <a href="/espace-client" className="text-white font-bold text-base sm:text-lg hover:text-[#0097b2] transition-colors flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0"><User size={14} /></span>
-                      Espace client
-                    </a>
-                  </li>
-                  <li className="pt-2 flex gap-4">
-                    <a href="/mentions-legales" className="text-white/40 text-[10px] font-bold uppercase tracking-wider hover:text-[#0097b2] transition-colors">Mentions Légales & Confidentialité</a>
-                  </li>
-               </ul>
-            </div>
-         </div>
-
+          ))}
+          <div>
+            <p className="text-[13px] font-extrabold uppercase tracking-[0.14em]" style={{ color: "#69e8ff" }}>Contact</p>
+            <ul className="mt-4 space-y-3 text-[16px] font-medium text-white">
+              <li><a href="tel:+33485692204" className="transition-colors hover:text-[#69e8ff]">Standard : 04 85 69 22 04</a></li>
+              <li><a href="mailto:contact@chargeo.fr" className="transition-colors hover:text-[#69e8ff]">contact@chargeo.fr</a></li>
+              <li className="max-w-[15rem]" style={{ color: "#a9d8e6" }}>89 chemin de la Ballastière, 74200 Thonon-les-Bains</li>
+            </ul>
+          </div>
+        </div>
+        <div className="mt-14 flex flex-col gap-2 border-t border-white/15 pt-6 text-[14px] sm:flex-row sm:justify-between" style={{ color: "#a9d8e6" }}>
+          <span>© {new Date().getFullYear()} CHARGéO · Installateur de bornes de recharge en Chablais et Haute-Savoie</span>
+          <span>Entreprise en cours de création</span>
+        </div>
       </div>
     </footer>
   );
