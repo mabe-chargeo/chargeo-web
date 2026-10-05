@@ -19,6 +19,15 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://www.chargeo.fr"),
   title: "Installateur Borne de Recharge à Thonon-les-Bains & Chablais | CHARGÉO",
   description: "Installateur de bornes de recharge IRVE à Thonon-les-Bains, Évian et dans tout le Chablais (Haute-Savoie). Particuliers, entreprises et copropriétés : simulateur en ligne, prix ferme et devis gratuit.",
+  // Identite du 04/10/2026 : e turquoise + eclair sur carre navy.
+  // SVG pour les navigateurs recents, PNG 48 px pour les autres et pour Google.
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({
@@ -32,7 +41,8 @@ export default function RootLayout({
     "@type": "Electrician",
     "name": "CHARGÉO",
     "url": "https://www.chargeo.fr",
-    "image": "https://www.chargeo.fr/CHARGEO_LOGO_COMPLET_FOND_TRANSPARENT_2026-01-24.png",
+    "image": "https://www.chargeo.fr/logo-chargeo.png",
+    "logo": "https://www.chargeo.fr/logo-chargeo.png",
     "description": "Installateur de bornes de recharge pour véhicules électriques à Thonon-les-Bains, dans le Chablais et en Haute-Savoie.",
     "address": {
       "@type": "PostalAddress",
@@ -52,7 +62,6 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0097b2" />
-        <link rel="apple-touch-icon" href="/icon.png" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
