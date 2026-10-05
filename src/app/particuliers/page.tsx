@@ -1,12 +1,12 @@
 "use client";
 
+// Page Particuliers, charte 2026 (gabarit commun des offres).
+// Inchangé : simulateur, barre mobile, CTA flottant, ContactForm typeClient="Particulier" et texte de simulation.
 import React, { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
-import { 
-  ShieldCheck, MapPin, Award, FileText, Wrench, Phone, ArrowRight, CheckCircle, Zap, Building
+import {
+  MapPin, Home, Building, Plug, Calendar, BadgeEuro, Receipt, Clock, Award, Wrench, ShieldCheck,
 } from 'lucide-react';
 
-import { FadeIn } from '@/components/ui/FadeIn';
 import { Navbar } from '@/components/layout/Navbar';
 import { TrustedBrands } from '@/components/layout/TrustedBrands';
 import { Footer } from '@/components/layout/Footer';
@@ -14,6 +14,10 @@ import { ReviewsCarousel } from '@/components/ui/ReviewsCarousel';
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { SimulatorParticuliers } from '@/components/ui/SimulatorParticuliers';
 import { ContactForm } from '@/components/ui/ContactForm';
+import { NAVY } from '@/components/charte/Charte';
+import {
+  HautOffre, BandeauChiffres, CartesSolutions, Etapes, MethodeCas, BlocAides, PortailCourt, BlocContact, BlocFaq, BarreMobile,
+} from '@/components/charte/PageOffre';
 
 export default function ParticuliersPage() {
   const [isHeroVisible, setIsHeroVisible] = useState(true);
@@ -21,24 +25,18 @@ export default function ParticuliersPage() {
   const [savings, setSavings] = useState(0);
   const [simData, setSimData] = useState("");
 
-  const formRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
 
-  const brandNavy = "#032b60";
-  const brandTeal = "#0097b2";
-
   const showFloatingCta = !isHeroVisible && !isFormVisible;
-
-  
+  const versFormulaire = () => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' });
 
   useEffect(() => {
     const observerOptions = { threshold: 0 };
     const heroObserver = new IntersectionObserver(([entry]) => setIsHeroVisible(entry.isIntersecting), observerOptions);
     const formObserver = new IntersectionObserver(([entry]) => setIsFormVisible(entry.isIntersecting), observerOptions);
-
     if (heroRef.current) heroObserver.observe(heroRef.current);
     if (formRef.current) formObserver.observe(formRef.current);
-
     return () => {
       heroObserver.disconnect();
       formObserver.disconnect();
@@ -60,7 +58,7 @@ export default function ParticuliersPage() {
       image: "/tech-chargeo.webp"
     },
     {
-      text: "Appartement avec place de parking : dossier technique préparé pour le syndic, borne posée après le délai légal, prime Advenir jusqu'à 1 000 € HT.",
+      text: "Appartement avec place de parking : dossier technique préparé pour le syndic, borne posée après le délai légal, prime ADVENIR jusqu'à 1 000 € HT selon le raccordement.",
       author: "Droit à la prise",
       location: "Évian-les-Bains",
       image: "/hero-copro.webp"
@@ -68,266 +66,125 @@ export default function ParticuliersPage() {
   ];
 
   const faqs = [
-    { q: "Quelles sont les aides de l'État ?", a: "En maison comme en appartement, l'installation de votre borne par un installateur qualifié IRVE bénéficie d'une TVA réduite à 5,5 % (le crédit d'impôt a disparu au 1er janvier 2026). En appartement, la prime Advenir finance en plus 50 % de votre borne, jusqu'à 1 000 € HT. Nous gérons tout l'administratif." },
+    { q: "Quelles sont les aides de l'État ?", a: "En maison comme en appartement, l'installation de votre borne par un installateur qualifié IRVE bénéficie d'une TVA réduite à 5,5 % (le crédit d'impôt a disparu au 1er janvier 2026). En appartement, la prime ADVENIR peut financer en plus 50 % de votre borne, jusqu'à 1 000 € HT, selon le raccordement de votre place (services généraux de l'immeuble ou point de livraison dédié). Nous gérons tout l'administratif." },
     { q: "Quel est le délai d'installation ?", a: "Après votre demande de devis, une visite technique gratuite est planifiée. L'installation se fait généralement sous 10 à 15 jours après validation du devis." },
     { q: "Compatibilité véhicule ?", a: "Standard européen Type 2, compatible avec 100% des véhicules électriques et hybrides du marché." },
     { q: "Qualification IRVE ?", a: "Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Elle garantit votre sécurité, la validité de votre assurance habitation et la garantie de votre véhicule." }
   ];
 
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-[#0097b2]/20 scroll-smooth pb-24 lg:pb-0">
-      
-      <Navbar 
-        showFloatingCta={showFloatingCta} 
-        onCtaClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
-        ctaText="Être rappelé(e)"
+    <div className="min-h-screen overflow-x-hidden bg-white pb-24 font-sans antialiased lg:pb-0" style={{ color: NAVY }}>
+      <Navbar transparent showFloatingCta={showFloatingCta} onCtaClick={versFormulaire} ctaText="Être rappelé(e)" />
+
+      <BarreMobile
+        visible={showFloatingCta}
+        label="Mon estimation"
+        valeur={`+${Math.round(savings).toLocaleString('fr-FR')} € / an`}
+        bouton="Me faire rappeler"
+        onClick={versFormulaire}
       />
 
-      {/* STICKY BOTTOM BAR (MOBILE) */}
-      <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-60 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 ${showFloatingCta ? 'translate-y-0' : 'translate-y-full'}`}>
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          <div className="flex flex-col">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Mon estimation</p>
-            <p className="text-xl sm:text-2xl font-black text-green-600 transition-all duration-300">
-              +{Math.round(savings).toLocaleString('fr-FR')}€ / an
-            </p>
-          </div>
-          <button 
-            onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
-            className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-3 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
-          >
-            Me faire rappeler <Phone size={16} className="group-hover:rotate-12 transition-transform" />
-          </button>
-        </div>
-      </div>
-
       <main>
-        {/* HERO SECTION */}
-        <section className="relative min-h-[82vh] pt-28 pb-12 flex flex-col justify-center overflow-hidden bg-[#032b60]">
-          <div className="absolute inset-0 z-0">
-            <Image src="/hero-particulier.webp" alt="Hero Background" fill sizes="100vw" priority fetchPriority="high" className="object-cover opacity-40" />
-            <div className="absolute inset-0 bg-linear-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
-          </div>
-          
-          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full flex flex-col justify-center items-center text-center">
-             <FadeIn delay={200} direction="up">
-                 <div className="w-full flex justify-center mb-6 mt-6">
-                   <div className="flex items-center justify-center gap-2 text-[#0097b2] font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
-                     <MapPin size={16} />
-                     <span>Intervention sur le Chablais et la Haute-Savoie</span>
-                   </div>
-                 </div>
-              </FadeIn>
-              
-              <FadeIn delay={300} direction="up">
-                <div className="w-full flex justify-center mb-6">
-                  <h1 className="text-[2.5rem] sm:text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase">
-                    L'installation <br/><span className="text-[#0097b2]">clé en main.</span>
-                  </h1>
-                </div>
-              </FadeIn>
-              
-              <FadeIn delay={500} direction="up">
-                <div className="w-full flex justify-center mb-10">
-                  <p className="text-sm sm:text-base md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
-                    En maison individuelle ou en appartement (Droit à la prise), partez l'esprit léger. Nous gérons 100% des démarches administratives, juridiques et techniques.
-                  </p>
-                </div>
-              </FadeIn>
-              
-              <FadeIn delay={700} direction="up">
-                <div className="w-full flex justify-center">
-                  <div ref={heroRef} className="flex flex-col items-center gap-5 animate-float">
-                    <button onClick={() => document.getElementById('simulateur')?.scrollIntoView({ behavior: 'smooth' })} className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full font-black text-base sm:text-lg shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 transition-all w-fit group text-center">
-                      <div className="animate-button-shine" />
-                      Calculer mes économies <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/>
-                    </button>
-                    <div className="flex flex-col items-center justify-start h-12 gap-2">
-                      <button onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm text-white/80 hover:text-white font-bold underline underline-offset-4 decoration-white/30 hover:decoration-white transition-all flex items-center gap-2">
-                        <Phone size={14} /> Ou demander à être rappelé
-                      </button>
-                      <p className="text-xs text-white/50 font-bold uppercase tracking-widest flex items-center gap-2">
-                        <CheckCircle size={14} className="text-[#0097b2]"/> Visite technique gratuite
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </FadeIn>
-          </div>
-        </section>
+        <HautOffre
+          img="/hero-particulier.webp"
+          alt="Borne de recharge installée chez un particulier"
+          eyeIcon={MapPin}
+          eyebrow="Intervention sur le Chablais et la Haute-Savoie"
+          titre1="L’installation"
+          titre2="clé en main."
+          texte="En maison individuelle ou en appartement (droit à la prise), partez l’esprit léger. Nous gérons 100 % des démarches administratives, juridiques et techniques."
+          cta="Calculer mes économies"
+          lien="Ou demander à être rappelé"
+          pills={["Visite technique gratuite", "Prix ferme", "Qualifié IRVE"]}
+          ctaRef={heroRef}
+        />
 
-        {/* BANDEAU CONFIANCE */}
+        <BandeauChiffres chiffres={[
+          { icon: Calendar, big: "Visite", label: "technique gratuite" },
+          { icon: BadgeEuro, big: "Prix ferme", label: "annoncé au devis" },
+          { icon: Receipt, big: "TVA 5,5 %", label: "sur l’installation" },
+          { icon: Clock, big: "10 à 15 jours", label: "après validation du devis" },
+        ]} />
+
         <TrustedBrands />
 
-        {/* MÉTHODOLOGIE + CARROUSEL CAS TYPES */}
-        <section id="concept" className="py-24 bg-slate-50 overflow-hidden">
-          <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-20 items-center">
-             <div className="space-y-8">
-                <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>Une Méthode <br/><span style={{ color: brandTeal }}>Standardisée</span></h2>
-                <p className="text-lg text-slate-500 font-medium leading-relaxed mt-6">Le réseau CHARGéO repose sur une transparence absolue. Nos experts IRVE locaux se déplacent gratuitement pour vous fournir un devis précis et sans surprise.</p>
-                
-                <div className="space-y-6">
-                  {[
-                    { i: <Zap/>, t: "Maison Individuelle", d: "Une borne 7.4kW posée avec un prix ferme garanti. Nous gérons 100% des démarches et des aides pour que vous partiez l'esprit léger." },
-                    { i: <Building/>, t: "Appartement : Droit à la prise", d: "Peur d'affronter votre syndic ? Nous préparons le dossier technique et le courrier de notification au syndic, prêts à envoyer en recommandé." },
-                    { i: <ShieldCheck/>, t: "Installation Clé en Main", d: "Nos experts s'occupent de tout, de la visite technique gratuite jusqu'à la certification finale de conformité électrique." }
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm hover:shadow-md border border-slate-100">
-                      <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2] group-hover:text-white transition-colors duration-500 shrink-0 text-[#0097b2]">
-                        {item.i}
-                      </div>
-                      <div className="flex flex-col justify-center">
-                        <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>{item.t}</h4>
-                        <p className="text-xs text-slate-400 font-medium">{item.d}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-             </div>
-             
-             {/* CARROUSEL CAS TYPES (à basculer en variant="avis" avec de vrais avis clients) */}
-             <ReviewsCarousel reviews={casTypes} variant="cas" />
-          </div>
+        <CartesSolutions
+          titre="Une solution pour chaque logement."
+          intro="Maison, appartement ou résidence déjà équipée : le matériel est choisi après la visite, selon votre tableau électrique et votre abonnement."
+          solutions={[
+            {
+              icon: Home, img: "/review-particulier-1.webp", label: "Maison", title: "Maison individuelle",
+              text: "Une borne posée à prix ferme, raccordée à votre tableau, avec délesteur si votre abonnement est juste.",
+              points: ["Borne 7,4 kW, ou 11 kW en triphasé", "Protections dédiées et mise en service", "TVA réduite et démarches gérées"],
+              cta: "Demander mon devis maison",
+            },
+            {
+              icon: Building, img: "/review-resident.webp", label: "Appartement", title: "Le droit à la prise",
+              text: "Peur d’affronter votre syndic ? Nous préparons le dossier technique et le courrier de notification, prêts à envoyer en recommandé.",
+              points: ["Dossier technique pour le syndic", "Pose après le délai légal", "Prime ADVENIR selon le raccordement"],
+              cta: "Lancer mon droit à la prise",
+            },
+            {
+              icon: Plug, img: "/review-particulier-2.webp", label: "Copropriété équipée", title: "Raccorder ma place",
+              text: "Votre immeuble a déjà son infrastructure collective ? Nous raccordons votre place et posons votre borne, sans nouveaux travaux dans les parties communes.",
+              points: ["Raccordement à l’artère existante", "Borne et sous-compteur posés", "Prix ferme par place"],
+              cta: "Demander mon raccordement",
+            },
+          ]}
+        />
+
+        <Etapes etapes={[
+          { t: "Visite gratuite", d: "Un expert IRVE local vérifie votre installation électrique et le cheminement." },
+          { t: "Devis ferme", d: "Un prix ferme, sans surprise, avec les aides auxquelles vous avez droit." },
+          { t: "Pose", d: "Installation sous 10 à 15 jours après validation du devis." },
+          { t: "Mise en service et suivi", d: "Certificat de conformité, puis suivi de votre borne dans le temps." },
+        ]} />
+
+        <MethodeCas
+          titre="Une méthode standardisée."
+          texte="CHARGéO repose sur une transparence absolue. Nos experts IRVE locaux se déplacent gratuitement pour vous fournir un devis précis et sans surprise."
+          lignes={[
+            { icon: MapPin, t: "Vos experts locaux", d: "Une équipe d’artisans qualifiés IRVE basée à Thonon-les-Bains, pas une plateforme nationale." },
+            { icon: Award, t: "Qualification IRVE", d: "Obligatoire au-delà de 3,7 kW, indispensable pour votre assurance." },
+            { icon: Wrench, t: "SAV et maintenance", d: "Notre équipe locale intervient rapidement et suit tout notre parc installé." },
+          ]}
+        >
+          {/* CARROUSEL CAS TYPES (à basculer en variant="avis" avec de vrais avis clients) */}
+          <ReviewsCarousel reviews={casTypes} variant="cas" />
+        </MethodeCas>
+
+        <section id="simulateur" className="bg-white py-24 lg:py-28">
+          <SimulatorParticuliers onResultChange={(val, data) => { setSavings(val); setSimData(data || ""); }} />
         </section>
 
-        {/* BLOC EXPERTISE / CONFIANCE */}
-        <section className="py-20 bg-white border-t border-slate-100 overflow-hidden">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="bg-[#032b60] rounded-[2.5rem] p-10 md:p-16 flex flex-col md:flex-row items-center gap-12 shadow-2xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-[#0097b2]/30 rounded-full blur-[100px] -mr-20 -mt-20 group-hover:scale-150 transition-transform duration-1000 ease-in-out"></div>
+        <BlocAides
+          titre="Les aides, nous les montons pour vous."
+          texte="Vous n’avez rien à remplir : nous appliquons la TVA réduite et montons votre dossier de prime quand vous y avez droit."
+          cartes={[
+            { icon: Receipt, t: "TVA réduite à 5,5 %", d: "Sur l’installation de votre borne par un installateur qualifié IRVE, en maison comme en appartement." },
+            { icon: BadgeEuro, t: "Prime ADVENIR en appartement", d: "50 % de votre borne, jusqu’à 1 000 € HT, selon le raccordement de votre place. Nous montons le dossier." },
+            { icon: ShieldCheck, t: "Conformité certifiée", d: "De la visite technique jusqu’à l’attestation de conformité électrique, tout est fait dans les règles." },
+          ]}
+        />
 
-              <div className="md:w-1/2 space-y-6 relative z-10 text-white">
-                <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full border border-white/20">
-                  <MapPin size={16} className="text-[#0097b2]" />
-                  <span className="text-xs font-black uppercase tracking-widest text-blue-100">Vos Experts Locaux</span>
-                </div>
-                <h2 className="text-3xl md:text-5xl font-black tracking-tighter leading-tight">
-                  L'excellence d'un service <span className="text-[#0097b2]">de proximité.</span>
-                </h2>
-                <p className="text-lg text-blue-100/80 font-medium leading-relaxed">
-                  Basés en Haute-Savoie, nous ne sommes pas une plateforme nationale impersonnelle. CHARGéO, c'est une équipe locale d'artisans qualifiés IRVE qui vous accompagne de la visite technique jusqu'à l'installation.
-                </p>
-                <div className="flex items-center gap-6 pt-4">
-                  <div className="flex -space-x-4">
-                    <div className="w-12 h-12 rounded-full border-2 border-[#032b60] bg-white flex items-center justify-center text-[#032b60] hover:-translate-y-1 transition-transform"><Wrench size={18} /></div>
-                    <div className="w-12 h-12 rounded-full border-2 border-[#032b60] bg-white/90 flex items-center justify-center text-[#0097b2] hover:-translate-y-1 transition-transform"><ShieldCheck size={18} /></div>
-                    <div className="w-12 h-12 rounded-full border-2 border-[#032b60] bg-[#0097b2] flex items-center justify-center text-white font-black text-[10px] hover:-translate-y-1 transition-transform">IRVE</div>
-                  </div>
-                  <div className="text-sm font-bold">
-                    <p className="text-white">Visite gratuite</p>
-                    <p className="text-[#0097b2]">74200 Thonon-les-Bains</p>
-                  </div>
-                </div>
-              </div>
+        <PortailCourt />
 
-              {/* GRILLE À 3 CARTES */}
-              <div className="md:w-1/2 w-full grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
-                  <Award className="text-[#0097b2] mb-4" size={32} />
-                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Qualification IRVE</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed grow">Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Indispensable pour votre assurance.</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 h-full flex flex-col">
-                  <FileText className="text-[#0097b2] mb-4" size={32} />
-                  <h4 className="text-white font-black uppercase tracking-wider mb-2">Administratif Inclus</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed grow">Nous montons votre dossier de prime Advenir en appartement (jusqu'à 1 000 € HT) et appliquons la TVA réduite à 5,5 % sur l'installation de votre borne.</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl hover:bg-white/20 transition-colors duration-300 sm:col-span-2">
-                  <Wrench className="text-[#0097b2] mb-4" size={32} />
-                  <h4 className="text-white font-black uppercase tracking-wider mb-2">SAV & Maintenance</h4>
-                  <p className="text-blue-100/70 text-xs font-medium leading-relaxed">Un problème ? Notre équipe locale intervient rapidement. Nous assurons le suivi de tout notre parc installé pour vous garantir une tranquillité d'esprit totale sur le long terme.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        <BlocContact
+          sectionRef={formRef}
+          titre="Planifier ma visite technique."
+          texte="Un expert IRVE local se déplace gratuitement pour évaluer la faisabilité et vous établir un devis précis."
+          alerte={["Nos plannings se remplissent vite.", "Réservez votre visite technique aujourd’hui."]}
+          jointe="Remplissez ce formulaire, votre estimation d’économies est jointe à la demande."
+        >
+          <ContactForm
+            typeClient="Particulier"
+            simulation={`Gain estimé : +${Math.round(savings)}€/an | Réglages : ${simData}`}
+          />
+        </BlocContact>
 
-        {/* SIMULATEUR DE RENTABILITÉ */}
-        <section id="simulateur" className="py-24 bg-white scroll-mt-24">
-            <SimulatorParticuliers onResultChange={(val, data) => { setSavings(val); setSimData(data || ""); }} />
-        </section>
-
-        {/* SECTION CONTACT CORPORATE TECH (Même disposition que l'accueil) */}
-        <section id="formulaire-devis" ref={formRef} className="py-20 md:py-32 bg-slate-50 relative border-t border-slate-100 scroll-mt-24">
-          <div className="absolute inset-0 bg-grid-tech opacity-30"></div>
-          <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-5 gap-12 md:gap-16 items-start relative z-10">
-            
-            <div className="lg:col-span-2 space-y-10 md:space-y-12">
-              <FadeIn delay={0}>
-                <div>
-                  <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase text-[#032b60] mb-4 md:mb-6 leading-tight">
-                    Planifier ma <br/><span className="text-[#0097b2]">visite technique</span>
-                  </h2>
-                  <p className="text-slate-500 font-medium leading-relaxed text-base md:text-lg mb-6">
-                    Un expert IRVE local se déplace gratuitement pour évaluer la faisabilité et vous établir un devis précis.
-                  </p>
-                  
-                  <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 flex items-start gap-3 shadow-sm">
-                     <span className="text-orange-500 mt-0.5 text-lg leading-none">⚠️</span>
-                     <p className="text-xs sm:text-sm text-orange-800 font-medium leading-relaxed">
-                       Nos plannings se remplissent vite. <span className="font-black">Réservez votre visite technique aujourd'hui.</span>
-                     </p>
-                  </div>
-                </div>
-              </FadeIn>
-
-              <div className="space-y-6">
-                <FadeIn delay={0}>
-                  <div className="flex items-start gap-5 md:gap-6 group">
-                    <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center text-[#032b60] shrink-0 group-hover:border-[#0097b2] group-hover:text-[#0097b2] transition-colors">
-                      <MapPin size={24} />
-                    </div>
-                    <div className="pt-1">
-                      <p className="font-black text-[#032b60] uppercase tracking-wider text-xs md:text-sm mb-1 group-hover:text-[#0097b2] transition-colors">Zone d'intervention</p>
-                      <p className="text-slate-500 font-medium text-sm md:text-base">Chablais et Haute-Savoie</p>
-                    </div>
-                  </div>
-                </FadeIn>
-                
-                <FadeIn delay={100}>
-                  <div className="flex items-start gap-5 md:gap-6 group">
-                    <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center text-[#032b60] shrink-0 group-hover:border-[#0097b2] group-hover:text-[#0097b2] transition-colors">
-                      <Phone size={24} />
-                    </div>
-                    <div className="pt-1">
-                      <p className="font-black text-[#032b60] uppercase tracking-wider text-xs md:text-sm mb-1 group-hover:text-[#0097b2] transition-colors">Ligne Directe</p>
-                      <a href="tel:0485692204" className="text-slate-500 font-medium text-base md:text-lg hover:text-[#0097b2] transition-colors">04 85 69 22 04</a>
-                    </div>
-                  </div>
-                </FadeIn>
-              </div>
-            </div>
-
-            <div className="lg:col-span-3 w-full">
-              <FadeIn delay={300}>
-                <div className="w-full bg-white p-6 sm:p-10 rounded-[2.5rem] shadow-md md:shadow-[0_20px_60px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-[#032b60] to-[#0097b2]"></div>
-                  
-                  <div className="mb-8">
-                    <h3 className="text-2xl font-black text-[#032b60] mb-2 uppercase tracking-tight">Parlez-nous de votre projet</h3>
-                    <p className="text-slate-500 font-medium text-sm">Remplissez ce formulaire et notre équipe vous recontactera très rapidement.</p>
-                  </div>
-
-                  <ContactForm 
-                    typeClient="Particulier" 
-                    simulation={`Gain estimé : +${Math.round(savings)}€/an | Réglages : ${simData}`} 
-                  />
-                </div>
-              </FadeIn>
-            </div>
-
-          </div>
-        </section>
-
-        {/* FAQ SECTION */}
-        <section className="py-24 bg-slate-50 border-t border-slate-100">
-          <div className="max-w-4xl mx-auto px-6 space-y-12">
-            <div className="text-center space-y-4">
-              <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase" style={{ color: brandNavy }}>Questions <span style={{ color: brandTeal }}>Fréquentes</span></h2>
-            </div>
-            <FaqAccordion faqs={faqs} />
-          </div>
-        </section>
+        <BlocFaq>
+          <FaqAccordion faqs={faqs} />
+        </BlocFaq>
       </main>
 
       <Footer />

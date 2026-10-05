@@ -1,8 +1,11 @@
 "use client";
 
+// Simulateur Copropriétés, charte 2026. Barème, props et texte envoyé au CRM inchangés.
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Building as BuildingIcon, Users as UsersIcon, Award as AwardIcon, Phone as PhoneIcon, PiggyBank } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { useAnimatedValue } from '@/hooks/useAnimatedValue';
+import { NAVY, ORANGE, BLEU_CLAIR, CYAN_CLAIR, CARTE } from '@/components/charte/Charte';
+import { Curseur, EnteteSimu } from '@/components/charte/Simu';
 
 // Barème ADVENIR résidentiel collectif en vigueur depuis le 1er avril 2026 (source : advenir.mobi, communiqué du 23/03/2026)
 // - Infrastructure collective : 50 % des coûts HT, plafond 12 500 € jusqu'à 100 places, + 125 € par place au-delà
@@ -13,15 +16,14 @@ const ADVENIR_INFRA_PAR_PLACE_SUP = 125;
 const ADVENIR_PDC_INDIVIDUEL = 1000;
 
 export function SimulatorCopro({ onResultChange }: { onResultChange?: (val: number, dataStr?: string) => void }) {
-    const [parkingSpots, setParkingSpots] = useState(30);
+  const [parkingSpots, setParkingSpots] = useState(30);
   const [interestedResidents, setInterestedResidents] = useState(3);
   const [isPulsing, setIsPulsing] = useState(false);
-  const [isInView, setIsInView] = useState(false); 
+  const [isInView, setIsInView] = useState(false);
   const [triggerKey, setTriggerKey] = useState(0);
 
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  // Calcul Subventions Copro (plafonds ADVENIR)
   const results = useMemo(() => {
     const safeParkingSpots = isNaN(parkingSpots) ? 0 : parkingSpots;
     const safeInterested = isNaN(interestedResidents) ? 0 : interestedResidents;
@@ -30,6 +32,7 @@ export function SimulatorCopro({ onResultChange }: { onResultChange?: (val: numb
     const totalSubventions = plafondInfra + primesIndividuelles;
     return { totalSubventions: Math.max(0, totalSubventions), plafondInfra, primesIndividuelles };
   }, [parkingSpots, interestedResidents]);
+
   useEffect(() => {
     if (onResultChange) onResultChange(results.totalSubventions, `Places parking: ${parkingSpots}, Résidents motivés: ${interestedResidents}`);
   }, [results.totalSubventions, onResultChange, parkingSpots, interestedResidents]);
@@ -37,10 +40,7 @@ export function SimulatorCopro({ onResultChange }: { onResultChange?: (val: numb
   const animatedSubventions = useAnimatedValue(results.totalSubventions, 1200, isInView, triggerKey);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => {
-      setIsInView(entry.isIntersecting);
-    }, { threshold: 0.2 });
-
+    const observer = new IntersectionObserver(([entry]) => setIsInView(entry.isIntersecting), { threshold: 0.2 });
     if (resultsRef.current) observer.observe(resultsRef.current);
     return () => observer.disconnect();
   }, []);
@@ -52,70 +52,39 @@ export function SimulatorCopro({ onResultChange }: { onResultChange?: (val: numb
     return () => clearTimeout(pulseTimer);
   }, [parkingSpots, interestedResidents]);
 
+  const maxResidents = Math.min(50, parkingSpots);
+
   return (
-    <div className="max-w-7xl mx-auto px-6 relative z-10">
-      <div className="text-center mb-16 space-y-4">
-        <h2 className="text-4xl md:text-6xl font-black text-[#032b60] uppercase tracking-tighter">Estimez vos <br className="md:hidden"/><span className="text-[#0097b2]">subventions Advenir</span></h2>
-        <p className="text-slate-500 font-medium text-lg max-w-2xl mx-auto">Calculer le potentiel d'aides pour votre infrastructure collective et vos installations individuelles.</p>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
-        
-        {/* Boîte de contrôle gauche 1 : Taille du Parking */}
-        <div className="order-1 lg:row-start-1 lg:col-start-1 h-65 sm:h-70 flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
-          <div className="flex justify-between items-end">
-            <div className="space-y-1">
-              <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
-                <BuildingIcon size={24} className="text-[#0097b2]" /> Taille du Parking
-              </h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Nombre total de places disponibles.</p>
-            </div>
-            <span className={`text-3xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
-              {parkingSpots} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">places</span>
-            </span>
-          </div>
-          <input type="range" aria-label="Taille du parking" min="10" max="200" step="5" value={parkingSpots} onChange={(e) => setParkingSpots(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-          <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest"><span>Petit parking</span><span>Grand parking</span></div>
-        </div>
-        
-        {/* Boîte de contrôle gauche 2 : Résidents motivés */}
-        <div className="order-2 lg:row-start-2 lg:col-start-1 h-65 sm:h-70 flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
-          <div className="flex justify-between items-end">
-            <div className="space-y-1">
-              <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
-                <UsersIcon size={24} className="text-[#0097b2]" /> Résidents motivés
-              </h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Demandes de raccordement immédiat.</p>
-            </div>
-            <span className={`text-3xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
-              {interestedResidents} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">demandes</span>
-            </span>
-          </div>
-          <input type="range" aria-label="Résidents motivés" min="1" max={Math.min(50, parkingSpots)} step="1" value={interestedResidents} onChange={(e) => setInterestedResidents(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-          <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest"><span>Initial</span><span>Évolutif</span></div>
+    <div className="mx-auto max-w-7xl px-6" style={{ color: NAVY }}>
+      <EnteteSimu titre="Évaluez vos subventions ADVENIR." texte="Calculez le potentiel d’aides pour votre infrastructure collective et pour les bornes de vos résidents." />
+
+      <div className="mt-12 grid gap-7 lg:grid-cols-5">
+        <div className="flex flex-col justify-center space-y-10 rounded-[24px] p-7 sm:p-9 lg:col-span-3" style={CARTE}>
+          <Curseur label="Taille du parking" aide="Nombre total de places du parking." valeur={String(parkingSpots)} unite="places" min={10} max={200} step={5} value={parkingSpots} onChange={(v) => { const p = Math.round(v); setParkingSpots(p); if (interestedResidents > Math.min(50, p)) setInterestedResidents(Math.min(50, p)); }} gauche="Petit parking" droite="Grand parking" aria="Taille du parking" />
+          <Curseur label="Résidents motivés" aide="Demandes de raccordement dès le départ." valeur={String(interestedResidents)} unite={interestedResidents > 1 ? "demandes" : "demande"} min={1} max={maxResidents} step={1} value={interestedResidents} onChange={(v) => setInterestedResidents(Math.round(v))} gauche="Initial" droite="Évolutif" aria="Résidents motivés" />
         </div>
 
-        {/* Boîte de résultats droite */}
-        <div ref={resultsRef} className="order-3 lg:row-start-1 lg:col-start-2 lg:row-span-2 h-full flex flex-col justify-center bg-linear-to-br from-green-50 to-emerald-100 p-8 md:p-10 rounded-[2.5rem] border border-green-200 shadow-xl relative overflow-hidden hover:shadow-2xl transition-all hover:-translate-y-1">
-          <PiggyBank className="absolute -right-10 -bottom-10 opacity-10 text-green-600 transition-transform duration-1000 hover:rotate-12" size={200} />
-          <h3 className="text-green-800 text-sm font-black uppercase tracking-widest mb-2 relative z-10">Aides Advenir jusqu'à</h3>
-          <div className="relative z-10">
-             <span className={`text-6xl font-black text-green-600 transition-transform duration-300 ${isPulsing ? 'scale-105 text-emerald-500' : 'scale-100'} block`}>{Math.round(animatedSubventions).toLocaleString('fr-FR')} €</span>
-             <p className="text-xs text-green-800/60 font-bold uppercase mt-2">*Plafonds HT du barème Advenir au 1er avril 2026 : 50 % des coûts, jusqu'à 12 500 € pour le collectif (+125 € par place au-delà de 100) et 1 000 € par borne individuelle.</p>
+        <div ref={resultsRef} className="flex flex-col justify-between rounded-[24px] p-7 sm:p-9 lg:col-span-2" style={{ backgroundColor: NAVY }}>
+          <div>
+            <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: CYAN_CLAIR }}>Aides ADVENIR jusqu’à</p>
+            <p className={`mt-3 text-[52px] font-bold leading-none text-white transition-transform duration-300 sm:text-[60px] ${isPulsing ? 'scale-[1.03]' : ''}`}>
+              {Math.round(animatedSubventions).toLocaleString('fr-FR')}<span className="text-[24px]"> € HT</span>
+            </p>
+            <div className="mt-6 space-y-3 border-t border-white/15 pt-5 text-[15px]">
+              <div className="flex justify-between gap-4"><span style={{ color: BLEU_CLAIR }}>Infrastructure collective</span><span className="font-semibold text-white">max {results.plafondInfra.toLocaleString('fr-FR')} €</span></div>
+              <div className="flex justify-between gap-4"><span style={{ color: BLEU_CLAIR }}>Primes individuelles</span><span className="font-semibold text-white">{results.primesIndividuelles.toLocaleString('fr-FR')} €</span></div>
+            </div>
+            <p className="mt-5 text-[13px] leading-relaxed" style={{ color: BLEU_CLAIR }}>Plafonds HT du barème ADVENIR au 1er avril 2026 : 50 % des coûts, jusqu’à 12 500 € pour le collectif (+125 € par place au-delà de 100) et 1 000 € par borne individuelle.</p>
           </div>
-          <div className="space-y-3 relative z-10 pt-4 border-t border-green-200">
-             <div className="flex justify-between text-xs font-bold uppercase"><span className="text-green-800/60">Infrastructure Collective</span><span className="text-green-900 font-black">Max {results.plafondInfra.toLocaleString('fr-FR')}€</span></div>
-             <div className="flex justify-between text-xs font-bold uppercase"><span className="text-green-800/60">Primes Individuelles</span><span className="text-green-900 font-black">{results.primesIndividuelles.toLocaleString('fr-FR')}€</span></div>
-          </div>
-          <button 
-            onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} 
-            className="relative overflow-hidden mt-6 bg-[#FF6B00] text-white py-4 rounded-full font-black text-base hover:scale-105 transition-all group z-10 active:scale-95 text-center"
+          <button
+            type="button"
+            onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })}
+            className="group mt-8 inline-flex items-center justify-between rounded-full px-6 py-4 text-[16px] font-semibold text-white transition-transform hover:scale-[1.02]"
+            style={{ backgroundColor: ORANGE, boxShadow: '0 8px 22px rgba(255,107,0,0.28)' }}
           >
-            <div className="animate-button-shine" />
-            Créer un dossier AG <PhoneIcon size={18} className="inline ml-2" />
+            Créer un dossier AG <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" />
           </button>
         </div>
-
       </div>
     </div>
   );

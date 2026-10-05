@@ -1,5 +1,6 @@
 "use client";
 
+// FAQ en accordéon, charte 2026 (cartes grises arrondies). Mêmes props qu'avant.
 import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
@@ -19,25 +20,30 @@ export function FaqAccordion({ faqs, brandNavy = "#032b60", brandTeal = "#0097b2
 
   return (
     <div className="space-y-4">
-      {faqs.map((faq, idx) => (
-        <div key={idx} className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm bg-white hover:shadow-md transition-shadow">
-          <button 
-            onClick={() => setOpenFaq(openFaq === idx ? null : idx)} 
-            aria-expanded={openFaq === idx ? "true" : "false"}
-            className="w-full flex items-center justify-between p-6 md:p-8 text-left hover:bg-slate-50 transition-colors focus:outline-none"
-          >
-            <span className="font-black text-lg pr-4 md:pr-8" style={{ color: brandNavy }}>{faq.q}</span>
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ml-4 transition-colors duration-300 ${openFaq === idx ? 'bg-[#0097b2] text-white' : 'bg-slate-50 text-[#0097b2]'}`}>
-              <ChevronDown className={`transition-transform duration-300 ${openFaq === idx ? 'rotate-180' : ''}`} size={20} />
-            </div>
-          </button>
-          <div className={`overflow-hidden transition-all duration-500 ease-in-out ${openFaq === idx ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-            <div className="p-6 md:p-8 bg-slate-50 text-slate-500 font-medium leading-relaxed border-t border-slate-100">
-              {faq.a}
+      {faqs.map((faq, idx) => {
+        const ouvert = openFaq === idx;
+        return (
+          <div key={idx} className="overflow-hidden rounded-[20px]" style={{ backgroundColor: '#eceef1', boxShadow: '0 8px 22px rgba(3,43,96,0.08)' }}>
+            <button
+              type="button"
+              onClick={() => setOpenFaq(ouvert ? null : idx)}
+              aria-expanded={ouvert ? "true" : "false"}
+              className="flex w-full items-center justify-between gap-6 p-6 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0097b2] md:px-8"
+            >
+              <span className="text-[17px] font-bold sm:text-[18px]" style={{ color: brandNavy }}>{faq.q}</span>
+              <span
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors duration-300"
+                style={{ backgroundColor: ouvert ? brandTeal : '#ffffff', color: ouvert ? '#ffffff' : brandTeal }}
+              >
+                <ChevronDown size={20} className={`transition-transform duration-300 ${ouvert ? 'rotate-180' : ''}`} />
+              </span>
+            </button>
+            <div className={`overflow-hidden transition-all duration-500 ease-in-out ${ouvert ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              <p className="px-6 pb-7 text-[16px] leading-relaxed md:px-8" style={{ color: brandNavy }}>{faq.a}</p>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
