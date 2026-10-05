@@ -1,7 +1,11 @@
 "use client";
 
+// Connexion à l'Espace client : logique inchangée (/api/espace-client, redirection). Habillage charte 2026.
 import React, { useState } from 'react';
 import { ArrowRight, Loader2 } from 'lucide-react';
+
+const CHAMP = "w-full bg-white text-[#032b60] text-[15px] rounded-[14px] border-0 ring-[1.5px] ring-[#dfe3e8] focus:ring-2 focus:ring-[#0097b2] block px-4 py-3.5 transition outline-none placeholder:text-slate-400";
+const ETIQUETTE = "mb-2 ml-1 block text-[13px] font-extrabold uppercase tracking-[0.12em] text-[#032b60]";
 
 export function EspaceClientForm({ defaultDossier = '' }: { defaultDossier?: string }) {
   const [dossier, setDossier] = useState(defaultDossier);
@@ -34,9 +38,7 @@ export function EspaceClientForm({ defaultDossier = '' }: { defaultDossier?: str
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <label htmlFor="dossier" className="block text-xs font-black uppercase tracking-widest text-[#032b60] mb-2">
-          Numéro de dossier
-        </label>
+        <label htmlFor="dossier" className={ETIQUETTE}>Numéro de dossier</label>
         <input
           id="dossier"
           name="dossier"
@@ -46,14 +48,12 @@ export function EspaceClientForm({ defaultDossier = '' }: { defaultDossier?: str
           value={dossier}
           onChange={(e) => setDossier(e.target.value.trim())}
           placeholder="Ex. 86c1ab2cd"
-          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-slate-800 font-medium focus:outline-none focus:border-[#0097b2] focus:bg-white transition-colors"
+          className={CHAMP}
         />
       </div>
 
       <div>
-        <label htmlFor="email" className="block text-xs font-black uppercase tracking-widest text-[#032b60] mb-2">
-          Email utilisé lors de votre demande
-        </label>
+        <label htmlFor="email" className={ETIQUETTE}>Email utilisé lors de votre demande</label>
         <input
           id="email"
           name="email"
@@ -63,12 +63,12 @@ export function EspaceClientForm({ defaultDossier = '' }: { defaultDossier?: str
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="vous@exemple.fr"
-          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-slate-800 font-medium focus:outline-none focus:border-[#0097b2] focus:bg-white transition-colors"
+          className={CHAMP}
         />
       </div>
 
       {error && (
-        <p role="alert" className="rounded-2xl bg-orange-50 border border-orange-100 px-4 py-3 text-sm text-orange-800 font-medium leading-relaxed">
+        <p role="alert" className="rounded-[14px] bg-white px-4 py-3 text-[15px] leading-relaxed text-[#032b60]" style={{ boxShadow: 'inset 4px 0 0 #FF6B00' }}>
           {error}
         </p>
       )}
@@ -76,10 +76,11 @@ export function EspaceClientForm({ defaultDossier = '' }: { defaultDossier?: str
       <button
         type="submit"
         disabled={loading}
-        className="w-full inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] disabled:opacity-60 text-white px-8 py-4 rounded-full font-black transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)]"
+        className="group inline-flex w-full items-center justify-center gap-3 rounded-full px-8 py-4 text-[17px] font-semibold text-white transition-transform hover:scale-[1.02] disabled:opacity-60 disabled:hover:scale-100"
+        style={{ backgroundColor: '#FF6B00', boxShadow: '0 8px 22px rgba(255,107,0,0.28)' }}
       >
         {loading ? <Loader2 size={18} className="animate-spin" /> : null}
-        Accéder à mon dossier {!loading && <ArrowRight size={18} />}
+        Accéder à mon dossier {!loading && <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />}
       </button>
     </form>
   );

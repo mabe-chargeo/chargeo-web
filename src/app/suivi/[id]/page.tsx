@@ -1,9 +1,20 @@
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
+import { ArrowRight, ClipboardList, FileText, LifeBuoy, ShieldCheck } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { SavForm } from '@/components/ui/SavForm';
+import { HautPhoto } from '@/components/charte/HautPhoto';
 import { ESPACE_CLIENT_COOKIE, getClickUpTask, getTaskEmail, tokenAllowsDossier } from '@/lib/espace-client';
+
+// Suivi de dossier (derrière l'Espace client), charte 2026.
+// Logique inchangée : accès par cookie, tâche ClickUp, frise selon le statut, champs installation, devis Costructor, SavForm.
+
+const NAVY = '#032b60';
+const CYAN = '#0097b2';
+const ORANGE = '#FF6B00';
+const LABEL = '#007f96';
+const CARTE = { backgroundColor: '#eceef1', boxShadow: '0 8px 22px rgba(3,43,96,0.10)' };
 
 // Devis jamais montrés au client : brouillons, anciennes versions révisées, supprimés, annulés
 const STATUTS_MASQUES = ['draft', 'revised', 'deleted', 'cancelled'];
@@ -162,6 +173,20 @@ async function getDevisClient(taskData: any) {
   });
 }
 
+function Entete({ icon: I, label, titre }: { icon: typeof ClipboardList; label: string; titre: string }) {
+  return (
+    <div className="mb-8 flex items-center gap-4">
+      <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
+        <I size={24} color="#ffffff" strokeWidth={1.8} />
+      </div>
+      <div>
+        <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: LABEL }}>{label}</p>
+        <h2 className="text-[24px] font-bold leading-tight sm:text-[26px]">{titre}</h2>
+      </div>
+    </div>
+  );
+}
+
 export default async function SuiviClientPage({ params }: { params: Promise<{ id: string }> }) {
   // Déballage de la promesse (Spécifique Next.js 15+)
   const resolvedParams = await params;
@@ -181,238 +206,198 @@ export default async function SuiviClientPage({ params }: { params: Promise<{ id
   }
 
   const nomChantier = taskData.name;
-  const statutActuel = taskData.status.status; 
+  const statutActuel = taskData.status.status;
+
+  // Étapes de la frise (même logique qu'avant)
+  const s = statutActuel.toLowerCase();
+
+  // Phase commerciale (liste Qualification) : visite, devis, négociation
+  const phaseDevis = s.includes('visiter') || s.includes('devis') || s.includes('négociation') || s.includes('negociation');
+  const devisEnAttente = s.includes('envoy') || s.includes('négociation') || s.includes('negociation');
+
+  // Étape en cours selon les statuts ClickUp (Qualification + Chantiers + Parc)
+  let currentStep = 1; // par défaut : devis signé, dossier en préparation (ex : "gagné")
+  if (phaseDevis) currentStep = 0;
+  if (s.includes('planifié')) currentStep = 2;
+  if (s.includes('en cours')) currentStep = 3;
+  if (s.includes('réalisé') || s.includes('terminé') || s.includes('service') || s.includes('surveillance') || s.includes('panne')) currentStep = 4;
+  if (s.includes('annulé') || s.includes('hors service') || s.includes('perdu')) currentStep = -1; // Mode erreur
+
+  const etapeDevis =
+    currentStep > 0
+      ? { title: 'Devis validé', desc: 'Merci pour votre confiance : votre projet est lancé.' }
+      : devisEnAttente
+        ? {
+            title: 'En attente de votre validation',
+            desc: devis.length > 0
+              ? 'Votre devis vous attend ci-dessous : consultez-le et signez-le en ligne pour lancer votre projet.'
+              : 'Votre devis vous a été envoyé : consultez-le et validez-le pour lancer votre projet.',
+          }
+        : { title: 'Étude de votre projet', desc: 'Nous étudions votre installation et préparons votre devis.' };
+
+  const steps = [
+    etapeDevis,
+    { title: "Préparation du dossier", desc: "Vos informations sont en cours d'analyse et de préparation." },
+    { title: "Intervention planifiée", desc: "Une date a été fixée avec notre équipe technique." },
+    { title: "Chantier en cours", desc: "Nos techniciens sont mobilisés sur votre installation." },
+    { title: "Mise en service", desc: "Votre installation est finalisée et opérationnelle." }
+  ];
+
+  // Fonction pour extraire intelligemment la valeur d'un champ par son nom
+  const getCustomFieldValue = (fieldName: string) => {
+    const field = taskData.custom_fields?.find((f: any) => f.name.includes(fieldName));
+    if (!field || field.value == null) return null;
+
+    // Si c'est un menu déroulant (dropdown)
+    if (field.type === 'drop_down' && field.type_config?.options) {
+      // ClickUp stocke parfois l'index, parfois l'ID
+      const option = field.type_config.options.find(
+        (opt: any) => opt.orderindex === field.value || opt.id === field.value
+      );
+      return option ? option.name : null;
+    }
+
+    // Si c'est une date
+    if (field.type === 'date') {
+      return new Date(parseInt(field.value)).toLocaleDateString('fr-FR');
+    }
+
+    // Pour le texte simple
+    return field.value;
+  };
+
+  // On récupère les valeurs basées sur les noms des champs dans ClickUp
+  const modeleBorne = getCustomFieldValue("Modèle de Borne");
+  const typeContrat = getCustomFieldValue("Type de Contrat");
+  const finGarantie = getCustomFieldValue("Fin de Garantie");
+  const details = [
+    { label: 'Matériel', valeur: modeleBorne },
+    { label: 'Contrat actif', valeur: typeContrat },
+    { label: 'Fin de garantie', valeur: finGarantie },
+  ].filter((d) => d.valeur);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#0097b2]/20 flex flex-col">
-      <Navbar isHome={false} showFloatingCta={false} />
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-white font-sans antialiased" style={{ color: NAVY }}>
+      <Navbar transparent showFloatingCta={false} />
 
-      <main className="flex-grow max-w-3xl mx-auto px-6 pt-32 pb-20 w-full">
-        
-        {/* En-tête de la page */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-black text-[#032b60] uppercase tracking-tighter mb-4">
-            Suivi de votre <span className="text-[#0097b2]">dossier</span>
-          </h1>
-          <h2 className="text-lg text-slate-500 font-medium">{nomChantier}</h2>
-        </div>
+      <main className="grow">
+        <HautPhoto
+          img="/tech-chargeo.webp"
+          eyebrow="Votre espace client · Suivi de dossier"
+          eyeIcon={ClipboardList}
+          minH="460px"
+          titreClass="sm:text-[48px] lg:text-[56px]"
+          titre={nomChantier}
+        >
+          <div className="mt-8">
+            <span className="inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-[13px] font-semibold uppercase tracking-[0.1em] text-white" style={{ borderColor: 'rgba(0,151,178,0.75)' }}>
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CYAN }} /> {statutActuel}
+            </span>
+          </div>
+        </HautPhoto>
 
-        <div className="space-y-8">
-          
-          {/* Bloc Statut - Frise Chronologique Dynamique */}
-          <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
-            
-            <div className="flex justify-between items-center mb-8">
-              <p className="text-xs font-black uppercase tracking-widest text-[#032b60]">Avancement du dossier</p>
-              <div className="bg-slate-50 border border-slate-200 text-slate-700 px-3 py-1.5 rounded-full text-xs font-bold capitalize flex items-center gap-2 shadow-sm">
-                <span className="h-2 w-2 rounded-full bg-[#0097b2]"></span>
-                {statutActuel}
-              </div>
-            </div>
-            
-            <div className="relative border-l-2 border-slate-100 ml-3 md:ml-4 space-y-8">
-              {(() => {
-                const s = statutActuel.toLowerCase();
+        <section className="bg-white">
+          <div className="mx-auto max-w-4xl space-y-8 px-6 py-16 lg:py-20">
 
-                // Phase commerciale (liste Qualification) : visite, devis, négociation
-                const phaseDevis = s.includes('visiter') || s.includes('devis') || s.includes('négociation') || s.includes('negociation');
-                const devisEnAttente = s.includes('envoy') || s.includes('négociation') || s.includes('negociation');
-
-                // Étape en cours selon les statuts ClickUp (Qualification + Chantiers + Parc)
-                let currentStep = 1; // par défaut : devis signé, dossier en préparation (ex : "gagné")
-                if (phaseDevis) currentStep = 0;
-                if (s.includes('planifié')) currentStep = 2;
-                if (s.includes('en cours')) currentStep = 3;
-                if (s.includes('réalisé') || s.includes('terminé') || s.includes('service') || s.includes('surveillance') || s.includes('panne')) currentStep = 4;
-                if (s.includes('annulé') || s.includes('hors service') || s.includes('perdu')) currentStep = -1; // Mode erreur
-
-                const etapeDevis =
-                  currentStep > 0
-                    ? { title: 'Devis validé', desc: 'Merci pour votre confiance : votre projet est lancé.' }
-                    : devisEnAttente
-                      ? {
-                          title: 'En attente de votre validation',
-                          desc: devis.length > 0
-                            ? 'Votre devis vous attend ci-dessous : consultez-le et signez-le en ligne pour lancer votre projet.'
-                            : 'Votre devis vous a été envoyé : consultez-le et validez-le pour lancer votre projet.',
-                        }
-                      : { title: 'Étude de votre projet', desc: 'Nous étudions votre installation et préparons votre devis.' };
-
-                const steps = [
-                  etapeDevis,
-                  { title: "Préparation du dossier", desc: "Vos informations sont en cours d'analyse et de préparation." },
-                  { title: "Intervention planifiée", desc: "Une date a été fixée avec notre équipe technique." },
-                  { title: "Chantier en cours", desc: "Nos techniciens sont mobilisés sur votre installation." },
-                  { title: "Mise en service", desc: "Votre installation est finalisée et opérationnelle." }
-                ];
-
-                return steps.map((step, index) => {
+            {/* Frise d'avancement */}
+            <div className="rounded-[24px] p-7 sm:p-10" style={CARTE}>
+              <Entete icon={ClipboardList} label="Avancement du dossier" titre="Où en est votre projet ?" />
+              <ol className="relative ml-3 space-y-8 border-l-[3px] border-white">
+                {steps.map((step, index) => {
                   const isActive = currentStep === index;
                   const isCompleted = currentStep > index;
                   const isUpcoming = currentStep < index;
-                  
+
                   // Gestion spéciale si la borne est en panne dans le Parc Installé
                   const showSavWarning = isActive && index === 4 && (s.includes('surveillance') || s.includes('panne'));
+                  const couleurPoint = showSavWarning ? '#dc2626' : isActive ? ORANGE : isCompleted ? CYAN : '#c8d0d9';
 
                   return (
-                    <div key={index} className="relative pl-8 transition-all duration-300">
-                      
-                      {/* Le point sur la frise */}
-                      <div className={`absolute -left-[11px] top-1 h-5 w-5 rounded-full border-4 border-white flex items-center justify-center z-10
-                        ${isActive && !showSavWarning ? 'bg-[#FF6B00] shadow-[0_0_12px_rgba(255,107,0,0.4)]' : ''}
-                        ${isCompleted ? 'bg-[#0097b2]' : ''}
-                        ${isUpcoming ? 'bg-slate-200' : ''}
-                        ${showSavWarning ? 'bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.4)]' : ''}
-                      `}>
-                        {/* Animation de pulsation uniquement sur l'étape active */}
-                        {isActive && !showSavWarning && <span className="absolute h-full w-full rounded-full bg-[#FF6B00] opacity-50 animate-ping"></span>}
-                        {showSavWarning && <span className="absolute h-full w-full rounded-full bg-red-500 opacity-50 animate-ping"></span>}
-                      </div>
-
-                      {/* Le texte de l'étape */}
-                      <h4 className={`text-lg font-black tracking-tight
-                        ${isActive && !showSavWarning ? 'text-[#FF6B00]' : ''}
-                        ${isCompleted ? 'text-slate-800' : ''}
-                        ${isUpcoming ? 'text-slate-400' : ''}
-                        ${showSavWarning ? 'text-red-500' : ''}
-                      `}>
+                    <li key={index} className="relative pl-9">
+                      <span className="absolute -left-[13px] top-1 flex h-[22px] w-[22px] items-center justify-center rounded-full border-4 border-[#eceef1]" style={{ backgroundColor: couleurPoint }}>
+                        {(isActive || showSavWarning) && <span className="absolute h-full w-full animate-ping rounded-full opacity-50" style={{ backgroundColor: couleurPoint }} />}
+                      </span>
+                      <h3 className="text-[19px] font-bold" style={{ color: showSavWarning ? '#dc2626' : isActive ? ORANGE : isUpcoming ? '#8a97a8' : NAVY }}>
                         {step.title}
-                      </h4>
-                      
-                      <p className={`text-sm font-medium mt-1.5 leading-relaxed 
-                        ${isActive || isCompleted ? 'text-slate-500' : 'text-slate-300'}
-                      `}>
+                      </h3>
+                      <p className="mt-1 text-[16px] leading-relaxed" style={{ opacity: isUpcoming ? 0.55 : 1 }}>
                         {showSavWarning ? "Votre borne nécessite une assistance. Notre équipe technique est sur le coup." : step.desc}
                       </p>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          </div>
-
-          {/* NOUVEAU BLOC : Détails des champs personnalisés */}
-          {(() => {
-            // Fonction pour extraire intelligemment la valeur d'un champ par son nom
-            const getCustomFieldValue = (fieldName: string) => {
-              const field = taskData.custom_fields?.find((f: any) => f.name.includes(fieldName));
-              if (!field || field.value == null) return null;
-              
-              // Si c'est un menu déroulant (dropdown)
-              if (field.type === 'drop_down' && field.type_config?.options) {
-                // ClickUp stocke parfois l'index, parfois l'ID
-                const option = field.type_config.options.find(
-                  (opt: any) => opt.orderindex === field.value || opt.id === field.value
-                );
-                return option ? option.name : null;
-              }
-              
-              // Si c'est une date
-              if (field.type === 'date') {
-                return new Date(parseInt(field.value)).toLocaleDateString('fr-FR');
-              }
-
-              // Pour le texte simple
-              return field.value;
-            };
-
-            // On récupère les valeurs basées sur les noms de tes champs dans ClickUp
-            const modeleBorne = getCustomFieldValue("Modèle de Borne");
-            const typeContrat = getCustomFieldValue("Type de Contrat");
-            const finGarantie = getCustomFieldValue("Fin de Garantie");
-
-            // Si au moins un champ est rempli, on affiche le bloc
-            if (modeleBorne || typeContrat || finGarantie) {
-              return (
-                <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
-                  <p className="text-xs font-black uppercase tracking-widest text-[#032b60] mb-6">Détails de votre installation</p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {modeleBorne && (
-                      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Matériel</p>
-                        <p className="text-sm font-black text-slate-800">{modeleBorne}</p>
-                      </div>
-                    )}
-                    
-                    {typeContrat && (
-                      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Contrat Actif</p>
-                        <p className="text-sm font-black text-[#0097b2]">{typeContrat}</p>
-                      </div>
-                    )}
-                    
-                    {finGarantie && (
-                      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Fin de garantie</p>
-                        <p className="text-sm font-black text-slate-800">{finGarantie}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            }
-            return null;
-          })()}
-
-          {devis.length > 0 && (
-            <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#032b60]">Vos devis</span>
-              <div className="mt-4 space-y-3">
-                {devis.map((d: any) => {
-                  // Lien de partage Costructor en priorité (consultation + signature en ligne), sinon le PDF
-                  const href = d.lienEnLigne || (d.pdfId ? `/api/devis-pdf/${d.pdfId}` : undefined);
-                  const libelle = d.lienEnLigne && !d.accepte && !d.expire ? 'Voir et signer →' : 'Voir le devis →';
-                  return (
-                    <a
-                      key={d.numero + (d.pdfId || d.lienEnLigne || '')}
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex items-center justify-between gap-4 rounded-2xl border border-slate-100 p-4 transition ${href ? 'cursor-pointer hover:border-[#0097b2] hover:shadow-sm' : ''}`}
-                    >
-                      <div>
-                        <p className="font-semibold text-slate-800">{d.nom}</p>
-                        <p className="text-sm text-slate-500">
-                          N° {d.numero} · {d.total}
-                          {d.accepte && <span className="ml-2 font-semibold text-[#0097b2]">✓ Accepté</span>}
-                        </p>
-                        {d.expire && (
-                          <p className="mt-1 text-xs font-semibold text-amber-600">
-                            Expiré le {d.expireLe} : contactez-nous pour un devis à jour.
-                          </p>
-                        )}
-                      </div>
-                      {href ? (
-                        <span className="shrink-0 rounded-lg bg-[#0097b2] px-4 py-2 text-sm font-semibold text-white">{libelle}</span>
-                      ) : (
-                        <span className="shrink-0 text-xs text-slate-400">PDF bientôt dispo</span>
-                      )}
-                    </a>
+                    </li>
                   );
                 })}
-              </div>
+              </ol>
             </div>
-          )}
 
-          {/* Bloc Formulaire SAV */}
-          <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
-            <div className="mb-8">
-              <div className="inline-flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-full border border-slate-200 mb-4">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#032b60]">Assistance Technique</span>
+            {/* Détails des champs personnalisés */}
+            {details.length > 0 && (
+              <div className="rounded-[24px] p-7 sm:p-10" style={CARTE}>
+                <Entete icon={ShieldCheck} label="Votre installation" titre="Détails de votre installation" />
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                  {details.map((d) => (
+                    <div key={d.label} className="rounded-[18px] bg-white p-5">
+                      <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: LABEL }}>{d.label}</p>
+                      <p className="mt-1 text-[18px] font-bold">{String(d.valeur)}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <h3 className="text-2xl font-black text-[#032b60] uppercase tracking-tight mb-2">
-                Un problème avec votre borne ?
-              </h3>
-              <p className="text-slate-500 font-medium text-sm leading-relaxed">
+            )}
+
+            {/* Devis Costructor */}
+            {devis.length > 0 && (
+              <div className="rounded-[24px] p-7 sm:p-10" style={CARTE}>
+                <Entete icon={FileText} label="Vos devis" titre="Consulter et signer" />
+                <div className="space-y-4">
+                  {devis.map((d: any) => {
+                    // Lien de partage Costructor en priorité (consultation + signature en ligne), sinon le PDF
+                    const href = d.lienEnLigne || (d.pdfId ? `/api/devis-pdf/${d.pdfId}` : undefined);
+                    const libelle = d.lienEnLigne && !d.accepte && !d.expire ? 'Voir et signer' : 'Voir le devis';
+                    return (
+                      <a
+                        key={d.numero + (d.pdfId || d.lienEnLigne || '')}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex flex-col gap-4 rounded-[18px] bg-white p-5 transition sm:flex-row sm:items-center sm:justify-between ${href ? 'cursor-pointer hover:shadow-[inset_0_0_0_2px_#0097b2]' : ''}`}
+                      >
+                        <div>
+                          <p className="text-[17px] font-bold">{d.nom}</p>
+                          <p className="text-[15px]">
+                            N° {d.numero} · {d.total}
+                            {d.accepte && <span className="ml-2 font-semibold" style={{ color: LABEL }}>✓ Accepté</span>}
+                          </p>
+                          {d.expire && (
+                            <p className="mt-1 text-[13px] font-semibold" style={{ color: ORANGE }}>
+                              Expiré le {d.expireLe} : contactez-nous pour un devis à jour.
+                            </p>
+                          )}
+                        </div>
+                        {href ? (
+                          <span className="inline-flex shrink-0 items-center gap-2 self-start rounded-full px-5 py-2.5 text-[15px] font-semibold text-white sm:self-auto" style={{ backgroundColor: CYAN }}>
+                            {libelle} <ArrowRight size={16} />
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-[13px]" style={{ color: LABEL }}>PDF bientôt dispo</span>
+                        )}
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Formulaire SAV */}
+            <div className="rounded-[24px] p-7 sm:p-10" style={CARTE}>
+              <Entete icon={LifeBuoy} label="Assistance technique" titre="Un problème avec votre borne ?" />
+              <p className="-mt-3 mb-8 text-[16px] leading-relaxed">
                 Utilisez ce formulaire pour nous signaler tout dysfonctionnement. Votre demande sera traitée en priorité par nos techniciens locaux.
               </p>
+              <SavForm clientId={resolvedParams.id} nomClient={nomChantier} />
             </div>
 
-            <SavForm clientId={resolvedParams.id} nomClient={nomChantier} />
           </div>
-
-        </div>
+        </section>
       </main>
 
       <Footer />
