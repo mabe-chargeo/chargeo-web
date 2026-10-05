@@ -5,7 +5,7 @@
  * puis valide la modification. Le QR code des cartes de visite n'a pas
  * besoin d'être réimprimé : il pointe toujours vers la même adresse.
  *
- * Pour ajouter une personne (ex : un poseur), copie le bloc "matthieu",
+ * Pour ajouter une personne (ex : un poseur), copie le bloc "mathieu",
  * change l'identifiant (ex : "julien") et ses infos. Sa fiche sera alors
  * disponible sur chargeo.fr/vcard/julien.
  */
@@ -23,22 +23,27 @@ export type VCardContact = {
   note?: string;
 };
 
-export const VCARD_CONTACTS: Record<string, VCardContact> = {
-  matthieu: {
-    prenom: "Matthieu",
-    nom: "BELENGRI",
-    fonction: "Fondateur",
-    entreprise: "CHARGéO",
-    mobile: "+33669253839",
-    fixe: "+33485692204",
-    email: "mabe@chargeo.fr",
-    site: "https://chargeo.fr",
-    adresse: {
-      rue: "89 chemin de la Ballastière",
-      codePostal: "74200",
-      ville: "Thonon-les-Bains",
-      pays: "France",
-    },
-    note: "Installateur de bornes de recharge · Chablais · Haute-Savoie",
+const MATHIEU: VCardContact = {
+  prenom: "Mathieu",
+  nom: "BELENGRI",
+  fonction: "Fondateur",
+  entreprise: "CHARGéO",
+  mobile: "+33669253839",
+  fixe: "+33485692204",
+  email: "mabe@chargeo.fr",
+  site: "https://chargeo.fr",
+  adresse: {
+    rue: "89 chemin de la Ballastière",
+    codePostal: "74200",
+    ville: "Thonon-les-Bains",
+    pays: "France",
   },
+  note: "Installateur de bornes de recharge · Chablais · Haute-Savoie",
+};
+
+export const VCARD_CONTACTS: Record<string, VCardContact> = {
+  mathieu: MATHIEU,
+  // Ancienne adresse (orthographe erronee « Matthieu », en ligne le 05/10/2026
+  // au matin) : conservee pour qu'un lien deja partage ne tombe pas en 404.
+  matthieu: MATHIEU,
 };
