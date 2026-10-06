@@ -2,6 +2,8 @@
 
 // Formulaire de contact : logique et données envoyées inchangées (/api/contact, typeClient, simulation).
 // Seul l'habillage passe à la charte 2026.
+// 06/10/2026 : chaque intitulé est relié à sa case (htmlFor / id) et les cases
+// portent autoComplete, pour le remplissage automatique et les lecteurs d'écran.
 import React, { useState } from 'react';
 import { ArrowRight, CheckCircle } from 'lucide-react';
 
@@ -19,6 +21,8 @@ export function ContactForm({ typeClient, simulation }: ContactFormProps) {
   const [telephone, setTelephone] = useState("");
   const [message, setMessage] = useState("");
   const [formStatus, setFormStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  // Identifiants uniques, même si le formulaire apparaît deux fois sur une page.
+  const uid = React.useId();
 
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +60,7 @@ export function ContactForm({ typeClient, simulation }: ContactFormProps) {
         </div>
         <div>
           <h4 className="font-bold text-[22px] mb-2">Demande envoyée !</h4>
-          <p className="text-[15px]">Merci pour votre message. Nous vous recontactons dans les plus brefs délais.</p>
+          <p className="text-[15px]">Merci pour votre message. Nous vous rappelons sous 24 h ouvrées.</p>
         </div>
         <button onClick={() => setFormStatus("idle")} className="mt-2 text-[#0097b2] font-semibold underline underline-offset-4 text-[15px] hover:text-[#032b60] transition-colors">Envoyer un autre message</button>
       </div>
@@ -67,23 +71,23 @@ export function ContactForm({ typeClient, simulation }: ContactFormProps) {
     <form onSubmit={handleContactSubmit} className="space-y-5">
       <div className="grid sm:grid-cols-2 gap-5">
         <div className="space-y-2">
-          <label className={LABEL}>Nom et prénom <span className="text-[#0097b2]">*</span></label>
-          <input type="text" required value={nom} onChange={(e) => setNom(e.target.value)} className={CHAMP} placeholder="Jean Dupont" />
+          <label htmlFor={`${uid}-nom`} className={LABEL}>Nom et prénom <span className="text-[#0097b2]">*</span></label>
+          <input id={`${uid}-nom`} name="nom" autoComplete="name" type="text" required value={nom} onChange={(e) => setNom(e.target.value)} className={CHAMP} placeholder="Jean Dupont" />
         </div>
         <div className="space-y-2">
-          <label className={LABEL}>Téléphone <span className="text-[#0097b2]">*</span></label>
-          <input type="tel" required value={telephone} onChange={(e) => setTelephone(e.target.value)} className={CHAMP} placeholder="06 12 34 56 78" />
+          <label htmlFor={`${uid}-tel`} className={LABEL}>Téléphone <span className="text-[#0097b2]">*</span></label>
+          <input id={`${uid}-tel`} name="telephone" autoComplete="tel" type="tel" required value={telephone} onChange={(e) => setTelephone(e.target.value)} className={CHAMP} placeholder="06 12 34 56 78" />
         </div>
       </div>
       
       <div className="space-y-2">
-        <label className={LABEL}>Email <span className="text-[#0097b2]">*</span></label>
-        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={CHAMP} placeholder="jean@exemple.com" />
+        <label htmlFor={`${uid}-email`} className={LABEL}>Email <span className="text-[#0097b2]">*</span></label>
+        <input id={`${uid}-email`} name="email" autoComplete="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={CHAMP} placeholder="jean@exemple.com" />
       </div>
 
       <div className="space-y-2">
-        <label className={LABEL}>Votre projet</label>
-        <textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} className={`${CHAMP} resize-none`} placeholder="Décrivez-nous brièvement votre besoin..."></textarea>
+        <label htmlFor={`${uid}-projet`} className={LABEL}>Votre projet</label>
+        <textarea id={`${uid}-projet`} name="message" rows={4} value={message} onChange={(e) => setMessage(e.target.value)} className={`${CHAMP} resize-none`} placeholder="Décrivez-nous brièvement votre besoin..."></textarea>
       </div>
 
       {formStatus === "error" && (
@@ -91,8 +95,8 @@ export function ContactForm({ typeClient, simulation }: ContactFormProps) {
       )}
 
       <div className="flex items-start gap-3 bg-white p-3.5 rounded-[14px]">
-        <input type="checkbox" id="rgpd-consent" required className="mt-0.5 w-4 h-4 shrink-0 accent-[#0097b2] cursor-pointer" />
-        <label htmlFor="rgpd-consent" className="text-[12px] text-[#032b60]/80 leading-relaxed cursor-pointer">
+        <input type="checkbox" id={`${uid}-rgpd`} required className="mt-0.5 w-4 h-4 shrink-0 accent-[#0097b2] cursor-pointer" />
+        <label htmlFor={`${uid}-rgpd`} className="text-[12px] text-[#032b60]/80 leading-relaxed cursor-pointer">
           J'accepte que les informations saisies soient exploitées par CHARGÉO pour traiter ma demande et m'envoyer des offres commerciales. Pour exercer vos droits, consultez notre <a href="/mentions-legales" className="text-[#0097b2] underline hover:text-[#032b60] transition-colors">Politique de confidentialité</a>. <span className="text-red-500">*</span>
         </label>
       </div>
