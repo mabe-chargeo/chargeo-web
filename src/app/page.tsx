@@ -1,6 +1,8 @@
 "use client";
 
 // Accueil, charte 2026 (maquette v3 validée par Matthieu le 05/10/2026).
+// 06/10/2026 : un seul délai de rappel partout (24 h ouvrées) et adresse
+// canonique de la page (balise hissée dans le <head> par React 19).
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -15,7 +17,7 @@ import { ContactForm } from "@/components/ui/ContactForm";
 import { NAVY, CYAN, ORANGE, LABEL, BLEU_CLAIR, CARTE, Reveal, Barre, Lbl, Titre, Icone, Filigrane } from "@/components/charte/Charte";
 
 const CHIFFRES = [
-  { icon: Clock, big: "24 h", label: "pour vous rappeler" },
+  { icon: Clock, big: "24 h", label: "ouvrées pour vous rappeler" },
   { icon: BadgeEuro, big: "Prix ferme", label: "annoncé au devis" },
   { icon: FileCheck, big: "Primes", label: "et démarches gérées" },
   { icon: ShieldCheck, big: "Qualifié IRVE", label: "habilitation maximale" },
@@ -48,12 +50,13 @@ const PORTAIL = [
 const ENGAGEMENTS = [
   { icon: Wifi, title: "Supervision en temps réel", text: "Nous surveillons votre borne à distance et réglons les anomalies avant que vous ne les remarquiez." },
   { icon: ShieldCheck, title: "Un SAV qui répond", text: "Vous parlez aux techniciens qui ont posé votre matériel. Pas de centre d’appel à l’étranger." },
-  { icon: CheckCircle, title: "Intervention locale", text: "Ancrés en Haute-Savoie : rappel sous 24 h et intervention rapide de nos techniciens." },
+  { icon: CheckCircle, title: "Intervention locale", text: "Ancrés en Haute-Savoie : rappel sous 24 h ouvrées et intervention rapide de nos techniciens." },
 ];
 
 export default function Accueil() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-white font-sans antialiased" style={{ color: NAVY }}>
+      <link rel="canonical" href="https://www.chargeo.fr/" />
       <Navbar isHome transparent />
       <main>
         {/* HAUT DE PAGE */}
@@ -292,7 +295,7 @@ export default function Accueil() {
             <Reveal delay={150} className="lg:col-span-3">
               <div className="rounded-[24px] p-6 sm:p-10" style={CARTE}>
                 <h3 className="text-[26px] font-bold">Parlez-nous de votre projet</h3>
-                <p className="mb-8 mt-2 text-[16px]">Remplissez ce formulaire, notre équipe vous rappelle très vite.</p>
+                <p className="mb-8 mt-2 text-[16px]">Remplissez ce formulaire, notre équipe vous rappelle sous 24 h ouvrées.</p>
                 <ContactForm typeClient="Non précisé (Accueil)" simulation="Aucune simulation (depuis l'accueil)" />
               </div>
             </Reveal>

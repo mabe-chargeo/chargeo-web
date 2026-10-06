@@ -2,9 +2,18 @@ import React from 'react';
 import { Scale } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
+import type { Metadata } from 'next';
 import { HautPhoto } from '@/components/charte/HautPhoto';
 
-// Mentions légales et confidentialité, charte 2026. Texte juridique inchangé.
+// Mentions légales et confidentialité, charte 2026.
+// 06/10/2026 : partie cookies réécrite pour décrire exactement ce que fait le
+// site (Tag Manager qui charge Analytics et Ads, après accord), titre et adresse
+// canonique propres à la page.
+export const metadata: Metadata = {
+  title: 'Mentions légales et confidentialité | CHARGÉO',
+  description: "Mentions légales, politique de confidentialité et cookies du site CHARGéO, installateur de bornes de recharge à Thonon-les-Bains.",
+  alternates: { canonical: '/mentions-legales' },
+};
 const NAVY = '#032b60';
 const CYAN = '#0097b2';
 const LABEL = '#007f96';
@@ -95,12 +104,18 @@ export default function MentionsLegalesPage() {
                   Les informations transmises par le formulaire de recrutement (identité, coordonnées, diplôme, permis, formation, CV) servent uniquement à étudier votre candidature. Elles sont enregistrées dans notre outil de gestion (ClickUp Inc.) et conservées au plus 2 ans après notre dernier contact, puis supprimées. Vous pouvez à tout moment demander à les consulter, les corriger ou les supprimer en écrivant à : <strong>contact@chargeo.fr</strong>.
                 </p>
               </Bloc>
-              <Bloc titre="4. Cookies et traceurs publicitaires">
+              <Bloc titre="4. Cookies et mesure d'audience">
                 <p>
-                  Lors de votre navigation sur le site, des cookies peuvent être déposés sur votre terminal, sous réserve de votre consentement explicite via notre bandeau dédié.
+                  Le site utilise <strong>Google Tag Manager</strong> (Google Ireland Ltd), un outil qui charge nos services de mesure : <strong>Google Analytics</strong>, pour mesurer l'audience et comprendre comment le site est consulté, et <strong>Google Ads</strong>, pour mesurer l'efficacité de nos annonces et vous en proposer de pertinentes.
                 </p>
                 <p>
-                  Nous utilisons ces traceurs (notamment <strong>Google Ads</strong> et <strong>Google Analytics</strong>) pour mesurer notre audience, analyser le trafic, et vous proposer des annonces publicitaires ciblées. Vous pouvez retirer votre consentement à tout moment en effaçant les cookies de votre navigateur.
+                  Ces services ne déposent de cookie qu'avec votre accord, donné via le bandeau affiché lors de votre première visite. Tant que vous n'avez pas accepté, ou si vous refusez, aucun cookie de mesure ni publicitaire n'est déposé : seuls des signaux anonymes, sans cookie, peuvent être transmis à Google (mode Consentement de Google).
+                </p>
+                <p>
+                  Votre choix est conservé 6 mois dans un cookie technique (chargeo-gdpr-consent). Les cookies de mesure d'audience sont conservés 13 mois au plus. Google peut traiter ces données hors de l'Union européenne, dans le cadre du Data Privacy Framework entre l'Union européenne et les États-Unis.
+                </p>
+                <p>
+                  Vous pouvez changer d'avis à tout moment : effacez les cookies de ce site dans votre navigateur, le bandeau s'affichera de nouveau à votre prochaine visite.
                 </p>
               </Bloc>
               <Bloc titre="5. Vos droits">
