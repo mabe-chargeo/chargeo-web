@@ -1,13 +1,21 @@
 "use client";
 
+// Simulateur Entreprises, charte 2026 : économies de la flotte (électricité contre carburant).
+// Remplace l'ancien calcul de revenus de recharge (décision Matthieu du 05/10/2026).
+// Props inchangées : onResultChange(valeur, réglages) alimente toujours la barre mobile et le ContactForm.
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plug, Users, Settings, PiggyBank, Phone } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { useAnimatedValue } from '@/hooks/useAnimatedValue';
+import { NAVY, ORANGE, BLEU_CLAIR, CYAN_CLAIR, CARTE } from '@/components/charte/Charte';
+import { Curseur, Reglages, EnteteSimu } from '@/components/charte/Simu';
 
-export function SimulatorPro({ onResultChange }: { onResultChange?: (val: number, dataStr?: string) => void }) {  const [chargePoints, setChargePoints] = useState(4);
-  const [sessionsPerDay, setSessionsPerDay] = useState(2);
-  const [marginPerKwh, setMarginPerKwh] = useState(0.20);
-  const [kwhPerSession, setKwhPerSession] = useState(25);
+export function SimulatorPro({ onResultChange }: { onResultChange?: (val: number, dataStr?: string) => void }) {
+  const [vehicules, setVehicules] = useState(5);
+  const [kmAn, setKmAn] = useState(25000);
+  const [consoThermique, setConsoThermique] = useState(6.5);
+  const [prixCarburant, setPrixCarburant] = useState(1.75);
+  const [prixKwh, setPrixKwh] = useState(0.2);
+  const [consoVe, setConsoVe] = useState(18);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
   const [isPulsing, setIsPulsing] = useState(false);
@@ -17,18 +25,19 @@ export function SimulatorPro({ onResultChange }: { onResultChange?: (val: number
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const results = useMemo(() => {
-    const safeChargePoints = isNaN(chargePoints) ? 0 : chargePoints;
-    const safeSessions = isNaN(sessionsPerDay) ? 0 : sessionsPerDay;
-    const safeMargin = isNaN(marginPerKwh) ? 0 : marginPerKwh;
-    const safeKwh = isNaN(kwhPerSession) ? 0 : kwhPerSession;
-    const annualRevenue = safeChargePoints * safeSessions * safeKwh * safeMargin * 300;
-    return { annualRevenue: Math.max(0, annualRevenue) };
-  }, [chargePoints, sessionsPerDay, marginPerKwh, kwhPerSession]);
-  useEffect(() => {
-    if (onResultChange) onResultChange(results.annualRevenue, `Bornes: ${chargePoints}, Sessions/j: ${sessionsPerDay}, Marge: ${marginPerKwh}€/kWh`);
-  }, [results.annualRevenue, onResultChange, chargePoints, sessionsPerDay, marginPerKwh]);
+    const n = isNaN(vehicules) ? 0 : vehicules;
+    const km = isNaN(kmAn) ? 0 : kmAn;
+    const coutCarburant = (km / 100) * (isNaN(consoThermique) ? 0 : consoThermique) * (isNaN(prixCarburant) ? 0 : prixCarburant);
+    const coutElec = (km / 100) * (isNaN(consoVe) ? 0 : consoVe) * (isNaN(prixKwh) ? 0 : prixKwh);
+    const parVehicule = Math.max(0, coutCarburant - coutElec);
+    return { parVehicule, total: parVehicule * n, coutCarburant: coutCarburant * n, coutElec: coutElec * n };
+  }, [vehicules, kmAn, consoThermique, prixCarburant, prixKwh, consoVe]);
 
-  const animatedRevenue = useAnimatedValue(results.annualRevenue, 1200, isInView, triggerKey);
+  useEffect(() => {
+    if (onResultChange) onResultChange(results.total, `Véhicules: ${vehicules}, Km/an/véhicule: ${kmAn}, Conso: ${consoThermique}L/100, Carburant: ${prixCarburant}€, Elec: ${prixKwh}€/kWh, Conso VE: ${consoVe}kWh/100`);
+  }, [results.total, onResultChange, vehicules, kmAn, consoThermique, prixCarburant, prixKwh, consoVe]);
+
+  const animatedTotal = useAnimatedValue(results.total, 1200, isInView, triggerKey);
 
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => setIsInView(entry.isIntersecting), { threshold: 0.2 });
@@ -41,90 +50,49 @@ export function SimulatorPro({ onResultChange }: { onResultChange?: (val: number
     setIsPulsing(true);
     const pulseTimer = setTimeout(() => setIsPulsing(false), 300);
     return () => clearTimeout(pulseTimer);
-  }, [chargePoints, sessionsPerDay, marginPerKwh, kwhPerSession]);
+  }, [vehicules, kmAn, consoThermique, prixCarburant, prixKwh, consoVe]);
+
+  const fr = (n: number, d = 2) => n.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const eur = (n: number) => Math.round(n).toLocaleString('fr-FR');
 
   return (
-    <div className="max-w-7xl mx-auto px-6 relative z-10">
-      <div className="text-center mb-16 space-y-4">
-        <h2 className="text-4xl md:text-6xl font-black text-[#032b60] uppercase tracking-tighter">
-          Estimez vos <br className="md:hidden"/><span className="text-[#0097b2]">revenus de recharge</span>
-        </h2>
-        <p className="text-slate-500 font-medium text-lg max-w-2xl mx-auto">
-          Découvrez la rentabilité de votre future station de recharge connectée avant de demander votre audit personnalisé.
-        </p>
-      </div>
+    <div className="mx-auto max-w-7xl px-6" style={{ color: NAVY }}>
+      <EnteteSimu titre="Estimez les économies de votre flotte." texte="Électricité contre carburant : ce que votre flotte économise chaque année en rechargeant sur vos bornes." />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
-        
-        {/* Boîte de contrôle gauche 1 : Points de charge */}
-        <div className="order-1 lg:row-start-1 lg:col-start-1 h-65 sm:h-70 flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
-          <div className="flex justify-between items-end">
-            <div className="space-y-1">
-              <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
-                <Plug className="text-[#0097b2]" size={24}/> Points de charge
-              </h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Nombre total d'emplacements équipés.</p>
-            </div>
-            <span className={`text-3xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
-              {chargePoints} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">places</span>
-            </span>
-          </div>
-          <input type="range" aria-label="Points de charge" min="1" max="20" value={chargePoints} onChange={(e) => setChargePoints(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-          <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest"><span>Petite station</span><span>Grande station</span></div>
+      <div className="mt-12 grid gap-7 lg:grid-cols-5">
+        <div className="space-y-9 rounded-[24px] p-7 sm:p-9 lg:col-span-3" style={CARTE}>
+          <Curseur label="Véhicules de la flotte" aide="Véhicules qui rechargeront sur vos bornes." valeur={String(vehicules)} unite={vehicules > 1 ? "véhicules" : "véhicule"} min={1} max={50} step={1} value={vehicules} onChange={(v) => setVehicules(Math.round(v))} gauche="1" droite="50" aria="Nombre de véhicules" />
+          <Curseur label="Kilométrage annuel" aide="Par véhicule, en moyenne." valeur={kmAn.toLocaleString('fr-FR')} unite="km/an" min={5000} max={60000} step={1000} value={kmAn} onChange={(v) => setKmAn(Math.round(v))} gauche="5 000 km" droite="60 000 km" aria="Kilométrage annuel par véhicule" />
+          <Curseur label="Consommation thermique" aide="Consommation actuelle des véhicules." valeur={fr(consoThermique, 1)} unite="L/100" min={4} max={12} step={0.5} value={consoThermique} onChange={setConsoThermique} gauche="Citadine (4 L)" droite="Utilitaire (12 L)" aria="Consommation thermique" />
+          <Reglages ouvert={showAdvancedSettings} onToggle={() => setShowAdvancedSettings(!showAdvancedSettings)} libelle="Personnaliser les coûts (carburant, kWh…)">
+            <Curseur label="Prix du carburant" valeur={fr(prixCarburant)} unite="€/L" min={1.3} max={2.5} step={0.01} value={prixCarburant} onChange={setPrixCarburant} gauche="1,30 €" droite="2,50 €" aria="Prix du carburant" />
+            <Curseur label="Prix du kWh entreprise" valeur={fr(prixKwh)} unite="€/kWh" min={0.1} max={0.4} step={0.01} value={prixKwh} onChange={setPrixKwh} gauche="0,10 €" droite="0,40 €" aria="Prix de l'électricité" />
+            <Curseur label="Consommation des VE" valeur={fr(consoVe, 1)} unite="kWh/100" min={12} max={30} step={0.5} value={consoVe} onChange={setConsoVe} gauche="Citadine (12)" droite="Utilitaire (30)" aria="Consommation véhicule électrique" />
+          </Reglages>
         </div>
 
-        {/* Boîte de contrôle gauche 2 : Taux de rotation */}
-        <div className="order-2 lg:row-start-2 lg:col-start-1 h-65 sm:h-70 flex flex-col justify-center bg-slate-50 p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-8 transition-all hover:shadow-xl hover:-translate-y-1">
-          <div className="flex justify-between items-end">
-            <div className="space-y-1">
-              <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3 text-[#032b60]">
-                <Users className="text-[#0097b2]" size={24}/> Taux de rotation
-              </h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight italic">Sessions de recharge par borne chaque jour.</p>
+        <div ref={resultsRef} className="flex flex-col justify-between rounded-[24px] p-7 sm:p-9 lg:col-span-2" style={{ backgroundColor: NAVY }}>
+          <div>
+            <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: CYAN_CLAIR }}>Économies de la flotte</p>
+            <p className={`mt-3 text-[52px] font-bold leading-none text-white transition-transform duration-300 sm:text-[60px] ${isPulsing ? 'scale-[1.03]' : ''}`}>
+              +{eur(animatedTotal)}<span className="text-[24px]"> € / an</span>
+            </p>
+            <div className="mt-6 space-y-3 border-t border-white/15 pt-5 text-[15px]">
+              <div className="flex justify-between gap-4"><span style={{ color: BLEU_CLAIR }}>Par véhicule</span><span className="font-semibold text-white">{eur(results.parVehicule)} € / an</span></div>
+              <div className="flex justify-between gap-4"><span style={{ color: BLEU_CLAIR }}>Carburant aujourd’hui</span><span className="font-semibold text-white">{eur(results.coutCarburant)} € / an</span></div>
+              <div className="flex justify-between gap-4"><span style={{ color: BLEU_CLAIR }}>Électricité demain</span><span className="font-semibold text-white">{eur(results.coutElec)} € / an</span></div>
             </div>
-            <span className={`text-3xl font-black text-[#0097b2] transition-transform duration-300 ${isPulsing ? 'scale-110' : 'scale-100'}`}>
-              {sessionsPerDay} <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">sessions/j</span>
-            </span>
+            <p className="mt-5 text-[13px] leading-relaxed" style={{ color: BLEU_CLAIR }}>Estimation indicative hors avantages fiscaux (ex-TVS, amortissement, TVA), à affiner lors de l’audit.</p>
           </div>
-          <input type="range" aria-label="Taux de rotation" min="1" max="10" value={sessionsPerDay} onChange={(e) => setSessionsPerDay(parseInt(e.target.value))} className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0097b2]" />
-          <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest"><span>Faible</span><span>Intense</span></div>
-        </div>
-
-        {/* Réglages avancés */}
-        <div className="order-3 lg:row-start-3 lg:col-start-1 w-full">
-           <button 
-              onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
-              className="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 hover:border-[#0097b2] text-slate-500 hover:text-[#0097b2] hover:shadow-md px-6 py-4 rounded-full font-bold text-sm transition-all shadow-sm"
-           >
-              <Settings size={14} /> {showAdvancedSettings ? "Masquer les réglages" : "Ajuster la marge (kWh)"}
-           </button>
-
-           {showAdvancedSettings && (
-            <div className="pt-4 space-y-6 bg-slate-50 border border-slate-100 p-6 md:p-8 rounded-[2.5rem] shadow-inner mt-4">
-              <div className="flex justify-between text-xs font-black uppercase text-slate-500 tracking-wider"><span>Marge nette</span><span className="text-lg font-black text-[#0097b2]">{marginPerKwh.toFixed(2)} €/kWh</span></div>
-              <input type="range" min="0.05" max="0.50" step="0.01" value={marginPerKwh} onChange={(e) => setMarginPerKwh(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none accent-[#0097b2]" />
-            </div>
-           )}
-        </div>
-
-        {/* Boîte de résultats droite verte */}
-        <div ref={resultsRef} className="order-4 lg:row-start-1 lg:col-start-2 lg:row-span-2 h-full flex flex-col justify-center bg-linear-to-br from-green-50 to-emerald-100 p-8 md:p-10 rounded-[2.5rem] border border-green-200 shadow-xl relative overflow-hidden hover:shadow-2xl transition-all hover:-translate-y-1">
-          <PiggyBank className="absolute -right-10 -bottom-10 opacity-10 text-green-600" size={200} />
-          <h3 className="text-green-800 text-sm font-black uppercase tracking-widest mb-2 relative z-10">Revenus nets générés</h3>
-          <div className={`flex items-baseline justify-center gap-2 relative z-10 transition-all duration-300 ${isPulsing ? 'scale-105 text-emerald-500' : 'text-green-600'}`}>
-            <span className="text-6xl md:text-7xl font-black tracking-tighter">+{Math.round(animatedRevenue).toLocaleString('fr-FR')}</span>
-            <span className="text-2xl font-black text-green-700">€ / an</span>
-          </div>
-          <p className="text-xs text-green-800/70 font-bold mt-4 relative z-10">*Basé sur 300 jours d'ouverture par an.</p>
           <button
+            type="button"
             onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })}
-            className="relative overflow-hidden mt-8 w-full inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full font-black text-sm sm:text-base shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:scale-105 active:scale-95 transition-all group z-10 text-center"
+            className="group mt-8 inline-flex items-center justify-between rounded-full px-6 py-4 text-[16px] font-semibold text-white transition-transform hover:scale-[1.02]"
+            style={{ backgroundColor: ORANGE, boxShadow: '0 8px 22px rgba(255,107,0,0.28)' }}
           >
-            <div className="animate-button-shine" />
-            Audit B2B Gratuit <Phone size={18} className="inline ml-2" />
+            Demander mon audit gratuit <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" />
           </button>
         </div>
-
       </div>
     </div>
   );

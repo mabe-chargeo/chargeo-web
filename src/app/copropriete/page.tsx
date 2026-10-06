@@ -1,17 +1,23 @@
 "use client";
 
+// Page Copropriétés, charte 2026 (gabarit commun des offres).
+// Inchangé : simulateur ADVENIR, barre mobile, CTA flottant, ContactForm typeClient="Copropriété" et texte de simulation.
 import React, { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
-import { ArrowRight, CheckCircle, MapPin, Users, Phone, Zap, ShieldCheck, FileText, PiggyBank, Award } from 'lucide-react';
+import {
+  Users, Building, Zap, Plug, BadgeEuro, PiggyBank, ShieldCheck, Award, Leaf, Landmark,
+} from 'lucide-react';
 
-import { FadeIn } from '@/components/ui/FadeIn';
 import { Navbar } from '@/components/layout/Navbar';
 import { TrustedBrands } from '@/components/layout/TrustedBrands';
-import { SimulatorCopro } from '@/components/ui/SimulatorCopro';
-import { ContactForm } from '@/components/ui/ContactForm';
+import { Footer } from '@/components/layout/Footer';
 import { ReviewsCarousel } from '@/components/ui/ReviewsCarousel';
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
-import { Footer } from '@/components/layout/Footer';
+import { SimulatorCopro } from '@/components/ui/SimulatorCopro';
+import { ContactForm } from '@/components/ui/ContactForm';
+import { NAVY } from '@/components/charte/Charte';
+import {
+  HautOffre, BandeauChiffres, CartesSolutions, Etapes, MethodeCas, BlocAides, PortailCourt, BlocContact, BlocFaq, BarreMobile,
+} from '@/components/charte/PageOffre';
 
 export default function CoproprietePage() {
   const [isHeroVisible, setIsHeroVisible] = useState(true);
@@ -19,25 +25,18 @@ export default function CoproprietePage() {
   const [subventions, setSubventions] = useState(0);
   const [simData, setSimData] = useState("");
 
-  const formRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
 
-  const brandNavy = "#032b60";
-  const brandTeal = "#0097b2";
-
   const showFloatingCta = !isHeroVisible && !isFormVisible;
+  const versFormulaire = () => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' });
 
-  
-
-  // Gestion de la visibilité pour la barre flottante
   useEffect(() => {
     const observerOptions = { threshold: 0 };
     const heroObserver = new IntersectionObserver(([entry]) => setIsHeroVisible(entry.isIntersecting), observerOptions);
     const formObserver = new IntersectionObserver(([entry]) => setIsFormVisible(entry.isIntersecting), observerOptions);
-
     if (heroRef.current) heroObserver.observe(heroRef.current);
     if (formRef.current) formObserver.observe(formRef.current);
-
     return () => {
       heroObserver.disconnect();
       formObserver.disconnect();
@@ -67,257 +66,127 @@ export default function CoproprietePage() {
   ];
 
   const faqs = [
-    { q: "L'infrastructure IRVE collective a-t-elle un coût pour l'immeuble ?", a: "Elle est subventionnée à 50 % par la prime Advenir, jusqu'à 12 500 € HT pour un parking jusqu'à 100 places (+125 € HT par place au-delà), pour un vote en AG à partir du 1er avril 2026. Une surprime jusqu'à 8 000 € HT couvre les travaux en extérieur. Le reste à charge éventuel dépend de la complexité technique du parking et de sa configuration." },
+    { q: "L'infrastructure IRVE collective a-t-elle un coût pour l'immeuble ?", a: "Elle est subventionnée à 50 % par la prime ADVENIR, jusqu'à 12 500 € HT pour un parking jusqu'à 100 places (+125 € HT par place au-delà), pour un vote en AG à partir du 1er avril 2026. Une surprime jusqu'à 8 000 € HT couvre les travaux en extérieur. Le reste à charge éventuel dépend de la complexité technique du parking et de sa configuration." },
     { q: "Comment est facturée l'électricité ?", a: "Notre solution de supervision gère tout de A à Z. Chaque résident équipé dispose de son propre sous-compteur intelligent. Les factures lui sont envoyées directement (prélèvement automatique), en fonction de sa consommation réelle." },
     { q: "Et si l'infrastructure collective n'est pas votée en AG ?", a: "En dernier recours, il est possible d'envisager un branchement individuel 'Droit à la Prise'. C'est une démarche légale où le résident paie son propre tirage, mais elle est souvent moins évolutive que le collectif." },
     { q: "L'immeuble risque-t-il de disjoncter ?", a: "Absolument pas. L'infrastructure collective intègre un système de délestage dynamique (Load Balancing) qui répartit intelligemment la puissance disponible entre tous les véhicules branchés." }
   ];
 
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-[#0097b2]/20 scroll-smooth pb-24 lg:pb-0">
-      
-      <Navbar 
-        showFloatingCta={showFloatingCta} 
-        onCtaClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-        ctaText="Étude pour AG"
+    <div className="min-h-screen overflow-x-hidden bg-white pb-24 font-sans antialiased lg:pb-0" style={{ color: NAVY }}>
+      <Navbar transparent showFloatingCta={showFloatingCta} onCtaClick={versFormulaire} ctaText="Étude pour AG" />
+
+      <BarreMobile
+        visible={showFloatingCta}
+        label="Aides possibles"
+        valeur={`+${Math.round(subventions).toLocaleString('fr-FR')} € d’aides`}
+        bouton="Étude AG"
+        onClick={versFormulaire}
       />
 
-      {/* STICKY BOTTOM BAR (MOBILE) - Rendue statique pour alléger la page */}
-      <div className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 p-4 z-60 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 ${showFloatingCta ? 'translate-y-0' : 'translate-y-full'}`}>
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          <div className="flex flex-col">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Aides possibles</p>
-            <p className="text-xl sm:text-2xl font-black text-green-600">
-              +{Math.round(subventions).toLocaleString('fr-FR')}€ d'aides
-            </p>
-          </div>
-          <button 
-            onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-            className="relative overflow-hidden bg-[#FF6B00] hover:bg-[#E66000] text-white px-6 py-3 rounded-full font-black text-sm flex items-center gap-2 active:scale-95 transition-all shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 group"
-          >
-            Étude AG <Phone size={16} className="group-hover:rotate-12 transition-transform" />
-          </button>
-        </div>
-      </div>
-
       <main>
-        {/* HERO SECTION */}
-        <section className="relative min-h-[82vh] pt-28 pb-12 flex flex-col justify-center overflow-hidden bg-[#032b60]">
-          <div className="absolute inset-0 z-0">
-            <Image src="/hero-copro.webp" alt="Immeuble moderne" fill sizes="100vw" priority fetchPriority="high" className="object-cover opacity-30" />
-            <div className="absolute inset-0 bg-linear-to-r from-[#032b60]/95 via-[#032b60]/40 to-transparent"></div>
-          </div>
-          
-          <div className="max-w-7xl mx-auto px-6 relative z-10 w-full flex flex-col justify-center items-center text-center">
-             <FadeIn delay={200} direction="up">
-                 <div className="w-full flex justify-center mb-6 mt-6">
-                   <div className="flex items-center justify-center gap-2 text-[#0097b2] font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
-                     <Users size={16} />
-                     <span>Solutions pour Résidentiel Collectif</span>
-                   </div>
-                 </div>
-              </FadeIn>
-              
-              <FadeIn delay={300} direction="up">
-                <div className="w-full flex justify-center mb-6">
-                  <h1 className="text-[2.5rem] sm:text-5xl md:text-[6.5rem] font-black text-white tracking-tighter leading-[0.9] uppercase">
-                    Valorisez votre <br/><span className="text-[#0097b2]">copropriété.</span>
-                  </h1>
-                </div>
-              </FadeIn>
-              
-              <FadeIn delay={500} direction="up">
-                <div className="w-full flex justify-center mb-10">
-                  <p className="text-sm sm:text-base md:text-xl text-white/80 leading-relaxed font-medium max-w-2xl text-balance">
-                    Ne louez pas votre parking à un opérateur national. Investissez dans votre propre infrastructure pour garantir votre indépendance et sécurisez vos Assemblées Générales.
-                  </p>
-                </div>
-              </FadeIn>
-              
-              <FadeIn delay={700} direction="up">
-                <div className="w-full flex justify-center">
-                  <div ref={heroRef} className="flex flex-col items-center gap-5 animate-float">
-                    <button onClick={() => document.getElementById('simulateur')?.scrollIntoView({ behavior: 'smooth' })} className="relative overflow-hidden inline-flex items-center justify-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 sm:px-12 py-4 sm:py-5 rounded-full font-black text-base sm:text-lg shadow-[0_4px_14px_rgba(255,107,0,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.4)] hover:scale-105 active:scale-95 transition-all w-fit group text-center">
-                      <div className="animate-button-shine" />
-                      Évaluer les subventions <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/>
-                    </button>
-                    <div className="flex flex-col items-center justify-start h-12 gap-2">
-                      <button onClick={() => document.getElementById('formulaire-devis')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm text-white/80 hover:text-white font-bold underline underline-offset-4 decoration-white/30 hover:decoration-white transition-all flex items-center gap-2">
-                        <Phone size={14} /> Créer un dossier AG
-                      </button>
-                      <p className="text-xs text-white/50 font-bold uppercase tracking-widest flex items-center gap-2">
-                        <CheckCircle size={14} className="text-[#0097b2]"/> Présentation par un expert IRVE
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </FadeIn>
-          </div>
-        </section>
+        <HautOffre
+          img="/hero-copro.webp"
+          alt="Résidence équipée de bornes de recharge"
+          eyeIcon={Users}
+          eyebrow="Solutions pour résidentiel collectif"
+          titre1="Valorisez votre"
+          titre2="copropriété."
+          texte="Ne louez pas votre parking à un opérateur national. Investissez dans votre propre infrastructure pour garantir votre indépendance et sécuriser vos assemblées générales."
+          cta="Évaluer les subventions"
+          lien="Créer un dossier AG"
+          pills={["Présentation par un expert IRVE", "La copro reste propriétaire", "Sans contrat à vie"]}
+          ctaRef={heroRef}
+        />
 
-        {/* LOGOS CONFIANCE */}
+        <BandeauChiffres chiffres={[
+          { icon: BadgeEuro, big: "50 %", label: "financés par ADVENIR" },
+          { icon: PiggyBank, big: "12 500 € HT", label: "de prime jusqu’à 100 places" },
+          { icon: Building, big: "Propriétaire", label: "la copro possède son réseau" },
+          { icon: ShieldCheck, big: "Aucun", label: "abonnement imposé" },
+        ]} />
+
         <TrustedBrands />
 
-        {/* SECTION ARGUMENTS COPRO */}
-        <section className="py-24 bg-white">
-          <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-8">
-            <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1">
-              <Zap className="text-[#0097b2] mb-6" size={40} />
-              <h3 className="text-xl font-black text-[#032b60] mb-3 uppercase tracking-wider">Le Droit à la prise</h3>
-              <p className="text-slate-500 font-medium text-sm leading-relaxed">Faites valoir votre droit sans conflit. Nous préparons le dossier de notification au syndic (descriptif, plan, schéma), échangeons avec lui sur la partie technique et garantissons la conformité de l'installation.</p>
-            </div>
-            <div className="bg-[#032b60] p-8 rounded-3xl text-white shadow-2xl transition-all hover:-translate-y-1 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#0097b2]/20 rounded-full blur-3xl -mr-16 -mt-16"></div>
-              <PiggyBank className="text-[#0097b2] mb-6 relative z-10" size={40} />
-              <h3 className="text-xl font-black mb-3 uppercase tracking-wider relative z-10">Indépendance Totale</h3>
-              <p className="text-white/70 font-medium text-sm leading-relaxed relative z-10">Fuyez les abonnements sur 15 ans. La copropriété investit et possède son propre réseau, et mobilise les aides ADVENIR pour réduire le reste à charge.</p>
-            </div>
-            <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1">
-              <FileText className="text-[#0097b2] mb-6" size={40} />
-              <h3 className="text-xl font-black text-[#032b60] mb-3 uppercase tracking-wider">Sérénité des Syndics</h3>
-              <p className="text-slate-500 font-medium text-sm leading-relaxed">Nous sécurisons vos AG avec un accompagnement technique et des devis standardisés (quote-part collective / individuelle claire) pour mettre fin à votre surcharge administrative.</p>
-            </div>
-          </div>
-        </section>
+        <CartesSolutions
+          titre="Une solution pour chaque situation de l’immeuble."
+          intro="Infrastructure pour tout le parking, borne partagée ou borne d’un seul résident : nous chiffrons ce dont votre immeuble a vraiment besoin."
+          solutions={[
+            {
+              icon: Building, img: "/review-syndic.webp", label: "Pour tout l’immeuble", title: "Infrastructure collective",
+              text: "L’artère est posée une fois pour toutes. Chaque résident se raccorde ensuite quand il le souhaite, sans nouveaux travaux dans les parties communes.",
+              points: ["Prime ADVENIR jusqu’à 12 500 € HT", "Load Balancing : l’immeuble ne disjoncte pas", "La copropriété reste propriétaire"],
+              cta: "Chiffrer l’infrastructure",
+            },
+            {
+              icon: Zap, img: "/tech-chargeo.webp", label: "Pour les résidents", title: "Borne partagée",
+              text: "Une ou plusieurs bornes en accès partagé sur le parking, pour les résidents qui n’ont pas de place équipée.",
+              points: ["Refacturation au kWh ou simple relevé", "Accès réservé aux résidents", "Supervision et maintenance"],
+              cta: "Étudier une borne partagée",
+            },
+            {
+              icon: Plug, img: "/review-resident.webp", label: "Pour un résident", title: "Borne du résident",
+              text: "Droit à la prise ou raccordement à l’infrastructure existante : nous préparons le dossier pour le syndic et garantissons la conformité.",
+              points: ["Dossier technique pour le syndic", "Sous-compteur individuel", "Recharge pilotée sur la puissance de l’immeuble"],
+              cta: "Équiper une place",
+            },
+          ]}
+        />
 
-        {/* MÉTHODOLOGIE + CARROUSEL CAS TYPES */}
-        <section id="concept" className="py-24 bg-slate-50 overflow-hidden">
-          <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-20 items-center">
-             <div className="space-y-8">
-                <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none" style={{ color: brandNavy }}>L'infrastructure <br/><span style={{ color: brandTeal }}>Maîtrisée</span></h2>
-                <p className="text-lg text-slate-500 font-medium leading-relaxed mt-6">Nous offrons une tranquillité d'esprit aux syndics de copropriété tout en garantissant un service optimal pour les résidents utilisateurs.</p>
-                
-             <div className="space-y-6">
-                  {/* CARTE 1 */}
-                  <div className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm hover:shadow-md border border-slate-100">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2] group-hover:text-white transition-colors duration-500 shrink-0 text-[#0097b2]">
-                      <ShieldCheck />
-                    </div>
-                    <div className="flex flex-col justify-center">
-                      <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>Support Stratégique en AG</h4>
-                      <p className="text-xs text-slate-400 font-medium mt-1">Nous sommes présents à vos côtés lors des Assemblées Générales pour rassurer et répondre aux questions techniques des copropriétaires.</p>
-                    </div>
-                  </div>
+        <Etapes etapes={[
+          { t: "Étude gratuite", d: "Visite du parking, puissance disponible, nombre de places : le chiffrage est précis." },
+          { t: "Vote en AG", d: "Nous présentons le projet aux copropriétaires et répondons aux questions techniques." },
+          { t: "Travaux", d: "Pose de l’infrastructure, suivi de chantier rigoureux, conformité garantie." },
+          { t: "Raccordement des résidents", d: "Chaque résident se raccorde à son rythme, avec son sous-compteur." },
+        ]} />
 
-                  {/* CARTE 2 */}
-                  <div className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm hover:shadow-md border border-slate-100">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2] group-hover:text-white transition-colors duration-500 shrink-0 text-[#0097b2]">
-                      <Award />
-                    </div>
-                    <div className="flex flex-col justify-center">
-                      <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>Suivi de chantier rigoureux</h4>
-                      <p className="text-xs text-slate-400 font-medium mt-1">De l'étude de faisabilité à la mise en service, nous vous garantissons une exécution rapide et conforme aux exigences sécuritaires.</p>
-                    </div>
-                  </div>
+        <MethodeCas
+          titre="L’infrastructure maîtrisée."
+          texte="Nous offrons une tranquillité d’esprit aux syndics de copropriété tout en garantissant un service optimal pour les résidents utilisateurs."
+          lignes={[
+            { icon: ShieldCheck, t: "Support stratégique en AG", d: "À vos côtés en assemblée générale pour rassurer et répondre aux questions techniques." },
+            { icon: Award, t: "Suivi de chantier rigoureux", d: "De l’étude de faisabilité à la mise en service, une exécution rapide et conforme." },
+            { icon: Users, t: "Gestion simplifiée", d: "Fini les demandes individuelles en cascade : la facturation de chaque résident est gérée en toute transparence." },
+          ]}
+        >
+          {/* CARROUSEL CAS TYPES (à basculer en variant="avis" avec de vrais avis clients) */}
+          <ReviewsCarousel reviews={casTypes} variant="cas" />
+        </MethodeCas>
 
-                  {/* CARTE 3 */}
-                  <div className="flex gap-5 group hover:-translate-y-1 transition-transform duration-300 bg-white p-4 rounded-3xl shadow-sm hover:shadow-md border border-slate-100">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-[#0097b2] group-hover:text-white transition-colors duration-500 shrink-0 text-[#0097b2]">
-                      <Users />
-                    </div>
-                    <div className="flex flex-col justify-center">
-                      <h4 className="font-black text-sm uppercase tracking-wider" style={{ color: brandNavy }}>Gestion simplifiée</h4>
-                      <p className="text-xs text-slate-400 font-medium mt-1">Fini le goulot d'étranglement des demandes individuelles. Notre plateforme gère la facturation de chaque résident en toute transparence.</p>
-                    </div>
-                  </div>
-                </div>
-             </div>
-             
-             {/* CARROUSEL CAS TYPES (à basculer en variant="avis" avec de vrais avis clients) */}
-             <ReviewsCarousel reviews={casTypes} variant="cas" />
-          </div>
-        </section>
-
-        {/* SIMULATEUR SUBVENTIONS */}
-        <section id="simulateur" className="py-24 bg-white scroll-mt-24 relative overflow-hidden">
-          {/* COMPOSANT SIMULATEUR ISOLÉ */}
+        <section id="simulateur" className="bg-white py-24 lg:py-28">
           <SimulatorCopro onResultChange={(val, data) => { setSubventions(val); setSimData(data || ""); }} />
         </section>
 
-        {/* SECTION CONTACT CORPORATE TECH (Même disposition que l'accueil) */}
-        <section id="formulaire-devis" ref={formRef} className="py-20 md:py-32 bg-slate-50 relative border-t border-slate-100 scroll-mt-24">
-          <div className="absolute inset-0 bg-grid-tech opacity-30"></div>
-          <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-5 gap-12 md:gap-16 items-start relative z-10">
-            
-            <div className="lg:col-span-2 space-y-10 md:space-y-12">
-              <FadeIn delay={0}>
-                <div>
-                  <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase text-[#032b60] mb-4 md:mb-6 leading-tight">
-                    Besoin d'une <br/><span className="text-[#0097b2]">étude en AG ?</span>
-                  </h2>
-                  <p className="text-slate-500 font-medium leading-relaxed text-base md:text-lg mb-6">
-                    Nos experts réalisent l'analyse de faisabilité technique et le montage financier pour votre immeuble.
-                  </p>
-                  
-                  <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 flex items-start gap-3 shadow-sm">
-                     <span className="text-orange-500 mt-0.5 text-lg leading-none">⚠️</span>
-                     <p className="text-xs sm:text-sm text-orange-800 font-medium leading-relaxed">
-                       Nos plannings d'AG se remplissent vite. <span className="font-black">Demandez votre étude gratuite dès aujourd'hui.</span>
-                     </p>
-                  </div>
-                </div>
-              </FadeIn>
+        <BlocAides
+          titre="Indépendance totale, aides comprises."
+          texte="Fuyez les abonnements sur 15 ans : la copropriété investit, possède son propre réseau et mobilise les aides pour réduire le reste à charge."
+          cartes={[
+            { icon: BadgeEuro, t: "ADVENIR infrastructure", d: "50 % jusqu’à 12 500 € HT jusqu’à 100 places, +125 € HT par place au-delà, pour un vote en AG à partir du 1er avril 2026." },
+            { icon: Leaf, t: "Surprime extérieur", d: "Jusqu’à 8 000 € HT pour les travaux de voirie et de cheminement en extérieur." },
+            { icon: Landmark, t: "Sérénité des syndics", d: "Devis standardisés, quote-part collective et individuelle claire : fin de la surcharge administrative." },
+          ]}
+        />
 
-              <div className="space-y-6">
-                <FadeIn delay={0}>
-                  <div className="flex items-start gap-5 md:gap-6 group">
-                    <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center text-[#032b60] shrink-0 group-hover:border-[#0097b2] group-hover:text-[#0097b2] transition-colors">
-                      <MapPin size={24} />
-                    </div>
-                    <div className="pt-1">
-                      <p className="font-black text-[#032b60] uppercase tracking-wider text-xs md:text-sm mb-1 group-hover:text-[#0097b2] transition-colors">Zone d'intervention</p>
-                      <p className="text-slate-500 font-medium text-sm md:text-base">Chablais et Haute-Savoie</p>
-                    </div>
-                  </div>
-                </FadeIn>
-                
-                <FadeIn delay={100}>
-                  <div className="flex items-start gap-5 md:gap-6 group">
-                    <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center text-[#032b60] shrink-0 group-hover:border-[#0097b2] group-hover:text-[#0097b2] transition-colors">
-                      <Phone size={24} />
-                    </div>
-                    <div className="pt-1">
-                      <p className="font-black text-[#032b60] uppercase tracking-wider text-xs md:text-sm mb-1 group-hover:text-[#0097b2] transition-colors">Ligne Directe</p>
-                      <a href="tel:0485692204" className="text-slate-500 font-medium text-base md:text-lg hover:text-[#0097b2] transition-colors">04 85 69 22 04</a>
-                    </div>
-                  </div>
-                </FadeIn>
-              </div>
-            </div>
+        <PortailCourt />
 
-            <div className="lg:col-span-3 w-full">
-              <FadeIn delay={300}>
-                <div className="w-full bg-white p-6 sm:p-10 rounded-[2.5rem] shadow-md md:shadow-[0_20px_60px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-[#032b60] to-[#0097b2]"></div>
-                  
-                  <div className="mb-8">
-                    <h3 className="text-2xl font-black text-[#032b60] mb-2 uppercase tracking-tight">Parlez-nous de votre projet</h3>
-                    <p className="text-slate-500 font-medium text-sm">Remplissez ce formulaire et notre équipe vous recontactera très rapidement.</p>
-                  </div>
+        <BlocContact
+          sectionRef={formRef}
+          titre="Préparons votre étude pour l’AG."
+          texte="Nos experts réalisent l’analyse de faisabilité technique et le montage financier pour votre immeuble."
+          alerte={["Nos plannings d’AG se remplissent vite.", "Demandez votre étude gratuite dès aujourd’hui."]}
+          jointe="Remplissez ce formulaire, votre estimation de subventions est jointe à la demande."
+        >
+          <ContactForm
+            typeClient="Copropriété"
+            simulation={`Subventions : +${Math.round(subventions)}€ | Réglages : ${simData}`}
+          />
+        </BlocContact>
 
-                  <ContactForm 
-                    typeClient="Copropriété" 
-                    simulation={`Subventions : +${Math.round(subventions)}€ | Réglages : ${simData}`} 
-                  />
-                </div>
-              </FadeIn>
-            </div>
-
-          </div>
-        </section>
-
-        {/* FAQ SECTION */}
-        <section className="py-24 bg-slate-50 border-t border-slate-100">
-          <div className="max-w-4xl mx-auto px-6 space-y-12">
-            <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase text-center" style={{ color: brandNavy }}>Questions <span style={{ color: brandTeal }}>Fréquentes</span></h2>
-            
-            {/* COMPOSANT FAQ ISOLÉ */}
-            <FaqAccordion faqs={faqs} />
-          </div>
-        </section>
+        <BlocFaq>
+          <FaqAccordion faqs={faqs} />
+        </BlocFaq>
       </main>
 
-      {/* FOOTER GLOBAL */}
       <Footer />
     </div>
   );

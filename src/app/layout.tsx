@@ -1,18 +1,17 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 import { CookieBanner } from "@/components/ui/CookieBanner";
+import { SuiviClics } from "@/components/ui/SuiviClics";
 import { GoogleTagManager } from "@next/third-parties/google";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Charte 2026 : Poppins, comme les brochures (700 pour les titres, 400 pour le texte).
+const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -27,6 +26,19 @@ export const metadata: Metadata = {
       { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  // Apercu de partage (06/10/2026) : carte image + titre sur WhatsApp, LinkedIn,
+  // Facebook et SMS. Herite par toutes les pages ; les articles du blog gardent
+  // le leur. Sans og:title, les applications reprennent le titre de la page.
+  openGraph: {
+    type: "website",
+    locale: "fr_FR",
+    siteName: "CHARGéO",
+    images: [{ url: "/og-chargeo.png", width: 1200, height: 630, alt: "CHARGéO, installateur de bornes de recharge" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/og-chargeo.png"],
   },
 };
 
@@ -95,11 +107,12 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${poppins.variable} antialiased`}
         suppressHydrationWarning
       >
         {children}
         <CookieBanner />
+        <SuiviClics />
         {process.env.NEXT_PUBLIC_GTM_ID && (
           <GoogleTagManager gtmId={process.env.NEXT_PUBLIC_GTM_ID} />
         )}

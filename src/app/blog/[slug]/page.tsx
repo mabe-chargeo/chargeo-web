@@ -3,10 +3,19 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building, Home, Lightbulb, ListChecks, Phone } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { HautPhoto } from "@/components/charte/HautPhoto";
+import { Meta, GuidesLies, BlocOffres, type GuideResume } from "@/components/charte/Guides";
 import { articles, formatDate, getArticle, type Article, type Block } from "@/content/blog";
+
+// Modèle d'article, charte 2026 (maquette validée le 05/10/2026).
+// Inchangé : génération statique, métadonnées SEO, JSON-LD, liens [texte](/adresse), figures, guides liés, CTA, avertissement.
+
+const NAVY = "#032b60";
+const CYAN = "#0097b2";
+const LABEL = "#007f96";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -37,7 +46,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 // Transforme les liens écrits [texte](/adresse) dans le contenu en vrais liens cliquables
 const LIEN = /\[([^\]]+)\]\(([^)\s]+)\)/g;
-const STYLE_LIEN = "font-semibold text-[#0097b2] underline underline-offset-4 decoration-[#0097b2]/40 hover:decoration-[#0097b2]";
+const STYLE_LIEN = "font-semibold text-[#0097b2] underline decoration-2 underline-offset-4 decoration-[#0097b2]/40 hover:decoration-[#0097b2]";
 
 function Inline({ text }: { text: string }) {
   const parts: ReactNode[] = [];
@@ -66,55 +75,89 @@ function Inline({ text }: { text: string }) {
   return <>{parts}</>;
 }
 
-function BlockView({ block }: { block: Block }) {
+// Ancre lisible pour chaque intertitre (sommaire)
+function ancre(texte: string): string {
+  return texte
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+function Puce() {
+  return <span className="mt-[11px] h-[10px] w-[10px] shrink-0 rounded-full" style={{ backgroundColor: CYAN }} />;
+}
+
+function BlockView({ block, lead = false }: { block: Block; lead?: boolean }) {
   switch (block.type) {
     case "h2":
-      return <h2 className="text-2xl md:text-3xl font-black text-[#032b60] tracking-tight pt-6">{block.text}</h2>;
-    case "p":
       return (
-        <p className="text-slate-600 text-base md:text-lg leading-relaxed">
+        <div className="pt-6">
+          <span className="block h-[10px] w-16 rounded-[5px]" style={{ backgroundColor: CYAN }} />
+          <h2 id={ancre(block.text)} className="mt-5 scroll-mt-28 text-[26px] font-bold leading-tight sm:text-[30px]">{block.text}</h2>
+        </div>
+      );
+    case "p":
+      return lead ? (
+        <p className="text-[19px] font-medium leading-[1.65] sm:text-[21px]">
+          <Inline text={block.text} />
+        </p>
+      ) : (
+        <p className="text-[17px] leading-[1.75] sm:text-[18px]">
           <Inline text={block.text} />
         </p>
       );
     case "ul":
       return (
-        <ul className="list-disc pl-6 space-y-3 text-slate-600 text-base md:text-lg leading-relaxed marker:text-[#0097b2]">
+        <ul className="space-y-4">
           {block.items.map((item, i) => (
-            <li key={i}>
-              <Inline text={item} />
+            <li key={i} className="flex gap-4 text-[17px] leading-[1.7] sm:text-[18px]">
+              <Puce />
+              <span><Inline text={item} /></span>
             </li>
           ))}
         </ul>
       );
     case "ol":
       return (
-        <ol className="list-decimal pl-6 space-y-3 text-slate-600 text-base md:text-lg leading-relaxed marker:font-black marker:text-[#0097b2]">
+        <ol className="space-y-4">
           {block.items.map((item, i) => (
-            <li key={i}>
-              <Inline text={item} />
+            <li key={i} className="flex gap-4 text-[17px] leading-[1.7] sm:text-[18px]">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[14px] font-bold text-white" style={{ backgroundColor: CYAN }}>{i + 1}</span>
+              <span><Inline text={item} /></span>
             </li>
           ))}
         </ol>
       );
     case "callout":
       return (
-        <div className="bg-[#0097b2]/10 border border-[#0097b2]/20 rounded-2xl p-5 md:p-6 text-[#032b60] font-medium leading-relaxed">
-          <Inline text={block.text} />
+        <div className="flex gap-5 rounded-[20px] p-6" style={{ backgroundColor: "#e3f4f7", boxShadow: `inset 5px 0 0 ${CYAN}` }}>
+          <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[12px]" style={{ backgroundColor: CYAN }}>
+            <Lightbulb size={22} color="#ffffff" strokeWidth={1.8} />
+          </div>
+          <div>
+            <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: LABEL }}>À retenir</p>
+            <p className="mt-1 text-[17px] leading-relaxed"><Inline text={block.text} /></p>
+          </div>
         </div>
       );
     case "figure":
       return (
-        <figure className="py-2">
-          <Image
-            src={block.src}
-            alt={block.alt}
-            width={block.width}
-            height={block.height}
-            unoptimized
-            className="w-full h-auto max-w-xl mx-auto rounded-2xl"
-          />
+        <figure className="rounded-[24px] p-5 sm:p-7" style={{ backgroundColor: "#eceef1", boxShadow: "0 8px 22px rgba(3,43,96,0.10)" }}>
+          <div className="rounded-[18px] bg-white p-4 sm:p-6">
+            <Image
+              src={block.src}
+              alt={block.alt}
+              width={block.width}
+              height={block.height}
+              unoptimized
+              className="mx-auto h-auto w-full max-w-2xl"
+            />
+          </div>
           {block.caption && (
-            <figcaption className="text-center text-sm text-slate-400 font-medium mt-3">{block.caption}</figcaption>
+            <figcaption className="mt-4 text-center text-[14px] font-medium" style={{ color: LABEL }}>{block.caption}</figcaption>
           )}
         </figure>
       );
@@ -131,12 +174,21 @@ function guidesLies(article: Article): Article[] {
   return [...memeCategorie, ...reste].slice(0, 2);
 }
 
+function resume(a: Article): GuideResume {
+  return {
+    slug: a.slug, title: a.title, description: a.description, category: a.category,
+    readingMinutes: a.readingMinutes, dateTexte: formatDate(a.date), cover: { src: a.cover.src, alt: a.cover.alt },
+  };
+}
+
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
   const article = getArticle(slug);
   if (!article) notFound();
 
   const lies = guidesLies(article);
+  const sommaire = article.blocks.filter((b): b is Extract<Block, { type: "h2" }> => b.type === "h2");
+  const copro = article.category.toLowerCase().includes("copro");
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -160,76 +212,83 @@ export default async function ArticlePage({ params }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-[#0097b2]/20">
-      <Navbar isHome={false} />
+    <div className="min-h-screen overflow-x-hidden bg-white font-sans antialiased" style={{ color: NAVY }}>
+      <Navbar transparent />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <main className="max-w-3xl mx-auto px-6 pt-32 pb-20">
-        <Link
-          href="/blog"
-          className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-[#032b60] mb-8 transition-colors"
+      <main>
+        <HautPhoto
+          img={article.cover.src}
+          alt={article.cover.alt}
+          eyebrow={`Guides & conseils · ${article.category}`}
+          eyeIcon={copro ? Building : Home}
+          minH="600px"
+          titreClass="sm:text-[48px] lg:text-[56px]"
+          titre={article.title}
         >
-          <ArrowLeft size={16} /> Tous les guides
-        </Link>
+          <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-4">
+            <Meta g={resume(article)} light />
+            <Link href="/blog" className="inline-flex items-center gap-2 text-[16px] font-medium text-white underline decoration-white/40 underline-offset-[6px] hover:decoration-white">
+              <ArrowLeft size={17} /> Tous les guides
+            </Link>
+          </div>
+        </HautPhoto>
 
-        <span className="block text-[10px] font-black uppercase tracking-widest text-[#0097b2] mb-4">{article.category}</span>
-        <h1 className="text-3xl md:text-5xl font-black text-[#032b60] tracking-tighter leading-tight mb-6">{article.title}</h1>
-        <p className="flex items-center gap-2 text-xs text-slate-400 font-bold mb-8">
-          <Clock size={14} /> {article.readingMinutes} min de lecture · Publié le {formatDate(article.date)}
-        </p>
-
-        <div className="relative aspect-video rounded-[2rem] overflow-hidden mb-10 bg-[#032b60] shadow-sm">
-          <Image
-            src={article.cover.src}
-            alt={article.cover.alt}
-            fill
-            priority
-            sizes="(max-width: 768px) 100vw, 768px"
-            className="object-cover"
-          />
-        </div>
-
-        <article className="bg-white p-6 sm:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
-          {article.blocks.map((block, i) => (
-            <BlockView key={i} block={block} />
-          ))}
-        </article>
-
-        {lies.length > 0 && (
-          <section className="mt-10">
-            <p className="text-[10px] font-black uppercase tracking-widest text-[#032b60] mb-4">À lire aussi</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {lies.map((a) => (
-                <Link
-                  key={a.slug}
-                  href={`/blog/${a.slug}`}
-                  className="group bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:border-[#0097b2] transition-colors"
-                >
-                  <span className="block text-[10px] font-black uppercase tracking-widest text-[#0097b2] mb-2">{a.category}</span>
-                  <span className="block font-black text-[#032b60] leading-snug group-hover:text-[#0097b2] transition-colors">{a.title}</span>
-                  <span className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-slate-500">
-                    Lire le guide <ArrowRight size={14} />
-                  </span>
-                </Link>
+        <section className="bg-white">
+          <div className="mx-auto grid max-w-7xl gap-14 px-6 py-16 lg:grid-cols-[1fr_340px] lg:py-20">
+            <article className="min-w-0 max-w-[760px] space-y-7">
+              {article.blocks.map((block, i) => (
+                <BlockView key={i} block={block} lead={i === 0 && block.type === "p"} />
               ))}
-            </div>
-          </section>
-        )}
+            </article>
 
-        <div className="mt-10 bg-[#032b60] rounded-[2rem] p-8 md:p-10 text-center">
-          <p className="text-white font-black text-xl md:text-2xl uppercase tracking-tight mb-3">Un projet de borne dans le Chablais ?</p>
-          <p className="text-blue-100/70 font-medium mb-6">Étude gratuite, prix ferme, installateur local.</p>
-          <Link
-            href={article.cta.href}
-            className="inline-flex items-center gap-3 bg-[#FF6B00] hover:bg-[#E66000] text-white px-8 py-4 rounded-full font-black transition-all"
-          >
-            {article.cta.label} <ArrowRight size={18} />
-          </Link>
+            <aside className="space-y-6 lg:sticky lg:top-28 lg:self-start">
+              {sommaire.length > 0 && (
+                <nav aria-label="Sommaire" className="rounded-[24px] p-7" style={{ backgroundColor: "#eceef1", boxShadow: "0 8px 22px rgba(3,43,96,0.10)" }}>
+                  <div className="flex items-center gap-3">
+                    <ListChecks size={22} color={CYAN} />
+                    <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: LABEL }}>Dans ce guide</p>
+                  </div>
+                  <ol className="mt-5 space-y-4">
+                    {sommaire.map((s, i) => (
+                      <li key={i}>
+                        <a href={`#${ancre(s.text)}`} className="group flex gap-3 text-[15px] font-semibold leading-snug hover:text-[#0097b2]">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px] font-bold text-white transition-colors group-hover:bg-[#0097b2]" style={{ backgroundColor: NAVY }}>{i + 1}</span>
+                          {s.text}
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
+              )}
+              <div className="rounded-[24px] p-7" style={{ backgroundColor: NAVY }}>
+                <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: "#69e8ff" }}>{copro ? "Votre copropriété" : "Votre projet"}</p>
+                <p className="mt-2 text-[22px] font-bold leading-snug text-white">{copro ? "On prépare votre dossier d’AG." : "On prépare votre devis."}</p>
+                <p className="mt-2 text-[15px] leading-relaxed" style={{ color: "#a9d8e6" }}>
+                  {copro
+                    ? "Étude, devis part collective et part individuelle, estimation ADVENIR, présence en assemblée."
+                    : "Visite technique gratuite, prix ferme, démarches et aides gérées pour vous."}
+                </p>
+                <Link href={article.cta.href} className="mt-6 flex items-center justify-between gap-3 rounded-full px-6 py-3.5 text-[16px] font-semibold text-white" style={{ backgroundColor: "#FF6B00" }}>
+                  {article.cta.label} <ArrowRight size={18} className="shrink-0" />
+                </Link>
+                <a href="tel:+33485692204" className="mt-5 flex items-center gap-2 text-[15px] font-semibold text-white hover:underline">
+                  <Phone size={16} color="#69e8ff" /> Standard : 04 85 69 22 04
+                </a>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        {lies.length > 0 && <GuidesLies guides={lies.map(resume)} />}
+
+        <BlocOffres />
+
+        <div className="bg-white">
+          <p className="mx-auto max-w-7xl px-6 pb-12 text-[13px] leading-relaxed" style={{ color: LABEL }}>
+            Informations données à titre indicatif à la date de publication. La réglementation et les aides évoluent : votre devis CHARGéO précise toujours ce qui s&apos;applique à votre projet.
+          </p>
         </div>
-
-        <p className="mt-8 text-xs text-slate-400 leading-relaxed">
-          Informations données à titre indicatif à la date de publication. La réglementation et les aides évoluent : votre devis CHARGéO précise toujours ce qui s&apos;applique à votre projet.
-        </p>
       </main>
 
       <Footer />
