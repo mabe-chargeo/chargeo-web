@@ -28,13 +28,14 @@ const OFFRES: Record<Offre, { titre: string; texte: string; href: string; Icone:
 };
 
 // Photos par commune : haut de page et illustration (choisies selon le parc de logements).
+// 12 photos différentes : aucune n'est reprise d'une commune à l'autre.
 const PHOTOS: Record<string, { haut: string; illus: string; alt: string }> = {
-  "thonon-les-bains": { haut: "/hero-copro.webp", illus: "/photo-technicien-pose.webp", alt: "Technicien qui pose une borne de recharge murale" },
+  "thonon-les-bains": { haut: "/photo-parking-residence.webp", illus: "/review-cs.webp", alt: "Parking souterrain de résidence équipé d'une borne de recharge" },
   "evian-les-bains": { haut: "/photo-residence-lac.webp", illus: "/photo-hotel-lac.webp", alt: "Bornes de recharge sur le parking d'un hôtel au bord du lac" },
-  publier: { haut: "/photo-maison-carport.webp", illus: "/hero-particulier.webp", alt: "Borne de recharge installée chez un particulier" },
-  douvaine: { haut: "/hero-particulier.webp", illus: "/photo-coffret-protection.webp", alt: "Coffret de protection électrique d'une borne de recharge" },
-  annemasse: { haut: "/photo-parking-souterrain.webp", illus: "/photo-technicien-tableau.webp", alt: "Technicien au tableau électrique d'un parking de copropriété" },
-  annecy: { haut: "/photo-parking-residence.webp", illus: "/photo-parking-souterrain.webp", alt: "Bornes de recharge dans un parking souterrain de copropriété" },
+  publier: { haut: "/photo-maison-carport.webp", illus: "/review-domicile.webp", alt: "Borne de recharge murale sur une maison face aux montagnes" },
+  douvaine: { haut: "/photo-maison-crepuscule.webp", illus: "/photo-coffret-protection.webp", alt: "Coffret de protection électrique d'une borne de recharge" },
+  annemasse: { haut: "/photo-parking-voitures.webp", illus: "/photo-technicien-tableau.webp", alt: "Technicien au tableau électrique d'un parking de copropriété" },
+  annecy: { haut: "/photo-residence-soir.webp", illus: "/photo-voiture-sous-sol.webp", alt: "Voiture électrique dans un parking souterrain de copropriété" },
 };
 
 type Props = { params: Promise<{ ville: string }> };
