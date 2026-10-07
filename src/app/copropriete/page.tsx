@@ -56,7 +56,7 @@ export default function CoproprietePage() {
       text: "Un résident veut sa borne : on vérifie la puissance, on prépare le dossier pour le syndic, et la recharge est pilotée pour ne jamais faire disjoncter l'immeuble.",
       author: "Droit à la prise",
       location: "Évian-les-Bains",
-      image: "/photo-borne-pilier.webp"
+      image: "/photo-garage-nuit.webp"
     },
     {
       text: "Côté syndic, rien à gérer : chaque résident équipé a son sous-compteur et reçoit sa facture au kWh réellement consommé.",
@@ -126,7 +126,7 @@ export default function CoproprietePage() {
               cta: "Étudier une borne partagée",
             },
             {
-              icon: Plug, img: "/review-resident.webp", label: "Pour un résident", title: "Borne du résident",
+              icon: Plug, img: "/photo-borne-pilier.webp", label: "Pour un résident", title: "Borne du résident",
               text: "Droit à la prise ou raccordement à l’infrastructure existante : nous préparons le dossier pour le syndic et garantissons la conformité.",
               points: ["Dossier technique pour le syndic", "Sous-compteur individuel", "Recharge pilotée sur la puissance de l’immeuble"],
               cta: "Équiper une place",
