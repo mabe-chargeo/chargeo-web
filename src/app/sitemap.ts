@@ -6,8 +6,10 @@
 // portait la date du jour a chaque mise en ligne : Google finit par ignorer ces
 // dates. Regle : quand on modifie le contenu d'une page, on met sa date a jour
 // ici. Les articles portent leur date de publication (src/content/blog.ts).
+// Pages communes (zone d'intervention) : une seule date, a changer si on modifie src/content/villes.ts.
 import type { MetadataRoute } from "next";
 import { articles } from "@/content/blog";
+import { villes } from "@/content/villes";
 
 const BASE_URL = "https://www.chargeo.fr";
 
@@ -18,6 +20,7 @@ const MAJ = {
   copropriete: "2026-10-07",
   recrutement: "2026-10-06",
   mentionsLegales: "2026-10-06",
+  zoneIntervention: "2026-10-07",
 };
 
 const jour = (d: string) => new Date(`${d}T12:00:00Z`);
@@ -31,6 +34,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/particuliers`, lastModified: jour(MAJ.particuliers), changeFrequency: "monthly", priority: 0.9 },
     { url: `${BASE_URL}/pro`, lastModified: jour(MAJ.pro), changeFrequency: "monthly", priority: 0.9 },
     { url: `${BASE_URL}/copropriete`, lastModified: jour(MAJ.copropriete), changeFrequency: "monthly", priority: 0.9 },
+    { url: `${BASE_URL}/zone-intervention`, lastModified: jour(MAJ.zoneIntervention), changeFrequency: "monthly", priority: 0.8 },
+    ...villes.map((v) => ({
+      url: `${BASE_URL}/zone-intervention/${v.slug}`,
+      lastModified: jour(MAJ.zoneIntervention),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     { url: `${BASE_URL}/blog`, lastModified: jour(guides), changeFrequency: "weekly", priority: 0.7 },
     ...articles.map((a) => ({
       url: `${BASE_URL}/blog/${a.slug}`,
