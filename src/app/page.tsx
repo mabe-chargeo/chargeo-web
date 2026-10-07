@@ -6,6 +6,7 @@
 // 07/10/2026 (SEO) : le titre principal (h1) est la ligne du haut, qui dit ce
 // qu'on fait et où ; le slogan garde exactement le même rendu, en paragraphe.
 // 07/10/2026 : bloc « Notre ADN » réécrit en mots simples, à la demande de Matthieu.
+// 07/10/2026 (images) : les cartes d'offres n'utilisent plus les photos du haut des pages offres.
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -28,17 +29,17 @@ const CHIFFRES = [
 
 const OFFRES = [
   {
-    icon: Home, img: "/hero-particulier.webp", href: "/particuliers", label: "Maison et droit à la prise", title: "Particuliers",
+    icon: Home, img: "/photo-maison-carport.webp", href: "/particuliers", label: "Maison et droit à la prise", title: "Particuliers",
     text: "Maison individuelle à prix ferme, droit à la prise en appartement, ou borne sur l’infrastructure de votre copropriété : on s’occupe de tout.",
     cta: "Votre devis particulier",
   },
   {
-    icon: Building, img: "/hero-copro.webp", href: "/copropriete", label: "Syndics et conseils syndicaux", title: "Copropriétés",
+    icon: Building, img: "/photo-parking-souterrain.webp", href: "/copropriete", label: "Syndics et conseils syndicaux", title: "Copropriétés",
     text: "Ne louez pas votre parking à un opérateur. Infrastructure collective ou borne partagée : la copropriété reste propriétaire, sans contrat à vie.",
     cta: "Découvrir l’offre copro",
   },
   {
-    icon: Briefcase, img: "/hero-pro.webp", href: "/pro", label: "Flottes, tertiaire, salariés", title: "Entreprises",
+    icon: Briefcase, img: "/photo-parking-entreprise.webp", href: "/pro", label: "Flottes, tertiaire, salariés", title: "Entreprises",
     text: "Électrifiez votre flotte en respectant la loi LOM, maîtrisez votre puissance avec le Smart Charging et automatisez vos refacturations.",
     cta: "Voir les offres pro",
   },
