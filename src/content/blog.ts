@@ -8,6 +8,8 @@
 // Majorités en AG (vérifiées sur Légifrance le 04/10/2026, version du 18/06/2025) : étude et décision d'équiper = art. 24 II i ;
 // travaux d'infrastructure = art. 25 j, passerelle art. 25-1 ; convention opérateur ou Enedis sans frais = art. 24-5-1 ; obligation d'inscription = art. 24-5.
 // Crédit d'impôt borne (art. 200 quater C CGI) : supprimé pour les dépenses payées depuis le 01/01/2026 (service-public.gouv.fr).
+// ADVENIR (advenir.mobi, vérifié le 07/10/2026) : pavillons non éligibles ; côté entreprises, seules les flottes de poids lourds et d'autocars.
+// TVA 5,5 % aussi pour la prise renforcée (type E, NF C61-314, 14 A ou plus) : art. 30-0 H ann. IV, arrêté du 22/06/2023.
 
 export type Block =
   | { type: "h2"; text: string }
@@ -155,7 +157,7 @@ export const articles: Article[] = [
         items: [
           "La TVA à 5,5 % sur l'installation de la borne dans votre logement, quand elle respecte les exigences techniques prévues par la loi et qu'elle est réalisée par un professionnel répondant aux exigences de qualification (qualification IRVE au-delà de 3,7 kW).",
           "Le crédit d'impôt pour l'achat et la pose d'une borne a pris fin : il ne s'applique plus aux dépenses payées depuis le 1er janvier 2026.",
-          "La prime ADVENIR ne concerne pas les maisons individuelles : elle est réservée notamment aux [copropriétés](/blog/prime-advenir-copropriete-infrastructure-collective) et aux entreprises.",
+          "La prime ADVENIR ne concerne pas les maisons individuelles : chez les particuliers, elle est réservée au logement collectif, notamment aux [copropriétés](/blog/prime-advenir-copropriete-infrastructure-collective).",
         ],
       },
       { type: "h2", text: "Les pièges à éviter" },
