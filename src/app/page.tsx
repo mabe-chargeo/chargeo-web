@@ -3,6 +3,8 @@
 // Accueil, charte 2026 (maquette v3 validée par Matthieu le 05/10/2026).
 // 06/10/2026 : un seul délai de rappel partout (24 h ouvrées) et adresse
 // canonique de la page (balise hissée dans le <head> par React 19).
+// 07/10/2026 (SEO) : le titre principal (h1) est la ligne du haut, qui dit ce
+// qu'on fait et où ; le slogan garde exactement le même rendu, en paragraphe.
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -68,10 +70,10 @@ export default function Accueil() {
           </div>
           <Filigrane style={{ left: "56%", top: "-16%", width: "min(720px, 110vw)" }} />
           <div className="relative mx-auto flex min-h-[min(88vh,820px)] max-w-7xl flex-col justify-center px-6 pb-20 pt-36 lg:pt-40">
-            <p className="text-[13px] font-extrabold uppercase tracking-[0.12em] sm:tracking-[0.2em]" style={{ color: BLEU_CLAIR }}>L’expertise IRVE locale en Haute-Savoie</p>
-            <h1 className="mt-6 text-[44px] font-bold leading-[1.08] tracking-[-0.02em] text-white sm:text-[64px] lg:text-[80px]">
+            <h1 className="text-[13px] font-extrabold uppercase tracking-[0.12em] sm:tracking-[0.2em]" style={{ color: BLEU_CLAIR }}>Installateur de bornes de recharge à Thonon-les-Bains et dans le Chablais</h1>
+            <p className="mt-6 text-[44px] font-bold leading-[1.08] tracking-[-0.02em] text-white sm:text-[64px] lg:text-[80px]">
               Passez à l’électrique,<br className="hidden sm:block" /> l’esprit léger.
-            </h1>
+            </p>
             <p className="mt-8 max-w-[44rem] text-[18px] leading-relaxed sm:text-[20px]" style={{ color: BLEU_CLAIR }}>
               Particulier pressé, entreprise soumise à la loi LOM ou syndic de copropriété : nous prenons en charge l’installation, les démarches et les subventions.
             </p>
