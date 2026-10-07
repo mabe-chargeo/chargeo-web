@@ -29,12 +29,12 @@ const OFFRES: Record<Offre, { titre: string; texte: string; href: string; Icone:
 
 // Photos par commune : haut de page et illustration (choisies selon le parc de logements).
 const PHOTOS: Record<string, { haut: string; illus: string; alt: string }> = {
-  "thonon-les-bains": { haut: "/hero-copro.webp", illus: "/tech-chargeo.webp", alt: "Technicien qui câble une borne de recharge" },
+  "thonon-les-bains": { haut: "/hero-copro.webp", illus: "/photo-technicien-pose.webp", alt: "Technicien qui pose une borne de recharge murale" },
   "evian-les-bains": { haut: "/photo-residence-lac.webp", illus: "/photo-hotel-lac.webp", alt: "Bornes de recharge sur le parking d'un hôtel au bord du lac" },
   publier: { haut: "/photo-maison-carport.webp", illus: "/hero-particulier.webp", alt: "Borne de recharge installée chez un particulier" },
-  douvaine: { haut: "/hero-particulier.webp", illus: "/photo-maison-carport.webp", alt: "Borne murale sous le carport d'une maison" },
+  douvaine: { haut: "/hero-particulier.webp", illus: "/photo-coffret-protection.webp", alt: "Coffret de protection électrique d'une borne de recharge" },
   annemasse: { haut: "/photo-parking-souterrain.webp", illus: "/photo-technicien-tableau.webp", alt: "Technicien au tableau électrique d'un parking de copropriété" },
-  annecy: { haut: "/photo-technicien-tableau.webp", illus: "/photo-parking-souterrain.webp", alt: "Bornes de recharge dans un parking souterrain de copropriété" },
+  annecy: { haut: "/photo-parking-residence.webp", illus: "/photo-parking-souterrain.webp", alt: "Bornes de recharge dans un parking souterrain de copropriété" },
 };
 
 type Props = { params: Promise<{ ville: string }> };
