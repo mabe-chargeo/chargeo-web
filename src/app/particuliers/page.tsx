@@ -2,6 +2,7 @@
 
 // Page Particuliers, charte 2026 (gabarit commun des offres).
 // Inchangé : simulateur, barre mobile, CTA flottant, ContactForm typeClient="Particulier" et texte de simulation.
+// 07/10/2026 (images) : les cas types n'utilisent plus la photo du haut de page.
 import React, { useState, useEffect, useRef } from 'react';
 import {
   MapPin, Home, Building, Plug, Calendar, BadgeEuro, Receipt, Clock, Award, Wrench, ShieldCheck,
@@ -49,7 +50,7 @@ export default function ParticuliersPage() {
       text: "Maison avec un abonnement 9 kVA : wallbox 7,4 kW avec délesteur, la recharge baisse toute seule quand le four tourne. Prix ferme annoncé après la visite gratuite.",
       author: "Maison individuelle",
       location: "Thonon-les-Bains",
-      image: "/hero-particulier.webp"
+      image: "/photo-maison-carport.webp"
     },
     {
       text: "Aller-retour Thonon–Genève chaque jour : la wallbox récupère environ 40 km par heure, la batterie est pleine le matin, au tarif des heures creuses.",
@@ -61,7 +62,7 @@ export default function ParticuliersPage() {
       text: "Appartement avec place de parking : dossier technique préparé pour le syndic, borne posée après le délai légal, prime ADVENIR jusqu'à 1 000 € HT selon le raccordement.",
       author: "Droit à la prise",
       location: "Évian-les-Bains",
-      image: "/hero-copro.webp"
+      image: "/photo-residence-lac.webp"
     }
   ];
 
