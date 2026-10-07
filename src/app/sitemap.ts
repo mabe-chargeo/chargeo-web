@@ -1,7 +1,8 @@
 // src/app/sitemap.ts
 // Génère /sitemap.xml : la liste des pages publiques à indexer par Google.
 //
-// Dates REELLES de derniere modification (06/10/2026). Avant, chaque page
+// Dates REELLES de derniere modification (06/10/2026, puis 07/10/2026 : titre de
+// l'accueil, FAQ et liens vers les guides sur les pages offres). Avant, chaque page
 // portait la date du jour a chaque mise en ligne : Google finit par ignorer ces
 // dates. Regle : quand on modifie le contenu d'une page, on met sa date a jour
 // ici. Les articles portent leur date de publication (src/content/blog.ts).
@@ -11,10 +12,10 @@ import { articles } from "@/content/blog";
 const BASE_URL = "https://www.chargeo.fr";
 
 const MAJ = {
-  accueil: "2026-10-06",
-  particuliers: "2026-10-06",
-  pro: "2026-10-06",
-  copropriete: "2026-10-06",
+  accueil: "2026-10-07",
+  particuliers: "2026-10-07",
+  pro: "2026-10-07",
+  copropriete: "2026-10-07",
   recrutement: "2026-10-06",
   mentionsLegales: "2026-10-06",
 };
