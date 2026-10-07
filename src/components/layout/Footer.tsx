@@ -4,7 +4,7 @@ import Link from "next/link";
 
 const COLONNES = [
   { titre: "Nos offres", liens: [["Particuliers", "/particuliers"], ["Copropriétés", "/copropriete"], ["Entreprises", "/pro"]] },
-  { titre: "CHARGéO", liens: [["Guides & conseils", "/blog"], ["Recrutement", "/recrutement"], ["Mentions légales", "/mentions-legales"]] },
+  { titre: "CHARGéO", liens: [["Guides & conseils", "/blog"], ["Zone d’intervention", "/zone-intervention"], ["Recrutement", "/recrutement"], ["Mentions légales", "/mentions-legales"]] },
   { titre: "Clients", liens: [["Espace client", "/espace-client"], ["Étude gratuite", "/#contact"]] },
 ];
 
