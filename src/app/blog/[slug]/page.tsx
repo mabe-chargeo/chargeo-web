@@ -9,9 +9,14 @@ import { Footer } from "@/components/layout/Footer";
 import { HautPhoto } from "@/components/charte/HautPhoto";
 import { Meta, GuidesLies, BlocOffres, type GuideResume } from "@/components/charte/Guides";
 import { articles, formatDate, getArticle, type Article, type Block } from "@/content/blog";
+import { SOURCES_GUIDES } from "@/content/sources-guides";
 
 // Modèle d'article, charte 2026 (maquette validée le 05/10/2026).
 // Inchangé : génération statique, métadonnées SEO, JSON-LD, liens [texte](/adresse), figures, guides liés, CTA, avertissement.
+// 07/10/2026 (SEO, confiance) : auteur nommé (visible et dans le JSON-LD) et encadré
+// « Sources officielles » en fin d'article (liens dans src/content/sources-guides.ts).
+
+const AUTEUR = { nom: "Mathieu Belengri", role: "fondateur de CHARGéO" };
 
 const NAVY = "#032b60";
 const CYAN = "#0097b2";
@@ -189,6 +194,7 @@ export default async function ArticlePage({ params }: Props) {
   const lies = guidesLies(article);
   const sommaire = article.blocks.filter((b): b is Extract<Block, { type: "h2" }> => b.type === "h2");
   const copro = article.category.toLowerCase().includes("copro");
+  const sources = SOURCES_GUIDES[article.slug] ?? [];
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -200,7 +206,13 @@ export default async function ArticlePage({ params }: Props) {
     dateModified: article.date,
     inLanguage: "fr-FR",
     mainEntityOfPage: `https://www.chargeo.fr/blog/${article.slug}`,
-    author: { "@type": "Organization", name: "CHARGÉO", url: "https://www.chargeo.fr" },
+    author: {
+      "@type": "Person",
+      "@id": "https://www.chargeo.fr/#mathieu-belengri",
+      name: AUTEUR.nom,
+      jobTitle: "Fondateur",
+      worksFor: { "@id": "https://www.chargeo.fr/#entreprise" },
+    },
     publisher: {
       "@type": "Organization",
       name: "CHARGÉO",
@@ -228,6 +240,7 @@ export default async function ArticlePage({ params }: Props) {
         >
           <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-4">
             <Meta g={resume(article)} light />
+            <p className="text-[14px] font-semibold" style={{ color: "#a9d8e6" }}>Par {AUTEUR.nom}, {AUTEUR.role}</p>
             <Link href="/blog" className="inline-flex items-center gap-2 text-[16px] font-medium text-white underline decoration-white/40 underline-offset-[6px] hover:decoration-white">
               <ArrowLeft size={17} /> Tous les guides
             </Link>
@@ -240,6 +253,18 @@ export default async function ArticlePage({ params }: Props) {
               {article.blocks.map((block, i) => (
                 <BlockView key={i} block={block} lead={i === 0 && block.type === "p"} />
               ))}
+              {sources.length > 0 && (
+                <div className="rounded-[20px] p-6" style={{ backgroundColor: "#eceef1" }}>
+                  <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: LABEL }}>Sources officielles</p>
+                  <ul className="mt-3 space-y-2">
+                    {sources.map((src) => (
+                      <li key={src.href} className="text-[15px] leading-relaxed">
+                        <a href={src.href} target="_blank" rel="noopener noreferrer" className={STYLE_LIEN}>{src.label}</a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </article>
 
             <aside className="space-y-6 lg:sticky lg:top-28 lg:self-start">
