@@ -7,6 +7,9 @@
 // qu'on fait et où ; le slogan garde exactement le même rendu, en paragraphe.
 // 07/10/2026 : bloc « Notre ADN » réécrit en mots simples, à la demande de Matthieu.
 // 07/10/2026 (images) : les cartes d'offres n'utilisent plus les photos du haut des pages offres.
+// 07/10/2026 (mobile) : sous 1024 px, la photo s'affiche nette en bandeau en haut, le haut de page
+// est plus compact (pastilles masquées, elles reprenaient le bandeau turquoise, filigrane masqué)
+// pour que le bandeau turquoise soit visible dès l'arrivée. Version ordinateur inchangée.
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -63,23 +66,25 @@ export default function Accueil() {
       <link rel="canonical" href="https://www.chargeo.fr/" />
       <Navbar isHome transparent />
       <main>
-        {/* HAUT DE PAGE */}
+        {/* HAUT DE PAGE : photo en bandeau net sur mobile, à droite sur ordinateur */}
         <section className="relative overflow-hidden" style={{ backgroundColor: NAVY }}>
-          <div className="absolute inset-y-0 right-0 w-full lg:w-[60%]">
+          <div className="relative h-[250px] w-full sm:h-[340px] lg:absolute lg:inset-y-0 lg:right-0 lg:h-auto lg:w-[60%]">
             <Image src="/hero-chargeo.webp" alt="Borne de recharge installée par CHARGéO" fill priority fetchPriority="high" sizes="(max-width: 1024px) 100vw, 60vw" className="object-cover" />
-            <div className="absolute inset-0 lg:hidden" style={{ backgroundColor: "rgba(3,43,96,0.82)" }} />
+            <div className="absolute inset-0 lg:hidden" style={{ backgroundImage: "linear-gradient(180deg, rgba(3,43,96,0.70) 0%, rgba(3,43,96,0.10) 38%, rgba(3,43,96,0.20) 62%, #032b60 100%)" }} />
             <div className="absolute inset-0 hidden lg:block" style={{ backgroundImage: "linear-gradient(90deg, #032b60 0%, rgba(3,43,96,0.88) 22%, rgba(3,43,96,0.35) 58%, rgba(3,43,96,0.05) 100%)" }} />
           </div>
-          <Filigrane style={{ left: "56%", top: "-16%", width: "min(720px, 110vw)" }} />
-          <div className="relative mx-auto flex min-h-[min(88vh,820px)] max-w-7xl flex-col justify-center px-6 pb-20 pt-36 lg:pt-40">
-            <h1 className="text-[13px] font-extrabold uppercase tracking-[0.12em] sm:tracking-[0.2em]" style={{ color: BLEU_CLAIR }}>Installateur de bornes de recharge à Thonon-les-Bains et dans le Chablais</h1>
-            <p className="mt-6 text-[44px] font-bold leading-[1.08] tracking-[-0.02em] text-white sm:text-[64px] lg:text-[80px]">
+          <div className="hidden lg:block">
+            <Filigrane style={{ left: "56%", top: "-16%", width: "min(720px, 110vw)" }} />
+          </div>
+          <div className="relative mx-auto flex max-w-7xl flex-col justify-center px-6 pb-9 pt-1 sm:pb-14 lg:min-h-[min(88vh,820px)] lg:pb-20 lg:pt-40">
+            <h1 className="text-[12px] font-extrabold uppercase tracking-[0.12em] sm:text-[13px] sm:tracking-[0.2em]" style={{ color: BLEU_CLAIR }}>Installateur de bornes de recharge à Thonon-les-Bains et dans le Chablais</h1>
+            <p className="mt-3 text-[36px] font-bold leading-[1.08] tracking-[-0.02em] text-white sm:mt-6 sm:text-[64px] lg:text-[80px]">
               Passez à l’électrique,<br className="hidden sm:block" /> l’esprit léger.
             </p>
-            <p className="mt-8 max-w-[44rem] text-[18px] leading-relaxed sm:text-[20px]" style={{ color: BLEU_CLAIR }}>
+            <p className="mt-4 max-w-[44rem] text-[16px] leading-relaxed sm:mt-8 sm:text-[20px]" style={{ color: BLEU_CLAIR }}>
               Particulier pressé, entreprise soumise à la loi LOM ou syndic de copropriété : nous prenons en charge l’installation, les démarches et les subventions.
             </p>
-            <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-5">
+            <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4 sm:mt-10 sm:gap-y-5">
               <a href="#expertises" className="group inline-flex items-center gap-3 whitespace-nowrap rounded-full px-7 py-4 text-[15px] font-semibold text-white transition-transform hover:scale-[1.03] sm:px-8 sm:text-[17px]" style={{ backgroundColor: ORANGE, boxShadow: "0 8px 22px rgba(255,107,0,0.28)" }}>
                 Découvrir nos points de charge <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" />
               </a>
@@ -87,7 +92,7 @@ export default function Accueil() {
                 <Phone size={17} /> 04 85 69 22 04
               </a>
             </div>
-            <ul className="mt-14 flex flex-wrap gap-3">
+            <ul className="mt-14 hidden flex-wrap gap-3 sm:flex">
               {["Installateur qualifié IRVE", "Prix ferme", "Chablais et Haute-Savoie"].map((p) => (
                 <li key={p} className="whitespace-nowrap rounded-full border px-5 py-2.5 text-[13px] font-semibold uppercase tracking-[0.1em] text-white" style={{ borderColor: "rgba(0,151,178,0.75)" }}>{p}</li>
               ))}
@@ -97,7 +102,7 @@ export default function Accueil() {
 
         {/* BANDEAU TURQUOISE */}
         <section style={{ backgroundColor: CYAN }}>
-          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-8 px-6 py-10 lg:grid-cols-4">
+          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-6 px-6 py-7 sm:gap-y-8 sm:py-10 lg:grid-cols-4">
             {CHIFFRES.map((c) => (
               <div key={c.big} className="flex items-center gap-4">
                 <Icone I={c.icon} size={52} r={14} bg="rgba(255,255,255,0.16)" />
