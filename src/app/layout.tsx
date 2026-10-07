@@ -47,26 +47,64 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Les données structurées pour Google (SEO Local)
+  // Données structurées pour Google (SEO local), enrichies le 07/10/2026 :
+  // identifiant stable (@id), coordonnées GPS de l'adresse (Base Adresse Nationale),
+  // zones desservies typées, catalogue des 3 offres, fondateur, et le site lui-même.
+  // A ajouter des que les profils existent : "sameAs" (fiche Google, Facebook, LinkedIn,
+  // annuaires ADVENIR / Qualifelec) et "openingHoursSpecification" (horaires reels).
+  const ENTREPRISE = "https://www.chargeo.fr/#entreprise";
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "Electrician",
-    "name": "CHARGÉO",
-    "url": "https://www.chargeo.fr",
-    "image": "https://www.chargeo.fr/logo-chargeo.png",
-    "logo": "https://www.chargeo.fr/logo-chargeo.png",
-    "description": "Installateur de bornes de recharge pour véhicules électriques à Thonon-les-Bains, dans le Chablais et en Haute-Savoie.",
-    "address": {
-      "@type": "PostalAddress",
-      "streetAddress": "89, chemin de la Ballastière",
-      "addressLocality": "THONON-LES-BAINS",
-      "postalCode": "74200",
-      "addressCountry": "FR"
-    },
-    "telephone": "+33485692204",
-    "email": "contact@chargeo.fr",
-    "areaServed": ["Thonon-les-Bains", "Évian-les-Bains", "Douvaine", "Chablais", "Haute-Savoie", "Annecy", "Genevois"],
-    "priceRange": "$$"
+    "@graph": [
+      {
+        "@type": "Electrician",
+        "@id": ENTREPRISE,
+        "name": "CHARGÉO",
+        "url": "https://www.chargeo.fr",
+        "image": "https://www.chargeo.fr/logo-chargeo.png",
+        "logo": "https://www.chargeo.fr/logo-chargeo.png",
+        "description": "Installateur de bornes de recharge pour véhicules électriques à Thonon-les-Bains, dans le Chablais et en Haute-Savoie : maisons, copropriétés et entreprises.",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "89 chemin de la Ballastière",
+          "addressLocality": "Thonon-les-Bains",
+          "postalCode": "74200",
+          "addressRegion": "Haute-Savoie",
+          "addressCountry": "FR"
+        },
+        "geo": { "@type": "GeoCoordinates", "latitude": 46.387849, "longitude": 6.506903 },
+        "telephone": "+33485692204",
+        "email": "contact@chargeo.fr",
+        "founder": { "@type": "Person", "@id": "https://www.chargeo.fr/#mathieu-belengri", "name": "Mathieu Belengri", "jobTitle": "Fondateur" },
+        "areaServed": [
+          { "@type": "City", "name": "Thonon-les-Bains" },
+          { "@type": "City", "name": "Évian-les-Bains" },
+          { "@type": "City", "name": "Douvaine" },
+          { "@type": "AdministrativeArea", "name": "Chablais" },
+          { "@type": "AdministrativeArea", "name": "Haute-Savoie" },
+          { "@type": "City", "name": "Annecy" },
+          { "@type": "AdministrativeArea", "name": "Genevois" }
+        ],
+        "hasOfferCatalog": {
+          "@type": "OfferCatalog",
+          "name": "Installation de bornes de recharge",
+          "itemListElement": [
+            { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Borne de recharge à la maison et droit à la prise", "url": "https://www.chargeo.fr/particuliers" } },
+            { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Bornes de recharge en copropriété", "url": "https://www.chargeo.fr/copropriete" } },
+            { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Bornes de recharge pour entreprises et flottes", "url": "https://www.chargeo.fr/pro" } }
+          ]
+        },
+        "priceRange": "$$"
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://www.chargeo.fr/#site",
+        "url": "https://www.chargeo.fr",
+        "name": "CHARGéO",
+        "inLanguage": "fr-FR",
+        "publisher": { "@id": ENTREPRISE }
+      }
+    ]
   };
 
   return (
