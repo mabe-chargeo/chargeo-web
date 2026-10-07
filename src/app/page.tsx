@@ -5,6 +5,7 @@
 // canonique de la page (balise hissée dans le <head> par React 19).
 // 07/10/2026 (SEO) : le titre principal (h1) est la ligne du haut, qui dit ce
 // qu'on fait et où ; le slogan garde exactement le même rendu, en paragraphe.
+// 07/10/2026 : bloc « Notre ADN » réécrit en mots simples, à la demande de Matthieu.
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -115,15 +116,15 @@ export default function Accueil() {
           <div className="mx-auto grid max-w-7xl items-center gap-14 px-6 py-20 lg:grid-cols-2 lg:gap-20 lg:py-28">
             <div>
               <Barre />
-              <Reveal><Titre>L’ingénierie physique au service de l’intelligence.</Titre></Reveal>
+              <Reveal><Titre>Bien plus qu’une prise au mur.</Titre></Reveal>
               <Reveal delay={100}>
-                <p className="mt-7 text-[18px] leading-relaxed">Poser une prise basique est à la portée de n’importe quel électricien. Déployer une infrastructure de charge intelligente, communicante et évolutive exige une tout autre ingénierie.</p>
-                <p className="mt-4 text-[18px] leading-relaxed">Chez CHARGéO, nous maîtrisons toute la chaîne : nos techniciens qualifiés IRVE posent un matériel de pointe, nativement connecté aux meilleurs outils de gestion du marché.</p>
+                <p className="mt-7 text-[18px] leading-relaxed">Poser une prise, beaucoup d’électriciens savent le faire. Installer une borne qui recharge votre voiture au bon moment, sans faire disjoncter la maison, et qui pourra évoluer avec vos besoins, c’est un autre métier.</p>
+                <p className="mt-4 text-[18px] leading-relaxed">C’est le nôtre. Nos techniciens qualifiés IRVE installent des bornes de grandes marques, connectées et pilotables depuis votre téléphone : vous suivez votre consommation et vous programmez la recharge aux heures creuses.</p>
               </Reveal>
               <div className="mt-10 grid gap-5 sm:grid-cols-2">
                 {[
                   { icon: ShieldCheck, label: "Habilitation maximale", title: "Qualifelec IRVE" },
-                  { icon: Cpu, label: "Écosystème connecté", title: "Smart Charging" },
+                  { icon: Cpu, label: "Borne pilotée à distance", title: "Smart Charging" },
                 ].map((c, i) => (
                   <Reveal key={c.title} delay={150 + i * 80} className="h-full">
                     <div className="h-full rounded-[24px] p-7" style={CARTE}>
