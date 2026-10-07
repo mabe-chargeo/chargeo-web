@@ -63,7 +63,7 @@ export default function ProPage() {
       text: "Commerciaux qui rechargent à la maison : badge RFID, consommation pro isolée, relevé mensuel pour le remboursement en note de frais.",
       author: "Domicile collaborateurs",
       location: "Annemasse",
-      image: "/photo-maison-carport.webp"
+      image: "/photo-badge-rfid.webp"
     }
   ];
 
