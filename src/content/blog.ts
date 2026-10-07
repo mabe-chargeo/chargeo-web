@@ -3,6 +3,7 @@
 // Pour ajouter un article : copier un bloc { ... } dans la liste `articles`, changer le slug (adresse), le titre, la date et le contenu.
 // Liens dans le texte : écrire [texte du lien](/adresse), par exemple [notre offre copropriété](/copropriete).
 // Images : couverture = une photo de /public (ou /public/blog) ; schémas = fichiers SVG dans /public/blog.
+// 07/10/2026 (images) : chaque article a sa propre couverture, jamais une photo déjà utilisée en haut d'une autre page.
 // Chiffres ADVENIR vérifiés le 04/10/2026 sur advenir.mobi (barème résidentiel collectif du 1er avril 2026).
 // Droit à la prise : art. L.113-16, L.113-17 et R.113-8 s. du CCH (décret n° 2020-1720). TVA 5,5 % : art. 278-0 bis N du CGI et art. 30-0 H ann. IV.
 // Majorités en AG (vérifiées sur Légifrance le 04/10/2026, version du 18/06/2025) : étude et décision d'équiper = art. 24 II i ;
@@ -262,7 +263,7 @@ export const articles: Article[] = [
     date: "2026-10-04",
     readingMinutes: 5,
     category: "Copropriété",
-    cover: { src: "/tech-chargeo.webp", alt: "Intervention sur une installation de recharge" },
+    cover: { src: "/photo-place-parking.webp", alt: "Borne de recharge murale sur une place de parking en sous-sol" },
     cta: { label: "Étudier mon projet", href: "/particuliers" },
     blocks: [
       {
@@ -329,7 +330,7 @@ export const articles: Article[] = [
     date: "2026-10-04",
     readingMinutes: 4,
     category: "Particuliers",
-    cover: { src: "/hero-particulier.webp", alt: "Recharge d'une voiture électrique à domicile" },
+    cover: { src: "/photo-recharge-garage.webp", alt: "Voiture électrique en charge à l'entrée d'un garage de maison" },
     cta: { label: "Simuler mon installation", href: "/particuliers" },
     blocks: [
       {
@@ -398,7 +399,7 @@ export const articles: Article[] = [
     date: "2026-10-04",
     readingMinutes: 5,
     category: "Copropriété",
-    cover: { src: "/hero-copro.webp", alt: "Immeuble en copropriété avec parking" },
+    cover: { src: "/photo-artere-parking.webp", alt: "Parking souterrain de copropriété avec des bornes de recharge le long des places" },
     cta: { label: "Découvrir l'offre copropriété", href: "/copropriete" },
     blocks: [
       {
