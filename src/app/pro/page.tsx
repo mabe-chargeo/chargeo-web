@@ -3,6 +3,7 @@
 // Page Entreprises, charte 2026 (gabarit commun des offres).
 // Simulateur : économies de la flotte à la place des revenus de recharge (décision du 05/10/2026).
 // Inchangé : barre mobile, CTA flottant, ContactForm typeClient="Entreprise" (seul le libellé du texte de simulation change).
+// 07/10/2026 (images) : les cas types ne répètent plus les photos des cartes.
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Building, Car, Home, CreditCard, Gauge, Receipt, ShieldCheck, Wrench, FileText, Award, Wifi, QrCode,
@@ -50,19 +51,19 @@ export default function ProPage() {
       text: "Parking de PME avec plusieurs véhicules électriques : pilotage dynamique de la charge pour recharger toute la flotte sans augmenter l'abonnement.",
       author: "Flotte & PME",
       location: "Thonon-les-Bains",
-      image: "/review-flotte.webp"
+      image: "/photo-parking-entreprise.webp"
     },
     {
       text: "Hôtel avec parking visiteurs : bornes avec paiement par QR code, vous fixez le tarif au kWh et les revenus vous sont reversés chaque mois.",
       author: "Hôtel & tertiaire",
       location: "Évian-les-Bains",
-      image: "/review-hotel.webp"
+      image: "/photo-hotel-lac.webp"
     },
     {
       text: "Commerciaux qui rechargent à la maison : badge RFID, consommation pro isolée, relevé mensuel pour le remboursement en note de frais.",
       author: "Domicile collaborateurs",
       location: "Annemasse",
-      image: "/review-domicile.webp"
+      image: "/photo-badge-rfid.webp"
     }
   ];
 

@@ -2,6 +2,7 @@
 
 // Page Recrutement, charte 2026 (maquette validée le 05/10/2026).
 // Inchangé : RecrutementForm (/api/recrutement), lien brochure Drive, barre mobile, CTA « Postuler » du menu.
+// 07/10/2026 (images) : les cartes du métier ne répètent plus la photo du haut de page.
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowRight, Download, MapPin, Wrench, Zap, ClipboardCheck, User, ShieldCheck, Clock, Award,
@@ -29,8 +30,8 @@ const GAINS = [
 ];
 
 const METIER = [
-  { i: Wrench, img: "/tech-chargeo.webp", t: "La pose", d: "Fixation de la borne, passage des câbles, protections dans le tableau, raccordement. Chez des particuliers, en copropriété et dans des entreprises." },
-  { i: Zap, img: "/hero-chargeo.webp", t: "Le test", d: "Essais, mesures, paramétrage de la borne et de sa connexion. On ne quitte pas un chantier tant que la borne ne charge pas." },
+  { i: Wrench, img: "/photo-technicien-pose.webp", t: "La pose", d: "Fixation de la borne, passage des câbles, protections dans le tableau, raccordement. Chez des particuliers, en copropriété et dans des entreprises." },
+  { i: Zap, img: "/photo-badge-maison.webp", t: "Le test", d: "Essais, mesures, paramétrage de la borne et de sa connexion. On ne quitte pas un chantier tant que la borne ne charge pas." },
   { i: ClipboardCheck, img: "/review-particulier-3.webp", t: "Le compte-rendu", d: "Photos, check-list et rapport depuis ton téléphone. C’est ce qui débloque les aides du client, et ce qui prouve la qualité de ton travail." },
 ];
 

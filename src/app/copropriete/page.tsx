@@ -2,6 +2,7 @@
 
 // Page Copropriétés, charte 2026 (gabarit commun des offres).
 // Inchangé : simulateur ADVENIR, barre mobile, CTA flottant, ContactForm typeClient="Copropriété" et texte de simulation.
+// 07/10/2026 (images) : plus aucune photo en double sur la page (cartes, cas types, haut de page).
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Users, Building, Zap, Plug, BadgeEuro, PiggyBank, ShieldCheck, Award, Leaf, Landmark,
@@ -49,19 +50,19 @@ export default function CoproprietePage() {
       text: "Résidence de 30 places : artère posée une fois pour toutes, 3 résidents raccordés dès le départ. ADVENIR finance 50 % de l'infrastructure, jusqu'à 12 500 € HT.",
       author: "Infrastructure collective",
       location: "Thonon-les-Bains",
-      image: "/hero-copro.webp"
+      image: "/photo-technicien-tableau.webp"
     },
     {
       text: "Un résident veut sa borne : on vérifie la puissance, on prépare le dossier pour le syndic, et la recharge est pilotée pour ne jamais faire disjoncter l'immeuble.",
       author: "Droit à la prise",
       location: "Évian-les-Bains",
-      image: "/tech-chargeo.webp"
+      image: "/photo-garage-nuit.webp"
     },
     {
       text: "Côté syndic, rien à gérer : chaque résident équipé a son sous-compteur et reçoit sa facture au kWh réellement consommé.",
       author: "Gestion simplifiée",
       location: "Chablais",
-      image: "/hero-chargeo.webp"
+      image: "/photo-suivi-appli.webp"
     }
   ];
 
@@ -119,13 +120,13 @@ export default function CoproprietePage() {
               cta: "Chiffrer l’infrastructure",
             },
             {
-              icon: Zap, img: "/tech-chargeo.webp", label: "Pour les résidents", title: "Borne partagée",
+              icon: Zap, img: "/photo-parking-souterrain.webp", label: "Pour les résidents", title: "Borne partagée",
               text: "Une ou plusieurs bornes en accès partagé sur le parking, pour les résidents qui n’ont pas de place équipée.",
               points: ["Refacturation au kWh ou simple relevé", "Accès réservé aux résidents", "Supervision et maintenance"],
               cta: "Étudier une borne partagée",
             },
             {
-              icon: Plug, img: "/review-resident.webp", label: "Pour un résident", title: "Borne du résident",
+              icon: Plug, img: "/photo-borne-pilier.webp", label: "Pour un résident", title: "Borne du résident",
               text: "Droit à la prise ou raccordement à l’infrastructure existante : nous préparons le dossier pour le syndic et garantissons la conformité.",
               points: ["Dossier technique pour le syndic", "Sous-compteur individuel", "Recharge pilotée sur la puissance de l’immeuble"],
               cta: "Équiper une place",

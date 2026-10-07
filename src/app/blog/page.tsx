@@ -7,6 +7,7 @@ import { GuidesGrille, BlocOffres, type GuideResume } from "@/components/charte/
 import { articles, formatDate } from "@/content/blog";
 
 // Page Guides, charte 2026 (maquette validée le 05/10/2026). SEO et contenu (src/content/blog.ts) inchangés.
+// 07/10/2026 (images) : photo de haut de page propre au blog (n'est plus celle de l'accueil).
 export const metadata: Metadata = {
   title: "Guides borne de recharge à Thonon & Chablais | CHARGÉO",
   description:
@@ -31,7 +32,7 @@ export default function BlogPage() {
       <Navbar transparent />
       <main>
         <HautPhoto
-          img="/hero-chargeo.webp"
+          img="/photo-parking-bornes.webp"
           eyebrow="Guides & conseils"
           eyeIcon={BookOpen}
           minH="560px"
