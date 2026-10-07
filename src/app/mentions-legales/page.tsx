@@ -9,6 +9,7 @@ import { HautPhoto } from '@/components/charte/HautPhoto';
 // 06/10/2026 : partie cookies réécrite pour décrire exactement ce que fait le
 // site (Tag Manager qui charge Analytics et Ads, après accord), titre et adresse
 // canonique propres à la page.
+// 07/10/2026 : prénom du directeur de la publication corrigé (Mathieu, un seul t).
 export const metadata: Metadata = {
   title: 'Mentions légales et confidentialité | CHARGÉO',
   description: "Mentions légales, politique de confidentialité et cookies du site CHARGéO, installateur de bornes de recharge à Thonon-les-Bains.",
@@ -61,7 +62,7 @@ export default function MentionsLegalesPage() {
                 <p>
                   <strong>Propriétaire / Éditeur :</strong> CHARGéO (Entreprise en cours de création)<br />
                   <strong>Siège social :</strong> 89, chemin de la Ballastière, 74200 THONON-LES-BAINS<br />
-                  <strong>Directeur de la publication :</strong> Matthieu BELENGRI<br />
+                  <strong>Directeur de la publication :</strong> Mathieu BELENGRI<br />
                   <strong>Contact :</strong> contact@chargeo.fr | 04 85 69 22 04
                 </p>
                 <p>

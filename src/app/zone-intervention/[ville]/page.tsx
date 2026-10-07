@@ -2,30 +2,26 @@
 // Page d'une commune (07/10/2026, SEO local). Contenu et sources : src/content/villes.ts.
 // 07/10/2026 (images) : une photo de haut de page différente par commune, plus une illustration
 // dans le corps de la page. Ce sont des images d'illustration, jamais présentées comme nos chantiers.
+// 07/10/2026 : la liste « Votre situation » faisait doublon avec le bloc turquoise « Un projet de borne à… ».
+// Elle est retirée ; il reste les guides utiles, puis le bloc turquoise (seul choix de situation).
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, Briefcase, Building, Home, MapPin, Phone } from "lucide-react";
+import { ArrowLeft, ArrowRight, MapPin, Phone } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { HautPhoto } from "@/components/charte/HautPhoto";
 import { BlocOffres } from "@/components/charte/Guides";
 import { Barre, Lbl, Titre } from "@/components/charte/Charte";
 import { articles } from "@/content/blog";
-import { villes, getVille, pct, nombre, type Offre } from "@/content/villes";
+import { villes, getVille, pct, nombre } from "@/content/villes";
 
 const NAVY = "#032b60";
 const CYAN = "#0097b2";
 const LABEL = "#007f96";
 const GRIS = "#eceef1";
 const BASE = "https://www.chargeo.fr";
-
-const OFFRES: Record<Offre, { titre: string; texte: string; href: string; Icone: typeof Home }> = {
-  particuliers: { titre: "Particuliers", texte: "Maison, droit à la prise", href: "/particuliers", Icone: Home },
-  copropriete: { titre: "Copropriétés", texte: "Infrastructure collective, dossier d'AG", href: "/copropriete", Icone: Building },
-  pro: { titre: "Entreprises", texte: "Flotte, tertiaire, recharge des salariés", href: "/pro", Icone: Briefcase },
-};
 
 // Photos par commune : haut de page et illustration (choisies selon le parc de logements).
 // 12 photos différentes : aucune n'est reprise d'une commune à l'autre.
@@ -183,50 +179,27 @@ export default async function VillePage({ params }: Props) {
           </div>
         </section>
 
-        {/* Offres, dans l'ordre le plus utile pour la commune */}
-        <section className="bg-white">
-          <div className="mx-auto max-w-7xl px-6 pb-16">
-            <Barre />
-            <Titre>Votre situation à {v.nom}.</Titre>
-            <ul className="mt-10 grid gap-5 md:grid-cols-3">
-              {v.offres.map((o) => {
-                const { titre, texte, href, Icone } = OFFRES[o];
-                return (
-                  <li key={o}>
-                    <Link href={href} className="group flex h-full items-center gap-5 rounded-[20px] p-6 transition-transform hover:-translate-y-1" style={{ backgroundColor: GRIS, color: NAVY }}>
-                      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[16px]" style={{ backgroundColor: CYAN }}>
-                        <Icone size={26} color="#ffffff" strokeWidth={1.8} />
+        {/* Guides utiles pour la commune */}
+        {guides.length > 0 && (
+          <section className="bg-white">
+            <div className="mx-auto max-w-7xl px-6 pb-16">
+              <Barre />
+              <Titre>Nos guides utiles à {v.nom}.</Titre>
+              <ul className="mt-10 grid gap-4 md:grid-cols-3">
+                {guides.map((g) => (
+                  <li key={g.slug}>
+                    <Link href={`/blog/${g.slug}`} className="group flex h-full flex-col justify-between gap-4 rounded-[20px] p-6 transition-transform hover:-translate-y-1" style={{ backgroundColor: GRIS, color: NAVY }}>
+                      <span className="text-[17px] font-bold leading-snug">{g.title}</span>
+                      <span className="inline-flex items-center gap-2 text-[15px] font-semibold" style={{ color: CYAN }}>
+                        Lire le guide <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" />
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[20px] font-bold">{titre}</span>
-                        <span className="block text-[14px]">{texte}</span>
-                      </span>
-                      <ArrowRight size={20} color={CYAN} className="shrink-0 transition-transform group-hover:translate-x-1" />
                     </Link>
                   </li>
-                );
-              })}
-            </ul>
-
-            {guides.length > 0 && (
-              <div className="pt-12">
-                <Lbl>Nos guides utiles à {v.nom}</Lbl>
-                <ul className="mt-5 grid gap-4 md:grid-cols-3">
-                  {guides.map((g) => (
-                    <li key={g.slug}>
-                      <Link href={`/blog/${g.slug}`} className="group flex h-full flex-col justify-between gap-4 rounded-[20px] p-6 transition-transform hover:-translate-y-1" style={{ backgroundColor: GRIS, color: NAVY }}>
-                        <span className="text-[17px] font-bold leading-snug">{g.title}</span>
-                        <span className="inline-flex items-center gap-2 text-[15px] font-semibold" style={{ color: CYAN }}>
-                          Lire le guide <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" />
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </section>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
 
         <BlocOffres
           titre={`Un projet de borne à ${v.nom} ?`}
