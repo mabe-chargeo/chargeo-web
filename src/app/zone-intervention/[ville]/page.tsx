@@ -1,6 +1,9 @@
 // src/app/zone-intervention/[ville]/page.tsx
 // Page d'une commune (07/10/2026, SEO local). Contenu et sources : src/content/villes.ts.
+// 07/10/2026 (images) : une photo de haut de page différente par commune, plus une illustration
+// dans le corps de la page. Ce sont des images d'illustration, jamais présentées comme nos chantiers.
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Briefcase, Building, Home, MapPin, Phone } from "lucide-react";
@@ -22,6 +25,16 @@ const OFFRES: Record<Offre, { titre: string; texte: string; href: string; Icone:
   particuliers: { titre: "Particuliers", texte: "Maison, droit à la prise", href: "/particuliers", Icone: Home },
   copropriete: { titre: "Copropriétés", texte: "Infrastructure collective, dossier d'AG", href: "/copropriete", Icone: Building },
   pro: { titre: "Entreprises", texte: "Flotte, tertiaire, recharge des salariés", href: "/pro", Icone: Briefcase },
+};
+
+// Photos par commune : haut de page et illustration (choisies selon le parc de logements).
+const PHOTOS: Record<string, { haut: string; illus: string; alt: string }> = {
+  "thonon-les-bains": { haut: "/hero-copro.webp", illus: "/tech-chargeo.webp", alt: "Technicien qui câble une borne de recharge" },
+  "evian-les-bains": { haut: "/photo-residence-lac.webp", illus: "/photo-hotel-lac.webp", alt: "Bornes de recharge sur le parking d'un hôtel au bord du lac" },
+  publier: { haut: "/photo-maison-carport.webp", illus: "/hero-particulier.webp", alt: "Borne de recharge installée chez un particulier" },
+  douvaine: { haut: "/hero-particulier.webp", illus: "/photo-maison-carport.webp", alt: "Borne murale sous le carport d'une maison" },
+  annemasse: { haut: "/photo-parking-souterrain.webp", illus: "/photo-technicien-tableau.webp", alt: "Technicien au tableau électrique d'un parking de copropriété" },
+  annecy: { haut: "/photo-technicien-tableau.webp", illus: "/photo-parking-souterrain.webp", alt: "Bornes de recharge dans un parking souterrain de copropriété" },
 };
 
 type Props = { params: Promise<{ ville: string }> };
@@ -49,6 +62,7 @@ export default async function VillePage({ params }: Props) {
   const v = getVille(ville);
   if (!v) notFound();
 
+  const photo = PHOTOS[v.slug];
   const url = `${BASE}/zone-intervention/${v.slug}`;
   const guides = v.guides
     .map((s) => articles.find((a) => a.slug === s))
@@ -95,7 +109,7 @@ export default async function VillePage({ params }: Props) {
 
       <main>
         <HautPhoto
-          img={v.image}
+          img={photo?.haut ?? v.image}
           eyebrow={`Zone d'intervention · ${v.intercommunalite}`}
           eyeIcon={MapPin}
           minH="600px"
@@ -142,6 +156,12 @@ export default async function VillePage({ params }: Props) {
                 </article>
               ))}
             </div>
+
+            {photo && (
+              <div className="relative mt-10 h-[240px] overflow-hidden rounded-[24px] sm:h-[340px] lg:h-[400px]" style={{ boxShadow: "0 8px 22px rgba(3,43,96,0.14)" }}>
+                <Image src={photo.illus} alt={photo.alt} fill sizes="(max-width: 1280px) 100vw, 1232px" className="object-cover" />
+              </div>
+            )}
 
             <div className="mt-10 grid gap-7 lg:grid-cols-2">
               <div className="rounded-[24px] p-8" style={{ backgroundColor: NAVY }}>
@@ -242,7 +262,7 @@ export default async function VillePage({ params }: Props) {
             </nav>
           </div>
           <p className="mx-auto max-w-7xl px-6 pb-12 text-[13px] leading-relaxed" style={{ color: LABEL }}>
-            Chiffres Insee et informations publiques vérifiés en octobre 2026. Les distances sont des ordres de grandeur depuis notre base de Thonon. Les aides évoluent : votre devis CHARGéO précise toujours ce qui s&apos;applique à votre projet.
+            Chiffres Insee et informations publiques vérifiés en octobre 2026. Les distances sont des ordres de grandeur depuis notre base de Thonon. Les aides évoluent : votre devis CHARGéO précise toujours ce qui s&apos;applique à votre projet. Photos d&apos;illustration.
           </p>
         </section>
       </main>
