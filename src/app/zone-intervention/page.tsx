@@ -1,5 +1,6 @@
 // src/app/zone-intervention/page.tsx
 // Page « Zone d'intervention » (07/10/2026, SEO local) : relie les pages des communes.
+// 07/10/2026 (images) : photo de haut de page propre (n'est plus celle de l'accueil).
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, MapPin, Phone } from "lucide-react";
@@ -38,7 +39,7 @@ export default function ZoneInterventionPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <main>
         <HautPhoto
-          img="/hero-chargeo.webp"
+          img="/review-flotte.webp"
           eyebrow="Zone d'intervention"
           eyeIcon={MapPin}
           minH="560px"

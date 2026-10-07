@@ -5,6 +5,7 @@ import { EspaceClientForm } from '@/components/ui/EspaceClientForm';
 import { HautPhoto } from '@/components/charte/HautPhoto';
 
 // Espace client, charte 2026. Inchangé : paramètre ?dossier=, EspaceClientForm et /api/espace-client.
+// 07/10/2026 (images) : photo de haut de page propre (suivi sur téléphone), n'est plus celle de l'accueil.
 const NAVY = '#032b60';
 const CYAN = '#0097b2';
 const LABEL = '#007f96';
@@ -29,7 +30,7 @@ export default async function EspaceClientPage({
 
       <main className="grow">
         <HautPhoto
-          img="/hero-chargeo.webp"
+          img="/photo-suivi-appli.webp"
           eyebrow="Votre espace client CHARGéO"
           eyeIcon={Lock}
           minH="460px"
