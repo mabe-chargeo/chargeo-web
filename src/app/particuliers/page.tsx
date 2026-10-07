@@ -50,13 +50,13 @@ export default function ParticuliersPage() {
       text: "Maison avec un abonnement 9 kVA : wallbox 7,4 kW avec délesteur, la recharge baisse toute seule quand le four tourne. Prix ferme annoncé après la visite gratuite.",
       author: "Maison individuelle",
       location: "Thonon-les-Bains",
-      image: "/photo-maison-carport.webp"
+      image: "/photo-maison-crepuscule.webp"
     },
     {
       text: "Aller-retour Thonon–Genève chaque jour : la wallbox récupère environ 40 km par heure, la batterie est pleine le matin, au tarif des heures creuses.",
       author: "Frontalier",
       location: "Chablais",
-      image: "/tech-chargeo.webp"
+      image: "/photo-voiture-garage-nuit.webp"
     },
     {
       text: "Appartement avec place de parking : dossier technique préparé pour le syndic, borne posée après le délai légal, prime ADVENIR jusqu'à 1 000 € HT selon le raccordement.",

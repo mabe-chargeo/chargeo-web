@@ -56,13 +56,13 @@ export default function CoproprietePage() {
       text: "Un résident veut sa borne : on vérifie la puissance, on prépare le dossier pour le syndic, et la recharge est pilotée pour ne jamais faire disjoncter l'immeuble.",
       author: "Droit à la prise",
       location: "Évian-les-Bains",
-      image: "/photo-residence-lac.webp"
+      image: "/photo-borne-pilier.webp"
     },
     {
       text: "Côté syndic, rien à gérer : chaque résident équipé a son sous-compteur et reçoit sa facture au kWh réellement consommé.",
       author: "Gestion simplifiée",
       location: "Chablais",
-      image: "/hero-chargeo.webp"
+      image: "/photo-suivi-appli.webp"
     }
   ];
 
