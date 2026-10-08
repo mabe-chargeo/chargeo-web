@@ -5,8 +5,10 @@
 // étapes, méthode + cas types, simulateur, aides (navy), espace client, contact, FAQ.
 // Les pages gardent leur logique (simulateur, barre mobile, CTA flottant, ContactForm).
 // 07/10/2026 (mobile) : comme l'accueil, sous 1024 px la photo s'affiche nette en bandeau en haut,
-// le haut de page est plus compact (filigrane et pastilles masqués, les pastilles reprenaient le
-// bandeau turquoise) pour que le bandeau turquoise soit visible dès l'arrivée. Ordinateur inchangé.
+// le haut de page est plus compact (filigrane masqué) pour que le bandeau turquoise soit visible dès l'arrivée.
+// 08/10/2026 (ordinateur) : pastilles retirées partout (elles reprenaient le bandeau turquoise, le prop pills
+// reste accepté mais n'est plus affiché), haut de page moins haut pour faire apparaître bandeau turquoise
+// et marques dès l'arrivée, filigrane déplacé sur la partie navy, hors de la photo.
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -21,10 +23,10 @@ export type Solution = { icon: LucideIcon; img: string; label: string; title: st
 const allerA = (id: string) => () => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
 export function HautOffre({
-  img, alt, eyeIcon: Eye, eyebrow, titre1, titre2, texte, cta, lien, pills, ctaRef,
+  img, alt, eyeIcon: Eye, eyebrow, titre1, titre2, texte, cta, lien, ctaRef,
 }: {
   img: string; alt: string; eyeIcon: LucideIcon; eyebrow: string; titre1: string; titre2: string; texte: string;
-  cta: string; lien: string; pills: string[]; ctaRef?: React.Ref<HTMLDivElement>;
+  cta: string; lien: string; pills?: string[]; ctaRef?: React.Ref<HTMLDivElement>;
 }) {
   return (
     <section className="relative overflow-hidden" style={{ backgroundColor: NAVY }}>
@@ -34,9 +36,9 @@ export function HautOffre({
         <div className="absolute inset-0 hidden lg:block" style={{ backgroundImage: "linear-gradient(90deg, #032b60 0%, rgba(3,43,96,0.88) 22%, rgba(3,43,96,0.35) 58%, rgba(3,43,96,0.05) 100%)" }} />
       </div>
       <div className="hidden lg:block">
-        <Filigrane style={{ left: "56%", top: "-16%", width: "min(720px, 110vw)" }} />
+        <Filigrane style={{ left: "-12%", top: "-18%", width: "min(680px, 55vw)" }} />
       </div>
-      <div className="relative mx-auto flex max-w-7xl flex-col justify-center px-6 pb-9 pt-1 sm:pb-14 lg:min-h-[min(84vh,780px)] lg:pb-20 lg:pt-40">
+      <div className="relative mx-auto flex max-w-7xl flex-col justify-center px-6 pb-9 pt-1 sm:pb-14 lg:min-h-[min(74vh,680px)] lg:pb-16 lg:pt-36">
         <p className="flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.12em] sm:text-[13px] sm:tracking-[0.2em]" style={{ color: BLEU_CLAIR }}>
           <Eye size={16} className="shrink-0" /> {eyebrow}
         </p>
@@ -52,11 +54,6 @@ export function HautOffre({
             <Phone size={17} /> {lien}
           </button>
         </div>
-        <ul className="mt-14 hidden flex-wrap gap-3 sm:flex">
-          {pills.map((p) => (
-            <li key={p} className="whitespace-nowrap rounded-full border px-5 py-2.5 text-[13px] font-semibold uppercase tracking-[0.1em] text-white" style={{ borderColor: "rgba(0,151,178,0.75)" }}>{p}</li>
-          ))}
-        </ul>
       </div>
     </section>
   );
