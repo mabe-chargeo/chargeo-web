@@ -13,6 +13,7 @@
 // défilent juste dessous), filigrane déplacé sur la partie navy, photo recadrée pour montrer les deux
 // bornes en entier. Hauteur identique à toutes les autres pages (74 vh, 680 px au plus ; mobile 240/330 px).
 // 08/10/2026 (audit de véracité) : plus de « loi LOM » pour les flottes, supervision et SAV formulés sans absolu.
+// 08/10/2026 : « habilitation maximale » retiré à la demande de Mathieu : qualification Qualifelec IRVE niveaux P1 et P2 (pas P3).
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -30,7 +31,7 @@ const CHIFFRES = [
   { icon: Clock, big: "24 h", label: "ouvrées pour vous rappeler" },
   { icon: BadgeEuro, big: "Prix ferme", label: "annoncé au devis" },
   { icon: FileCheck, big: "Primes", label: "et démarches gérées" },
-  { icon: ShieldCheck, big: "Qualifié IRVE", label: "habilitation maximale" },
+  { icon: ShieldCheck, big: "Qualifié IRVE", label: "Qualifelec P1 et P2" },
 ];
 
 const OFFRES = [
@@ -127,7 +128,7 @@ export default function Accueil() {
               </Reveal>
               <div className="mt-10 grid gap-5 sm:grid-cols-2">
                 {[
-                  { icon: ShieldCheck, label: "Habilitation maximale", title: "Qualifelec IRVE" },
+                  { icon: ShieldCheck, label: "Niveaux P1 et P2", title: "Qualifelec IRVE" },
                   { icon: Cpu, label: "Borne pilotée à distance", title: "Smart Charging" },
                 ].map((c, i) => (
                   <Reveal key={c.title} delay={150 + i * 80} className="h-full">
