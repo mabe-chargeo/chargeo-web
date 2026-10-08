@@ -1,4 +1,5 @@
 // Pied de page commun (charte 2026) : vrais liens, standard, filigrane é.
+// 08/10/2026 : « Entreprise en cours de création » remplacé par les infos du Kbis (SAS, capital, RCS).
 import React from "react";
 import Link from "next/link";
 
@@ -50,7 +51,7 @@ export function Footer() {
         </div>
         <div className="mt-14 flex flex-col gap-2 border-t border-white/15 pt-6 text-[14px] sm:flex-row sm:justify-between" style={{ color: "#a9d8e6" }}>
           <span>© {new Date().getFullYear()} CHARGéO · Installateur de bornes de recharge en Chablais et Haute-Savoie</span>
-          <span>Entreprise en cours de création</span>
+          <span>SAS au capital de 5 000 € · RCS Thonon-les-Bains 130 946 346</span>
         </div>
       </div>
     </footer>
