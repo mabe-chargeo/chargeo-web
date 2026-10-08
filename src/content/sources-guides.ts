@@ -54,6 +54,14 @@ const CCH_L113_13: Source = {
   label: "Code de la construction et de l'habitation, art. L113-13 : parkings non résidentiels existants, Légifrance",
   href: "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000041563731/2021-07-01",
 };
+const PARKINGS_PUBLICS: Source = {
+  label: "Ministère de la Transition écologique : développer les bornes de recharge (bâtiments et parkings publics)",
+  href: "https://www.ecologie.gouv.fr/politiques-publiques/developper-bornes-recharge-vehicules-electriques",
+};
+const EPBD: Source = {
+  label: "Directive (UE) 2024/1275 sur la performance énergétique des bâtiments, article 14, EUR-Lex",
+  href: "https://eur-lex.europa.eu/eli/dir/2024/1275/oj/fra",
+};
 const AFIR: Source = {
   label: "Règlement (UE) 2023/1804 (AFIR), article 5 : paiement et prix des bornes ouvertes au public, EUR-Lex",
   href: "https://eur-lex.europa.eu/eli/reg/2023/1804/oj",
@@ -67,5 +75,5 @@ export const SOURCES_GUIDES: Record<string, Source[]> = {
   "prime-advenir-copropriete-infrastructure-collective": [ADVENIR, LOI_1965, ENEDIS_COPRO],
   "flotte-entreprise-vehicules-electriques-taxe-incitative-2026": [TAI_LOI, TAI_BOFIP, URSSAF_AVANTAGES, ADVENIR],
   "recharge-salaries-borne-domicile-travail-urssaf": [URSSAF_AVANTAGES, FMD],
-  "borne-recharge-parking-hotel-commerce-obligations": [PARKINGS_NON_RESIDENTIELS, CCH_L113_13, AFIR],
+  "borne-recharge-parking-hotel-commerce-obligations": [PARKINGS_NON_RESIDENTIELS, CCH_L113_13, PARKINGS_PUBLICS, EPBD, AFIR],
 };

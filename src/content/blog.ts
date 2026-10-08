@@ -13,7 +13,8 @@
 // TVA 5,5 % aussi pour la prise renforcée (type E, NF C61-314, 14 A ou plus) : art. 30-0 H ann. IV, arrêté du 22/06/2023.
 // 08/10/2026 (guides Entreprises) : TAI = CIBS art. L421-132-2 à L421-132-5 (loi 2025-127 art. 28, loi 2026-103 art. 58), l'ancien quota L224-10 ne s'applique plus aux voitures.
 // Urssaf avantages en nature (page du 01/06/2026, arrêté du 25/02/2025) ; parkings non résidentiels = CCH L113-12 à L113-14 ; paiement des bornes publiques = AFIR art. 5.
-// Pas de montant de sanction parkings (non vérifié) : ne pas en ajouter.
+// Pas de montant de sanction parkings (non vérifié) : ne pas en ajouter. Exemption PME = bâtiment possédé ET occupé par une PME (CCH L113-14 2°).
+// Parkings publics des collectivités : loi Climat et résilience, art. 118. Échéance 2027 : directive (UE) 2024/1275, art. 14, transposition en cours au 08/10/2026.
 
 export type Block =
   | { type: "h2"; text: string }
@@ -144,9 +145,9 @@ export const articles: Article[] = [
     slug: "borne-recharge-parking-hotel-commerce-obligations",
     title: "Bornes de recharge sur un parking d'hôtel, de commerce ou de bureaux : obligations et paiement",
     description:
-      "Pré-équipement des parkings neufs, bornes obligatoires dans les grands parkings existants, règles de paiement quand la borne est ouverte aux clients : ce qu'il faut savoir avant d'équiper votre parking.",
+      "Pré-équipement des parkings neufs, bornes obligatoires dans les parkings existants de plus de 20 places, exception PME, règles de paiement quand la borne est ouverte aux clients et ce qui se prépare pour 2027.",
     date: "2026-10-08",
-    readingMinutes: 6,
+    readingMinutes: 7,
     category: "Entreprises",
     cover: { src: "/review-hotel.webp", alt: "Borne de recharge sur pied sur le parking d'un hôtel de montagne" },
     cta: { label: "Étudier mon parking", href: "/pro" },
@@ -155,15 +156,27 @@ export const articles: Article[] = [
       {
         type: "figure",
         src: "/blog/parking-obligations.svg",
-        alt: "Trois situations : parking neuf ou rénové de plus de 10 places, 20 % des places pré-équipées ; parking existant de plus de 20 places d'une grande entreprise, 1 point PMR plus 1 point par tranche de 20 places ; borne ouverte aux clients et payante, paiement sans abonnement et prix affiché avant la charge",
+        alt: "Trois situations : parking neuf ou rénové de plus de 10 places, 20 % des places pré-équipées ; parking existant de plus de 20 places hors PME propriétaire, 1 point PMR plus 1 point par tranche de 20 places ; borne ouverte aux clients et payante, paiement sans abonnement et prix affiché avant la charge",
         width: 720,
         height: 620,
       },
       { type: "h2", text: "Parking neuf ou rénovation importante : le pré-équipement" },
       { type: "p", text: "Pour un bâtiment non résidentiel neuf, ou qui fait l'objet d'une rénovation importante, dont le parking compte plus de 10 places, au moins 20 % des places doivent être pré-équipées : fourreaux et alimentation électrique prévus pour accueillir des bornes plus tard, compatibles avec le pilotage. Une partie de ces places doit être accessible aux personnes à mobilité réduite (2 %, au moins une), et au moins une place PMR doit déjà avoir sa borne." },
-      { type: "h2", text: "Parking existant : des bornes obligatoires depuis 2025, pour certains" },
-      { type: "p", text: "Depuis le 1er janvier 2025, les parkings de plus de 20 places des bâtiments non résidentiels existants doivent compter des points de recharge quand le bâtiment est possédé ou occupé par une grande entreprise (plus de 250 salariés et plus de 50 M€ de chiffre d'affaires ou 43 M€ de bilan). Le minimum : 1 point accessible PMR, plus 1 point par tranche de 20 places. Exemple : 95 places, 4 points dont 1 PMR." },
-      { type: "p", text: "Des exceptions existent, notamment quand les travaux de raccordement en amont du tableau coûtent plus cher que l'installation elle-même. Pour un hôtel indépendant ou un commerce de taille moyenne, il n'y a donc souvent pas d'obligation sur l'existant : la borne devient un choix commercial." },
+      { type: "h2", text: "Parking existant : des bornes obligatoires depuis 2025" },
+      { type: "p", text: "Depuis le 1er janvier 2025, un parking de plus de 20 places rattaché à un bâtiment non résidentiel existant (hôtel, commerce, bureaux) doit compter au moins 1 point de recharge sur une place accessible aux personnes à mobilité réduite, plus 1 point par tranche de 20 places supplémentaires. Exemple : 95 places, 4 points dont 1 PMR. La règle vaut aussi pour les bâtiments mixtes dont plus de 20 places sont à usage non résidentiel." },
+      { type: "p", text: "Les parkings publics de plus de 20 places gérés par une collectivité, en régie, en délégation de service public ou via un marché public, ont une obligation similaire depuis la loi Climat et résilience." },
+      { type: "h2", text: "Les exceptions : PME propriétaire et coût du réseau" },
+      {
+        type: "ul",
+        items: [
+          "Le bâtiment appartient à une PME et c'est cette même PME qui l'occupe : l'obligation ne s'applique pas. C'est souvent le cas d'un hôtel indépendant propriétaire de ses murs.",
+          "Le bâtiment est loué, ou appartient à une foncière ou à un groupe : l'exemption PME ne joue pas forcément, même si l'occupant est une petite entreprise. C'est le cas de nombreux commerces et immeubles de bureaux : vérifiez votre situation avec votre bailleur.",
+          "Les travaux de renforcement du réseau électrique en amont du tableau coûtent plus cher que l'installation des bornes : le nombre de points exigé est réduit d'autant.",
+        ],
+      },
+      { type: "callout", text: "Méfiez-vous des montants d'amende avancés ici ou là : le texte ne prévoit pas de sanction chiffrée spécifique. La vraie question est ailleurs : vos clients et vos salariés cherchent une borne, et la règle va se durcir." },
+      { type: "h2", text: "Ce qui se prépare pour 2027" },
+      { type: "p", text: "La directive européenne sur la performance énergétique des bâtiments (2024/1275) prévoit que, d'ici le 1er janvier 2027, les bâtiments non résidentiels existants de plus de 20 places disposent de 1 point de recharge pour 10 places, ou de fourreaux prêts sur au moins 50 % des places. En France, le projet de loi qui doit la transposer était encore en cours d'examen au Parlement à la date de ce guide : les seuils définitifs restent à confirmer. Équiper aujourd'hui avec une infrastructure évolutive évite de refaire les travaux demain." },
       { type: "h2", text: "Borne réservée ou ouverte au public ?" },
       { type: "p", text: "C'est la question qui change tout. Une borne accessible à tous les clients (parking d'hôtel, de magasin, de restaurant) est considérée comme ouverte au public, même sur un terrain privé. Une borne réservée à un cercle précis, par exemple les seuls salariés, ne l'est pas." },
       { type: "h2", text: "Les règles quand la borne est ouverte au public et payante" },
