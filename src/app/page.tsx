@@ -10,8 +10,8 @@
 // 07/10/2026 (mobile) : sous 1024 px, la photo s'affiche nette en bandeau en haut, le haut de page
 // est plus compact (filigrane masqué) pour que le bandeau turquoise soit visible dès l'arrivée.
 // 08/10/2026 (ordinateur) : pastilles retirées (elles reprenaient le bandeau turquoise, et les marques
-// défilent juste dessous), haut de page moins haut pour voir bandeau et marques dès l'arrivée,
-// filigrane déplacé sur la partie navy, photo recadrée pour montrer les deux bornes en entier.
+// défilent juste dessous), filigrane déplacé sur la partie navy, photo recadrée pour montrer les deux
+// bornes en entier. Hauteur identique à toutes les autres pages (74 vh, 680 px au plus ; mobile 240/330 px).
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -70,7 +70,7 @@ export default function Accueil() {
       <main>
         {/* HAUT DE PAGE : photo en bandeau net sur mobile, à droite sur ordinateur */}
         <section className="relative overflow-hidden" style={{ backgroundColor: NAVY }}>
-          <div className="relative h-[250px] w-full sm:h-[340px] lg:absolute lg:inset-y-0 lg:right-0 lg:h-auto lg:w-[60%]">
+          <div className="relative h-[240px] w-full sm:h-[330px] lg:absolute lg:inset-y-0 lg:right-0 lg:h-auto lg:w-[60%]">
             <Image src="/hero-chargeo.webp" alt="Borne de recharge installée par CHARGéO" fill priority fetchPriority="high" sizes="(max-width: 1024px) 100vw, 60vw" className="object-cover" style={{ objectPosition: "15% center" }} />
             <div className="absolute inset-0 lg:hidden" style={{ backgroundImage: "linear-gradient(180deg, rgba(3,43,96,0.70) 0%, rgba(3,43,96,0.10) 38%, rgba(3,43,96,0.20) 62%, #032b60 100%)" }} />
             <div className="absolute inset-0 hidden lg:block" style={{ backgroundImage: "linear-gradient(90deg, #032b60 0%, rgba(3,43,96,0.88) 22%, rgba(3,43,96,0.35) 58%, rgba(3,43,96,0.05) 100%)" }} />
@@ -78,7 +78,7 @@ export default function Accueil() {
           <div className="hidden lg:block">
             <Filigrane style={{ left: "-12%", top: "-18%", width: "min(680px, 55vw)" }} />
           </div>
-          <div className="relative mx-auto flex max-w-7xl flex-col justify-center px-6 pb-9 pt-1 sm:pb-14 lg:min-h-[min(76vh,700px)] lg:pb-16 lg:pt-36">
+          <div className="relative mx-auto flex max-w-7xl flex-col justify-center px-6 pb-9 pt-1 sm:pb-14 lg:min-h-[min(74vh,680px)] lg:pb-16 lg:pt-36">
             <h1 className="text-[12px] font-extrabold uppercase tracking-[0.12em] sm:text-[13px] sm:tracking-[0.2em]" style={{ color: BLEU_CLAIR }}>Installateur de bornes de recharge à Thonon-les-Bains et dans le Chablais</h1>
             <p className="mt-3 text-[36px] font-bold leading-[1.08] tracking-[-0.02em] text-white sm:mt-6 sm:text-[64px] lg:text-[80px]">
               Passez à l’électrique,<br className="hidden sm:block" /> l’esprit léger.
