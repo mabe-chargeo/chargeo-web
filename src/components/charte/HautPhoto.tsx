@@ -2,7 +2,7 @@
 // Utilisable depuis une page serveur (Guides, articles) comme depuis une page client.
 // 07/10/2026 (mobile) : sous 1024 px, la photo s'affiche nette en bandeau en haut (dégradé vers le navy),
 // le filigrane est masqué et le haut de page est plus compact (hauteur minimale réservée à l'ordinateur).
-// Version ordinateur inchangée.
+// 08/10/2026 (ordinateur) : le filigrane passe sur la partie navy, derrière le texte, pour ne plus couvrir la photo.
 import React from "react";
 import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
@@ -26,7 +26,7 @@ export function HautPhoto({
         <div className="absolute inset-0 hidden lg:block" style={{ backgroundImage: "linear-gradient(90deg, #032b60 0%, rgba(3,43,96,0.88) 22%, rgba(3,43,96,0.35) 58%, rgba(3,43,96,0.05) 100%)" }} />
       </div>
       <div className="hidden lg:block">
-        <Filigrane style={{ left: "56%", top: "-16%", width: "min(720px, 110vw)" }} />
+        <Filigrane style={{ left: "-12%", top: "-18%", width: "min(680px, 55vw)" }} />
       </div>
       <div className="relative mx-auto flex max-w-7xl flex-col justify-center px-6 pb-10 pt-1 sm:pb-14 lg:min-h-[var(--haut-min)] lg:pb-20 lg:pt-40" style={{ "--haut-min": minH } as React.CSSProperties}>
         <p className="flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.12em] sm:text-[13px] sm:tracking-[0.2em]" style={{ color: BLEU_CLAIR }}>
