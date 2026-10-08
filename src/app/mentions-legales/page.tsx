@@ -10,8 +10,9 @@ import { HautPhoto } from '@/components/charte/HautPhoto';
 // site (Tag Manager qui charge Analytics et Ads, après accord), titre et adresse
 // canonique propres à la page.
 // 07/10/2026 : prénom du directeur de la publication corrigé (Mathieu, un seul t).
-// 08/10/2026 (audit) : adresse légale actuelle de Vercel Inc. (Covina). À compléter dès réception du Kbis :
-// forme juridique, capital, SIREN/RCS, TVA intracommunautaire, médiateur de la consommation, assurance décennale.
+// 08/10/2026 (audit) : adresse légale actuelle de Vercel Inc. (Covina).
+// 08/10/2026 (Kbis du 08/10/2026) : SAS à associé unique, capital 5 000 €, RCS Thonon-les-Bains 130 946 346.
+// Reste à ajouter : TVA intracommunautaire, médiateur de la consommation, assurance décennale, numéro Qualifelec.
 export const metadata: Metadata = {
   title: 'Mentions légales et confidentialité | CHARGÉO',
   description: "Mentions légales, politique de confidentialité et cookies du site CHARGéO, installateur de bornes de recharge à Thonon-les-Bains.",
@@ -62,9 +63,10 @@ export default function MentionsLegalesPage() {
             <Partie label="Mentions légales">
               <Bloc titre="1. Éditeur et hébergement">
                 <p>
-                  <strong>Propriétaire / Éditeur :</strong> CHARGéO (Entreprise en cours de création)<br />
-                  <strong>Siège social :</strong> 89, chemin de la Ballastière, 74200 THONON-LES-BAINS<br />
-                  <strong>Directeur de la publication :</strong> Mathieu BELENGRI<br />
+                  <strong>Éditeur :</strong> CHARGéO, société par actions simplifiée à associé unique au capital de 5 000 €<br />
+                  <strong>Immatriculation :</strong> RCS Thonon-les-Bains 130 946 346<br />
+                  <strong>Siège social :</strong> 89, chemin de la Ballastière, 74200 Thonon-les-Bains<br />
+                  <strong>Président et directeur de la publication :</strong> Mathieu BELENGRI<br />
                   <strong>Contact :</strong> contact@chargeo.fr | 04 85 69 22 04
                 </p>
                 <p>
