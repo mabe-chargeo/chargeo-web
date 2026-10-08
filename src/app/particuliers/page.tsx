@@ -3,6 +3,7 @@
 // Page Particuliers, charte 2026 (gabarit commun des offres).
 // Inchangé : simulateur, barre mobile, CTA flottant, ContactForm typeClient="Particulier" et texte de simulation.
 // 07/10/2026 (images) : les cas types n'utilisent plus la photo du haut de page.
+// 08/10/2026 (audit de véracité) : Type 2 (plus de « 100 % »), rôle de la qualification IRVE, km/h réalistes, ADVENIR en % des coûts.
 import React, { useState, useEffect, useRef } from 'react';
 import {
   MapPin, Home, Building, Plug, Calendar, BadgeEuro, Receipt, Clock, Award, Wrench, ShieldCheck,
@@ -53,7 +54,7 @@ export default function ParticuliersPage() {
       image: "/photo-maison-crepuscule.webp"
     },
     {
-      text: "Aller-retour Thonon–Genève chaque jour : la wallbox récupère environ 40 km par heure, la batterie est pleine le matin, au tarif des heures creuses.",
+      text: "Aller-retour Thonon–Genève chaque jour : la wallbox 7,4 kW récupère environ 35 à 45 km par heure, le trajet du lendemain est rechargé pendant la nuit, au tarif des heures creuses.",
       author: "Frontalier",
       location: "Chablais",
       image: "/photo-voiture-garage-nuit.webp"
@@ -67,10 +68,10 @@ export default function ParticuliersPage() {
   ];
 
   const faqs = [
-    { q: "Quelles sont les aides de l'État ?", a: "En maison comme en appartement, l'installation de votre borne par un installateur qualifié IRVE bénéficie d'une TVA réduite à 5,5 % (le crédit d'impôt a disparu au 1er janvier 2026). En appartement, la prime ADVENIR peut financer en plus 50 % de votre borne, jusqu'à 1 000 € HT, selon le raccordement de votre place (services généraux de l'immeuble ou point de livraison dédié). Nous gérons tout l'administratif." },
+    { q: "Quelles sont les aides de l'État ?", a: "En maison comme en appartement, l'installation de votre borne dans votre logement par un installateur qualifié IRVE bénéficie d'une TVA réduite à 5,5 %, sous conditions (le crédit d'impôt a disparu au 1er janvier 2026). En appartement, la prime ADVENIR peut financer en plus 50 % du coût de votre borne, jusqu'à 1 000 € HT, selon le raccordement de votre place (services généraux de l'immeuble ou point de livraison dédié). Nous gérons l'administratif." },
     { q: "Quel est le délai d'installation ?", a: "Après votre demande de devis, une visite technique gratuite est planifiée. L'installation se fait généralement sous 10 à 15 jours après validation du devis." },
-    { q: "Compatibilité véhicule ?", a: "Standard européen Type 2, compatible avec 100% des véhicules électriques et hybrides du marché." },
-    { q: "Qualification IRVE ?", a: "Il s'agit d'une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7kW. Elle garantit votre sécurité, la validité de votre assurance habitation et la garantie de votre véhicule." }
+    { q: "Compatibilité véhicule ?", a: "Nos bornes utilisent le Type 2, le standard européen de recharge à la maison : il équipe la quasi-totalité des voitures électriques et hybrides rechargeables vendues en Europe. Nous vérifions la fiche technique de votre véhicule lors de la visite." },
+    { q: "Qualification IRVE ?", a: "C'est une qualification obligatoire pour installer des points de charge dont la puissance est supérieure à 3,7 kW. Elle atteste de la compétence de l'installateur et conditionne la TVA réduite. Sans elle, vous prenez un risque en cas de sinistre." }
   ];
 
   return (
@@ -93,7 +94,7 @@ export default function ParticuliersPage() {
           eyebrow="Intervention sur le Chablais et la Haute-Savoie"
           titre1="L’installation"
           titre2="clé en main."
-          texte="En maison individuelle ou en appartement (droit à la prise), partez l’esprit léger. Nous gérons 100 % des démarches administratives, juridiques et techniques."
+          texte="En maison individuelle ou en appartement (droit à la prise), partez l’esprit léger. Nous gérons les démarches administratives, juridiques et techniques."
           cta="Calculer mes économies"
           lien="Ou demander à être rappelé"
           pills={["Visite technique gratuite", "Prix ferme", "Qualifié IRVE"]}
@@ -127,7 +128,7 @@ export default function ParticuliersPage() {
             },
             {
               icon: Plug, img: "/review-particulier-2.webp", label: "Copropriété équipée", title: "Raccorder ma place",
-              text: "Votre immeuble a déjà son infrastructure collective ? Nous raccordons votre place et posons votre borne, sans nouveaux travaux dans les parties communes.",
+              text: "Votre immeuble a déjà son infrastructure collective ? Nous raccordons votre place et posons votre borne, sans gros travaux dans les parties communes.",
               points: ["Raccordement à l’artère existante", "Borne et sous-compteur posés", "Prix ferme par place"],
               cta: "Demander mon raccordement",
             },
@@ -146,7 +147,7 @@ export default function ParticuliersPage() {
           texte="CHARGéO repose sur une transparence absolue. Nos experts IRVE locaux se déplacent gratuitement pour vous fournir un devis précis et sans surprise."
           lignes={[
             { icon: MapPin, t: "Vos experts locaux", d: "Une équipe d’artisans qualifiés IRVE basée à Thonon-les-Bains, pas une plateforme nationale." },
-            { icon: Award, t: "Qualification IRVE", d: "Obligatoire au-delà de 3,7 kW, indispensable pour votre assurance." },
+            { icon: Award, t: "Qualification IRVE", d: "Obligatoire au-delà de 3,7 kW, et condition de la TVA réduite." },
             { icon: Wrench, t: "SAV et maintenance", d: "Notre équipe locale intervient rapidement et suit tout notre parc installé." },
           ]}
         >
@@ -162,8 +163,8 @@ export default function ParticuliersPage() {
           titre="Les aides, nous les montons pour vous."
           texte="Vous n’avez rien à remplir : nous appliquons la TVA réduite et montons votre dossier de prime quand vous y avez droit."
           cartes={[
-            { icon: Receipt, t: "TVA réduite à 5,5 %", d: "Sur l’installation de votre borne par un installateur qualifié IRVE, en maison comme en appartement." },
-            { icon: BadgeEuro, t: "Prime ADVENIR en appartement", d: "50 % de votre borne, jusqu’à 1 000 € HT, selon le raccordement de votre place. Nous montons le dossier." },
+            { icon: Receipt, t: "TVA réduite à 5,5 %", d: "Sur l’installation de votre borne dans votre logement par un installateur qualifié IRVE, en maison comme en appartement, sous conditions." },
+            { icon: BadgeEuro, t: "Prime ADVENIR en appartement", d: "50 % du coût de votre borne, jusqu’à 1 000 € HT, selon le raccordement de votre place. Nous montons le dossier." },
             { icon: ShieldCheck, t: "Conformité certifiée", d: "De la visite technique jusqu’à l’attestation de conformité électrique, tout est fait dans les règles." },
           ]}
         />

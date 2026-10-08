@@ -3,6 +3,7 @@
 // Page Copropriétés, charte 2026 (gabarit commun des offres).
 // Inchangé : simulateur ADVENIR, barre mobile, CTA flottant, ContactForm typeClient="Copropriété" et texte de simulation.
 // 07/10/2026 (images) : plus aucune photo en double sur la page (cartes, cas types, haut de page).
+// 08/10/2026 (audit de véracité) : ADVENIR = « 50 % des coûts éligibles, dans la limite de… » ; plus de promesse absolue sur la disjonction ni sur la conformité.
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Users, Building, Zap, Plug, BadgeEuro, PiggyBank, ShieldCheck, Award, Leaf, Landmark,
@@ -47,13 +48,13 @@ export default function CoproprietePage() {
   // Exemples de projets types (pas des avis clients). À remplacer par de vrais avis, avec variant="avis", dès les premiers chantiers.
   const casTypes = [
     {
-      text: "Résidence de 30 places : artère posée une fois pour toutes, 3 résidents raccordés dès le départ. ADVENIR finance 50 % de l'infrastructure, jusqu'à 12 500 € HT.",
+      text: "Résidence de 30 places : artère posée une fois pour toutes, 3 résidents raccordés dès le départ. ADVENIR peut financer 50 % des coûts éligibles de l'infrastructure, dans la limite de 12 500 € HT.",
       author: "Infrastructure collective",
       location: "Thonon-les-Bains",
       image: "/photo-technicien-tableau.webp"
     },
     {
-      text: "Un résident veut sa borne : on vérifie la puissance, on prépare le dossier pour le syndic, et la recharge est pilotée pour ne jamais faire disjoncter l'immeuble.",
+      text: "Un résident veut sa borne : on vérifie la puissance, on prépare le dossier pour le syndic, et la recharge est pilotée pour rester dans la puissance disponible de l'immeuble.",
       author: "Droit à la prise",
       location: "Évian-les-Bains",
       image: "/photo-garage-nuit.webp"
@@ -67,10 +68,10 @@ export default function CoproprietePage() {
   ];
 
   const faqs = [
-    { q: "L'infrastructure IRVE collective a-t-elle un coût pour l'immeuble ?", a: "Elle est subventionnée à 50 % par la prime ADVENIR, jusqu'à 12 500 € HT pour un parking jusqu'à 100 places (+125 € HT par place au-delà), pour un vote en AG à partir du 1er avril 2026. Une surprime jusqu'à 8 000 € HT couvre les travaux en extérieur. Le reste à charge éventuel dépend de la complexité technique du parking et de sa configuration." },
+    { q: "L'infrastructure IRVE collective a-t-elle un coût pour l'immeuble ?", a: "La prime ADVENIR finance 50 % des coûts éligibles, dans la limite de 12 500 € HT pour un parking jusqu'à 100 places (+125 € HT par place au-delà), pour un vote en AG à partir du 1er avril 2026 et sous réserve de validation du dossier avant travaux. Les travaux en extérieur peuvent être aidés à 50 % en plus, jusqu'à 8 000 € HT. Le reste à charge dépend de la complexité technique du parking et de sa configuration." },
     { q: "Comment est facturée l'électricité ?", a: "Notre solution de supervision gère tout de A à Z. Chaque résident équipé dispose de son propre sous-compteur intelligent. Les factures lui sont envoyées directement (prélèvement automatique), en fonction de sa consommation réelle." },
     { q: "Et si l'infrastructure collective n'est pas votée en AG ?", a: "En dernier recours, il est possible d'envisager un branchement individuel 'Droit à la Prise'. C'est une démarche légale où le résident paie son propre tirage, mais elle est souvent moins évolutive que le collectif." },
-    { q: "L'immeuble risque-t-il de disjoncter ?", a: "Absolument pas. L'infrastructure collective intègre un système de délestage dynamique (Load Balancing) qui répartit intelligemment la puissance disponible entre tous les véhicules branchés." }
+    { q: "L'immeuble risque-t-il de disjoncter ?", a: "Le risque est maîtrisé. L'infrastructure collective intègre un système de délestage dynamique (Load Balancing) qui répartit la puissance disponible entre les véhicules branchés : la recharge s'adapte pour ne pas dépasser la puissance prévue, et l'installation est dimensionnée lors de l'étude." }
   ];
 
   return (
@@ -80,7 +81,7 @@ export default function CoproprietePage() {
       <BarreMobile
         visible={showFloatingCta}
         label="Aides possibles"
-        valeur={`+${Math.round(subventions).toLocaleString('fr-FR')} € d’aides`}
+        valeur={`jusqu’à ${Math.round(subventions).toLocaleString('fr-FR')} €`}
         bouton="Étude AG"
         onClick={versFormulaire}
       />
@@ -101,8 +102,8 @@ export default function CoproprietePage() {
         />
 
         <BandeauChiffres chiffres={[
-          { icon: BadgeEuro, big: "50 %", label: "financés par ADVENIR" },
-          { icon: PiggyBank, big: "12 500 € HT", label: "de prime jusqu’à 100 places" },
+          { icon: BadgeEuro, big: "50 %", label: "des coûts éligibles (ADVENIR)" },
+          { icon: PiggyBank, big: "12 500 € HT", label: "de prime maximale jusqu’à 100 places" },
           { icon: Building, big: "Propriétaire", label: "la copro possède son réseau" },
           { icon: ShieldCheck, big: "Aucun", label: "abonnement imposé" },
         ]} />
@@ -115,8 +116,8 @@ export default function CoproprietePage() {
           solutions={[
             {
               icon: Building, img: "/review-syndic.webp", label: "Pour tout l’immeuble", title: "Infrastructure collective",
-              text: "L’artère est posée une fois pour toutes. Chaque résident se raccorde ensuite quand il le souhaite, sans nouveaux travaux dans les parties communes.",
-              points: ["Prime ADVENIR jusqu’à 12 500 € HT", "Load Balancing : l’immeuble ne disjoncte pas", "La copropriété reste propriétaire"],
+              text: "L’artère est posée une fois pour toutes. Chaque résident se raccorde ensuite quand il le souhaite, sans gros travaux dans les parties communes.",
+              points: ["Prime ADVENIR jusqu’à 12 500 € HT", "Load Balancing sur la puissance de l’immeuble", "La copropriété reste propriétaire"],
               cta: "Chiffrer l’infrastructure",
             },
             {
@@ -127,7 +128,7 @@ export default function CoproprietePage() {
             },
             {
               icon: Plug, img: "/photo-borne-pilier.webp", label: "Pour un résident", title: "Borne du résident",
-              text: "Droit à la prise ou raccordement à l’infrastructure existante : nous préparons le dossier pour le syndic et garantissons la conformité.",
+              text: "Droit à la prise ou raccordement à l’infrastructure existante : nous préparons le dossier pour le syndic et réalisons une installation conforme aux normes.",
               points: ["Dossier technique pour le syndic", "Sous-compteur individuel", "Recharge pilotée sur la puissance de l’immeuble"],
               cta: "Équiper une place",
             },
@@ -137,7 +138,7 @@ export default function CoproprietePage() {
         <Etapes etapes={[
           { t: "Étude gratuite", d: "Visite du parking, puissance disponible, nombre de places : le chiffrage est précis." },
           { t: "Vote en AG", d: "Nous présentons le projet aux copropriétaires et répondons aux questions techniques." },
-          { t: "Travaux", d: "Pose de l’infrastructure, suivi de chantier rigoureux, conformité garantie." },
+          { t: "Travaux", d: "Pose de l’infrastructure, suivi de chantier rigoureux, installation conforme aux normes." },
           { t: "Raccordement des résidents", d: "Chaque résident se raccorde à son rythme, avec son sous-compteur." },
         ]} />
 
@@ -162,8 +163,8 @@ export default function CoproprietePage() {
           titre="Indépendance totale, aides comprises."
           texte="Fuyez les abonnements sur 15 ans : la copropriété investit, possède son propre réseau et mobilise les aides pour réduire le reste à charge."
           cartes={[
-            { icon: BadgeEuro, t: "ADVENIR infrastructure", d: "50 % jusqu’à 12 500 € HT jusqu’à 100 places, +125 € HT par place au-delà, pour un vote en AG à partir du 1er avril 2026." },
-            { icon: Leaf, t: "Surprime extérieur", d: "Jusqu’à 8 000 € HT pour les travaux de voirie et de cheminement en extérieur." },
+            { icon: BadgeEuro, t: "ADVENIR infrastructure", d: "50 % des coûts éligibles, dans la limite de 12 500 € HT jusqu’à 100 places (+125 € HT par place au-delà), pour un vote en AG à partir du 1er avril 2026." },
+            { icon: Leaf, t: "Surprime extérieur", d: "50 % des travaux de voirie et de cheminement en extérieur, jusqu’à 8 000 € HT." },
             { icon: Landmark, t: "Sérénité des syndics", d: "Devis standardisés, quote-part collective et individuelle claire : fin de la surcharge administrative." },
           ]}
         />

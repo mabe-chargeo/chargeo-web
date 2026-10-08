@@ -12,6 +12,8 @@
 // 08/10/2026 (ordinateur) : pastilles retirées (elles reprenaient le bandeau turquoise, et les marques
 // défilent juste dessous), filigrane déplacé sur la partie navy, photo recadrée pour montrer les deux
 // bornes en entier. Hauteur identique à toutes les autres pages (74 vh, 680 px au plus ; mobile 240/330 px).
+// 08/10/2026 (audit de véracité) : plus de « loi LOM » pour les flottes, supervision et SAV formulés sans absolu.
+// 08/10/2026 : « habilitation maximale » retiré à la demande de Mathieu : qualification Qualifelec IRVE niveaux P1 et P2 (pas P3).
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -29,7 +31,7 @@ const CHIFFRES = [
   { icon: Clock, big: "24 h", label: "ouvrées pour vous rappeler" },
   { icon: BadgeEuro, big: "Prix ferme", label: "annoncé au devis" },
   { icon: FileCheck, big: "Primes", label: "et démarches gérées" },
-  { icon: ShieldCheck, big: "Qualifié IRVE", label: "habilitation maximale" },
+  { icon: ShieldCheck, big: "Qualifié IRVE", label: "Qualifelec P1 et P2" },
 ];
 
 const OFFRES = [
@@ -45,7 +47,7 @@ const OFFRES = [
   },
   {
     icon: Briefcase, img: "/photo-parking-entreprise.webp", href: "/pro", label: "Flottes, tertiaire, salariés", title: "Entreprises",
-    text: "Électrifiez votre flotte en respectant la loi LOM, maîtrisez votre puissance avec le Smart Charging et automatisez vos refacturations.",
+    text: "Électrifiez votre flotte et vos parkings dans le respect des obligations en vigueur, maîtrisez votre puissance avec le Smart Charging et automatisez vos refacturations.",
     cta: "Voir les offres pro",
   },
 ];
@@ -57,7 +59,7 @@ const PORTAIL = [
 ];
 
 const ENGAGEMENTS = [
-  { icon: Wifi, title: "Supervision en temps réel", text: "Nous surveillons votre borne à distance et réglons les anomalies avant que vous ne les remarquiez." },
+  { icon: Wifi, title: "Supervision en temps réel", text: "Nous surveillons votre borne à distance pour repérer les anomalies, souvent avant que vous ne les remarquiez." },
   { icon: ShieldCheck, title: "Un SAV qui répond", text: "Vous parlez aux techniciens qui ont posé votre matériel. Pas de centre d’appel à l’étranger." },
   { icon: CheckCircle, title: "Intervention locale", text: "Ancrés en Haute-Savoie : rappel sous 24 h ouvrées et intervention rapide de nos techniciens." },
 ];
@@ -84,7 +86,7 @@ export default function Accueil() {
               Passez à l’électrique,<br className="hidden sm:block" /> l’esprit léger.
             </p>
             <p className="mt-4 max-w-[44rem] text-[16px] leading-relaxed sm:mt-8 sm:text-[20px]" style={{ color: BLEU_CLAIR }}>
-              Particulier pressé, entreprise soumise à la loi LOM ou syndic de copropriété : nous prenons en charge l’installation, les démarches et les subventions.
+              Particulier pressé, entreprise qui équipe sa flotte ou syndic de copropriété : nous prenons en charge l’installation, les démarches et les subventions.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4 sm:mt-10 sm:gap-y-5">
               <a href="#expertises" className="group inline-flex items-center gap-3 whitespace-nowrap rounded-full px-7 py-4 text-[15px] font-semibold text-white transition-transform hover:scale-[1.03] sm:px-8 sm:text-[17px]" style={{ backgroundColor: ORANGE, boxShadow: "0 8px 22px rgba(255,107,0,0.28)" }}>
@@ -126,7 +128,7 @@ export default function Accueil() {
               </Reveal>
               <div className="mt-10 grid gap-5 sm:grid-cols-2">
                 {[
-                  { icon: ShieldCheck, label: "Habilitation maximale", title: "Qualifelec IRVE" },
+                  { icon: ShieldCheck, label: "Niveaux P1 et P2", title: "Qualifelec IRVE" },
                   { icon: Cpu, label: "Borne pilotée à distance", title: "Smart Charging" },
                 ].map((c, i) => (
                   <Reveal key={c.title} delay={150 + i * 80} className="h-full">
@@ -247,7 +249,7 @@ export default function Accueil() {
             <Barre />
             <Reveal><Titre light className="max-w-[20ch]">Oubliez l’angoisse de la panne, on gère la technique.</Titre></Reveal>
             <Reveal delay={100}>
-              <p className="mt-6 max-w-[40rem] text-[18px] leading-relaxed" style={{ color: BLEU_CLAIR }}>L’installation n’est que le début : que ce soit pour votre départ du matin ou la disponibilité de votre flotte, nous prenons en charge toute la responsabilité technique.</p>
+              <p className="mt-6 max-w-[40rem] text-[18px] leading-relaxed" style={{ color: BLEU_CLAIR }}>L’installation n’est que le début : que ce soit pour votre départ du matin ou la disponibilité de votre flotte, nous assurons le suivi technique de votre installation.</p>
             </Reveal>
             <div className="mt-14 grid gap-6 md:grid-cols-3">
               {ENGAGEMENTS.map((e, i) => (

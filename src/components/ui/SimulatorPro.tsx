@@ -13,7 +13,7 @@ export function SimulatorPro({ onResultChange }: { onResultChange?: (val: number
   const [vehicules, setVehicules] = useState(5);
   const [kmAn, setKmAn] = useState(25000);
   const [consoThermique, setConsoThermique] = useState(6.5);
-  const [prixCarburant, setPrixCarburant] = useState(1.75);
+  const [prixCarburant, setPrixCarburant] = useState(2.2);
   const [prixKwh, setPrixKwh] = useState(0.2);
   const [consoVe, setConsoVe] = useState(18);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -82,7 +82,7 @@ export function SimulatorPro({ onResultChange }: { onResultChange?: (val: number
               <div className="flex justify-between gap-4"><span style={{ color: BLEU_CLAIR }}>Carburant aujourd’hui</span><span className="font-semibold text-white">{eur(results.coutCarburant)} € / an</span></div>
               <div className="flex justify-between gap-4"><span style={{ color: BLEU_CLAIR }}>Électricité demain</span><span className="font-semibold text-white">{eur(results.coutElec)} € / an</span></div>
             </div>
-            <p className="mt-5 text-[13px] leading-relaxed" style={{ color: BLEU_CLAIR }}>Estimation indicative hors avantages fiscaux (ex-TVS, amortissement, TVA), à affiner lors de l’audit.</p>
+            <p className="mt-5 text-[13px] leading-relaxed" style={{ color: BLEU_CLAIR }}>Estimation indicative, pas une économie garantie. Carburant par défaut : environ la moyenne nationale début octobre 2026 (gazole 2,36 €/L, SP95-E10 2,14 €/L, source ministère), modifiable. Hors pertes de recharge (environ 10 %), abonnement et avantages fiscaux, à affiner lors de l’audit.</p>
           </div>
           <button
             type="button"

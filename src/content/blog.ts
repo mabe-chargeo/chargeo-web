@@ -11,6 +11,11 @@
 // Crédit d'impôt borne (art. 200 quater C CGI) : supprimé pour les dépenses payées depuis le 01/01/2026 (service-public.gouv.fr).
 // ADVENIR (advenir.mobi, vérifié le 07/10/2026) : pavillons non éligibles ; côté entreprises, seules les flottes de poids lourds et d'autocars.
 // TVA 5,5 % aussi pour la prise renforcée (type E, NF C61-314, 14 A ou plus) : art. 30-0 H ann. IV, arrêté du 22/06/2023.
+// 08/10/2026 (guides Entreprises) : TAI = CIBS art. L421-132-2 à L421-132-5 (loi 2025-127 art. 28, loi 2026-103 art. 58), l'ancien quota L224-10 ne s'applique plus aux voitures.
+// Urssaf avantages en nature (page du 01/06/2026, arrêté du 25/02/2025) ; parkings non résidentiels = CCH L113-12 à L113-14 ; paiement des bornes publiques = AFIR art. 5.
+// Pas de montant de sanction parkings (non vérifié) : ne pas en ajouter. Exemption PME = bâtiment possédé ET occupé par une PME (CCH L113-14 2°).
+// 08/10/2026 (audit de véracité) : formulations absolues retirées, ADVENIR = « 50 % des coûts éligibles, dans la limite de… », AFIR 2027 = RTE-T ou aire sûre.
+// Parkings publics des collectivités : loi Climat et résilience, art. 118. Échéance 2027 : directive (UE) 2024/1275, art. 14, transposition en cours au 08/10/2026.
 
 export type Block =
   | { type: "h2"; text: string }
@@ -33,6 +38,173 @@ export interface Article {
 }
 
 export const articles: Article[] = [
+  {
+    slug: "flotte-entreprise-vehicules-electriques-taxe-incitative-2026",
+    title: "Flotte d'entreprise et véhicules électriques en 2026 : ce qui a remplacé les quotas de la loi LOM",
+    description:
+      "Flotte de 100 véhicules ou plus ? Les quotas de la loi LOM ont laissé place à la taxe annuelle incitative (TAI). Objectifs 2026, calcul de la taxe, fiscalité du véhicule électrique et recharge sur site.",
+    date: "2026-10-08",
+    readingMinutes: 6,
+    category: "Entreprises",
+    cover: { src: "/photo-voiture-sous-sol.webp", alt: "Voiture électrique d'entreprise en charge dans un parking souterrain" },
+    cta: { label: "Équiper ma flotte", href: "/pro" },
+    blocks: [
+      { type: "p", text: "Pendant des années, on a parlé des quotas de la loi LOM : 10 %, puis 20 %, puis 40 % de véhicules à faibles émissions dans les renouvellements de flotte. Depuis le 1er mars 2025, ce n'est plus la bonne règle. Les quotas ont été remplacés par une taxe : la taxe annuelle incitative, ou TAI. Voici ce qui change pour votre flotte, et ce que ça implique pour la recharge." },
+      { type: "h2", text: "Qui est concerné ?" },
+      { type: "p", text: "La TAI vise les entreprises dont la flotte compte au moins 100 véhicules sur l'année : voitures de tourisme et certaines camionnettes. Le seuil se calcule sur la durée d'utilisation dans l'année, pas à une date précise : un véhicule utilisé six mois compte pour moitié. En dessous de 100 véhicules, pas de TAI, mais les avantages fiscaux de l'électrique décrits plus bas restent valables." },
+      { type: "h2", text: "Les objectifs à atteindre, année par année" },
+      {
+        type: "figure",
+        src: "/blog/tai-objectifs.svg",
+        alt: "Objectifs de la taxe annuelle incitative : 15 % de véhicules à faibles émissions en 2025, 18 % en 2026, 25 % en 2027, 30 % en 2028, 35 % en 2029 et 48 % en 2030",
+        width: 720,
+        height: 600,
+      },
+      { type: "p", text: "Chaque année, une part minimale de véhicules à faibles émissions doit figurer dans la flotte : 18 % en 2026, 25 % en 2027, et jusqu'à 48 % en 2030. Seuls comptent les véhicules entrés récemment dans la flotte (au plus tôt la troisième année civile précédente) : ce sont donc les renouvellements qui font la différence." },
+      { type: "h2", text: "Comment la taxe est calculée" },
+      { type: "p", text: "Ce n'est pas une amende fixe par véhicule manquant. La loi applique une formule : un tarif (4 000 € en 2026, 5 000 € à partir de 2027), multiplié par l'écart entre l'objectif et la part réellement atteinte, puis par un taux de renouvellement de la flotte. Si l'objectif est atteint, la taxe est nulle. Depuis le 1er mars 2026, certains véhicules à faibles émissions comptent davantage dans le calcul (loi de finances pour 2026)." },
+      { type: "callout", text: "La TAI se déclare en janvier de l'année suivante, en annexe de la déclaration de TVA (3310-A, ou 3517-S au régime simplifié). Le montant exact dépend de votre parc, des durées d'utilisation et des renouvellements : faites-le valider par votre expert-comptable." },
+      { type: "h2", text: "Ce que l'électrique change sur la fiscalité du véhicule" },
+      {
+        type: "ul",
+        items: [
+          "Les deux taxes annuelles sur les véhicules de tourisme (taxe CO2 et taxe polluants, l'ancienne TVS) ne s'appliquent pas aux véhicules 100 % électriques.",
+          "Amortissement : pour une voiture particulière électrique (moins de 20 g de CO2/km), l'amortissement est déductible dans la limite de 30 000 €, le plafond le plus élevé.",
+          "Avantage en nature du salarié : pour un véhicule 100 % électrique attribué depuis le 1er février 2025 et respectant le score environnemental, abattement de 70 %, dans la limite de 4 641,60 € par an en 2026. L'électricité payée par l'entreprise n'entre pas dans l'avantage.",
+          "La TVA sur l'électricité de recharge suit les règles habituelles : elle est déductible pour un usage professionnel, sur facture.",
+        ],
+      },
+      { type: "h2", text: "Pas de prime ADVENIR pour les voitures d'entreprise" },
+      { type: "p", text: "En 2026, le programme ADVENIR ne finance plus les bornes des flottes de voitures et d'utilitaires légers : côté entreprises, il est réservé aux poids lourds et aux autocars. Le crédit d'impôt borne ne concernait que les particuliers et a pris fin le 31 décembre 2025. Une borne posée sur un site professionnel est facturée avec une TVA à 20 %, récupérable dans les conditions habituelles. Le vrai levier, c'est donc la maîtrise du coût d'installation et de l'électricité." },
+      { type: "h2", text: "Recharger toute la flotte sans augmenter l'abonnement" },
+      { type: "p", text: "Le grand sujet technique d'une flotte, c'est la puissance. Dix voitures qui se branchent à 18 h sur des bornes de 7,4 kW, ce sont 74 kW appelés d'un coup. Avec le Smart Charging et le Load Balancing, la puissance disponible du site est partagée entre les véhicules branchés : chacun est rechargé pour le lendemain matin, le plus souvent sans augmenter l'abonnement." },
+      { type: "p", text: "La méthode CHARGéO, appliquée à chaque site, en quatre étapes :" },
+      {
+        type: "ol",
+        items: [
+          "Inventaire : nombre de véhicules, kilomètres par jour, horaires de retour, véhicules qui rentrent au domicile des salariés.",
+          "Relevé du site : puissance souscrite, consommation du bâtiment, place dans le tableau, cheminement jusqu'aux places.",
+          "Dimensionnement : nombre de bornes, puissance réservée à la recharge, règles de pilotage, bornes au domicile si besoin.",
+          "Devis ferme, pose, mise en service et supervision des bornes à distance.",
+        ],
+      },
+      { type: "p", text: "Pour les salariés qui rentrent avec leur véhicule, lisez notre guide sur la [recharge des salariés au domicile et au travail](/blog/recharge-salaries-borne-domicile-travail-urssaf). Et pour [équiper votre parking d'entreprise](/pro), l'étude est gratuite." },
+    ],
+  },
+  {
+    slug: "recharge-salaries-borne-domicile-travail-urssaf",
+    title: "Recharge des salariés : borne au travail, borne à domicile et règles Urssaf en 2026",
+    description:
+      "Borne gratuite sur le parking, borne posée chez le salarié, électricité du véhicule de fonction : ce qui est un avantage en nature, ce qui ne l'est pas, et comment isoler la consommation professionnelle.",
+    date: "2026-10-08",
+    readingMinutes: 6,
+    category: "Entreprises",
+    cover: { src: "/photo-badge-maison.webp", alt: "Salarié qui présente son badge RFID sur une borne de recharge murale" },
+    cta: { label: "Équiper mes salariés", href: "/pro" },
+    blocks: [
+      { type: "p", text: "Équiper ses salariés pour la recharge, c'est un argument de recrutement, et souvent une nécessité quand la flotte passe à l'électrique. Encore faut-il savoir ce que dit l'Urssaf : selon les cas, la même borne peut être un avantage en nature, ou pas du tout. Voici les trois situations les plus courantes." },
+      {
+        type: "figure",
+        src: "/blog/salaries-recharge-urssaf.svg",
+        alt: "Trois situations : borne sur le parking de l'entreprise, pas d'avantage en nature jusqu'au 31/12/2027 ; borne posée chez le salarié, exonérée jusqu'à 50 % et 1 057,10 € ; véhicule de fonction rechargé à la maison, électricité hors avantage en nature",
+        width: 720,
+        height: 760,
+      },
+      { type: "h2", text: "1. La borne sur le parking de l'entreprise" },
+      { type: "p", text: "Un salarié qui recharge gratuitement sa voiture personnelle sur une borne de l'entreprise ne reçoit pas d'avantage en nature : cette tolérance s'applique jusqu'au 31 décembre 2027. C'est l'option la plus simple. Une borne réservée aux salariés n'est pas ouverte au public : les règles de paiement des bornes publiques ne s'y appliquent pas." },
+      { type: "p", text: "Côté technique, un badge par salarié permet de savoir qui recharge quoi, et le pilotage de la puissance évite que tout le monde recharge au maximum en arrivant le matin." },
+      { type: "h2", text: "2. La borne posée au domicile du salarié" },
+      { type: "p", text: "L'entreprise peut financer une borne chez un salarié, par exemple un commercial ou un technicien qui rentre le soir avec son véhicule. Deux cas :" },
+      {
+        type: "ul",
+        items: [
+          "La borne est retirée quand le salarié quitte l'entreprise : pas d'avantage en nature.",
+          "La borne reste chez le salarié : la prise en charge est exonérée jusqu'à 50 % des dépenses réelles, dans la limite de 1 057,10 € pour une borne de moins de 5 ans (75 % et 1 585,50 € pour une borne de plus de 5 ans), montants 2026. Seul le dépassement est un avantage en nature.",
+        ],
+      },
+      { type: "callout", text: "Si la borne est louée plutôt qu'achetée, sa prise en charge par l'employeur n'est pas un avantage dans la limite de 50 % des dépenses réelles. Dans tous les cas, écrivez noir sur blanc avec le salarié ce qui se passe à son départ : retrait ou maintien de la borne." },
+      { type: "h2", text: "3. L'électricité du véhicule de fonction rechargé à la maison" },
+      { type: "p", text: "Pour un véhicule de fonction 100 % électrique, l'électricité payée par l'employeur n'entre pas dans le calcul de l'avantage en nature. Encore faut-il savoir précisément ce que le véhicule pro a consommé, pour rembourser le juste montant." },
+      { type: "p", text: "C'est le rôle du Split-Billing : le salarié badge avec une carte RFID dédiée au véhicule pro, la borne isole cette consommation, et un relevé mensuel permet le remboursement en note de frais. Plus d'estimation approximative, plus de discussion." },
+      { type: "callout", text: "Le mode de remboursement (au réel sur relevé, forfait, compteur dédié) n'a pas les mêmes conséquences sociales et fiscales. Faites valider votre politique de recharge par votre expert-comptable ou votre service paie avant de la diffuser." },
+      { type: "h2", text: "Et le forfait mobilités durables ?" },
+      { type: "p", text: "Le forfait mobilités durables est facultatif et vise d'autres usages : vélo, covoiturage, autopartage de véhicules à faibles émissions, transports en commun hors abonnement. Il est exonéré jusqu'à 600 € par salarié et par an (900 € en cumul avec la prise en charge de l'abonnement de transport). La recharge d'une voiture personnelle relève d'un autre dispositif, la prise en charge des frais d'alimentation électrique, avec ses propres règles." },
+      { type: "h2", text: "La méthode pour une politique de recharge claire" },
+      {
+        type: "ol",
+        items: [
+          "Lister les profils : salariés sur site, salariés qui rentrent avec un véhicule pro, véhicules partagés.",
+          "Choisir pour chaque profil : borne sur site, borne à domicile, ou les deux.",
+          "Attribuer un badge par salarié et par véhicule pour séparer les usages.",
+          "Mettre en place le relevé mensuel et la règle de remboursement validée par votre comptable.",
+        ],
+      },
+      { type: "p", text: "Pour la partie flotte et fiscalité, voir notre guide [flotte d'entreprise et taxe incitative](/blog/flotte-entreprise-vehicules-electriques-taxe-incitative-2026). Pour un devis, découvrez [notre offre entreprises](/pro)." },
+    ],
+  },
+  {
+    slug: "borne-recharge-parking-hotel-commerce-obligations",
+    title: "Bornes de recharge sur un parking d'hôtel, de commerce ou de bureaux : obligations et paiement",
+    description:
+      "Pré-équipement des parkings neufs, bornes obligatoires dans les parkings existants de plus de 20 places, exception PME, règles de paiement quand la borne est ouverte aux clients et ce qui se prépare pour 2027.",
+    date: "2026-10-08",
+    readingMinutes: 7,
+    category: "Entreprises",
+    cover: { src: "/review-hotel.webp", alt: "Borne de recharge sur pied sur le parking d'un hôtel de montagne" },
+    cta: { label: "Étudier mon parking", href: "/pro" },
+    blocks: [
+      { type: "p", text: "Un client qui arrive en voiture électrique cherche d'abord où recharger. Pour un hôtel, un commerce ou un immeuble de bureaux, la borne est devenue un service attendu, et parfois une obligation. Deux questions se posent : suis-je obligé d'équiper mon parking, et si j'ouvre ma borne aux clients, quelles règles s'appliquent ?" },
+      {
+        type: "figure",
+        src: "/blog/parking-obligations.svg",
+        alt: "Trois situations : parking neuf ou rénové de plus de 10 places, 20 % des places pré-équipées ; parking existant de plus de 20 places hors PME propriétaire, 1 point PMR plus 1 point par tranche de 20 places ; borne ouverte aux clients et payante, paiement sans abonnement et prix affiché avant la charge",
+        width: 720,
+        height: 620,
+      },
+      { type: "h2", text: "Parking neuf ou rénovation importante : le pré-équipement" },
+      { type: "p", text: "Pour un bâtiment non résidentiel neuf, ou qui fait l'objet d'une rénovation importante, dont le parking compte plus de 10 places, au moins 20 % des places doivent être pré-équipées : fourreaux et alimentation électrique prévus pour accueillir des bornes plus tard, compatibles avec le pilotage. Une partie de ces places doit être accessible aux personnes à mobilité réduite (2 %, au moins une), et au moins une place PMR doit déjà avoir sa borne." },
+      { type: "h2", text: "Parking existant : des bornes obligatoires depuis 2025" },
+      { type: "p", text: "Depuis le 1er janvier 2025, un parking de plus de 20 places rattaché à un bâtiment non résidentiel existant (hôtel, commerce, bureaux) doit compter au moins 1 point de recharge sur une place accessible aux personnes à mobilité réduite, plus 1 point par tranche de 20 places supplémentaires. Exemple : 95 places, 4 points dont 1 PMR. La règle vaut aussi pour les bâtiments mixtes dont plus de 20 places sont à usage non résidentiel." },
+      { type: "p", text: "Les parkings publics de plus de 20 places gérés par une collectivité, en régie, en délégation de service public ou via un marché public, ont une obligation similaire depuis la loi Climat et résilience." },
+      { type: "h2", text: "Les exceptions : PME propriétaire et coût du réseau" },
+      {
+        type: "ul",
+        items: [
+          "Le bâtiment appartient à une PME et c'est cette même PME qui l'occupe : l'obligation ne s'applique pas. C'est souvent le cas d'un hôtel indépendant propriétaire de ses murs.",
+          "Le bâtiment est loué, ou appartient à une foncière ou à un groupe : l'exemption PME ne joue pas forcément, même si l'occupant est une petite entreprise. C'est le cas de nombreux commerces et immeubles de bureaux : vérifiez votre situation avec votre bailleur.",
+          "Les travaux de renforcement du réseau électrique en amont du tableau coûtent plus cher que l'installation des bornes : le nombre de points exigé est réduit d'autant.",
+        ],
+      },
+      { type: "callout", text: "Méfiez-vous des montants d'amende avancés ici ou là : le texte ne prévoit pas de sanction chiffrée spécifique. La vraie question est ailleurs : vos clients et vos salariés cherchent une borne, et la règle va se durcir." },
+      { type: "h2", text: "Ce qui se prépare pour 2027" },
+      { type: "p", text: "La directive européenne sur la performance énergétique des bâtiments (2024/1275) prévoit que, d'ici le 1er janvier 2027, les bâtiments non résidentiels existants de plus de 20 places disposent de 1 point de recharge pour 10 places, ou de fourreaux prêts sur au moins 50 % des places. En France, le projet de loi qui doit la transposer était encore en cours d'examen au Parlement à la date de ce guide : les seuils définitifs restent à confirmer. Équiper aujourd'hui avec une infrastructure évolutive évite de refaire les travaux demain." },
+      { type: "h2", text: "Borne réservée ou ouverte au public ?" },
+      { type: "p", text: "C'est la question qui change tout. Une borne accessible à tous les clients (parking d'hôtel, de magasin, de restaurant) est considérée comme ouverte au public, même sur un terrain privé. Une borne réservée à un cercle précis, par exemple les seuls salariés, ne l'est pas." },
+      { type: "h2", text: "Les règles quand la borne est ouverte au public et payante" },
+      {
+        type: "ul",
+        items: [
+          "Paiement sans abonnement : le client doit pouvoir payer ponctuellement, sans contrat. Pour une borne de moins de 50 kW, comme les bornes de 7 à 22 kW d'un hôtel, un paiement en ligne sécurisé, par exemple par QR code, suffit : un terminal de carte bancaire n'est pas obligatoire.",
+          "Prix affiché avant la charge : le prix et toutes ses composantes sont visibles avant de démarrer, d'abord le prix au kWh, puis éventuellement à la minute ou à la session.",
+          "Le lecteur de carte bancaire obligatoire à partir de 2027 ne concerne que les bornes rapides de 50 kW et plus situées sur le réseau routier transeuropéen ou sur une aire de stationnement sûre et sécurisée.",
+          "Installation par un professionnel qualifié IRVE dès que la puissance dépasse 3,7 kW.",
+        ],
+      },
+      { type: "callout", text: "Une borne gratuite échappe aux règles de paiement. Vous pouvez commencer par offrir la recharge à vos clients, puis passer au paiement par QR code quand l'usage augmente : avec une borne pilotée, on change de modèle sans changer de matériel." },
+      { type: "h2", text: "La méthode pour équiper un parking clients" },
+      {
+        type: "ol",
+        items: [
+          "Définir l'usage : clients, salariés, flotte, ou un mélange avec des badges différents.",
+          "Vérifier la puissance disponible et le cheminement jusqu'aux places, y compris en extérieur.",
+          "Choisir le modèle : gratuit, payant par QR code, ou tarif différent pour les clients et les salariés.",
+          "Dimensionner avec le Load Balancing pour partager la puissance entre les bornes.",
+          "Pose, mise en service, marquage des places et supervision à distance.",
+        ],
+      },
+      { type: "p", text: "Pour vos salariés, voir notre guide sur la [recharge des salariés](/blog/recharge-salaries-borne-domicile-travail-urssaf). Hôtel, commerce ou bureaux dans le Chablais ou en Haute-Savoie : [demandez une étude de votre parking](/pro)." },
+    ],
+  },
   {
     slug: "vote-borne-recharge-assemblee-generale-copropriete",
     title: "Bornes de recharge en copropriété : vote en AG, majorités et calendrier",
@@ -98,7 +270,7 @@ export const articles: Article[] = [
       { type: "h2", text: "Qui paie, et comment ?" },
       {
         type: "p",
-        text: "L'infrastructure collective est une dépense de la copropriété : elle est répartie entre les copropriétaires selon les règles de répartition des charges de l'immeuble, et appelée par le syndic. La [prime ADVENIR](/blog/prime-advenir-copropriete-infrastructure-collective) vient en déduction : 50 % des coûts, jusqu'à 12 500 € HT pour un parking jusqu'à 100 places selon le barème en vigueur. Chaque résident paie ensuite sa propre borne quand il se raccorde, avec une aide possible de 1 000 € HT.",
+        text: "L'infrastructure collective est une dépense de la copropriété : elle est répartie entre les copropriétaires selon les règles de répartition des charges de l'immeuble, et appelée par le syndic. La [prime ADVENIR](/blog/prime-advenir-copropriete-infrastructure-collective) vient en déduction : 50 % des coûts éligibles, dans la limite de 12 500 € HT pour un parking jusqu'à 100 places selon le barème en vigueur. Chaque résident paie ensuite sa propre borne quand il se raccorde, avec une aide possible de 50 %, jusqu'à 1 000 € HT.",
       },
       {
         type: "p",
@@ -132,7 +304,7 @@ export const articles: Article[] = [
       },
       {
         type: "p",
-        text: "Ces montants s'entendent avec la TVA à 5,5 % et pour une installation standard : borne à quelques mètres du tableau, câble apparent ou sous goulotte, tableau en bon état. Au-delà, ce sont les travaux annexes qui font monter la note. Vous hésitez entre les deux solutions ? Lisez notre comparatif [prise renforcée ou borne murale](/blog/prise-renforcee-ou-wallbox-que-choisir).",
+        text: "Ces montants indicatifs (prix constatés en 2026) s'entendent TTC, avec la TVA à 5,5 % applicable à l'installation dans un logement, et pour une installation standard : borne à quelques mètres du tableau, câble apparent ou sous goulotte, tableau en bon état. Au-delà, ce sont les travaux annexes qui font monter la note. Vous hésitez entre les deux solutions ? Lisez notre comparatif [prise renforcée ou borne murale](/blog/prise-renforcee-ou-wallbox-que-choisir).",
       },
       { type: "h2", text: "Les 5 postes qui font varier un devis" },
       {
@@ -199,7 +371,7 @@ export const articles: Article[] = [
       { type: "h2", text: "Monophasé ou triphasé : comment savoir ?" },
       {
         type: "p",
-        text: "La plupart des maisons sont raccordées en monophasé : une phase et un neutre. Le triphasé amène trois phases ; on le trouve dans certaines maisons, souvent équipées de gros appareils. Pour le savoir, regardez votre facture d'électricité ou votre disjoncteur d'abonnement : deux câbles en entrée pour le monophasé, quatre pour le triphasé.",
+        text: "La plupart des maisons sont raccordées en monophasé : une phase et un neutre. Le triphasé amène trois phases ; on le trouve dans certaines maisons, souvent équipées de gros appareils. Pour le savoir, le plus simple est de regarder votre contrat ou votre facture d'électricité, qui l'indique, ou de demander à un électricien.",
       },
       { type: "h2", text: "Ce que chaque raccordement permet" },
       {
@@ -229,12 +401,12 @@ export const articles: Article[] = [
       },
       {
         type: "p",
-        text: "Pensez aussi au câble si votre borne n'en a pas d'intégré : un câble 3 x 16 A limite la recharge à 3,7 kW sur une borne monophasée, alors qu'un câble 3 x 32 A fonctionne partout.",
+        text: "Pensez aussi au câble si votre borne n'en a pas d'intégré : un câble prévu pour 16 A limite la recharge à 3,7 kW en monophasé ; choisissez un câble 32 A, triphasé si votre borne et votre voiture le sont.",
       },
       { type: "h2", text: "Le cas du frontalier : Thonon–Genève tous les jours" },
       {
         type: "p",
-        text: "Prenons 100 km par jour et une consommation de 18 kWh aux 100 km : il faut remettre environ 18 kWh chaque soir. Une borne 7,4 kW le fait en 2 h 30 à 3 h, une prise renforcée en 5 à 6 h, une borne 11 kW en moins de 2 h. Toutes tiennent largement dans une nuit en heures creuses.",
+        text: "Prenons 100 km par jour et une consommation de 18 kWh aux 100 km : il faut remettre environ 18 kWh chaque soir. Une borne 7,4 kW le fait en 2 h 30 à 3 h, une prise renforcée en 5 à 6 h, une borne 11 kW en moins de 2 h. Toutes tiennent dans une nuit : les heures creuses durent en général 8 heures.",
       },
       {
         type: "p",
@@ -290,7 +462,7 @@ export const articles: Article[] = [
           "Notifier votre projet au syndic par lettre recommandée avec accusé de réception, avec un descriptif détaillé des travaux, un plan technique et un schéma de raccordement électrique. L'installateur vous prépare ces documents.",
           "Le syndic inscrit une information sur votre projet à l'ordre du jour de la prochaine assemblée générale. Il n'y a pas de vote : vous n'avez pas besoin de l'accord des autres copropriétaires.",
           "À compter de la réception de votre courrier, le syndic dispose de 3 mois pour saisir le tribunal s'il veut s'opposer. Sans saisine dans ce délai, vous pouvez lancer les travaux, même si l'assemblée générale n'a pas encore eu lieu.",
-          "Le syndic signe avec l'installateur une convention qui fixe les conditions d'accès aux parties communes (sans vote de l'assemblée), puis viennent la pose, la mise en service et la remise de l'attestation de conformité.",
+          "Le syndic signe avec l'installateur, dans les deux mois, une convention qui fixe les conditions d'accès aux parties communes (sans vote de l'assemblée), puis viennent la pose, la mise en service et la remise de l'attestation de conformité.",
         ],
       },
       { type: "h2", text: "Vous êtes locataire ?" },
@@ -341,7 +513,7 @@ export const articles: Article[] = [
       {
         type: "ul",
         items: [
-          "Prise domestique classique (environ 2,3 kW) : à réserver au dépannage. Elle récupère environ 10 à 15 km d'autonomie par heure et n'est pas conçue pour débiter fort pendant des heures, chaque nuit.",
+          "Prise domestique classique (1,8 à 2,3 kW selon le câble) : à réserver au dépannage. Elle récupère environ 10 à 15 km d'autonomie par heure et n'est pas conçue pour débiter fort pendant des heures, chaque nuit.",
           "Prise renforcée (environ 3,2 à 3,7 kW) : une prise spéciale sur un circuit dédié. Environ 15 à 20 km par heure, soit 120 à 160 km sur une nuit de 8 heures.",
           "Borne murale ou wallbox (7,4 kW en monophasé) : environ 35 à 45 km par heure. La batterie se recharge en une nuit, même après une grosse journée.",
         ],
@@ -349,7 +521,7 @@ export const articles: Article[] = [
       {
         type: "figure",
         src: "/blog/vitesse-recharge.svg",
-        alt: "Comparatif des kilomètres récupérés par heure : prise classique 10 à 15 km, prise renforcée 15 à 20 km, wallbox 7,4 kW 35 à 45 km, wallbox 11 kW 55 à 65 km",
+        alt: "Comparatif des kilomètres récupérés par heure : prise classique (1,8 à 2,3 kW) 10 à 15 km, prise renforcée 15 à 20 km, wallbox 7,4 kW 35 à 45 km, wallbox 11 kW 55 à 65 km",
         width: 720,
         height: 580,
       },
@@ -378,7 +550,7 @@ export const articles: Article[] = [
           "La puissance de votre abonnement : avec 6 ou 9 kVA, une borne 7,4 kW peut faire disjoncter si le four et le chauffage tournent en même temps. La solution : un délesteur, qui baisse automatiquement la recharge quand la maison consomme beaucoup.",
           "L'état du tableau électrique et la qualité de la terre : la borne a besoin de protections dédiées (disjoncteur et différentiel adaptés).",
           "La distance entre le tableau et l'emplacement de la borne : c'est elle qui fait varier le [prix de l'installation](/blog/prix-borne-recharge-maison-haute-savoie), avec le mode de passage du câble (apparent, encastré, enterré, vide sanitaire).",
-          "Les heures creuses : une borne pilotée recharge la nuit, au tarif le plus bas.",
+          "Les heures creuses : une borne pilotée recharge la nuit, au tarif heures creuses de votre contrat.",
         ],
       },
       {
