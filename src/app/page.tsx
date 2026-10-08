@@ -8,8 +8,10 @@
 // 07/10/2026 : bloc « Notre ADN » réécrit en mots simples, à la demande de Matthieu.
 // 07/10/2026 (images) : les cartes d'offres n'utilisent plus les photos du haut des pages offres.
 // 07/10/2026 (mobile) : sous 1024 px, la photo s'affiche nette en bandeau en haut, le haut de page
-// est plus compact (pastilles masquées, elles reprenaient le bandeau turquoise, filigrane masqué)
-// pour que le bandeau turquoise soit visible dès l'arrivée. Version ordinateur inchangée.
+// est plus compact (filigrane masqué) pour que le bandeau turquoise soit visible dès l'arrivée.
+// 08/10/2026 (ordinateur) : pastilles retirées (elles reprenaient le bandeau turquoise, et les marques
+// défilent juste dessous), haut de page moins haut pour voir bandeau et marques dès l'arrivée,
+// filigrane déplacé sur la partie navy, photo recadrée pour montrer les deux bornes en entier.
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -69,14 +71,14 @@ export default function Accueil() {
         {/* HAUT DE PAGE : photo en bandeau net sur mobile, à droite sur ordinateur */}
         <section className="relative overflow-hidden" style={{ backgroundColor: NAVY }}>
           <div className="relative h-[250px] w-full sm:h-[340px] lg:absolute lg:inset-y-0 lg:right-0 lg:h-auto lg:w-[60%]">
-            <Image src="/hero-chargeo.webp" alt="Borne de recharge installée par CHARGéO" fill priority fetchPriority="high" sizes="(max-width: 1024px) 100vw, 60vw" className="object-cover" />
+            <Image src="/hero-chargeo.webp" alt="Borne de recharge installée par CHARGéO" fill priority fetchPriority="high" sizes="(max-width: 1024px) 100vw, 60vw" className="object-cover" style={{ objectPosition: "15% center" }} />
             <div className="absolute inset-0 lg:hidden" style={{ backgroundImage: "linear-gradient(180deg, rgba(3,43,96,0.70) 0%, rgba(3,43,96,0.10) 38%, rgba(3,43,96,0.20) 62%, #032b60 100%)" }} />
             <div className="absolute inset-0 hidden lg:block" style={{ backgroundImage: "linear-gradient(90deg, #032b60 0%, rgba(3,43,96,0.88) 22%, rgba(3,43,96,0.35) 58%, rgba(3,43,96,0.05) 100%)" }} />
           </div>
           <div className="hidden lg:block">
-            <Filigrane style={{ left: "56%", top: "-16%", width: "min(720px, 110vw)" }} />
+            <Filigrane style={{ left: "-12%", top: "-18%", width: "min(680px, 55vw)" }} />
           </div>
-          <div className="relative mx-auto flex max-w-7xl flex-col justify-center px-6 pb-9 pt-1 sm:pb-14 lg:min-h-[min(88vh,820px)] lg:pb-20 lg:pt-40">
+          <div className="relative mx-auto flex max-w-7xl flex-col justify-center px-6 pb-9 pt-1 sm:pb-14 lg:min-h-[min(76vh,700px)] lg:pb-16 lg:pt-36">
             <h1 className="text-[12px] font-extrabold uppercase tracking-[0.12em] sm:text-[13px] sm:tracking-[0.2em]" style={{ color: BLEU_CLAIR }}>Installateur de bornes de recharge à Thonon-les-Bains et dans le Chablais</h1>
             <p className="mt-3 text-[36px] font-bold leading-[1.08] tracking-[-0.02em] text-white sm:mt-6 sm:text-[64px] lg:text-[80px]">
               Passez à l’électrique,<br className="hidden sm:block" /> l’esprit léger.
@@ -92,11 +94,6 @@ export default function Accueil() {
                 <Phone size={17} /> 04 85 69 22 04
               </a>
             </div>
-            <ul className="mt-14 hidden flex-wrap gap-3 sm:flex">
-              {["Installateur qualifié IRVE", "Prix ferme", "Chablais et Haute-Savoie"].map((p) => (
-                <li key={p} className="whitespace-nowrap rounded-full border px-5 py-2.5 text-[13px] font-semibold uppercase tracking-[0.1em] text-white" style={{ borderColor: "rgba(0,151,178,0.75)" }}>{p}</li>
-              ))}
-            </ul>
           </div>
         </section>
 
