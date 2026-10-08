@@ -10,6 +10,8 @@ import { HautPhoto } from '@/components/charte/HautPhoto';
 // site (Tag Manager qui charge Analytics et Ads, après accord), titre et adresse
 // canonique propres à la page.
 // 07/10/2026 : prénom du directeur de la publication corrigé (Mathieu, un seul t).
+// 08/10/2026 (audit) : adresse légale actuelle de Vercel Inc. (Covina). À compléter dès réception du Kbis :
+// forme juridique, capital, SIREN/RCS, TVA intracommunautaire, médiateur de la consommation, assurance décennale.
 export const metadata: Metadata = {
   title: 'Mentions légales et confidentialité | CHARGÉO',
   description: "Mentions légales, politique de confidentialité et cookies du site CHARGéO, installateur de bornes de recharge à Thonon-les-Bains.",
@@ -66,7 +68,7 @@ export default function MentionsLegalesPage() {
                   <strong>Contact :</strong> contact@chargeo.fr | 04 85 69 22 04
                 </p>
                 <p>
-                  Le site internet est hébergé par <strong>Vercel Inc.</strong>, situé au 950 High St, Palo Alto, CA 94301, États-Unis (<a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className={LIEN}>vercel.com</a>).
+                  Le site internet est hébergé par <strong>Vercel Inc.</strong>, situé au 440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis (<a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className={LIEN}>vercel.com</a>).
                 </p>
               </Bloc>
               <Bloc titre="2. Propriété intellectuelle">

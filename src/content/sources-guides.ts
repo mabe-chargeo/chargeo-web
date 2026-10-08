@@ -52,7 +52,7 @@ const PARKINGS_NON_RESIDENTIELS: Source = {
 };
 const CCH_L113_13: Source = {
   label: "Code de la construction et de l'habitation, art. L113-13 : parkings non résidentiels existants, Légifrance",
-  href: "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000041563731/2021-07-01",
+  href: "https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000041563729",
 };
 const PARKINGS_PUBLICS: Source = {
   label: "Ministère de la Transition écologique : développer les bornes de recharge (bâtiments et parkings publics)",

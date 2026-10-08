@@ -145,7 +145,7 @@ export const villes: Ville[] = [
       {
         titre: "Voiture, bateau ou Léman Express",
         texte:
-          "Le Pays d'Évian compte 5 714 actifs qui travaillent en Suisse, soit 29,1 % des actifs (Insee, 2018). Que vous preniez la voiture, le bateau pour Lausanne ou le Léman Express, une borne à domicile vous garantit une voiture chargée pour tous les autres trajets.",
+          "Le Pays d'Évian compte 5 714 actifs qui travaillent en Suisse, soit 29,1 % des actifs (Insee, 2018). Que vous preniez la voiture, le bateau pour Lausanne ou le Léman Express, une borne à domicile vous permet de partir chaque matin avec une voiture chargée pour tous les autres trajets.",
       },
     ],
     rechargePublique:
@@ -163,8 +163,8 @@ export const villes: Ville[] = [
     slug: "publier",
     nom: "Publier et Amphion",
     intercommunalite: "Pays d'Évian Vallée d'Abondance",
-    population: 7793,
-    anneePopulation: 2022,
+    population: 7864,
+    anneePopulation: 2023,
     appartements: 48.8,
     maisons: 50.8,
     secondaires: 14.5,
@@ -231,7 +231,7 @@ export const villes: Ville[] = [
       {
         titre: "Résidence récente : vérifier ce qui existe déjà",
         texte:
-          "Dans une copropriété, l'aide ADVENIR dépend surtout de la date du permis de construire. Avant 2017, toute l'infrastructure est prise en compte. Entre 2017 et le 10 mars 2021, l'aide ne porte que sur le pilotage et les chemins de câbles. Après, le parking doit déjà être pré-équipé par le promoteur et n'est pas éligible. Nous vérifions ce point avant de chiffrer quoi que ce soit.",
+          "Dans une copropriété, l'aide ADVENIR dépend surtout de la date du permis de construire. Permis déposé avant 2017 : l'ensemble de l'infrastructure est éligible (50 % des coûts éligibles, dans la limite des plafonds). Entre le 1er janvier 2017 et le 10 mars 2021 : l'aide ne porte que sur le pilotage et les chemins de câbles. Plus récent : le parking doit déjà être pré-équipé par le promoteur et l'infrastructure n'est pas éligible. Nous vérifions ce point avant de chiffrer quoi que ce soit.",
       },
       {
         titre: "Direction Genève, tous les jours",
