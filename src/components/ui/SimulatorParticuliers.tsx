@@ -11,7 +11,7 @@ import { Curseur, Reglages, EnteteSimu } from '@/components/charte/Simu';
 export function SimulatorParticuliers({ onResultChange }: { onResultChange?: (val: number, dataStr?: string) => void }) {
   const [dailyKm, setDailyKm] = useState(40);
   const [gasConsumption, setGasConsumption] = useState(6.5);
-  const [gasPrice, setGasPrice] = useState(1.85);
+  const [gasPrice, setGasPrice] = useState(2.15);
   const [elecPrice, setElecPrice] = useState(0.25);
   const [evConsumption, setEvConsumption] = useState(16);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -97,7 +97,7 @@ export function SimulatorParticuliers({ onResultChange }: { onResultChange?: (va
               <p className={`mt-3 text-[52px] font-bold leading-none text-white transition-transform duration-300 sm:text-[60px] ${isPulsing ? 'scale-[1.03]' : ''}`}>
                 +{Math.round(animatedSavings).toLocaleString('fr-FR')}<span className="text-[24px]"> € / an</span>
               </p>
-              <p className="mt-4 text-[15px] leading-relaxed" style={{ color: BLEU_CLAIR }}>Estimation indicative, jointe automatiquement à votre demande de rappel.</p>
+              <p className="mt-4 text-[15px] leading-relaxed" style={{ color: BLEU_CLAIR }}>Estimation indicative, pas une économie garantie : carburant par défaut proche de la moyenne nationale du SP95-E10 début octobre 2026 (2,14 €/L), hors pertes de recharge (environ 10 %). Elle est jointe automatiquement à votre demande de rappel.</p>
             </div>
             <button
               type="button"

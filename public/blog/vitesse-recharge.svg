@@ -2,7 +2,7 @@
   <rect x="0" y="0" width="720" height="580" rx="32" fill="#f1f9fb"/>
   <text x="40" y="66" font-size="28" font-weight="700" fill="#032b60">Kilomètres récupérés par heure de charge</text>
 
-  <text x="40" y="130" font-size="24" font-weight="700" fill="#032b60">Prise classique · 2,3 kW</text>
+  <text x="40" y="130" font-size="24" font-weight="700" fill="#032b60">Prise classique · 1,8 à 2,3 kW</text>
   <rect x="40" y="146" width="70" height="38" rx="8" fill="#94a3b8"/>
   <rect x="110" y="146" width="35" height="38" rx="8" fill="#94a3b8" opacity="0.45"/>
   <text x="161" y="174" font-size="24" font-weight="700" fill="#475569">10 à 15 km/h</text>

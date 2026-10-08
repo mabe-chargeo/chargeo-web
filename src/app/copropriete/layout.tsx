@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Borne de Recharge en Copropriété à Thonon & Chablais | CHARGÉO",
-  description: "Solutions de recharge collective pour copropriétés à Thonon-les-Bains, Évian et dans le Chablais. Installation, gestion des coûts et infrastructure collective sans frais pour le syndic.",
+  description: "Solutions de recharge collective pour copropriétés à Thonon-les-Bains, Évian et dans le Chablais. Infrastructure collective aidée par la prime ADVENIR, borne partagée ou droit à la prise : étude, vote en AG et installation.",
   alternates: { canonical: "/copropriete" },
 };
 

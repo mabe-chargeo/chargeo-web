@@ -22,5 +22,5 @@
   <text x="633" y="502" font-size="20" font-weight="700" fill="#032b60" text-anchor="middle">2030</text>
   <line x1="40" y1="470" x2="680" y2="470" stroke="#94a3b8" stroke-width="2"/>
   <text x="40" y="548" font-size="18" font-weight="700" fill="#032b60" text-anchor="start">Tarif de calcul : 2 000 € en 2025, 4 000 € en 2026, 5 000 € à partir de 2027.</text>
-  <text x="40" y="576" font-size="16" font-weight="400" fill="#64748b" text-anchor="start">La taxe est nulle si l'objectif est atteint. Source : CIBS, art. L421-132-4.</text>
+  <text x="40" y="576" font-size="16" font-weight="400" fill="#64748b" text-anchor="start">La taxe est nulle si l'objectif est atteint. Sources : CIBS, art. L421-132-3 et L421-132-4.</text>
 </svg>

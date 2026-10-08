@@ -11,6 +11,7 @@ import { Curseur, EnteteSimu } from '@/components/charte/Simu';
 // - Infrastructure collective : 50 % des coûts HT, plafond 12 500 € jusqu'à 100 places, + 125 € par place au-delà
 // - Point de recharge individuel : 50 % des coûts HT, plafond 1 000 €
 // Applicable si le vote en AG est intervenu à partir du 1er avril 2026 (PV d'AG faisant foi).
+// 08/10/2026 (audit) : le résultat est présenté comme un PLAFOND d'aides, pas comme un montant acquis (calcul et texte CRM inchangés).
 const ADVENIR_INFRA_PLAFOND = 12500;
 const ADVENIR_INFRA_PAR_PLACE_SUP = 125;
 const ADVENIR_PDC_INDIVIDUEL = 1000;
@@ -66,15 +67,15 @@ export function SimulatorCopro({ onResultChange }: { onResultChange?: (val: numb
 
         <div ref={resultsRef} className="flex flex-col justify-between rounded-[24px] p-7 sm:p-9 lg:col-span-2" style={{ backgroundColor: NAVY }}>
           <div>
-            <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: CYAN_CLAIR }}>Aides ADVENIR jusqu’à</p>
+            <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: CYAN_CLAIR }}>Plafond des aides ADVENIR</p>
             <p className={`mt-3 text-[52px] font-bold leading-none text-white transition-transform duration-300 sm:text-[60px] ${isPulsing ? 'scale-[1.03]' : ''}`}>
               {Math.round(animatedSubventions).toLocaleString('fr-FR')}<span className="text-[24px]"> € HT</span>
             </p>
             <div className="mt-6 space-y-3 border-t border-white/15 pt-5 text-[15px]">
               <div className="flex justify-between gap-4"><span style={{ color: BLEU_CLAIR }}>Infrastructure collective</span><span className="font-semibold text-white">max {results.plafondInfra.toLocaleString('fr-FR')} €</span></div>
-              <div className="flex justify-between gap-4"><span style={{ color: BLEU_CLAIR }}>Primes individuelles</span><span className="font-semibold text-white">{results.primesIndividuelles.toLocaleString('fr-FR')} €</span></div>
+              <div className="flex justify-between gap-4"><span style={{ color: BLEU_CLAIR }}>Primes individuelles</span><span className="font-semibold text-white">max {results.primesIndividuelles.toLocaleString('fr-FR')} €</span></div>
             </div>
-            <p className="mt-5 text-[13px] leading-relaxed" style={{ color: BLEU_CLAIR }}>Plafonds HT du barème ADVENIR au 1er avril 2026 : 50 % des coûts, jusqu’à 12 500 € pour le collectif (+125 € par place au-delà de 100) et 1 000 € par borne individuelle.</p>
+            <p className="mt-5 text-[13px] leading-relaxed" style={{ color: BLEU_CLAIR }}>Plafonds HT du barème ADVENIR au 1er avril 2026. L’aide réelle est de 50 % des coûts éligibles, dans la limite de 12 500 € pour le collectif (+125 € par place au-delà de 100) et de 1 000 € par borne individuelle, sous réserve d’éligibilité et de validation du dossier avant travaux.</p>
           </div>
           <button
             type="button"
