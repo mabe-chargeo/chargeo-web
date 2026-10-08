@@ -1,8 +1,10 @@
 // Haut de page commun (charte 2026) : fond navy, photo à droite en dégradé, filigrane é.
 // Utilisable depuis une page serveur (Guides, articles) comme depuis une page client.
 // 07/10/2026 (mobile) : sous 1024 px, la photo s'affiche nette en bandeau en haut (dégradé vers le navy),
-// le filigrane est masqué et le haut de page est plus compact (hauteur minimale réservée à l'ordinateur).
+// le filigrane est masqué et le haut de page est plus compact.
 // 08/10/2026 (ordinateur) : le filigrane passe sur la partie navy, derrière le texte, pour ne plus couvrir la photo.
+// 08/10/2026 : même hauteur sur toutes les pages, alignée sur l'accueil et les offres (76 vh, 700 px au plus).
+// Le prop minH reste accepté pour ne pas toucher aux pages, mais n'est plus utilisé.
 import React from "react";
 import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
@@ -13,7 +15,7 @@ const NAVY = "#032b60";
 const BLEU_CLAIR = "#a9d8e6";
 
 export function HautPhoto({
-  img, alt = "", pos = "center", eyebrow, eyeIcon: Eye, titre, sous, minH = "min(84vh,780px)", titreClass = "sm:text-[60px] lg:text-[72px]", children,
+  img, alt = "", pos = "center", eyebrow, eyeIcon: Eye, titre, sous, titreClass = "sm:text-[60px] lg:text-[72px]", children,
 }: {
   img: string; alt?: string; pos?: string; eyebrow: string; eyeIcon?: LucideIcon; titre: React.ReactNode; sous?: string;
   minH?: string; titreClass?: string; children?: React.ReactNode;
@@ -28,7 +30,7 @@ export function HautPhoto({
       <div className="hidden lg:block">
         <Filigrane style={{ left: "-12%", top: "-18%", width: "min(680px, 55vw)" }} />
       </div>
-      <div className="relative mx-auto flex max-w-7xl flex-col justify-center px-6 pb-10 pt-1 sm:pb-14 lg:min-h-[var(--haut-min)] lg:pb-20 lg:pt-40" style={{ "--haut-min": minH } as React.CSSProperties}>
+      <div className="relative mx-auto flex max-w-7xl flex-col justify-center px-6 pb-10 pt-1 sm:pb-14 lg:min-h-[min(76vh,700px)] lg:pb-16 lg:pt-36">
         <p className="flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.12em] sm:text-[13px] sm:tracking-[0.2em]" style={{ color: BLEU_CLAIR }}>
           {Eye && <Eye size={16} className="shrink-0" />} {eyebrow}
         </p>
