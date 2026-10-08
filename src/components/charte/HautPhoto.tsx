@@ -3,8 +3,8 @@
 // 07/10/2026 (mobile) : sous 1024 px, la photo s'affiche nette en bandeau en haut (dégradé vers le navy),
 // le filigrane est masqué et le haut de page est plus compact.
 // 08/10/2026 (ordinateur) : le filigrane passe sur la partie navy, derrière le texte, pour ne plus couvrir la photo.
-// 08/10/2026 : même hauteur sur toutes les pages, alignée sur l'accueil et les offres (76 vh, 700 px au plus).
-// Le prop minH reste accepté pour ne pas toucher aux pages, mais n'est plus utilisé.
+// 08/10/2026 : même hauteur sur toutes les pages, identique à l'accueil et aux offres (74 vh, 680 px au plus ;
+// bandeau photo mobile 240 px, 330 px sur tablette). Le prop minH reste accepté mais n'est plus utilisé.
 import React from "react";
 import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
@@ -30,7 +30,7 @@ export function HautPhoto({
       <div className="hidden lg:block">
         <Filigrane style={{ left: "-12%", top: "-18%", width: "min(680px, 55vw)" }} />
       </div>
-      <div className="relative mx-auto flex max-w-7xl flex-col justify-center px-6 pb-10 pt-1 sm:pb-14 lg:min-h-[min(76vh,700px)] lg:pb-16 lg:pt-36">
+      <div className="relative mx-auto flex max-w-7xl flex-col justify-center px-6 pb-9 pt-1 sm:pb-14 lg:min-h-[min(74vh,680px)] lg:pb-16 lg:pt-36">
         <p className="flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.12em] sm:text-[13px] sm:tracking-[0.2em]" style={{ color: BLEU_CLAIR }}>
           {Eye && <Eye size={16} className="shrink-0" />} {eyebrow}
         </p>
