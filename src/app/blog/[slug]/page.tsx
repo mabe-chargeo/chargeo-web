@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, Building, Home, Lightbulb, ListChecks, Phone } from "lucide-react";
+import { ArrowLeft, ArrowRight, Briefcase, Building, Home, Lightbulb, ListChecks, Phone } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { HautPhoto } from "@/components/charte/HautPhoto";
@@ -15,6 +15,7 @@ import { SOURCES_GUIDES } from "@/content/sources-guides";
 // Inchangé : génération statique, métadonnées SEO, JSON-LD, liens [texte](/adresse), figures, guides liés, CTA, avertissement.
 // 07/10/2026 (SEO, confiance) : auteur nommé (visible et dans le JSON-LD) et encadré
 // « Sources officielles » en fin d'article (liens dans src/content/sources-guides.ts).
+// 08/10/2026 : catégorie « Entreprises » (icône mallette, encadré latéral dédié).
 
 const AUTEUR = { nom: "Mathieu Belengri", role: "fondateur de CHARGéO" };
 
@@ -194,6 +195,7 @@ export default async function ArticlePage({ params }: Props) {
   const lies = guidesLies(article);
   const sommaire = article.blocks.filter((b): b is Extract<Block, { type: "h2" }> => b.type === "h2");
   const copro = article.category.toLowerCase().includes("copro");
+  const pro = article.category.toLowerCase().includes("entreprise");
   const sources = SOURCES_GUIDES[article.slug] ?? [];
 
   const jsonLd = {
@@ -233,7 +235,7 @@ export default async function ArticlePage({ params }: Props) {
           img={article.cover.src}
           alt={article.cover.alt}
           eyebrow={`Guides & conseils · ${article.category}`}
-          eyeIcon={copro ? Building : Home}
+          eyeIcon={copro ? Building : pro ? Briefcase : Home}
           minH="600px"
           titreClass="sm:text-[48px] lg:text-[56px]"
           titre={article.title}
@@ -287,12 +289,14 @@ export default async function ArticlePage({ params }: Props) {
                 </nav>
               )}
               <div className="rounded-[24px] p-7" style={{ backgroundColor: NAVY }}>
-                <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: "#69e8ff" }}>{copro ? "Votre copropriété" : "Votre projet"}</p>
-                <p className="mt-2 text-[22px] font-bold leading-snug text-white">{copro ? "On prépare votre dossier d’AG." : "On prépare votre devis."}</p>
+                <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: "#69e8ff" }}>{copro ? "Votre copropriété" : pro ? "Votre entreprise" : "Votre projet"}</p>
+                <p className="mt-2 text-[22px] font-bold leading-snug text-white">{copro ? "On prépare votre dossier d’AG." : pro ? "On étudie votre site." : "On prépare votre devis."}</p>
                 <p className="mt-2 text-[15px] leading-relaxed" style={{ color: "#a9d8e6" }}>
                   {copro
                     ? "Étude, devis part collective et part individuelle, estimation ADVENIR, présence en assemblée."
-                    : "Visite technique gratuite, prix ferme, démarches et aides gérées pour vous."}
+                    : pro
+                      ? "Puissance disponible, pilotage, badges et refacturation : un devis ferme pour votre parking."
+                      : "Visite technique gratuite, prix ferme, démarches et aides gérées pour vous."}
                 </p>
                 <Link href={article.cta.href} className="mt-6 flex items-center justify-between gap-3 rounded-full px-6 py-3.5 text-[16px] font-semibold text-white" style={{ backgroundColor: "#FF6B00" }}>
                   {article.cta.label} <ArrowRight size={18} className="shrink-0" />
