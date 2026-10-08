@@ -4,6 +4,8 @@
 // Simulateur : économies de la flotte à la place des revenus de recharge (décision du 05/10/2026).
 // Inchangé : barre mobile, CTA flottant, ContactForm typeClient="Entreprise" (seul le libellé du texte de simulation change).
 // 07/10/2026 (images) : les cas types ne répètent plus les photos des cartes.
+// 08/10/2026 (audit de véracité) : plus de « loi LOM » pour les flottes (taxe incitative du CIBS depuis 2025),
+// obligations parkings (CCH L113-13), fiscalité formulée prudemment, plus de promesse absolue sur l'abonnement.
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Building, Car, Home, CreditCard, Gauge, Receipt, ShieldCheck, Wrench, FileText, Award, Wifi, QrCode,
@@ -48,7 +50,7 @@ export default function ProPage() {
   // Exemples de projets types (pas des avis clients). À remplacer par de vrais avis, avec variant="avis", dès les premiers chantiers.
   const casTypes = [
     {
-      text: "Parking de PME avec plusieurs véhicules électriques : pilotage dynamique de la charge pour recharger toute la flotte sans augmenter l'abonnement.",
+      text: "Parking de PME avec plusieurs véhicules électriques : pilotage dynamique de la charge pour recharger toute la flotte dans la puissance disponible du site.",
       author: "Flotte & PME",
       location: "Thonon-les-Bains",
       image: "/photo-parking-entreprise.webp"
@@ -68,11 +70,11 @@ export default function ProPage() {
   ];
 
   const faqs = [
-    { q: "Combien ma flotte économise-t-elle vraiment ?", a: "Le simulateur compare le carburant consommé aujourd'hui et l'électricité rechargée demain sur vos bornes. S'y ajoutent les avantages fiscaux des véhicules 100 % électriques (exonération ex-TVS, amortissement rehaussé, TVA récupérable sur l'électricité), que nous chiffrons avec vous lors de l'audit." },
+    { q: "Combien ma flotte économise-t-elle vraiment ?", a: "Le simulateur compare le carburant consommé aujourd'hui et l'électricité rechargée demain sur vos bornes. S'y ajoutent les avantages fiscaux des véhicules 100 % électriques (exonération des taxes annuelles CO2 et polluants, plafond d'amortissement plus élevé, TVA sur l'électricité déductible dans les conditions habituelles), que nous chiffrons avec vous lors de l'audit." },
     { q: "Comment fonctionne la monétisation ?", a: "C'est très simple : nous installons des bornes communicantes. Vous décidez du tarif appliqué au kWh. Notre logiciel s'occupe de facturer l'utilisateur final par QR Code et vous reverse les revenus mensuellement." },
-    { q: "Domicile Collaborateurs : Comment rembourser l'électricité ?", a: "Notre logiciel isole la consommation liée au véhicule professionnel grâce au badge RFID du salarié. Chaque mois, un relevé certifié permet le remboursement en note de frais." },
-    { q: "Quelles sont les obligations de la Loi LOM ?", a: "Les entreprises qui gèrent plus de 100 véhicules légers doivent intégrer une part minimale de véhicules à faibles émissions dans leur flotte, sous peine d'une taxe annuelle. Équiper vos parkings devient une nécessité." },
-    { q: "Quels sont les avantages fiscaux ?", a: "Les véhicules 100 % électriques sont exonérés des taxes annuelles sur les véhicules de tourisme (ex-TVS). L'entreprise bénéficie aussi d'un plafond d'amortissement rehaussé et la TVA sur l'électricité consommée est récupérable. À valider avec votre expert-comptable selon votre situation." }
+    { q: "Domicile Collaborateurs : Comment rembourser l'électricité ?", a: "Notre logiciel isole la consommation liée au véhicule professionnel grâce au badge RFID du salarié. Chaque mois, un relevé détaillé permet le remboursement en note de frais." },
+    { q: "Quelles obligations pour les flottes et les parkings ?", a: "Flottes : depuis 2025, une entreprise dont la flotte compte au moins 100 véhicules paie une taxe annuelle incitative si la part de véhicules à faibles émissions est inférieure à l'objectif (18 % en 2026). Parkings : depuis le 1er janvier 2025, un bâtiment non résidentiel existant de plus de 20 places doit compter des points de recharge, sauf exceptions (notamment un bâtiment possédé et occupé par une PME). Le détail est dans nos guides entreprises." },
+    { q: "Quels sont les avantages fiscaux ?", a: "Les véhicules 100 % électriques sont exonérés des taxes annuelles CO2 et polluants (ex-TVS). Leur amortissement est déductible dans une limite plus élevée (30 000 € pour une voiture de moins de 20 g de CO2/km), et la TVA sur l'électricité de recharge est déductible dans les conditions habituelles. À valider avec votre expert-comptable selon votre situation." }
   ];
 
   return (
@@ -93,7 +95,7 @@ export default function ProPage() {
           alt="Parking d’entreprise équipé de bornes de recharge"
           eyeIcon={Building}
           eyebrow="Solutions pour entreprises & B2B"
-          titre1="La loi LOM devient"
+          titre1="L’obligation devient"
           titre2="une opportunité."
           texte="Maîtrisez la puissance électrique de votre flotte d’entreprise, équipez vos collaborateurs à domicile, ou transformez votre parking visiteurs (hôtel, ERP) en un service attractif."
           cta="Estimer mes économies"
@@ -103,10 +105,10 @@ export default function ProPage() {
         />
 
         <BandeauChiffres chiffres={[
-          { icon: Gauge, big: "Smart Charging", label: "sans augmenter l’abonnement" },
+          { icon: Gauge, big: "Smart Charging", label: "dans la puissance du site" },
           { icon: Receipt, big: "Split-Billing", label: "note de frais automatique" },
           { icon: QrCode, big: "Paiement au kWh", label: "vous fixez le tarif" },
-          { icon: ShieldCheck, big: "Loi LOM", label: "parkings mis en conformité" },
+          { icon: ShieldCheck, big: "Conformité", label: "parkings mis aux normes" },
         ]} />
 
         <TrustedBrands />
@@ -117,20 +119,20 @@ export default function ProPage() {
           solutions={[
             {
               icon: Car, img: "/review-flotte.webp", label: "Flotte", title: "Flotte & PME",
-              text: "Électrifiez votre parking. Le Smart Charging pilote dynamiquement la charge pour éviter tout surcoût lié à votre abonnement Enedis.",
+              text: "Électrifiez votre parking. Le Smart Charging pilote dynamiquement la charge pour limiter les surcoûts liés à votre abonnement électrique.",
               points: ["Bornes 7,4 à 22 kW", "Load Balancing sur la puissance du site", "Supervision et maintenance"],
               cta: "Équiper ma flotte",
             },
             {
               icon: CreditCard, img: "/review-hotel.webp", label: "Visiteurs et salariés", title: "Tertiaire & parkings",
-              text: "Hôtels, ERP, bureaux : transformez l’obligation LOM en un nouveau service, avec des bornes accessibles à vos clients et collaborateurs.",
+              text: "Hôtels, ERP, bureaux : transformez l’obligation d’équipement en un nouveau service, avec des bornes accessibles à vos clients et collaborateurs.",
               points: ["Paiement par QR code ou badge", "Vous fixez le tarif au kWh", "Revenus reversés chaque mois"],
               cta: "Équiper mon parking",
             },
             {
               icon: Home, img: "/review-domicile.webp", label: "Collaborateurs", title: "Domicile collaborateurs",
               text: "La fin des notes de frais complexes. Grâce au Split-Billing, la consommation professionnelle de votre salarié est isolée pour un remboursement automatisé.",
-              points: ["Borne posée chez le salarié", "Badge RFID dédié au véhicule pro", "Relevé mensuel certifié"],
+              points: ["Borne posée chez le salarié", "Badge RFID dédié au véhicule pro", "Relevé mensuel détaillé"],
               cta: "Équiper mes collaborateurs",
             },
           ]}
@@ -147,8 +149,8 @@ export default function ProPage() {
           titre="Chaque entreprise est unique."
           texte="Flotte, visiteurs ou salariés à domicile : la technique s’adapte à votre modèle économique, pas l’inverse."
           lignes={[
-            { icon: Wifi, t: "Pilotage dynamique", d: "Toute la flotte rechargée sans augmenter votre abonnement Enedis." },
-            { icon: CreditCard, t: "Badge RFID salarié", d: "Consommation pro isolée, relevé mensuel certifié pour la note de frais." },
+            { icon: Wifi, t: "Pilotage dynamique", d: "Toute la flotte rechargée dans la puissance disponible du site, sans hausse d’abonnement dans la plupart des cas." },
+            { icon: CreditCard, t: "Badge RFID salarié", d: "Consommation pro isolée, relevé mensuel détaillé pour la note de frais." },
             { icon: Wrench, t: "SAV local", d: "Les techniciens qui ont posé vos bornes interviennent en cas de panne." },
           ]}
         >
@@ -162,11 +164,11 @@ export default function ProPage() {
 
         <BlocAides
           titre="Tirez parti des leviers financiers."
-          texte="L’électrification de vos parkings n’est pas qu’une contrainte légale, c’est une opportunité fiscale. Nous gérons l’administratif pour que vous récupériez chaque euro auquel vous avez droit."
+          texte="L’électrification de vos parkings n’est pas qu’une contrainte légale, c’est une opportunité fiscale. Nous gérons l’administratif pour que vous mobilisiez les leviers auxquels vous avez droit."
           cartes={[
-            { icon: Building, t: "Conformité loi LOM", d: "Mise aux normes de vos parkings pour respecter vos quotas obligatoires." },
+            { icon: Building, t: "Obligations parkings", d: "Mise en conformité de vos parkings avec les obligations du Code de la construction, en vigueur depuis le 1er janvier 2025." },
             { icon: FileText, t: "Exonération ex-TVS", d: "Exonération totale des taxes annuelles CO2 et polluants (ex-TVS) pour les véhicules 100 % électriques." },
-            { icon: Award, t: "Amortissement & TVA", d: "Plafond d’amortissement rehaussé (30 000 €) pour les véhicules électriques et récupération de la TVA sur l’électricité consommée." },
+            { icon: Award, t: "Amortissement & TVA", d: "Amortissement déductible jusqu’à 30 000 € pour une voiture électrique, et TVA sur l’électricité de recharge déductible dans les conditions habituelles." },
           ]}
         />
 
