@@ -14,6 +14,7 @@
 // 08/10/2026 (guides Entreprises) : TAI = CIBS art. L421-132-2 à L421-132-5 (loi 2025-127 art. 28, loi 2026-103 art. 58), l'ancien quota L224-10 ne s'applique plus aux voitures.
 // Urssaf avantages en nature (page du 01/06/2026, arrêté du 25/02/2025) ; parkings non résidentiels = CCH L113-12 à L113-14 ; paiement des bornes publiques = AFIR art. 5.
 // Pas de montant de sanction parkings (non vérifié) : ne pas en ajouter. Exemption PME = bâtiment possédé ET occupé par une PME (CCH L113-14 2°).
+// 08/10/2026 (audit de véracité) : formulations absolues retirées, ADVENIR = « 50 % des coûts éligibles, dans la limite de… », AFIR 2027 = RTE-T ou aire sûre.
 // Parkings publics des collectivités : loi Climat et résilience, art. 118. Échéance 2027 : directive (UE) 2024/1275, art. 14, transposition en cours au 08/10/2026.
 
 export type Block =
@@ -68,7 +69,7 @@ export const articles: Article[] = [
         type: "ul",
         items: [
           "Les deux taxes annuelles sur les véhicules de tourisme (taxe CO2 et taxe polluants, l'ancienne TVS) ne s'appliquent pas aux véhicules 100 % électriques.",
-          "Amortissement : une voiture particulière électrique (moins de 20 g de CO2/km) est déductible jusqu'à 30 000 €, le plafond le plus élevé.",
+          "Amortissement : pour une voiture particulière électrique (moins de 20 g de CO2/km), l'amortissement est déductible dans la limite de 30 000 €, le plafond le plus élevé.",
           "Avantage en nature du salarié : pour un véhicule 100 % électrique attribué depuis le 1er février 2025 et respectant le score environnemental, abattement de 70 %, dans la limite de 4 641,60 € par an en 2026. L'électricité payée par l'entreprise n'entre pas dans l'avantage.",
           "La TVA sur l'électricité de recharge suit les règles habituelles : elle est déductible pour un usage professionnel, sur facture.",
         ],
@@ -76,7 +77,7 @@ export const articles: Article[] = [
       { type: "h2", text: "Pas de prime ADVENIR pour les voitures d'entreprise" },
       { type: "p", text: "En 2026, le programme ADVENIR ne finance plus les bornes des flottes de voitures et d'utilitaires légers : côté entreprises, il est réservé aux poids lourds et aux autocars. Le crédit d'impôt borne ne concernait que les particuliers et a pris fin le 31 décembre 2025. Une borne posée sur un site professionnel est facturée avec une TVA à 20 %, récupérable dans les conditions habituelles. Le vrai levier, c'est donc la maîtrise du coût d'installation et de l'électricité." },
       { type: "h2", text: "Recharger toute la flotte sans augmenter l'abonnement" },
-      { type: "p", text: "Le grand sujet technique d'une flotte, c'est la puissance. Dix voitures qui se branchent à 18 h sur des bornes de 7,4 kW, ce sont 74 kW appelés d'un coup. Avec le Smart Charging et le Load Balancing, la puissance disponible du site est partagée entre les véhicules branchés : chacun est rechargé pour le lendemain matin, sans augmenter l'abonnement." },
+      { type: "p", text: "Le grand sujet technique d'une flotte, c'est la puissance. Dix voitures qui se branchent à 18 h sur des bornes de 7,4 kW, ce sont 74 kW appelés d'un coup. Avec le Smart Charging et le Load Balancing, la puissance disponible du site est partagée entre les véhicules branchés : chacun est rechargé pour le lendemain matin, le plus souvent sans augmenter l'abonnement." },
       { type: "p", text: "La méthode CHARGéO, appliquée à chaque site, en quatre étapes :" },
       {
         type: "ol",
@@ -185,7 +186,7 @@ export const articles: Article[] = [
         items: [
           "Paiement sans abonnement : le client doit pouvoir payer ponctuellement, sans contrat. Pour une borne de moins de 50 kW, comme les bornes de 7 à 22 kW d'un hôtel, un paiement en ligne sécurisé, par exemple par QR code, suffit : un terminal de carte bancaire n'est pas obligatoire.",
           "Prix affiché avant la charge : le prix et toutes ses composantes sont visibles avant de démarrer, d'abord le prix au kWh, puis éventuellement à la minute ou à la session.",
-          "Le lecteur de carte bancaire obligatoire à partir de 2027 ne concerne que les bornes rapides de 50 kW et plus situées sur les grands axes européens.",
+          "Le lecteur de carte bancaire obligatoire à partir de 2027 ne concerne que les bornes rapides de 50 kW et plus situées sur le réseau routier transeuropéen ou sur une aire de stationnement sûre et sécurisée.",
           "Installation par un professionnel qualifié IRVE dès que la puissance dépasse 3,7 kW.",
         ],
       },
@@ -269,7 +270,7 @@ export const articles: Article[] = [
       { type: "h2", text: "Qui paie, et comment ?" },
       {
         type: "p",
-        text: "L'infrastructure collective est une dépense de la copropriété : elle est répartie entre les copropriétaires selon les règles de répartition des charges de l'immeuble, et appelée par le syndic. La [prime ADVENIR](/blog/prime-advenir-copropriete-infrastructure-collective) vient en déduction : 50 % des coûts, jusqu'à 12 500 € HT pour un parking jusqu'à 100 places selon le barème en vigueur. Chaque résident paie ensuite sa propre borne quand il se raccorde, avec une aide possible de 1 000 € HT.",
+        text: "L'infrastructure collective est une dépense de la copropriété : elle est répartie entre les copropriétaires selon les règles de répartition des charges de l'immeuble, et appelée par le syndic. La [prime ADVENIR](/blog/prime-advenir-copropriete-infrastructure-collective) vient en déduction : 50 % des coûts éligibles, dans la limite de 12 500 € HT pour un parking jusqu'à 100 places selon le barème en vigueur. Chaque résident paie ensuite sa propre borne quand il se raccorde, avec une aide possible de 50 %, jusqu'à 1 000 € HT.",
       },
       {
         type: "p",
@@ -303,7 +304,7 @@ export const articles: Article[] = [
       },
       {
         type: "p",
-        text: "Ces montants s'entendent avec la TVA à 5,5 % et pour une installation standard : borne à quelques mètres du tableau, câble apparent ou sous goulotte, tableau en bon état. Au-delà, ce sont les travaux annexes qui font monter la note. Vous hésitez entre les deux solutions ? Lisez notre comparatif [prise renforcée ou borne murale](/blog/prise-renforcee-ou-wallbox-que-choisir).",
+        text: "Ces montants indicatifs (prix constatés en 2026) s'entendent TTC, avec la TVA à 5,5 % applicable à l'installation dans un logement, et pour une installation standard : borne à quelques mètres du tableau, câble apparent ou sous goulotte, tableau en bon état. Au-delà, ce sont les travaux annexes qui font monter la note. Vous hésitez entre les deux solutions ? Lisez notre comparatif [prise renforcée ou borne murale](/blog/prise-renforcee-ou-wallbox-que-choisir).",
       },
       { type: "h2", text: "Les 5 postes qui font varier un devis" },
       {
@@ -370,7 +371,7 @@ export const articles: Article[] = [
       { type: "h2", text: "Monophasé ou triphasé : comment savoir ?" },
       {
         type: "p",
-        text: "La plupart des maisons sont raccordées en monophasé : une phase et un neutre. Le triphasé amène trois phases ; on le trouve dans certaines maisons, souvent équipées de gros appareils. Pour le savoir, regardez votre facture d'électricité ou votre disjoncteur d'abonnement : deux câbles en entrée pour le monophasé, quatre pour le triphasé.",
+        text: "La plupart des maisons sont raccordées en monophasé : une phase et un neutre. Le triphasé amène trois phases ; on le trouve dans certaines maisons, souvent équipées de gros appareils. Pour le savoir, le plus simple est de regarder votre contrat ou votre facture d'électricité, qui l'indique, ou de demander à un électricien.",
       },
       { type: "h2", text: "Ce que chaque raccordement permet" },
       {
@@ -400,12 +401,12 @@ export const articles: Article[] = [
       },
       {
         type: "p",
-        text: "Pensez aussi au câble si votre borne n'en a pas d'intégré : un câble 3 x 16 A limite la recharge à 3,7 kW sur une borne monophasée, alors qu'un câble 3 x 32 A fonctionne partout.",
+        text: "Pensez aussi au câble si votre borne n'en a pas d'intégré : un câble prévu pour 16 A limite la recharge à 3,7 kW en monophasé ; choisissez un câble 32 A, triphasé si votre borne et votre voiture le sont.",
       },
       { type: "h2", text: "Le cas du frontalier : Thonon–Genève tous les jours" },
       {
         type: "p",
-        text: "Prenons 100 km par jour et une consommation de 18 kWh aux 100 km : il faut remettre environ 18 kWh chaque soir. Une borne 7,4 kW le fait en 2 h 30 à 3 h, une prise renforcée en 5 à 6 h, une borne 11 kW en moins de 2 h. Toutes tiennent largement dans une nuit en heures creuses.",
+        text: "Prenons 100 km par jour et une consommation de 18 kWh aux 100 km : il faut remettre environ 18 kWh chaque soir. Une borne 7,4 kW le fait en 2 h 30 à 3 h, une prise renforcée en 5 à 6 h, une borne 11 kW en moins de 2 h. Toutes tiennent dans une nuit : les heures creuses durent en général 8 heures.",
       },
       {
         type: "p",
@@ -461,7 +462,7 @@ export const articles: Article[] = [
           "Notifier votre projet au syndic par lettre recommandée avec accusé de réception, avec un descriptif détaillé des travaux, un plan technique et un schéma de raccordement électrique. L'installateur vous prépare ces documents.",
           "Le syndic inscrit une information sur votre projet à l'ordre du jour de la prochaine assemblée générale. Il n'y a pas de vote : vous n'avez pas besoin de l'accord des autres copropriétaires.",
           "À compter de la réception de votre courrier, le syndic dispose de 3 mois pour saisir le tribunal s'il veut s'opposer. Sans saisine dans ce délai, vous pouvez lancer les travaux, même si l'assemblée générale n'a pas encore eu lieu.",
-          "Le syndic signe avec l'installateur une convention qui fixe les conditions d'accès aux parties communes (sans vote de l'assemblée), puis viennent la pose, la mise en service et la remise de l'attestation de conformité.",
+          "Le syndic signe avec l'installateur, dans les deux mois, une convention qui fixe les conditions d'accès aux parties communes (sans vote de l'assemblée), puis viennent la pose, la mise en service et la remise de l'attestation de conformité.",
         ],
       },
       { type: "h2", text: "Vous êtes locataire ?" },
@@ -512,7 +513,7 @@ export const articles: Article[] = [
       {
         type: "ul",
         items: [
-          "Prise domestique classique (environ 2,3 kW) : à réserver au dépannage. Elle récupère environ 10 à 15 km d'autonomie par heure et n'est pas conçue pour débiter fort pendant des heures, chaque nuit.",
+          "Prise domestique classique (1,8 à 2,3 kW selon le câble) : à réserver au dépannage. Elle récupère environ 10 à 15 km d'autonomie par heure et n'est pas conçue pour débiter fort pendant des heures, chaque nuit.",
           "Prise renforcée (environ 3,2 à 3,7 kW) : une prise spéciale sur un circuit dédié. Environ 15 à 20 km par heure, soit 120 à 160 km sur une nuit de 8 heures.",
           "Borne murale ou wallbox (7,4 kW en monophasé) : environ 35 à 45 km par heure. La batterie se recharge en une nuit, même après une grosse journée.",
         ],
@@ -520,7 +521,7 @@ export const articles: Article[] = [
       {
         type: "figure",
         src: "/blog/vitesse-recharge.svg",
-        alt: "Comparatif des kilomètres récupérés par heure : prise classique 10 à 15 km, prise renforcée 15 à 20 km, wallbox 7,4 kW 35 à 45 km, wallbox 11 kW 55 à 65 km",
+        alt: "Comparatif des kilomètres récupérés par heure : prise classique (1,8 à 2,3 kW) 10 à 15 km, prise renforcée 15 à 20 km, wallbox 7,4 kW 35 à 45 km, wallbox 11 kW 55 à 65 km",
         width: 720,
         height: 580,
       },
@@ -549,7 +550,7 @@ export const articles: Article[] = [
           "La puissance de votre abonnement : avec 6 ou 9 kVA, une borne 7,4 kW peut faire disjoncter si le four et le chauffage tournent en même temps. La solution : un délesteur, qui baisse automatiquement la recharge quand la maison consomme beaucoup.",
           "L'état du tableau électrique et la qualité de la terre : la borne a besoin de protections dédiées (disjoncteur et différentiel adaptés).",
           "La distance entre le tableau et l'emplacement de la borne : c'est elle qui fait varier le [prix de l'installation](/blog/prix-borne-recharge-maison-haute-savoie), avec le mode de passage du câble (apparent, encastré, enterré, vide sanitaire).",
-          "Les heures creuses : une borne pilotée recharge la nuit, au tarif le plus bas.",
+          "Les heures creuses : une borne pilotée recharge la nuit, au tarif heures creuses de votre contrat.",
         ],
       },
       {
