@@ -19,9 +19,12 @@ export const metadata: Metadata = {
   title: "Installateur Borne de Recharge à Thonon-les-Bains & Chablais | CHARGÉO",
   description: "Installateur de bornes de recharge IRVE à Thonon-les-Bains, Évian et dans tout le Chablais (Haute-Savoie). Particuliers, entreprises et copropriétés : simulateur en ligne, prix ferme et devis gratuit.",
   // Identite du 04/10/2026 : e turquoise + eclair sur carre navy.
+  // favicon.ico (16/32/48 px) en premier : l'adresse que Google et les vieux navigateurs
+  // vont chercher d'office (retablie le 10/10/2026, elle etait en 404 depuis le 05/10).
   // SVG pour les navigateurs recents, PNG 48 px pour les autres et pour Google.
   icons: {
     icon: [
+      { url: "/favicon.ico", sizes: "48x48", type: "image/x-icon" },
       { url: "/icon.svg", type: "image/svg+xml" },
       { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
     ],
