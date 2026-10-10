@@ -50,9 +50,11 @@ export default function RootLayout({
   // Données structurées pour Google (SEO local), enrichies le 07/10/2026 :
   // identifiant stable (@id), coordonnées GPS de l'adresse (Base Adresse Nationale),
   // zones desservies typées, catalogue des 3 offres, fondateur, et le site lui-même.
-  // A ajouter des que les profils existent : "sameAs" (fiche Google, Facebook, LinkedIn,
-  // annuaires ADVENIR / Qualifelec) et "openingHoursSpecification" (horaires reels).
+  // 10/10/2026 : fiche Google Business Profile reliee (sameAs + hasMap, lien stable par CID).
+  // A ajouter des que les profils existent : Facebook, LinkedIn, annuaires ADVENIR /
+  // Qualifelec dans "sameAs", et "openingHoursSpecification" (horaires reels).
   const ENTREPRISE = "https://www.chargeo.fr/#entreprise";
+  const FICHE_GOOGLE = "https://maps.google.com/?cid=6752944860837772629";
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -73,6 +75,8 @@ export default function RootLayout({
           "addressCountry": "FR"
         },
         "geo": { "@type": "GeoCoordinates", "latitude": 46.387849, "longitude": 6.506903 },
+        "hasMap": FICHE_GOOGLE,
+        "sameAs": [FICHE_GOOGLE],
         "telephone": "+33485692204",
         "email": "contact@chargeo.fr",
         "founder": { "@type": "Person", "@id": "https://www.chargeo.fr/#mathieu-belengri", "name": "Mathieu Belengri", "jobTitle": "Fondateur" },
