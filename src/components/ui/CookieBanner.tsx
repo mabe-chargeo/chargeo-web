@@ -1,9 +1,13 @@
 "use client";
 
 import React from "react";
+import { usePathname } from "next/navigation";
 import CookieConsent from "react-cookie-consent";
 
 export function CookieBanner() {
+  // 10/10/2026 : pas de bandeau sur l'outil terrain interne (/interne), il masquait le bouton Valider.
+  const pathname = usePathname();
+
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       const match = document.cookie.match(/(^| )chargeo-gdpr-consent=([^;]+)/);
@@ -19,6 +23,8 @@ export function CookieBanner() {
       }
     }
   }, []);
+
+  if (pathname?.startsWith("/interne")) return null;
 
   return (
     <CookieConsent

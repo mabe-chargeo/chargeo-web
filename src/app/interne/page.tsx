@@ -1,8 +1,12 @@
 "use client";
 
+// Planning terrain : logique inchangée (/api/chantiers, redirection window.location pour le hors-ligne).
+// 10/10/2026 : habillage charte 2026 (en-tête navy + logo blanc, cartes #eceef1, Poppins).
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ClipboardList, MapPin, RefreshCw } from 'lucide-react';
+import { ChevronRight, ClipboardList, MapPin, RefreshCw } from 'lucide-react';
+
+const NAVY = '#032b60';
+const CYAN = '#0097b2';
 
 interface Chantier {
   id: string;
@@ -11,7 +15,6 @@ interface Chantier {
 }
 
 export default function InternePage() {
-  const router = useRouter();
   const [chantiers, setChantiers] = useState<Chantier[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +34,7 @@ export default function InternePage() {
     } catch (e) {
       setErreur("Impossible de joindre le serveur.");
     } finally {
-      setLoading(false); // C'est ÇA qui manquait pour arrêter la roue infinie !
+      setLoading(false); // Arrête la roue de chargement dans tous les cas
     }
   };
 
@@ -46,61 +49,72 @@ export default function InternePage() {
     window.location.href = `/interne/metre/${id}`;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="text-center space-y-2">
-          <RefreshCw className="animate-spin text-[#0097b2] mx-auto" size={32} />
-          <p className="text-sm font-bold text-slate-500">Chargement du planning terrain...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-slate-100 pb-12">
-      {/* Header */}
-      <div className="bg-[#032b60] text-white px-6 pb-6 pt-12 shadow-lg rounded-b-[2rem] mb-6 flex justify-between items-end">
-        <div>
-          <p className="text-cyan-300 font-black uppercase tracking-widest text-[10px]">Espace Technique</p>
-          <h1 className="text-2xl font-black leading-tight">Mon Planning</h1>
+    <div className="min-h-screen bg-white pb-12 font-sans antialiased" style={{ color: NAVY }}>
+      {/* En-tête */}
+      <header className="px-6 pb-8 pt-10" style={{ backgroundColor: NAVY }}>
+        <div className="mx-auto flex max-w-lg items-start justify-between gap-4">
+          <div>
+            <img src="/logo-chargeo-blanc.svg" alt="CHARGéO" className="h-9 w-auto" />
+            <p className="mt-6 text-[12px] font-extrabold uppercase tracking-[0.14em]" style={{ color: '#7fd3e2' }}>Espace technique</p>
+            <h1 className="mt-1 text-[28px] font-bold leading-tight tracking-[-0.015em] text-white">Mon planning</h1>
+          </div>
+          <button
+            onClick={chargerPlanning}
+            aria-label="Actualiser le planning"
+            className="mt-1 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white transition-transform active:scale-95"
+          >
+            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+          </button>
         </div>
-        <button onClick={chargerPlanning} className="p-3 bg-white/10 rounded-full active:scale-95 transition-all">
-          <RefreshCw size={20} />
-        </button>
-      </div>
+      </header>
 
-      {/* Liste des chantiers */}
-      <main className="px-4 max-w-lg mx-auto space-y-4">
-        {erreur && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-xl text-center font-bold text-sm border border-red-200">
+      <main className="mx-auto max-w-lg space-y-4 px-4 pt-6">
+        <div className="flex items-center gap-3 px-1">
+          <span className="block h-[8px] w-[64px] rounded-[4px]" style={{ backgroundColor: CYAN }} />
+          <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]">Visites à réaliser</p>
+        </div>
+
+        {loading && (
+          <div className="rounded-[20px] p-8 text-center" style={{ backgroundColor: '#eceef1' }}>
+            <RefreshCw className="mx-auto animate-spin" size={28} color={CYAN} />
+            <p className="mt-3 text-[15px] font-semibold">Chargement du planning terrain...</p>
+          </div>
+        )}
+
+        {!loading && erreur && (
+          <p role="alert" className="rounded-[14px] bg-white px-4 py-3 text-[15px] font-semibold leading-relaxed ring-[1.5px] ring-[#dfe3e8]" style={{ boxShadow: 'inset 4px 0 0 #FF6B00' }}>
             {erreur}
+          </p>
+        )}
+
+        {!loading && !erreur && chantiers.length === 0 && (
+          <div className="rounded-[20px] p-8 text-center" style={{ backgroundColor: '#eceef1' }}>
+            <ClipboardList className="mx-auto mb-3" size={40} color={CYAN} strokeWidth={1.6} />
+            <p className="text-[15px] font-semibold">Aucune visite technique à l'ordre du jour.</p>
           </div>
         )}
-        
-        {!erreur && chantiers.length === 0 ? (
-          <div className="bg-white p-8 rounded-3xl text-center border border-slate-200 text-slate-400 font-medium">
-            <ClipboardList className="mx-auto mb-2 text-slate-300" size={40} />
-            Aucune visite technique à l'ordre du jour.
-          </div>
-        ) : (
-          chantiers.map((chantier) => (
-            <button
-              key={chantier.id}
-              onClick={() => handleSelectChantier(chantier.id)}
-              className="w-full bg-white p-5 rounded-3xl border border-slate-200 shadow-sm text-left flex flex-col gap-2 active:scale-[0.98] active:bg-slate-50 transition-all"
-            >
-              <div className="flex justify-between items-start w-full">
-                <span className="font-black text-slate-800 text-lg leading-tight">{chantier.nom}</span>
-                <span className="bg-cyan-50 text-[#0097b2] font-black text-[10px] uppercase px-2 py-1 rounded-md tracking-wider">Métré</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-slate-500 text-xs font-medium">
-                <MapPin size={14} className="text-slate-400 shrink-0" />
+
+        {!loading && !erreur && chantiers.map((chantier) => (
+          <button
+            key={chantier.id}
+            onClick={() => handleSelectChantier(chantier.id)}
+            className="flex w-full items-center gap-4 rounded-[20px] p-5 text-left transition-transform active:scale-[0.98]"
+            style={{ backgroundColor: '#eceef1' }}
+          >
+            <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
+              <ClipboardList size={22} color="#ffffff" strokeWidth={1.8} />
+            </div>
+            <div className="min-w-0 grow">
+              <p className="text-[17px] font-bold leading-tight">{chantier.nom}</p>
+              <p className="mt-1.5 flex items-center gap-1.5 text-[13px]">
+                <MapPin size={14} className="shrink-0" color={CYAN} />
                 <span className="truncate">{chantier.adresse}</span>
-              </div>
-            </button>
-          ))
-        )}
+              </p>
+            </div>
+            <ChevronRight size={22} className="shrink-0" color={CYAN} />
+          </button>
+        ))}
       </main>
     </div>
   );

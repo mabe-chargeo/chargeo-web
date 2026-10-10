@@ -1,6 +1,9 @@
 import { notFound } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 import { MetreForm } from '@/components/ui/MetreForm';
 
+// Page de relevé : logique inchangée (lecture de la tâche + segment déjà posé).
+// 10/10/2026 : en-tête à la charte 2026.
 const SEGMENT_OPTIONS: Record<number, string> = { 0: 'RES', 1: 'DAP', 2: 'COP', 3: 'PAR', 4: 'FLT', 5: 'TER' };
 
 async function getClickUpTaskData(taskId: string) {
@@ -37,21 +40,21 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <div className="bg-[#032b60] text-white px-6 pb-8 pt-12 shadow-lg rounded-b-[2.5rem] mb-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-[#0097b2]/20 rounded-full blur-2xl -mr-10 -mt-10"></div>
-        <div className="relative z-10">
-          <div className="flex justify-between items-start mb-2">
-            <p className="text-cyan-300 font-black uppercase tracking-[0.2em] text-[10px] mt-1">Visite Technique</p>
-            <a href="/interne" className="text-white bg-white/20 text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-sm">
-              ← Retour
+    <div className="min-h-screen bg-white font-sans antialiased" style={{ color: '#032b60' }}>
+      <header className="mb-6 px-6 pb-8 pt-10" style={{ backgroundColor: '#032b60' }}>
+        <div className="mx-auto max-w-lg">
+          <div className="flex items-center justify-between gap-4">
+            <img src="/logo-chargeo-blanc.svg" alt="CHARGéO" className="h-9 w-auto" />
+            <a href="/interne" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
+              <ArrowLeft size={16} /> Planning
             </a>
           </div>
-          <h1 className="text-2xl font-black leading-tight truncate">{taskData.name}</h1>
+          <p className="mt-6 text-[12px] font-extrabold uppercase tracking-[0.14em]" style={{ color: '#7fd3e2' }}>Visite technique</p>
+          <h1 className="mt-1 text-[26px] font-bold leading-tight tracking-[-0.015em] text-white">{taskData.name}</h1>
         </div>
-      </div>
+      </header>
 
-      <main className="px-4 max-w-lg mx-auto">
+      <main className="mx-auto max-w-lg px-4">
         <MetreForm taskId={resolvedParams.id} taskName={taskData.name} initialSegment={taskData.segment} />
       </main>
     </div>

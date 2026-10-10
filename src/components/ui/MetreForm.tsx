@@ -1,5 +1,8 @@
 "use client";
 
+// Relevé terrain : LOGIQUE INCHANGÉE (matrice d'affichage, hors-ligne, envoi /api/metre puis photos).
+// 10/10/2026 : habillage charte 2026 seul. Les attributs value des menus ne changent pas
+// (la route /api/metre les convertit en index ClickUp) : seuls les libellés affichés retrouvent leurs accents.
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag, X, Plug } from 'lucide-react';
 
@@ -7,18 +10,40 @@ import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag
 const INFRA_SEGMENTS = ['COP'];
 const COPRO_PHOTO_SEGMENTS = ['COP', 'PAR', 'FLT', 'TER'];
 
+// Charte 2026
+const NAVY = '#032b60';
+const CYAN = '#0097b2';
+const CARTE = 'rounded-[20px] p-5 space-y-5';
+const CARTE_STYLE = { backgroundColor: '#eceef1' };
+
 // Checklist photos : les 5 premieres pour tous, les 4 suivantes pour copro/flotte/tertiaire
+// (les clés ne changent pas, seuls les libellés affichés sont accentués)
 const PHOTOS = [
-  { key: 'photoTableauFerme', label: 'Tableau ferme', scope: 'all' },
+  { key: 'photoTableauFerme', label: 'Tableau fermé', scope: 'all' },
   { key: 'photoTableauOuvert', label: 'Tableau ouvert', scope: 'all' },
   { key: 'photoEmplacementBorne', label: 'Emplacement borne', scope: 'all' },
   { key: 'photoCompteurPDL', label: 'Compteur / PDL', scope: 'all' },
   { key: 'photoPriseTerre', label: 'Prise de terre', scope: 'all' },
   { key: 'photoTGBT', label: 'TGBT parties communes', scope: 'copro' },
-  { key: 'photoArtere', label: 'Cheminement artere', scope: 'copro' },
+  { key: 'photoArtere', label: 'Cheminement artère', scope: 'copro' },
   { key: 'photoParking', label: 'Vue parking', scope: 'copro' },
   { key: 'photoLocalTech', label: 'Local technique / TD', scope: 'copro' },
 ];
+
+// Titre de carte : pastille cyan + titre, comme les cartes du site
+function TitreCarte({ icon: Icon, children, extra }: { icon: React.ElementType, children: React.ReactNode, extra?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h3 className="flex items-center gap-3 text-[17px] font-bold">
+        <span className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-[12px]" style={{ backgroundColor: CYAN }}>
+          <Icon size={20} color="#ffffff" strokeWidth={1.8} />
+        </span>
+        {children}
+      </h3>
+      {extra}
+    </div>
+  );
+}
 
 export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string, taskName: string, initialSegment?: string }) {
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
@@ -231,54 +256,58 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
 
   if (status === "success") {
     return (
-      <div className="bg-green-50 text-green-700 p-8 rounded-3xl text-center space-y-4 shadow-sm border border-green-100">
-        <CheckCircle size={48} className="mx-auto" />
-        <h2 className="text-2xl font-black uppercase tracking-tight">Releve Transmis !</h2>
-        <p className="font-medium text-sm">Le dossier de {taskName} a ete mis a jour dans ClickUp avec succes.</p>
+      <div className="flex flex-col items-center gap-4 rounded-[24px] p-8 text-center" style={{ backgroundColor: '#eceef1', color: NAVY }}>
+        <div className="flex h-16 w-16 items-center justify-center rounded-[16px] text-white" style={{ backgroundColor: CYAN }}>
+          <CheckCircle size={32} />
+        </div>
+        <h2 className="text-[24px] font-bold">Relevé transmis !</h2>
+        <p className="text-[15px] leading-relaxed">Le dossier de {taskName} a été mis à jour dans ClickUp.</p>
+        <a href="/interne" className="mt-2 text-[15px] font-semibold underline underline-offset-4" style={{ color: '#007f96' }}>Retour au planning</a>
       </div>
     );
   }
 
-  const inputClass = "w-full font-bold bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-[#0097b2]";
-  const labelClass = "text-[10px] font-bold text-slate-500 uppercase";
+  // Champs et étiquettes identiques au formulaire de contact du site
+  const inputClass = "w-full bg-white text-[#032b60] text-[16px] font-medium rounded-[14px] border-0 ring-[1.5px] ring-[#dfe3e8] focus:ring-2 focus:ring-[#0097b2] block px-4 py-3.5 transition outline-none placeholder:text-slate-400";
+  const labelClass = "ml-1 block text-[12px] font-extrabold uppercase tracking-[0.12em] text-[#032b60]";
   const photosPrises = visiblePhotos.filter(p => (photos[p.key] || []).length > 0).length;
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} onChange={handleFormChange} className="space-y-6 pb-12">
+    <form ref={formRef} onSubmit={handleSubmit} onChange={handleFormChange} className="space-y-5 pb-12" style={{ color: NAVY }}>
       
       {/* SEGMENT */}
-      <div className="bg-[#0097b2]/10 p-6 rounded-3xl border-2 border-[#0097b2]/30 space-y-3">
-        <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2"><Tag size={18} className="text-[#0097b2]"/> Type de projet</h3>
+      <div className="rounded-[20px] p-5 space-y-4" style={{ backgroundColor: '#e3f4f7', boxShadow: `inset 5px 0 0 ${CYAN}` }}>
+        <TitreCarte icon={Tag}>Type de projet</TitreCarte>
         <select
           name="segment"
           value={segment}
           onChange={(e) => setSegment(e.target.value)}
-          className="w-full font-black text-lg bg-white border-2 border-[#0097b2] rounded-xl p-4 outline-none text-[#032b60]"
+          className="block w-full rounded-[14px] border-0 bg-white px-4 py-4 text-[17px] font-bold text-[#032b60] outline-none ring-2 ring-[#0097b2]"
         >
           <option value="">Choisir le segment...</option>
-          <option value="RES">RES — Residentiel (maison)</option>
-          <option value="DAP">DAP — Droit a la prise</option>
-          <option value="COP">COP — Copro infrastructure</option>
-          <option value="PAR">PAR — Borne partagee</option>
-          <option value="FLT">FLT — Flotte entreprise</option>
-          <option value="TER">TER — Tertiaire / ERP</option>
+          <option value="RES">RES · Résidentiel (maison)</option>
+          <option value="DAP">DAP · Droit à la prise</option>
+          <option value="COP">COP · Copro infrastructure</option>
+          <option value="PAR">PAR · Borne partagée</option>
+          <option value="FLT">FLT · Flotte entreprise</option>
+          <option value="TER">TER · Tertiaire / ERP</option>
         </select>
       </div>
 
       {/* ELECTRICITE */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-5">
-        <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2 border-b pb-3"><Zap size={18} className="text-[#0097b2]"/> Electricite</h3>
+      <div className={CARTE} style={CARTE_STYLE}>
+        <TitreCarte icon={Zap}>Électricité</TitreCarte>
         
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className={labelClass}>Raccordement</label>
             <select name="typeRaccordement" className={inputClass}>
-              <option value="Monophase">Monophase</option>
-              <option value="Triphase">Triphase</option>
+              <option value="Monophase">Monophasé</option>
+              <option value="Triphase">Triphasé</option>
             </select>
           </div>
           <div className="space-y-2">
-            <label className={labelClass}>Puissance Dispo</label>
+            <label className={labelClass}>Puissance dispo</label>
             <select name="puissance" className={inputClass}>
               <option value="3 kVA">3 kVA</option>
               <option value="6 kVA">6 kVA</option>
@@ -292,19 +321,19 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
         <div className="space-y-2">
           <label className={labelClass}>Source de raccordement</label>
           <select name="sourceRacc" value={sourceRacc} onChange={(e) => setSourceRacc(e.target.value)} className={inputClass}>
-            <option value="">A preciser</option>
+            <option value="">À préciser</option>
             <option value="Tableau individuel existant">Tableau individuel existant</option>
-            <option value="TGBT services generaux existant">TGBT services generaux existant</option>
-            <option value="PDL dedie">PDL dedie</option>
+            <option value="TGBT services generaux existant">TGBT services généraux existant</option>
+            <option value="PDL dedie">PDL dédié</option>
           </select>
         </div>
 
         {showPuissanceVisee && (
           <div className="space-y-2">
-            <label className={labelClass}>Puissance Visee PDC</label>
+            <label className={labelClass}>Puissance visée PDC</label>
             <select name="puissanceVisee" className={inputClass}>
-              <option value="">A determiner</option>
-              <option value="3.7">3,7 kW (prise renforcee)</option>
+              <option value="">À déterminer</option>
+              <option value="3.7">3,7 kW (prise renforcée)</option>
               <option value="7.4">7,4 kW (mono)</option>
               <option value="11">11 kW (tri)</option>
               <option value="22">22 kW (tri)</option>
@@ -314,16 +343,16 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className={labelClass}>Terre (Ohms)</label>
-            <input type="number" step="0.1" name="terre" required className={inputClass} placeholder="Ex: 45" />
+            <label className={labelClass}>Terre (ohms)</label>
+            <input type="number" step="0.1" name="terre" required className={inputClass} placeholder="Ex : 45" />
           </div>
           {showReseau && (
             <div className="space-y-2">
-              <label className={labelClass}>Reseau</label>
+              <label className={labelClass}>Réseau</label>
               <select name="reseau" className={inputClass}>
                 <option value="4G OK">4G OK</option>
                 <option value="WiFi OK">WiFi OK</option>
-                <option value="Cable requis">Zone Blanche</option>
+                <option value="Cable requis">Zone blanche</option>
               </select>
             </div>
           )}
@@ -331,67 +360,67 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
 
         {showEtatTableau && (
           <div className="space-y-2">
-            <label className={labelClass}>Etat Tableau</label>
+            <label className={labelClass}>État tableau</label>
             <select name="etatTableau" className={inputClass}>
-              <option value="OK">OK (Conforme)</option>
-              <option value="A remanier">A remanier (Manque de place)</option>
-              <option value="A remplacer">A remplacer / Vetuste</option>
+              <option value="OK">OK (conforme)</option>
+              <option value="A remanier">À remanier (manque de place)</option>
+              <option value="A remplacer">À remplacer / vétuste</option>
             </select>
           </div>
         )}
 
         {showDelesteur && (
-          <label className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
-            <input type="checkbox" name="besoinDelesteur" className="w-5 h-5 accent-[#FF6B00]" />
-            <span className="text-sm font-bold text-slate-800">Besoin d'un module Delesteur</span>
+          <label className="flex cursor-pointer items-center gap-3 rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
+            <input type="checkbox" name="besoinDelesteur" className="h-5 w-5 accent-[#0097b2]" />
+            <span className="text-[15px] font-semibold">Besoin d'un module délesteur</span>
           </label>
         )}
       </div>
 
       {/* CHEMINEMENT : 7 DISTANCES (masque en COP infra) */}
       {showCheminement && (
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-5">
-          <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2 border-b pb-3"><Ruler size={18} className="text-[#0097b2]"/> Cheminement</h3>
+        <div className={CARTE} style={CARTE_STYLE}>
+          <TitreCarte icon={Ruler}>Cheminement</TitreCarte>
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2"><label className={labelClass}>Tube apparent (m)</label><input type="number" name="distApparent" defaultValue="0" className={inputClass} /></div>
             <div className="space-y-2"><label className={labelClass}>Goulotte (m)</label><input type="number" name="distGoulotte" defaultValue="0" className={inputClass} /></div>
-            <div className="space-y-2"><label className={labelClass}>Encastre (m)</label><input type="number" name="distEncastre" defaultValue="0" className={inputClass} /></div>
+            <div className="space-y-2"><label className={labelClass}>Encastré (m)</label><input type="number" name="distEncastre" defaultValue="0" className={inputClass} /></div>
             <div className="space-y-2"><label className={labelClass}>Vide sanitaire (m)</label><input type="number" name="distVideSanitaire" defaultValue="0" className={inputClass} /></div>
-            <div className="space-y-2"><label className={labelClass}>Chemin de cables (m)</label><input type="number" name="distCDC" defaultValue="0" className={inputClass} /></div>
+            <div className="space-y-2"><label className={labelClass}>Chemin de câbles (m)</label><input type="number" name="distCDC" defaultValue="0" className={inputClass} /></div>
             <div className="space-y-2"><label className={labelClass}>Tirage existant (m)</label><input type="number" name="distTirage" defaultValue="0" className={inputClass} /></div>
-            <div className="space-y-2"><label className={labelClass}>Tranchee (m)</label><input type="number" name="distTranchee" defaultValue="0" className={inputClass} /></div>
+            <div className="space-y-2"><label className={labelClass}>Tranchée (m)</label><input type="number" name="distTranchee" defaultValue="0" className={inputClass} /></div>
           </div>
         </div>
       )}
 
       {/* PERCEMENTS (tous) */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-5">
-        <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2 border-b pb-3"><Hammer size={18} className="text-[#0097b2]"/> Percements a realiser</h3>
+      <div className={CARTE} style={CARTE_STYLE}>
+        <TitreCarte icon={Hammer}>Percements à réaliser</TitreCarte>
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2"><label className={labelClass}>Placo / Bois</label><input type="number" name="percementPlaco" defaultValue="0" className={inputClass} /></div>
-          <div className="space-y-2"><label className={labelClass}>Brique / Parpaing</label><input type="number" name="percementBrique" defaultValue="0" className={inputClass} /></div>
-          <div className="space-y-2"><label className={labelClass}>Beton / Pierre</label><input type="number" name="percementBeton" defaultValue="0" className={inputClass} /></div>
-          <div className="space-y-2"><label className={labelClass}>Dalle / Sol</label><input type="number" name="percementDalle" defaultValue="0" className={inputClass} /></div>
+          <div className="space-y-2"><label className={labelClass}>Placo / bois</label><input type="number" name="percementPlaco" defaultValue="0" className={inputClass} /></div>
+          <div className="space-y-2"><label className={labelClass}>Brique / parpaing</label><input type="number" name="percementBrique" defaultValue="0" className={inputClass} /></div>
+          <div className="space-y-2"><label className={labelClass}>Béton / pierre</label><input type="number" name="percementBeton" defaultValue="0" className={inputClass} /></div>
+          <div className="space-y-2"><label className={labelClass}>Dalle / sol</label><input type="number" name="percementDalle" defaultValue="0" className={inputClass} /></div>
         </div>
       </div>
 
       {/* INFRASTRUCTURE (COP infra) */}
       {showInfra && (
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-5">
-          <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2 border-b pb-3"><Building2 size={18} className="text-[#0097b2]"/> Infrastructure</h3>
+        <div className={CARTE} style={CARTE_STYLE}>
+          <TitreCarte icon={Building2}>Infrastructure</TitreCarte>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2"><label className={labelClass}>Nb Places Parking</label><input type="number" name="nbPlacesParking" defaultValue="0" className={inputClass} placeholder="Ex: 24" /></div>
-            <div className="space-y-2"><label className={labelClass}>Longueur Artere (m)</label><input type="number" name="longueurArtere" defaultValue="0" className={inputClass} placeholder="Ex: 45" /></div>
+            <div className="space-y-2"><label className={labelClass}>Nb places parking</label><input type="number" name="nbPlacesParking" defaultValue="0" className={inputClass} placeholder="Ex : 24" /></div>
+            <div className="space-y-2"><label className={labelClass}>Longueur artère (m)</label><input type="number" name="longueurArtere" defaultValue="0" className={inputClass} placeholder="Ex : 45" /></div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2"><label className={labelClass}>Dist. TGBT vers TD (m)</label><input type="number" name="distTGBT" defaultValue="0" className={inputClass} placeholder="Ex: 12" /></div>
-            <div className="space-y-2"><label className={labelClass}>Dist. Routeur vers TD (m)</label><input type="number" name="distRouteur" defaultValue="0" className={inputClass} placeholder="Ex: 5" /></div>
+            <div className="space-y-2"><label className={labelClass}>TGBT vers TD (m)</label><input type="number" name="distTGBT" defaultValue="0" className={inputClass} placeholder="Ex : 12" /></div>
+            <div className="space-y-2"><label className={labelClass}>Routeur vers TD (m)</label><input type="number" name="distRouteur" defaultValue="0" className={inputClass} placeholder="Ex : 5" /></div>
           </div>
           <div className="space-y-2">
             <label className={labelClass}>Taille HUB</label>
             <select name="tailleHUB" className={inputClass}>
-              <option value="">Non concerne</option>
+              <option value="">Non concerné</option>
               <option value="10">HUB 10</option>
               <option value="20">HUB 20</option>
               <option value="150">HUB 150</option>
@@ -401,59 +430,65 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
       )}
 
       {/* INSTALLATION : Support Borne (masque COP infra) + Zone Deplacement (tous) */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-5">
-        <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2 border-b pb-3"><Plug size={18} className="text-[#0097b2]"/> Installation</h3>
+      <div className={CARTE} style={CARTE_STYLE}>
+        <TitreCarte icon={Plug}>Installation</TitreCarte>
         <div className="grid grid-cols-2 gap-4">
           {showSupportBorne && (
             <div className="space-y-2">
-              <label className={labelClass}>Support de Borne</label>
+              <label className={labelClass}>Support de borne</label>
               <select name="murSupport" className={inputClass}>
-                <option value="Mur Beton/Parpaing">Mur Beton / Parpaing</option>
-                <option value="Mur Placo">Mur Placo</option>
-                <option value="Mur Bois">Mur Bois</option>
-                <option value="Sur Pied">Sur Pied</option>
+                <option value="Mur Beton/Parpaing">Mur béton / parpaing</option>
+                <option value="Mur Placo">Mur placo</option>
+                <option value="Mur Bois">Mur bois</option>
+                <option value="Sur Pied">Sur pied</option>
               </select>
             </div>
           )}
           <div className="space-y-2">
-            <label className={labelClass}>Zone Deplacement</label>
+            <label className={labelClass}>Zone déplacement</label>
             <select name="zoneDepl" className={inputClass}>
-              <option value="">A preciser</option>
+              <option value="">À préciser</option>
               <option value="Z1">Z1 (max 30 min)</option>
-              <option value="Z2">Z2 (30 min a 1h)</option>
-              <option value="Z3">Z3 (1h a 1h30)</option>
+              <option value="Z2">Z2 (30 min à 1 h)</option>
+              <option value="Z3">Z3 (1 h à 1 h 30)</option>
             </select>
           </div>
         </div>
       </div>
 
       {/* PHOTOS TERRAIN : checklist guidee, multi-photos par emplacement */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-5">
-        <div className="flex items-center justify-between border-b pb-3">
-          <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2"><Camera size={18} className="text-[#0097b2]"/> Photos Terrain</h3>
-          <span className="text-[11px] font-black text-[#0097b2] bg-[#0097b2]/10 px-2 py-1 rounded-md">{photosPrises}/{visiblePhotos.length}</span>
-        </div>
-        <p className="text-[11px] text-slate-400 font-medium">Prends une ou plusieurs photos par emplacement. Tu peux en cumuler autant que necessaire.</p>
+      <div className={CARTE} style={CARTE_STYLE}>
+        <TitreCarte
+          icon={Camera}
+          extra={<span className="rounded-full bg-white px-3 py-1 text-[13px] font-bold" style={{ color: CYAN }}>{photosPrises}/{visiblePhotos.length}</span>}
+        >
+          Photos terrain
+        </TitreCarte>
+        <p className="text-[14px] leading-relaxed">Une ou plusieurs photos par emplacement, autant que nécessaire.</p>
         
-        <div className="space-y-5">
+        <div className="space-y-4">
           {visiblePhotos.map(p => {
             const shots = photos[p.key] || [];
             return (
-              <div key={p.key} className={`rounded-2xl border-2 p-4 space-y-3 ${shots.length > 0 ? 'bg-green-50 border-green-300' : 'bg-[#032b60]/5 border-dashed border-[#032b60]/30'}`}>
+              <div
+                key={p.key}
+                className={`space-y-3 rounded-[16px] bg-white p-4 ${shots.length > 0 ? '' : 'ring-[1.5px] ring-dashed ring-[#dfe3e8]'}`}
+                style={shots.length > 0 ? { boxShadow: `inset 5px 0 0 ${CYAN}` } : undefined}
+              >
                 <div className="flex items-center justify-between">
-                  <span className="font-black text-sm text-[#032b60] flex items-center gap-2">
-                    {shots.length > 0 && <CheckCircle size={16} className="text-green-600" />}
+                  <span className="flex items-center gap-2 text-[15px] font-bold">
+                    {shots.length > 0 && <CheckCircle size={18} color={CYAN} />}
                     {p.label}
                   </span>
-                  {shots.length > 0 && <span className="text-[10px] font-black text-green-700 bg-green-100 px-2 py-0.5 rounded-md">{shots.length} photo{shots.length > 1 ? 's' : ''}</span>}
+                  {shots.length > 0 && <span className="rounded-full px-2.5 py-0.5 text-[12px] font-bold text-white" style={{ backgroundColor: CYAN }}>{shots.length} photo{shots.length > 1 ? 's' : ''}</span>}
                 </div>
 
                 {shots.length > 0 && (
                   <div className="grid grid-cols-3 gap-2">
                     {shots.map((src, i) => (
                       <div key={i} className="relative">
-                        <img src={src} alt={`${p.label} ${i + 1}`} className="w-full h-24 object-cover rounded-lg shadow-sm" />
-                        <button type="button" onClick={() => removePhoto(p.key, i)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md active:scale-90">
+                        <img src={src} alt={`${p.label} ${i + 1}`} className="h-24 w-full rounded-[10px] object-cover" />
+                        <button type="button" onClick={() => removePhoto(p.key, i)} aria-label="Supprimer la photo" className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full text-white shadow-md active:scale-90" style={{ backgroundColor: NAVY }}>
                           <X size={14} />
                         </button>
                       </div>
@@ -461,11 +496,11 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
                   </div>
                 )}
 
-                <div className="relative overflow-hidden w-full bg-white border border-[#0097b2]/40 rounded-xl p-3 text-center active:bg-[#0097b2]/5 transition-colors">
-                  <span className="font-bold text-xs text-[#0097b2] flex items-center justify-center gap-2">
-                    <Camera size={16} /> {shots.length > 0 ? 'Ajouter une photo' : 'Prendre une photo'}
+                <div className="relative w-full overflow-hidden rounded-full p-3 text-center transition-colors" style={{ backgroundColor: '#e3f4f7' }}>
+                  <span className="flex items-center justify-center gap-2 text-[14px] font-semibold" style={{ color: '#007f96' }}>
+                    <Camera size={18} /> {shots.length > 0 ? 'Ajouter une photo' : 'Prendre une photo'}
                   </span>
-                  <input type="file" accept="image/*" capture="environment" multiple className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handlePhotoChange(e, p.key)} />
+                  <input type="file" accept="image/*" capture="environment" multiple className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={(e) => handlePhotoChange(e, p.key)} />
                 </div>
               </div>
             );
@@ -474,16 +509,24 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
       </div>
 
       {/* NOTES */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-4">
-        <h3 className="font-black text-[#032b60] uppercase tracking-widest text-sm flex items-center gap-2 border-b pb-3"><FileText size={18} className="text-[#0097b2]"/> Notes Cheminement</h3>
-        <textarea name="notes" rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-sm font-medium" placeholder="Ex: Cheminement via les garages en sous-sol..."></textarea>
+      <div className={CARTE} style={CARTE_STYLE}>
+        <TitreCarte icon={FileText}>Notes cheminement</TitreCarte>
+        <textarea name="notes" rows={3} className={`${inputClass} resize-none`} placeholder="Ex : cheminement via les garages en sous-sol..."></textarea>
       </div>
 
-      <button type="submit" disabled={status === "uploading" || !segment} className={`w-full text-white font-black text-lg p-5 rounded-full flex items-center justify-center gap-3 active:scale-95 transition-all ${!segment ? 'bg-slate-300 shadow-none' : 'bg-[#FF6B00] shadow-[0_4px_14px_rgba(255,107,0,0.3)]'}`}>
-        {status === "uploading" ? "Upload en cours..." : !segment ? "Choisir un segment pour valider" : <><Send size={20} /> Valider le Releve</>}
+      <button
+        type="submit"
+        disabled={status === "uploading" || !segment}
+        className={`flex w-full items-center justify-center gap-3 rounded-full px-8 py-4 text-[17px] font-semibold text-white transition-transform active:scale-95 ${!segment ? 'bg-slate-300' : 'bg-[#FF6B00] shadow-[0_8px_22px_rgba(255,107,0,0.28)]'}`}
+      >
+        {status === "uploading" ? "Envoi en cours..." : !segment ? "Choisir un segment pour valider" : <><Send size={20} /> Valider le relevé</>}
       </button>
 
-      {status === "error" && <p className="text-red-500 font-bold text-center text-sm bg-red-50 border border-red-200 p-3 rounded-lg">Erreur reseau. Ne fermez pas la page, retrouvez du reseau et reessayez.</p>}
+      {status === "error" && (
+        <p role="alert" className="rounded-[14px] bg-white px-4 py-3 text-center text-[15px] font-semibold leading-relaxed ring-[1.5px] ring-[#dfe3e8]" style={{ boxShadow: 'inset 4px 0 0 #FF6B00' }}>
+          Erreur réseau. Ne fermez pas la page, retrouvez du réseau et réessayez.
+        </p>
+      )}
     </form>
   );
 }
