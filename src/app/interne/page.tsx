@@ -4,8 +4,9 @@
 // 10/10/2026 : habillage charte 2026 (briques communes src/components/charte/Appli.tsx).
 // Lot 3.2 : section « relevés à terminer sur ce téléphone », pour reprendre une fiche
 // même si elle n'est plus « à visiter » (envoi interrompu, photos manquantes...).
+// Lot 3.3 : compteur de scénarios sur la carte de la fiche.
 import { useEffect, useState } from 'react';
-import { ChevronRight, ClipboardList, History, MapPin, RefreshCw } from 'lucide-react';
+import { ChevronRight, ClipboardList, GitBranch, History, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { relevesATerminer } from '@/lib/releveLocal';
@@ -14,6 +15,8 @@ interface Chantier {
   id: string;
   nom: string;
   adresse: string;
+  scenarios?: number;
+  scenariosRecus?: number;
 }
 
 export default function InternePage() {
@@ -52,7 +55,7 @@ export default function InternePage() {
     window.location.href = `/interne/metre/${id}`;
   };
 
-  // Relevés commencés sur ce téléphone mais absents du planning (déjà sortis de « à visiter »)
+  // Relevés commencés sur ce téléphone mais absents du planning (déjà sortis de « à visiter », ou scénarios)
   const idsPlanning = new Set(chantiers.map((c) => c.id));
   const aReprendre = aTerminer.filter((r) => !idsPlanning.has(r.id));
 
@@ -129,6 +132,12 @@ export default function InternePage() {
                 <MapPin size={14} className="shrink-0" color={CYAN} />
                 <span className="truncate">{chantier.adresse}</span>
               </p>
+              {!!chantier.scenarios && (
+                <p className="mt-1 flex items-center gap-1.5 text-[13px] font-semibold">
+                  <GitBranch size={14} className="shrink-0" color={CYAN} />
+                  {chantier.scenarios} scénario{chantier.scenarios > 1 ? 's' : ''} · {chantier.scenariosRecus || 0} reçu{(chantier.scenariosRecus || 0) > 1 ? 's' : ''}
+                </p>
+              )}
             </div>
             <ChevronRight size={22} className="shrink-0" color={CYAN} />
           </button>
