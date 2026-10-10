@@ -1,21 +1,19 @@
 import { notFound } from 'next/navigation';
 import { MetreForm } from '@/components/ui/MetreForm';
 import { PageAppli, EnTeteAppli, ContenuAppli } from '@/components/charte/Appli';
+import { lireTacheQualification } from '@/lib/listesClickUp';
 
-// Page de relevé : logique inchangée (lecture de la tâche + segment déjà posé).
-// 10/10/2026 : en-tête charte 2026 via les briques communes de l'application.
+// Page de relevé (lot 3.2, 10/10/2026) : la fiche doit appartenir à la liste autorisée
+// (vraie Qualification en production, TEST en preview), sinon page introuvable.
 const SEGMENT_OPTIONS: Record<number, string> = { 0: 'RES', 1: 'DAP', 2: 'COP', 3: 'PAR', 4: 'FLT', 5: 'TER' };
 
 async function getClickUpTaskData(taskId: string) {
   const token = process.env.CLICKUP_API_KEY;
   if (!token) return null;
   try {
-    const res = await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
-      headers: { 'Authorization': token },
-      cache: 'no-store',
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
+    const lecture = await lireTacheQualification(taskId, token);
+    if (!lecture.ok) return null;
+    const data = lecture.tache;
 
     // Extraire le segment s'il est déjà posé
     const segmentField = data.custom_fields?.find((f: any) => f.id === 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2');

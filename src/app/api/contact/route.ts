@@ -1,18 +1,8 @@
 import { NextResponse } from 'next/server';
+import { getQualificationListId } from '@/lib/listesClickUp';
 
-// Liste Qualification de production (secours si la variable Vercel est absente en production).
-const QUALIFICATION_PROD_ID = "901519702632";
-
-// Production : CLICKUP_LIST_QUALIFICATION_ID (variable existante, inchangée).
-// Preview / test : UNIQUEMENT CLICKUP_LIST_QUALIFICATION_TEST_ID (liste 🧪 Qualification TEST).
-// Si elle manque en preview, on refuse : un test ne doit jamais écrire dans la vraie Qualification.
-function getQualificationListId(): string | undefined {
-  if (process.env.VERCEL_ENV === 'production') {
-    return process.env.CLICKUP_LIST_QUALIFICATION_ID?.trim() || QUALIFICATION_PROD_ID;
-  }
-  return process.env.CLICKUP_LIST_QUALIFICATION_TEST_ID?.trim() || undefined;
-}
-
+// Liste Qualification choisie selon l'environnement (src/lib/listesClickUp.ts) :
+// production = vraie liste, preview = liste TEST uniquement, sinon refus.
 export async function POST(request: Request) {
   try {
     const data = await request.json();

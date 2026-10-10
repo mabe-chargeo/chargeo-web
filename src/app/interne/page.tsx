@@ -1,11 +1,14 @@
 "use client";
 
-// Planning terrain : logique inchangée (/api/chantiers, redirection window.location pour le hors-ligne).
-// 10/10/2026 : habillage charte 2026 via les briques communes de l'application (src/components/charte/Appli.tsx).
+// Planning terrain : /api/chantiers + redirection window.location pour le hors-ligne.
+// 10/10/2026 : habillage charte 2026 (briques communes src/components/charte/Appli.tsx).
+// Lot 3.2 : section « relevés à terminer sur ce téléphone », pour reprendre une fiche
+// même si elle n'est plus « à visiter » (envoi interrompu, photos manquantes...).
 import { useEffect, useState } from 'react';
-import { ChevronRight, ClipboardList, MapPin, RefreshCw } from 'lucide-react';
+import { ChevronRight, ClipboardList, History, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
-import { CYAN, GRIS } from '@/components/charte/couleurs';
+import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
+import { relevesATerminer } from '@/lib/releveLocal';
 
 interface Chantier {
   id: string;
@@ -16,12 +19,13 @@ interface Chantier {
 export default function InternePage() {
   const [chantiers, setChantiers] = useState<Chantier[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [erreur, setErreur] = useState<string | null>(null);
+  const [aTerminer, setATerminer] = useState<{ id: string; nom: string; majLe: number }[]>([]);
 
   const chargerPlanning = async () => {
     setLoading(true);
     setErreur(null);
+    setATerminer(relevesATerminer());
     try {
       const res = await fetch('/api/chantiers');
       const data = await res.json();
@@ -48,6 +52,10 @@ export default function InternePage() {
     window.location.href = `/interne/metre/${id}`;
   };
 
+  // Relevés commencés sur ce téléphone mais absents du planning (déjà sortis de « à visiter »)
+  const idsPlanning = new Set(chantiers.map((c) => c.id));
+  const aReprendre = aTerminer.filter((r) => !idsPlanning.has(r.id));
+
   const boutonActualiser = (
     <button
       onClick={chargerPlanning}
@@ -63,6 +71,30 @@ export default function InternePage() {
       <EnTeteAppli surtitre="Espace technique" titre="Mon planning" action={boutonActualiser} />
 
       <ContenuAppli className="space-y-4">
+        {aReprendre.length > 0 && (
+          <>
+            <Repere>Relevés à terminer sur ce téléphone</Repere>
+            {aReprendre.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => handleSelectChantier(r.id)}
+                className="flex w-full items-center gap-4 rounded-[20px] bg-white p-5 text-left ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
+                style={{ boxShadow: `inset 5px 0 0 ${ORANGE}` }}
+              >
+                <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: ORANGE }}>
+                  <History size={22} color="#ffffff" strokeWidth={1.8} />
+                </div>
+                <div className="min-w-0 grow">
+                  <p className="text-[17px] font-bold leading-tight">{r.nom}</p>
+                  <p className="mt-1.5 text-[13px]">Envoi non terminé : ouvre et appuie sur Valider</p>
+                </div>
+                <ChevronRight size={22} className="shrink-0" color={ORANGE} />
+              </button>
+            ))}
+            <div className="h-2" />
+          </>
+        )}
+
         <Repere>Visites à réaliser</Repere>
 
         {loading && (

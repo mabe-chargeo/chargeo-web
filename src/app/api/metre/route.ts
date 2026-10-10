@@ -1,60 +1,55 @@
 import { NextResponse } from 'next/server';
+import { lireTacheQualification } from '@/lib/listesClickUp';
 
+// Enregistrement des MESURES du relevé (lot 3.2, 10/10/2026).
+// - La fiche doit appartenir à la liste autorisée (vraie Qualification en production, TEST en preview).
+// - Chaque écriture ClickUp est contrôlée : succès seulement si TOUT est enregistré.
+// - La description de la fiche n'est plus touchée (le message du client reste intact).
+// - Champ vide = non mesuré = rien écrit ; 0 = zéro, écrit (une correction 12 -> 0 passe).
+// - Le statut n'est plus changé ici : /api/metre/finaliser s'en charge après réception des photos.
+// Les menus restent écrits PAR INDEX (ne jamais réordonner les options dans ClickUp).
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
-    const taskId = formData.get('taskId') as string;
+    const taskId = String(formData.get('taskId') || '');
     const token = process.env.CLICKUP_API_KEY as string;
 
-    // 1. Récupération et formatage
-    const terre = parseFloat(formData.get('terre') as string) || 0;
-    const besoinDelesteur = formData.get('besoinDelesteur') === 'true';
-    
-    // Distances (7 méthodes de pose Costructor)
-    const distApparent = parseFloat(formData.get('distApparent') as string) || 0;
-    const distGoulotte = parseFloat(formData.get('distGoulotte') as string) || 0;
-    const distEncastre = parseFloat(formData.get('distEncastre') as string) || 0;
-    const distVideSanitaire = parseFloat(formData.get('distVideSanitaire') as string) || 0;
-    const distCDC = parseFloat(formData.get('distCDC') as string) || 0;
-    const distTirage = parseFloat(formData.get('distTirage') as string) || 0;
-    const distTranchee = parseFloat(formData.get('distTranchee') as string) || 0;
+    const verif = await lireTacheQualification(taskId, token);
+    if (!verif.ok) {
+      return NextResponse.json({ success: false, error: verif.erreur }, { status: verif.status });
+    }
 
-    // Percements
-    const percementPlaco = parseFloat(formData.get('percementPlaco') as string) || 0;
-    const percementBrique = parseFloat(formData.get('percementBrique') as string) || 0;
-    const percementBeton = parseFloat(formData.get('percementBeton') as string) || 0;
-    const percementDalle = parseFloat(formData.get('percementDalle') as string) || 0;
+    const texte = (cle: string): string => {
+      const v = formData.get(cle);
+      return typeof v === 'string' ? v : '';
+    };
+    // null = champ absent ou vide (non mesuré) ; nombre >= 0 sinon
+    const nombre = (cle: string): number | null => {
+      const brut = texte(cle).trim().replace(',', '.');
+      if (brut === '') return null;
+      const n = parseFloat(brut);
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    };
 
-    // Infrastructure Copro
-    const nbPlacesParking = parseFloat(formData.get('nbPlacesParking') as string) || 0;
-    const longueurArtere = parseFloat(formData.get('longueurArtere') as string) || 0;
-    const distTGBT = parseFloat(formData.get('distTGBT') as string) || 0;
-    const distRouteur = parseFloat(formData.get('distRouteur') as string) || 0;
-    
-    const murSupport = formData.get('murSupport') as string || "";
-    const notesBrutes = formData.get('notes') as string || "";
+    const murSupport = texte('murSupport');
+    const notesBrutes = texte('notes');
     const notesFinales = `SUPPORT PRÉVU : ${murSupport}\n\nOBSERVATIONS :\n${notesBrutes}`;
 
-    // 2. Traduction des menus déroulants par index
+    // Traduction des menus déroulants par index
     // Segment : RES=0, DAP=1, COP=2, PAR=3, FLT=4, TER=5
-    const segmentStr = formData.get('segment') as string || "";
     const segmentMap: Record<string, number> = { 'RES': 0, 'DAP': 1, 'COP': 2, 'PAR': 3, 'FLT': 4, 'TER': 5 };
-    const segmentIndex = segmentMap[segmentStr] ?? null;
+    const segmentIndex = segmentMap[texte('segment')] ?? null;
 
     // Source de raccordement : Tableau individuel=0, TGBT services generaux=1, PDL dedie=2
-    const sourceRaccStr = formData.get('sourceRacc') as string || "";
+    const sourceRaccStr = texte('sourceRacc');
     let sourceRaccIndex: number | null = null;
     if (sourceRaccStr.includes('individuel')) sourceRaccIndex = 0;
     else if (sourceRaccStr.includes('TGBT')) sourceRaccIndex = 1;
     else if (sourceRaccStr.includes('PDL')) sourceRaccIndex = 2;
 
     // Puissance Visée PDC : 3.7=0, 7.4=1, 11=2, 22=3
-    const puissanceViseeStr = formData.get('puissanceVisee') as string || "";
-    let puissanceViseeIndex: number | null = null;
-    if (puissanceViseeStr === '3.7') puissanceViseeIndex = 0;
-    if (puissanceViseeStr === '7.4') puissanceViseeIndex = 1;
-    if (puissanceViseeStr === '11') puissanceViseeIndex = 2;
-    if (puissanceViseeStr === '22') puissanceViseeIndex = 3;
+    const puissanceViseeMap: Record<string, number> = { '3.7': 0, '7.4': 1, '11': 2, '22': 3 };
+    const puissanceViseeIndex = puissanceViseeMap[texte('puissanceVisee')] ?? null;
 
     // Support Borne : Mur Beton/Parpaing=0, Mur Placo=1, Mur Bois=2, Sur Pied=3
     let murSupportIndex: number | null = null;
@@ -63,118 +58,108 @@ export async function POST(request: Request) {
     else if (murSupport.includes('Bois')) murSupportIndex = 2;
     else if (murSupport.includes('Pied')) murSupportIndex = 3;
 
-    const raccordementStr = formData.get('typeRaccordement') as string || "";
-    let raccordementIndex = 0;
-    if (raccordementStr.includes('Tri')) raccordementIndex = 1;
+    // Type Raccordement : Mono=0, Tri=1
+    const raccordementIndex = texte('typeRaccordement').includes('Tri') ? 1 : 0;
 
-    const puissanceStr = formData.get('puissance') as string || "";
+    // Puissance Dispo : 3=0, 6=1, 9=2, 12=3, 18+=4
+    const puissanceStr = texte('puissance');
     let puissanceIndex = 1; // 6 kVA par défaut
     if (puissanceStr.includes('3')) puissanceIndex = 0;
     if (puissanceStr.includes('9')) puissanceIndex = 2;
     if (puissanceStr.includes('12')) puissanceIndex = 3;
     if (puissanceStr.includes('18')) puissanceIndex = 4;
 
-    const etatStr = formData.get('etatTableau') as string || "";
+    // État Tableau : OK=0, remanier=1, remplacer=2
+    const etatStr = texte('etatTableau');
     let etatIndex: number | null = null;
     if (etatStr === 'OK') etatIndex = 0;
     else if (etatStr.includes('remanier')) etatIndex = 1;
     else if (etatStr.includes('remplacer')) etatIndex = 2;
 
-    const reseauStr = formData.get('reseau') as string || "";
+    // Réseau : WiFi=0, 4G=1, Câble=2
+    const reseauStr = texte('reseau');
     let reseauIndex: number | null = null;
     if (reseauStr.includes('WiFi')) reseauIndex = 0;
     else if (reseauStr.includes('4G')) reseauIndex = 1;
     else if (reseauStr.includes('Cable') || reseauStr.includes('Câble')) reseauIndex = 2;
 
-    const tailleHUBStr = formData.get('tailleHUB') as string || "";
-    let tailleHUBIndex: number | null = null;
-    if (tailleHUBStr === '10') tailleHUBIndex = 0;
-    if (tailleHUBStr === '20') tailleHUBIndex = 1;
-    if (tailleHUBStr === '150') tailleHUBIndex = 2;
+    // Taille HUB : 10=0, 20=1, 150=2
+    const hubMap: Record<string, number> = { '10': 0, '20': 1, '150': 2 };
+    const tailleHUBIndex = hubMap[texte('tailleHUB')] ?? null;
 
-    const zoneDeplStr = formData.get('zoneDepl') as string || "";
-    let zoneDeplIndex: number | null = null;
-    if (zoneDeplStr === 'Z1') zoneDeplIndex = 0;
-    if (zoneDeplStr === 'Z2') zoneDeplIndex = 1;
-    if (zoneDeplStr === 'Z3') zoneDeplIndex = 2;
+    // Zone Déplacement : Z1=0, Z2=1, Z3=2
+    const zoneMap: Record<string, number> = { 'Z1': 0, 'Z2': 1, 'Z3': 2 };
+    const zoneDeplIndex = zoneMap[texte('zoneDepl')] ?? null;
 
-    // 3. Mise à jour de la description
-    await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
-      method: 'PUT',
-      headers: { 'Authorization': token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description: notesFinales })
-    });
+    // Délesteur : une seule valeur "true" / "false", envoyée seulement si la case est affichée
+    const delesteurStr = texte('besoinDelesteur');
+    const delesteur = delesteurStr === 'true' ? true : delesteurStr === 'false' ? false : null;
 
-    // 4. Champs personnalisés
-    const customFields: { id: string; value: any }[] = [
-      { id: "f122fe49-8a32-4fbd-a374-f27eeb4e25c1", value: raccordementIndex }, // Type Raccordement
-      { id: "6a592626-ac8f-4a28-99a0-f1c6bdde09ea", value: puissanceIndex }, // Puissance Dispo
-      { id: "1442f71a-830e-4a77-8d78-0c30f45c4b23", value: notesFinales }, // Notes
-    ];
-
-    // Helper : ajoute un champ numérique SEULEMENT s'il est > 0 (évite les 0 fantômes)
-    const pushIfPositive = (id: string, value: number) => {
-      if (value > 0) customFields.push({ id, value });
-    };
-    // Helper : ajoute un dropdown SEULEMENT s'il a une valeur (champ masqué = rien écrit)
-    const pushIfSet = (id: string, value: number | null) => {
-      if (value !== null) customFields.push({ id, value });
+    // Liste des écritures : rien n'est écrit pour une valeur absente (null)
+    const champs: { id: string; nom: string; value: any }[] = [];
+    const pousser = (id: string, nom: string, value: any) => {
+      if (value !== null && value !== undefined) champs.push({ id, nom, value });
     };
 
-    // Champs conditionnels (masqués selon segment => non transmis => on n'écrit rien)
-    pushIfSet("965fbd93-9c39-4dc4-9d3e-17aa63f667df", etatIndex);        // Etat Tableau
-    pushIfSet("fe5e2142-8191-4e61-86ee-d1e88ed4dc44", reseauIndex);      // Réseau
-    if (formData.get('besoinDelesteur') !== null) {
-      customFields.push({ id: "bbef17d5-bdb2-4c25-bacc-00accdcdcbbf", value: besoinDelesteur }); // Besoin Délesteur
+    pousser("f122fe49-8a32-4fbd-a374-f27eeb4e25c1", "Type raccordement", raccordementIndex);
+    pousser("6a592626-ac8f-4a28-99a0-f1c6bdde09ea", "Puissance dispo", puissanceIndex);
+    pousser("1442f71a-830e-4a77-8d78-0c30f45c4b23", "Notes cheminement", notesFinales);
+    pousser("965fbd93-9c39-4dc4-9d3e-17aa63f667df", "État tableau", etatIndex);
+    pousser("fe5e2142-8191-4e61-86ee-d1e88ed4dc44", "Réseau", reseauIndex);
+    pousser("bbef17d5-bdb2-4c25-bacc-00accdcdcbbf", "Délesteur", delesteur);
+    pousser("2db3f8ea-8fae-4f9f-80ca-3ea9a512ebbb", "Source de raccordement", sourceRaccIndex);
+
+    // Terre + distances + percements + infrastructure (vide = rien, 0 = zéro)
+    pousser("586b30e6-c225-4ee1-a9cb-2f2dc332fab9", "Terre", nombre('terre'));
+    pousser("5370ee5e-8bed-435f-a924-70fa117ed78a", "Tube apparent", nombre('distApparent'));
+    pousser("cccfa938-5bec-459c-85b8-6574a32ef89d", "Goulotte", nombre('distGoulotte'));
+    pousser("c0c89b35-f1a2-41a8-8602-81391b421715", "Encastré", nombre('distEncastre'));
+    pousser("d938dd22-2f04-4aba-a6db-f8fa8b62d1ee", "Vide sanitaire", nombre('distVideSanitaire'));
+    pousser("b89814c1-e0e9-4997-886e-d8637006afc0", "Chemin de câbles", nombre('distCDC'));
+    pousser("ae081f1f-0a23-4a3d-918e-a8396e091214", "Tirage existant", nombre('distTirage'));
+    pousser("47a7156e-0852-4690-b747-e583f2b560a7", "Tranchée", nombre('distTranchee'));
+    pousser("8c57869c-447f-4350-b6d3-a02bc738bddd", "Percements placo", nombre('percementPlaco'));
+    pousser("e6ec48b2-77c7-45ff-bcfa-6de603dc731b", "Percements brique", nombre('percementBrique'));
+    pousser("77120088-4d88-4675-a7ac-d34f8eb5ffa7", "Percements béton", nombre('percementBeton'));
+    pousser("bda05bcd-b5f1-424f-bda4-ad435f06e32f", "Percements dalle", nombre('percementDalle'));
+    pousser("dd19d42f-8d9f-4657-bac5-942de6822468", "Places parking", nombre('nbPlacesParking'));
+    pousser("dc5878d3-dac5-4426-bfae-43c3ba3eaacc", "Longueur artère", nombre('longueurArtere'));
+    pousser("c555210d-1b5e-4ab8-ba7f-ffc7811ebc14", "TGBT vers TD", nombre('distTGBT'));
+    pousser("0ebc0cc5-97ae-4525-bc8d-ab98c3a3bd81", "Routeur vers TD", nombre('distRouteur'));
+
+    // Menus affichés selon le segment (masqué = non transmis = rien écrit)
+    pousser("02d61a39-eb1d-417c-953a-c1504dbfae50", "Support borne", murSupportIndex);
+    pousser("dbdacf18-1d26-4c58-9bbb-b4a9e443daa2", "Segment", segmentIndex);
+    pousser("ddadfb52-ea48-4aca-9e85-86a4eca6615b", "Puissance visée", puissanceViseeIndex);
+    pousser("85f237d4-792e-4851-89f9-675ae1144a73", "Taille HUB", tailleHUBIndex);
+    pousser("0f9043bf-ec87-4534-b8ea-af41734bdfed", "Zone déplacement", zoneDeplIndex);
+
+    // Envoi en parallèle, chaque réponse contrôlée
+    const resultats = await Promise.all(champs.map(async (champ) => {
+      try {
+        const res = await fetch(`https://api.clickup.com/api/v2/task/${taskId}/field/${champ.id}`, {
+          method: 'POST',
+          headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: champ.value })
+        });
+        if (!res.ok) {
+          console.error(`Écriture refusée (${res.status}) : ${champ.nom}`, await res.text().catch(() => ''));
+          return champ.nom;
+        }
+        return null;
+      } catch {
+        return champ.nom;
+      }
+    }));
+
+    const echecs = resultats.filter((r): r is string => r !== null);
+    if (echecs.length > 0) {
+      return NextResponse.json({ success: false, error: "Certains champs n'ont pas été enregistrés", echecs }, { status: 502 });
     }
-
-    pushIfSet("2db3f8ea-8fae-4f9f-80ca-3ea9a512ebbb", sourceRaccIndex);  // Source de raccordement
-
-    // Terre + distances + percements
-    pushIfPositive("586b30e6-c225-4ee1-a9cb-2f2dc332fab9", terre);
-    pushIfPositive("5370ee5e-8bed-435f-a924-70fa117ed78a", distApparent);
-    pushIfPositive("cccfa938-5bec-459c-85b8-6574a32ef89d", distGoulotte);
-    pushIfPositive("c0c89b35-f1a2-41a8-8602-81391b421715", distEncastre);
-    pushIfPositive("d938dd22-2f04-4aba-a6db-f8fa8b62d1ee", distVideSanitaire);
-    pushIfPositive("b89814c1-e0e9-4997-886e-d8637006afc0", distCDC);
-    pushIfPositive("ae081f1f-0a23-4a3d-918e-a8396e091214", distTirage);
-    pushIfPositive("47a7156e-0852-4690-b747-e583f2b560a7", distTranchee);
-    pushIfPositive("8c57869c-447f-4350-b6d3-a02bc738bddd", percementPlaco);
-    pushIfPositive("e6ec48b2-77c7-45ff-bcfa-6de603dc731b", percementBrique);
-    pushIfPositive("77120088-4d88-4675-a7ac-d34f8eb5ffa7", percementBeton);
-    pushIfPositive("bda05bcd-b5f1-424f-bda4-ad435f06e32f", percementDalle);
-    // Infrastructure
-    pushIfPositive("dd19d42f-8d9f-4657-bac5-942de6822468", nbPlacesParking);
-    pushIfPositive("dc5878d3-dac5-4426-bfae-43c3ba3eaacc", longueurArtere);
-    pushIfPositive("c555210d-1b5e-4ab8-ba7f-ffc7811ebc14", distTGBT);
-    pushIfPositive("0ebc0cc5-97ae-4525-bc8d-ab98c3a3bd81", distRouteur);
-
-    // Support Borne, Segment, Puissance Visée, HUB, Zone (dropdowns, seulement si transmis)
-    pushIfSet("02d61a39-eb1d-417c-953a-c1504dbfae50", murSupportIndex);
-    pushIfSet("dbdacf18-1d26-4c58-9bbb-b4a9e443daa2", segmentIndex);
-    pushIfSet("ddadfb52-ea48-4aca-9e85-86a4eca6615b", puissanceViseeIndex);
-    pushIfSet("85f237d4-792e-4851-89f9-675ae1144a73", tailleHUBIndex);
-    pushIfSet("0f9043bf-ec87-4534-b8ea-af41734bdfed", zoneDeplIndex);
-
-    // Envoi en parallèle
-    await Promise.all(customFields.map(field => 
-      fetch(`https://api.clickup.com/api/v2/task/${taskId}/field/${field.id}`, {
-        method: 'POST',
-        headers: { 'Authorization': token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: field.value })
-      })
-    ));
-
-    // 5. Changement automatique de statut
-    await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
-      method: 'PUT',
-      headers: { 'Authorization': token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: "\ud83d\udcdd devis \u00e0 faire" })
-    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Erreur Upload M\u00e9tr\u00e9:", error);
+    console.error("Erreur relevé :", error);
     return NextResponse.json({ success: false, error: "Erreur Serveur" }, { status: 500 });
   }
 }
