@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 
-// Liste Qualification de production : utilisée en secours UNIQUEMENT en production.
-// En preview (tests), la variable Vercel CLICKUP_LIST_QUALIFICATION_ID doit pointer
-// vers la liste 🧪 Qualification TEST, sinon la route refuse d'écrire.
+// Liste Qualification de production (secours si la variable Vercel est absente en production).
 const QUALIFICATION_PROD_ID = "901519702632";
 
+// Production : CLICKUP_LIST_QUALIFICATION_ID (variable existante, inchangée).
+// Preview / test : UNIQUEMENT CLICKUP_LIST_QUALIFICATION_TEST_ID (liste 🧪 Qualification TEST).
+// Si elle manque en preview, on refuse : un test ne doit jamais écrire dans la vraie Qualification.
 function getQualificationListId(): string | undefined {
-  const fromEnv = process.env.CLICKUP_LIST_QUALIFICATION_ID?.trim();
-  if (fromEnv) return fromEnv;
-  if (process.env.VERCEL_ENV === 'production') return QUALIFICATION_PROD_ID;
-  return undefined;
+  if (process.env.VERCEL_ENV === 'production') {
+    return process.env.CLICKUP_LIST_QUALIFICATION_ID?.trim() || QUALIFICATION_PROD_ID;
+  }
+  return process.env.CLICKUP_LIST_QUALIFICATION_TEST_ID?.trim() || undefined;
 }
 
 export async function POST(request: Request) {
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
     const LIST_ID = getQualificationListId();
 
     if (!CLICKUP_API_KEY || !LIST_ID) {
-      console.error("Configuration manquante : CLICKUP_API_KEY ou CLICKUP_LIST_QUALIFICATION_ID");
+      console.error("Configuration manquante : CLICKUP_API_KEY ou liste Qualification (TEST en preview)");
       return NextResponse.json({ success: false, error: "Configuration serveur incomplète" }, { status: 500 });
     }
 

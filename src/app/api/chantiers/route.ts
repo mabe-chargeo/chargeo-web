@@ -1,8 +1,18 @@
 import { NextResponse } from 'next/server';
 
+// Production : CLICKUP_LIST_QUALIFICATION_ID (variable existante, inchangée).
+// Preview / test : UNIQUEMENT CLICKUP_LIST_QUALIFICATION_TEST_ID (liste 🧪 Qualification TEST),
+// pour que le relevé terrain de test ne modifie jamais une vraie fiche client.
+function getQualificationListId(): string | undefined {
+  if (process.env.VERCEL_ENV === 'production') {
+    return process.env.CLICKUP_LIST_QUALIFICATION_ID?.trim() || undefined;
+  }
+  return process.env.CLICKUP_LIST_QUALIFICATION_TEST_ID?.trim() || undefined;
+}
+
 export async function GET() {
   const token = process.env.CLICKUP_API_KEY;
-  const listId = process.env.CLICKUP_LIST_QUALIFICATION_ID;
+  const listId = getQualificationListId();
 
   if (!token || !listId) {
     return NextResponse.json({ error: "Configuration ClickUp manquante" }, { status: 500 });
