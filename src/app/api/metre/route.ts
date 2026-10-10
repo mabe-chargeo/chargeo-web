@@ -1,13 +1,24 @@
 import { NextResponse } from 'next/server';
 import { lireTacheQualification } from '@/lib/listesClickUp';
 
-// Enregistrement des MESURES du relevé (lot 3.2, 10/10/2026).
-// - La fiche doit appartenir à la liste autorisée (vraie Qualification en production, TEST en preview).
+// Enregistrement des MESURES du relevé (lots 3.2 et 3.3, 10/10/2026).
+// - La fiche (ou le scénario) doit appartenir à la liste autorisée (vraie Qualification en production, TEST en preview).
 // - Chaque écriture ClickUp est contrôlée : succès seulement si TOUT est enregistré.
 // - La description de la fiche n'est plus touchée (le message du client reste intact).
 // - Champ vide = non mesuré = rien écrit ; 0 = zéro, écrit (une correction 12 -> 0 passe).
+// - Matériels à chiffrer (point 12 règle 1) : choix multiple ; Puissance Visée PDC seulement si un seul matériel.
 // - Le statut n'est plus changé ici : /api/metre/finaliser s'en charge après réception des photos.
 // Les menus restent écrits PAR INDEX (ne jamais réordonner les options dans ClickUp).
+
+// Matériels à chiffrer : champ à étiquettes, écrit par identifiant d'option (stable, pas d'index)
+const MATERIELS_CHAMP_ID = '784191c5-4252-47a4-af57-a7c5a54ca16b';
+const MATERIELS_OPTIONS: Record<string, string> = {
+  '3.7': 'b93f4cf9-15d0-4ff5-9e2e-4aa42640bb2e', // PR 3,7 kW
+  '7.4': '9e82a938-74ca-43ee-a4cc-c3c437afcf19', // Borne 7,4 kW
+  '11': '582c9ab0-ac96-47ca-8550-1bccc26e91ed',  // Borne 11 kW
+  '22': '9b5a6497-8de0-44e6-bff7-b2206fd2f436',  // Borne 22 kW
+};
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -47,9 +58,16 @@ export async function POST(request: Request) {
     else if (sourceRaccStr.includes('TGBT')) sourceRaccIndex = 1;
     else if (sourceRaccStr.includes('PDL')) sourceRaccIndex = 2;
 
-    // Puissance Visée PDC : 3.7=0, 7.4=1, 11=2, 22=3
+    // Matériels à chiffrer (cases à cocher) et Puissance Visée PDC : 3.7=0, 7.4=1, 11=2, 22=3
     const puissanceViseeMap: Record<string, number> = { '3.7': 0, '7.4': 1, '11': 2, '22': 3 };
-    const puissanceViseeIndex = puissanceViseeMap[texte('puissanceVisee')] ?? null;
+    const materiels = Array.from(new Set(
+      formData.getAll('materiels').filter((v): v is string => typeof v === 'string' && v in MATERIELS_OPTIONS)
+    ));
+    // Puissance Visée ne porte qu'une valeur : écrite seulement si un seul matériel est coché
+    // (ancien formulaire en cache : on accepte encore le champ puissanceVisee)
+    const puissanceViseeIndex = materiels.length === 1
+      ? (puissanceViseeMap[materiels[0]] ?? null)
+      : (materiels.length === 0 ? (puissanceViseeMap[texte('puissanceVisee')] ?? null) : null);
 
     // Support Borne : Mur Beton/Parpaing=0, Mur Placo=1, Mur Bois=2, Sur Pied=3
     let murSupportIndex: number | null = null;
@@ -108,6 +126,9 @@ export async function POST(request: Request) {
     pousser("fe5e2142-8191-4e61-86ee-d1e88ed4dc44", "Réseau", reseauIndex);
     pousser("bbef17d5-bdb2-4c25-bacc-00accdcdcbbf", "Délesteur", delesteur);
     pousser("2db3f8ea-8fae-4f9f-80ca-3ea9a512ebbb", "Source de raccordement", sourceRaccIndex);
+    if (materiels.length > 0) {
+      pousser(MATERIELS_CHAMP_ID, "Matériels à chiffrer", materiels.map((m) => MATERIELS_OPTIONS[m]));
+    }
 
     // Terre + distances + percements + infrastructure (vide = rien, 0 = zéro)
     pousser("586b30e6-c225-4ee1-a9cb-2f2dc332fab9", "Terre", nombre('terre'));

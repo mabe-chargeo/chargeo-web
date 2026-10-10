@@ -9,6 +9,8 @@
 // - distances et percements : vide = non mesuré, 0 = zéro ;
 // - chaque photo a un identifiant stable : un nouvel essai ne renvoie que les photos manquantes ;
 // - copie locale gardée 7 jours après confirmation, jamais purgée si l'envoi est incomplet.
+// Lot 3.3 (10/10/2026) : « Matériels à chiffrer » (choix multiple) à la place du choix unique Puissance visée.
+// Le même formulaire sert à une fiche simple et à chaque scénario (sous-tâche).
 // Les attributs value des menus ne changent pas (la route /api/metre les convertit en index ClickUp).
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag, X, Plug } from 'lucide-react';
@@ -19,6 +21,14 @@ import { noterModification, noterConfirmation, relevesAPurger, retirerDeIndex } 
 // Regle de depart : COP = toujours infra ; FLT/TER = borne complete
 const INFRA_SEGMENTS = ['COP'];
 const COPRO_PHOTO_SEGMENTS = ['COP', 'PAR', 'FLT', 'TER'];
+
+// Matériels à chiffrer (point 12 règle 1) : mêmes mesures, un devis par matériel coché
+const MATERIELS = [
+  { value: '3.7', label: 'Prise renforcée 3,7 kW' },
+  { value: '7.4', label: 'Borne 7,4 kW' },
+  { value: '11', label: 'Borne 11 kW' },
+  { value: '22', label: 'Borne 22 kW' },
+];
 
 // Checklist photos : les 5 premieres pour tous, les 4 suivantes pour copro/flotte/tertiaire
 // (les clés ne changent pas, seuls les libellés affichés sont accentués)
@@ -63,12 +73,14 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
   // Chaque emplacement -> liste de photos
   const [photos, setPhotos] = useState<Record<string, Photo[]>>({});
   const formRef = useRef<HTMLFormElement>(null);
+  // Saisie sauvegardée pas encore réappliquée (champs qui n'apparaissent qu'après le choix du segment)
+  const restaurationRef = useRef<Record<string, string> | null>(null);
 
   // --- MATRICE D'AFFICHAGE (validee avec Matthieu) ---
   const isCopInfra = segment === 'COP';
   const showInfra = INFRA_SEGMENTS.includes(segment);
   const showEtatTableau = sourceRacc !== 'PDL dedie';               // masque si PDL dedie (neuf)
-  const showPuissanceVisee = !!segment && !isCopInfra;              // pas de borne en COP infra
+  const showMateriels = !!segment && !isCopInfra;                   // pas de borne en COP infra
   const showReseau = ['PAR', 'COP', 'FLT', 'TER'].includes(segment); // supervision/HUB
   const showDelesteur = ['RES', 'DAP', 'PAR'].includes(segment);     // borne seule
   const showCheminement = !!segment && !isCopInfra;                  // pas de cheminement borne en COP infra
@@ -159,9 +171,33 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
     noterModification(taskId, taskName);
   };
 
-  // Purge des relevés confirmés depuis plus de 7 jours (jamais des relevés incomplets)
+  // Réapplique la saisie sauvegardée aux champs présents ; ceux pas encore affichés le seront plus tard
+  const appliquerSauvegarde = () => {
+    const snap = restaurationRef.current;
+    const form = formRef.current;
+    if (!snap || !form) return;
+    for (const key of Object.keys(snap)) {
+      if (key === 'segment' || key === 'sourceRacc') { delete snap[key]; continue; }
+      if (key === 'materiels') {
+        const cases = form.querySelectorAll<HTMLInputElement>('input[name="materiels"]');
+        if (cases.length === 0) continue;
+        const choisis = String(snap[key] || '').split(',').filter(Boolean);
+        cases.forEach(cb => { cb.checked = choisis.includes(cb.value); });
+        delete snap[key];
+        continue;
+      }
+      const input = form.elements.namedItem(key) as any;
+      if (!input || (typeof RadioNodeList !== 'undefined' && input instanceof RadioNodeList)) continue;
+      if (input.type === 'file') { delete snap[key]; continue; }
+      if (input.type === 'checkbox') input.checked = snap[key] === 'true';
+      else input.value = snap[key];
+      delete snap[key];
+    }
+  };
+
+  // Purge des relevés confirmés depuis plus de 7 jours (jamais des relevés incomplets, jamais la fiche ouverte)
   const purgerAnciensReleves = async () => {
-    const ids = relevesAPurger();
+    const ids = relevesAPurger().filter(id => id !== taskId);
     if (ids.length === 0) return;
     try {
       const db = await initDB();
@@ -176,48 +212,45 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
     } catch (e) { console.error("Erreur purge relevés", e); }
   };
 
-  // Restauration hors-ligne
-  useEffect(() => {
-    const demarrer = async () => {
-      await purgerAnciensReleves();
-      localStorage.setItem('last_visited_task', taskId);
-      const savedData = localStorage.getItem(`metreForm_${taskId}`);
-      if (savedData && formRef.current) {
-        const parsed = JSON.parse(savedData);
-        if (parsed.segment && !initialSegment) {
-          setSegment(parsed.segment);
-        }
-        if (parsed.sourceRacc) {
-          setSourceRacc(parsed.sourceRacc);
-        }
-        Object.keys(parsed).forEach(key => {
-          if (key === 'segment' || key === 'sourceRacc') return;
-          const input = formRef.current?.elements.namedItem(key) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
-          if (input && input.type !== 'file' && input.type !== 'checkbox') input.value = parsed[key];
-          if (input && input.type === 'checkbox') (input as HTMLInputElement).checked = parsed[key] === 'true';
-        });
+  const chargerPhotos = async () => {
+    try {
+      const db = await initDB();
+      const getPhoto = (key: string): Promise<any> => new Promise(resolve => {
+        const req = db.transaction('photos', 'readonly').objectStore('photos').get(`${taskId}_${key}`);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(undefined);
+      });
+      const restored: Record<string, Photo[]> = {};
+      for (const p of PHOTOS) {
+        const { photos: liste, converti } = normaliser(await getPhoto(p.key));
+        if (liste.length > 0) restored[p.key] = liste;
+        // Ancien format converti : on réenregistre pour garder des identifiants stables
+        if (converti) db.transaction('photos', 'readwrite').objectStore('photos').put(liste, `${taskId}_${p.key}`);
       }
+      setPhotos(restored);
+    } catch (e) { console.error("Erreur chargement DB", e); }
+  };
+
+  // Restauration hors-ligne : immédiate (avant toute nouvelle sauvegarde), puis photos et purge
+  useEffect(() => {
+    localStorage.setItem('last_visited_task', taskId);
+    const savedData = localStorage.getItem(`metreForm_${taskId}`);
+    if (savedData) {
       try {
-        const db = await initDB();
-        const getPhoto = (key: string): Promise<any> => new Promise(resolve => {
-          const req = db.transaction('photos', 'readonly').objectStore('photos').get(`${taskId}_${key}`);
-          req.onsuccess = () => resolve(req.result);
-          req.onerror = () => resolve(undefined);
-        });
-        const restored: Record<string, Photo[]> = {};
-        for (const p of PHOTOS) {
-          const { photos: liste, converti } = normaliser(await getPhoto(p.key));
-          if (liste.length > 0) restored[p.key] = liste;
-          // Ancien format converti : on réenregistre pour garder des identifiants stables
-          if (converti) db.transaction('photos', 'readwrite').objectStore('photos').put(liste, `${taskId}_${p.key}`);
-        }
-        setPhotos(restored);
-      } catch (e) { console.error("Erreur chargement DB", e); }
-    };
-    demarrer();
+        const parsed = JSON.parse(savedData);
+        restaurationRef.current = { ...parsed };
+        if (parsed.segment && !initialSegment) setSegment(parsed.segment);
+        if (parsed.sourceRacc) setSourceRacc(parsed.sourceRacc);
+        appliquerSauvegarde();
+      } catch { /* sauvegarde illisible : on repart d'un formulaire vide */ }
+    }
+    (async () => {
+      await chargerPhotos();
+      await purgerAnciensReleves();
+    })();
   }, [taskId, initialSegment]);
 
-  // Sauvegarde hors-ligne (textes + segment + source). parUtilisateur = vraie saisie (rend le relevé « à terminer »)
+  // Sauvegarde hors-ligne (textes + segment + source + matériels). parUtilisateur = vraie saisie (rend le relevé « à terminer »)
   const handleFormChange = (parUtilisateur: boolean) => {
     if (!formRef.current) return;
     const formData = new FormData(formRef.current);
@@ -225,15 +258,20 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
     formData.forEach((value, key) => {
       if (typeof value === 'string') dataObj[key] = value;
     });
+    dataObj['materiels'] = formData.getAll('materiels').filter((v): v is string => typeof v === 'string').join(',');
     const checkbox = formRef.current.elements.namedItem('besoinDelesteur') as HTMLInputElement;
     if (checkbox) dataObj['besoinDelesteur'] = checkbox.checked ? 'true' : 'false';
     dataObj['segment'] = segment;
     dataObj['sourceRacc'] = sourceRacc;
+    // Valeurs sauvegardées de champs pas encore affichés : on les garde
+    const snap = restaurationRef.current;
+    if (snap) for (const k of Object.keys(snap)) if (!(k in dataObj)) dataObj[k] = snap[k];
     localStorage.setItem(`metreForm_${taskId}`, JSON.stringify(dataObj));
     if (parUtilisateur) noterModification(taskId, taskName);
   };
 
   useEffect(() => {
+    appliquerSauvegarde();
     handleFormChange(false);
   }, [segment, sourceRacc]);
 
@@ -313,7 +351,7 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
         return;
       }
 
-      // 3) Tout est reçu : passage en « devis à faire » (si la fiche est encore « à visiter »)
+      // 3) Tout est reçu : passage en « devis à faire » (si encore « à visiter » ; fiche principale quand tous les scénarios sont reçus)
       const fin = await fetch('/api/metre/finaliser', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -409,16 +447,18 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
           </select>
         </div>
 
-        {showPuissanceVisee && (
+        {showMateriels && (
           <div className="space-y-2">
-            <label className={labelClass}>Puissance visée PDC</label>
-            <select name="puissanceVisee" className={inputClass}>
-              <option value="">À déterminer</option>
-              <option value="3.7">3,7 kW (prise renforcée)</option>
-              <option value="7.4">7,4 kW (mono)</option>
-              <option value="11">11 kW (tri)</option>
-              <option value="22">22 kW (tri)</option>
-            </select>
+            <label className={labelClass}>Matériels à chiffrer</label>
+            <p className="ml-1 text-[13px] leading-relaxed">Coche un ou plusieurs matériels : un devis par matériel, avec les mêmes mesures.</p>
+            <div className="grid grid-cols-2 gap-3">
+              {MATERIELS.map(m => (
+                <label key={m.value} className="flex cursor-pointer items-center gap-3 rounded-[14px] bg-white p-3.5 ring-[1.5px] ring-[#dfe3e8]">
+                  <input type="checkbox" name="materiels" value={m.value} className="h-5 w-5 shrink-0 accent-[#0097b2]" />
+                  <span className="text-[14px] font-semibold leading-tight">{m.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
         )}
 
