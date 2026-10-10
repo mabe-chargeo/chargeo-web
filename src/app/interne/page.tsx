@@ -1,12 +1,11 @@
 "use client";
 
 // Planning terrain : logique inchangée (/api/chantiers, redirection window.location pour le hors-ligne).
-// 10/10/2026 : habillage charte 2026 (en-tête navy + logo blanc, cartes #eceef1, Poppins).
+// 10/10/2026 : habillage charte 2026 via les briques communes de l'application (src/components/charte/Appli.tsx).
 import { useEffect, useState } from 'react';
 import { ChevronRight, ClipboardList, MapPin, RefreshCw } from 'lucide-react';
-
-const NAVY = '#032b60';
-const CYAN = '#0097b2';
+import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
+import { CYAN, GRIS } from '@/components/charte/couleurs';
 
 interface Chantier {
   id: string;
@@ -49,50 +48,37 @@ export default function InternePage() {
     window.location.href = `/interne/metre/${id}`;
   };
 
-  return (
-    <div className="min-h-screen bg-white pb-12 font-sans antialiased" style={{ color: NAVY }}>
-      {/* En-tête */}
-      <header className="px-6 pb-8 pt-10" style={{ backgroundColor: NAVY }}>
-        <div className="mx-auto flex max-w-lg items-start justify-between gap-4">
-          <div>
-            <img src="/logo-chargeo-blanc.svg" alt="CHARGéO" className="h-9 w-auto" />
-            <p className="mt-6 text-[12px] font-extrabold uppercase tracking-[0.14em]" style={{ color: '#7fd3e2' }}>Espace technique</p>
-            <h1 className="mt-1 text-[28px] font-bold leading-tight tracking-[-0.015em] text-white">Mon planning</h1>
-          </div>
-          <button
-            onClick={chargerPlanning}
-            aria-label="Actualiser le planning"
-            className="mt-1 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white transition-transform active:scale-95"
-          >
-            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
-      </header>
+  const boutonActualiser = (
+    <button
+      onClick={chargerPlanning}
+      aria-label="Actualiser le planning"
+      className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white transition-transform active:scale-95"
+    >
+      <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+    </button>
+  );
 
-      <main className="mx-auto max-w-lg space-y-4 px-4 pt-6">
-        <div className="flex items-center gap-3 px-1">
-          <span className="block h-[8px] w-[64px] rounded-[4px]" style={{ backgroundColor: CYAN }} />
-          <p className="text-[13px] font-extrabold uppercase tracking-[0.12em]">Visites à réaliser</p>
-        </div>
+  return (
+    <PageAppli>
+      <EnTeteAppli surtitre="Espace technique" titre="Mon planning" action={boutonActualiser} />
+
+      <ContenuAppli className="space-y-4">
+        <Repere>Visites à réaliser</Repere>
 
         {loading && (
-          <div className="rounded-[20px] p-8 text-center" style={{ backgroundColor: '#eceef1' }}>
+          <Carte className="p-8 text-center">
             <RefreshCw className="mx-auto animate-spin" size={28} color={CYAN} />
             <p className="mt-3 text-[15px] font-semibold">Chargement du planning terrain...</p>
-          </div>
+          </Carte>
         )}
 
-        {!loading && erreur && (
-          <p role="alert" className="rounded-[14px] bg-white px-4 py-3 text-[15px] font-semibold leading-relaxed ring-[1.5px] ring-[#dfe3e8]" style={{ boxShadow: 'inset 4px 0 0 #FF6B00' }}>
-            {erreur}
-          </p>
-        )}
+        {!loading && erreur && <Alerte>{erreur}</Alerte>}
 
         {!loading && !erreur && chantiers.length === 0 && (
-          <div className="rounded-[20px] p-8 text-center" style={{ backgroundColor: '#eceef1' }}>
+          <Carte className="p-8 text-center">
             <ClipboardList className="mx-auto mb-3" size={40} color={CYAN} strokeWidth={1.6} />
             <p className="text-[15px] font-semibold">Aucune visite technique à l'ordre du jour.</p>
-          </div>
+          </Carte>
         )}
 
         {!loading && !erreur && chantiers.map((chantier) => (
@@ -100,7 +86,7 @@ export default function InternePage() {
             key={chantier.id}
             onClick={() => handleSelectChantier(chantier.id)}
             className="flex w-full items-center gap-4 rounded-[20px] p-5 text-left transition-transform active:scale-[0.98]"
-            style={{ backgroundColor: '#eceef1' }}
+            style={{ backgroundColor: GRIS }}
           >
             <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
               <ClipboardList size={22} color="#ffffff" strokeWidth={1.8} />
@@ -115,7 +101,7 @@ export default function InternePage() {
             <ChevronRight size={22} className="shrink-0" color={CYAN} />
           </button>
         ))}
-      </main>
-    </div>
+      </ContenuAppli>
+    </PageAppli>
   );
 }

@@ -1,20 +1,17 @@
 "use client";
 
 // Relevé terrain : LOGIQUE INCHANGÉE (matrice d'affichage, hors-ligne, envoi /api/metre puis photos).
-// 10/10/2026 : habillage charte 2026 seul. Les attributs value des menus ne changent pas
-// (la route /api/metre les convertit en index ClickUp) : seuls les libellés affichés retrouvent leurs accents.
+// 10/10/2026 : habillage charte 2026 via les briques communes (src/components/charte/Appli.tsx).
+// Les attributs value des menus ne changent pas (la route /api/metre les convertit en index ClickUp) :
+// seuls les libellés affichés retrouvent leurs accents.
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag, X, Plug } from 'lucide-react';
+import { Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
+import { NAVY, CYAN, LABEL, CYAN_PALE } from '@/components/charte/couleurs';
 
 // Regle de depart : COP = toujours infra ; FLT/TER = borne complete
 const INFRA_SEGMENTS = ['COP'];
 const COPRO_PHOTO_SEGMENTS = ['COP', 'PAR', 'FLT', 'TER'];
-
-// Charte 2026
-const NAVY = '#032b60';
-const CYAN = '#0097b2';
-const CARTE = 'rounded-[20px] p-5 space-y-5';
-const CARTE_STYLE = { backgroundColor: '#eceef1' };
 
 // Checklist photos : les 5 premieres pour tous, les 4 suivantes pour copro/flotte/tertiaire
 // (les clés ne changent pas, seuls les libellés affichés sont accentués)
@@ -29,21 +26,6 @@ const PHOTOS = [
   { key: 'photoParking', label: 'Vue parking', scope: 'copro' },
   { key: 'photoLocalTech', label: 'Local technique / TD', scope: 'copro' },
 ];
-
-// Titre de carte : pastille cyan + titre, comme les cartes du site
-function TitreCarte({ icon: Icon, children, extra }: { icon: React.ElementType, children: React.ReactNode, extra?: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <h3 className="flex items-center gap-3 text-[17px] font-bold">
-        <span className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-[12px]" style={{ backgroundColor: CYAN }}>
-          <Icon size={20} color="#ffffff" strokeWidth={1.8} />
-        </span>
-        {children}
-      </h3>
-      {extra}
-    </div>
-  );
-}
 
 export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string, taskName: string, initialSegment?: string }) {
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
@@ -256,27 +238,26 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
 
   if (status === "success") {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-[24px] p-8 text-center" style={{ backgroundColor: '#eceef1', color: NAVY }}>
+      <Carte className="flex flex-col items-center gap-4 p-8 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-[16px] text-white" style={{ backgroundColor: CYAN }}>
           <CheckCircle size={32} />
         </div>
         <h2 className="text-[24px] font-bold">Relevé transmis !</h2>
         <p className="text-[15px] leading-relaxed">Le dossier de {taskName} a été mis à jour dans ClickUp.</p>
-        <a href="/interne" className="mt-2 text-[15px] font-semibold underline underline-offset-4" style={{ color: '#007f96' }}>Retour au planning</a>
-      </div>
+        <a href="/interne" className="mt-2 text-[15px] font-semibold underline underline-offset-4" style={{ color: LABEL }}>Retour au planning</a>
+      </Carte>
     );
   }
 
-  // Champs et étiquettes identiques au formulaire de contact du site
-  const inputClass = "w-full bg-white text-[#032b60] text-[16px] font-medium rounded-[14px] border-0 ring-[1.5px] ring-[#dfe3e8] focus:ring-2 focus:ring-[#0097b2] block px-4 py-3.5 transition outline-none placeholder:text-slate-400";
-  const labelClass = "ml-1 block text-[12px] font-extrabold uppercase tracking-[0.12em] text-[#032b60]";
+  const inputClass = CHAMP;
+  const labelClass = ETIQUETTE;
   const photosPrises = visiblePhotos.filter(p => (photos[p.key] || []).length > 0).length;
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} onChange={handleFormChange} className="space-y-5 pb-12" style={{ color: NAVY }}>
       
       {/* SEGMENT */}
-      <div className="rounded-[20px] p-5 space-y-4" style={{ backgroundColor: '#e3f4f7', boxShadow: `inset 5px 0 0 ${CYAN}` }}>
+      <Carte accent className="space-y-4">
         <TitreCarte icon={Tag}>Type de projet</TitreCarte>
         <select
           name="segment"
@@ -292,10 +273,10 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
           <option value="FLT">FLT · Flotte entreprise</option>
           <option value="TER">TER · Tertiaire / ERP</option>
         </select>
-      </div>
+      </Carte>
 
       {/* ELECTRICITE */}
-      <div className={CARTE} style={CARTE_STYLE}>
+      <Carte className="space-y-5">
         <TitreCarte icon={Zap}>Électricité</TitreCarte>
         
         <div className="grid grid-cols-2 gap-4">
@@ -375,11 +356,11 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
             <span className="text-[15px] font-semibold">Besoin d'un module délesteur</span>
           </label>
         )}
-      </div>
+      </Carte>
 
       {/* CHEMINEMENT : 7 DISTANCES (masque en COP infra) */}
       {showCheminement && (
-        <div className={CARTE} style={CARTE_STYLE}>
+        <Carte className="space-y-5">
           <TitreCarte icon={Ruler}>Cheminement</TitreCarte>
           
           <div className="grid grid-cols-2 gap-4">
@@ -391,11 +372,11 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
             <div className="space-y-2"><label className={labelClass}>Tirage existant (m)</label><input type="number" name="distTirage" defaultValue="0" className={inputClass} /></div>
             <div className="space-y-2"><label className={labelClass}>Tranchée (m)</label><input type="number" name="distTranchee" defaultValue="0" className={inputClass} /></div>
           </div>
-        </div>
+        </Carte>
       )}
 
       {/* PERCEMENTS (tous) */}
-      <div className={CARTE} style={CARTE_STYLE}>
+      <Carte className="space-y-5">
         <TitreCarte icon={Hammer}>Percements à réaliser</TitreCarte>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2"><label className={labelClass}>Placo / bois</label><input type="number" name="percementPlaco" defaultValue="0" className={inputClass} /></div>
@@ -403,11 +384,11 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
           <div className="space-y-2"><label className={labelClass}>Béton / pierre</label><input type="number" name="percementBeton" defaultValue="0" className={inputClass} /></div>
           <div className="space-y-2"><label className={labelClass}>Dalle / sol</label><input type="number" name="percementDalle" defaultValue="0" className={inputClass} /></div>
         </div>
-      </div>
+      </Carte>
 
       {/* INFRASTRUCTURE (COP infra) */}
       {showInfra && (
-        <div className={CARTE} style={CARTE_STYLE}>
+        <Carte className="space-y-5">
           <TitreCarte icon={Building2}>Infrastructure</TitreCarte>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2"><label className={labelClass}>Nb places parking</label><input type="number" name="nbPlacesParking" defaultValue="0" className={inputClass} placeholder="Ex : 24" /></div>
@@ -426,11 +407,11 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
               <option value="150">HUB 150</option>
             </select>
           </div>
-        </div>
+        </Carte>
       )}
 
       {/* INSTALLATION : Support Borne (masque COP infra) + Zone Deplacement (tous) */}
-      <div className={CARTE} style={CARTE_STYLE}>
+      <Carte className="space-y-5">
         <TitreCarte icon={Plug}>Installation</TitreCarte>
         <div className="grid grid-cols-2 gap-4">
           {showSupportBorne && (
@@ -454,10 +435,10 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
             </select>
           </div>
         </div>
-      </div>
+      </Carte>
 
       {/* PHOTOS TERRAIN : checklist guidee, multi-photos par emplacement */}
-      <div className={CARTE} style={CARTE_STYLE}>
+      <Carte className="space-y-5">
         <TitreCarte
           icon={Camera}
           extra={<span className="rounded-full bg-white px-3 py-1 text-[13px] font-bold" style={{ color: CYAN }}>{photosPrises}/{visiblePhotos.length}</span>}
@@ -472,7 +453,7 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
             return (
               <div
                 key={p.key}
-                className={`space-y-3 rounded-[16px] bg-white p-4 ${shots.length > 0 ? '' : 'ring-[1.5px] ring-dashed ring-[#dfe3e8]'}`}
+                className={`space-y-3 rounded-[16px] bg-white p-4 ${shots.length > 0 ? '' : 'border-[1.5px] border-dashed border-[#c5ccd4]'}`}
                 style={shots.length > 0 ? { boxShadow: `inset 5px 0 0 ${CYAN}` } : undefined}
               >
                 <div className="flex items-center justify-between">
@@ -487,6 +468,7 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
                   <div className="grid grid-cols-3 gap-2">
                     {shots.map((src, i) => (
                       <div key={i} className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={src} alt={`${p.label} ${i + 1}`} className="h-24 w-full rounded-[10px] object-cover" />
                         <button type="button" onClick={() => removePhoto(p.key, i)} aria-label="Supprimer la photo" className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full text-white shadow-md active:scale-90" style={{ backgroundColor: NAVY }}>
                           <X size={14} />
@@ -496,8 +478,8 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
                   </div>
                 )}
 
-                <div className="relative w-full overflow-hidden rounded-full p-3 text-center transition-colors" style={{ backgroundColor: '#e3f4f7' }}>
-                  <span className="flex items-center justify-center gap-2 text-[14px] font-semibold" style={{ color: '#007f96' }}>
+                <div className="relative w-full overflow-hidden rounded-full p-3 text-center transition-colors" style={{ backgroundColor: CYAN_PALE }}>
+                  <span className="flex items-center justify-center gap-2 text-[14px] font-semibold" style={{ color: LABEL }}>
                     <Camera size={18} /> {shots.length > 0 ? 'Ajouter une photo' : 'Prendre une photo'}
                   </span>
                   <input type="file" accept="image/*" capture="environment" multiple className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={(e) => handlePhotoChange(e, p.key)} />
@@ -506,26 +488,20 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
             );
           })}
         </div>
-      </div>
+      </Carte>
 
       {/* NOTES */}
-      <div className={CARTE} style={CARTE_STYLE}>
+      <Carte className="space-y-4">
         <TitreCarte icon={FileText}>Notes cheminement</TitreCarte>
         <textarea name="notes" rows={3} className={`${inputClass} resize-none`} placeholder="Ex : cheminement via les garages en sous-sol..."></textarea>
-      </div>
+      </Carte>
 
-      <button
-        type="submit"
-        disabled={status === "uploading" || !segment}
-        className={`flex w-full items-center justify-center gap-3 rounded-full px-8 py-4 text-[17px] font-semibold text-white transition-transform active:scale-95 ${!segment ? 'bg-slate-300' : 'bg-[#FF6B00] shadow-[0_8px_22px_rgba(255,107,0,0.28)]'}`}
-      >
+      <BoutonPrincipal type="submit" disabled={status === "uploading" || !segment} inactif={!segment}>
         {status === "uploading" ? "Envoi en cours..." : !segment ? "Choisir un segment pour valider" : <><Send size={20} /> Valider le relevé</>}
-      </button>
+      </BoutonPrincipal>
 
       {status === "error" && (
-        <p role="alert" className="rounded-[14px] bg-white px-4 py-3 text-center text-[15px] font-semibold leading-relaxed ring-[1.5px] ring-[#dfe3e8]" style={{ boxShadow: 'inset 4px 0 0 #FF6B00' }}>
-          Erreur réseau. Ne fermez pas la page, retrouvez du réseau et réessayez.
-        </p>
+        <Alerte className="text-center">Erreur réseau. Ne fermez pas la page, retrouvez du réseau et réessayez.</Alerte>
       )}
     </form>
   );
