@@ -1,11 +1,28 @@
 import { NextResponse } from 'next/server';
 
+// Liste Qualification de production : utilisée en secours UNIQUEMENT en production.
+// En preview (tests), la variable Vercel CLICKUP_LIST_QUALIFICATION_ID doit pointer
+// vers la liste 🧪 Qualification TEST, sinon la route refuse d'écrire.
+const QUALIFICATION_PROD_ID = "901519702632";
+
+function getQualificationListId(): string | undefined {
+  const fromEnv = process.env.CLICKUP_LIST_QUALIFICATION_ID?.trim();
+  if (fromEnv) return fromEnv;
+  if (process.env.VERCEL_ENV === 'production') return QUALIFICATION_PROD_ID;
+  return undefined;
+}
+
 export async function POST(request: Request) {
   try {
     const data = await request.json();
 
     const CLICKUP_API_KEY = process.env.CLICKUP_API_KEY as string; 
-    const LIST_ID = "901519702632";
+    const LIST_ID = getQualificationListId();
+
+    if (!CLICKUP_API_KEY || !LIST_ID) {
+      console.error("Configuration manquante : CLICKUP_API_KEY ou CLICKUP_LIST_QUALIFICATION_ID");
+      return NextResponse.json({ success: false, error: "Configuration serveur incomplète" }, { status: 500 });
+    }
 
     // SÉCURITÉ ANTI-VIDE : On bloque le robot si un champ obligatoire manque
     if (!data.nom || !data.email || !data.telephone) {

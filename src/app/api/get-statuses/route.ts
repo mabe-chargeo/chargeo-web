@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 
+// Liste Planning Chantiers : lecture seule, le repli sur la prod est sans risque.
+const PLANNING_PROD_ID = "901520038258";
+
 export async function GET() {
   const token = process.env.CLICKUP_API_KEY;
   
-  // On cible directement l'ID de la liste Planning Chantiers que tu viens de me donner
-  const listId = "901520038258"; 
+  // ID de la liste Planning Chantiers, configurable dans Vercel (CLICKUP_LIST_PLANNING_ID)
+  const listId = process.env.CLICKUP_LIST_PLANNING_ID?.trim() || PLANNING_PROD_ID; 
 
   if (!token || !listId) {
     return NextResponse.json({ error: "Clé API ou ID de liste manquant" }, { status: 500 });
