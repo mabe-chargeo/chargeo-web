@@ -6,6 +6,22 @@ import { lireTacheQualification } from '@/lib/listesClickUp';
 // dans la même liste que la fiche, avec ses propres mesures, son segment et sa source.
 // La sous-tâche naît avec le statut par défaut de la liste (« 📍 à visiter »).
 // À vérifier avant la mise en production : les automatisations de Qualification déclenchées par une création.
+// 11/10/2026 : nommage par lettre « Scénario A : nom ». La lettre suit la plus haute déjà utilisée
+// (un ancien « Scénario 3 » compte comme C), jamais de doublon même si un scénario a été supprimé.
+const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+function prochainRepere(sousTaches: any[]): string {
+  let plusHaut = -1;
+  for (const s of sousTaches) {
+    const m = String(s?.name || '').match(/^\s*Sc[ée]nario\s+([A-Za-z]|\d+)\b/i);
+    if (!m) continue;
+    const rang = /^\d+$/.test(m[1]) ? parseInt(m[1], 10) - 1 : LETTRES.indexOf(m[1].toUpperCase());
+    if (rang > plusHaut) plusHaut = rang;
+  }
+  const rang = Math.max(plusHaut + 1, sousTaches.length);
+  return rang < LETTRES.length ? LETTRES[rang] : String(rang + 1);
+}
+
 export async function POST(request: Request) {
   try {
     const corps = await request.json().catch(() => ({}));
@@ -25,14 +41,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Un scénario ne peut pas avoir de sous-scénario' }, { status: 400 });
     }
 
-    const numero = (Array.isArray(verif.tache?.subtasks) ? verif.tache.subtasks.length : 0) + 1;
+    const sousTaches = Array.isArray(verif.tache?.subtasks) ? verif.tache.subtasks : [];
+    const repere = prochainRepere(sousTaches);
     const listId = String(verif.tache.list.id);
 
     const res = await fetch(`https://api.clickup.com/api/v2/list/${listId}/task`, {
       method: 'POST',
       headers: { 'Authorization': token, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: `Scénario ${numero} : ${nom}`,
+        name: `Scénario ${repere} : ${nom}`,
         parent: affaireId,
         description: "Scénario de relevé créé depuis l'outil terrain. Il porte ses propres mesures, son segment et sa source de raccordement.",
       }),
