@@ -7,11 +7,12 @@ import { CHAMP_AVIS, NOM_SOUS_TACHE, clickup, creerRappelAvis, infosBrouillon, p
 // - 🔵 Demande envoyée : la sous-tâche ⭐ prend la date de demande et le rappel 1 à J+7.
 // - 🔁 Relancé : 1re fois = dernier rappel à J+14 après la demande ; 2e fois = fin de séquence. Le menu est vidé
 //   après chaque relance notée, pour pouvoir noter la suivante (comme pour les devis).
-// - ✅ Avis reçu / 🚫 Refus du client : fin de séquence (sous-tâche renommée, échéance retirée).
+// - ✅ Avis reçu / 🚫 Refus du client : fin de séquence (sous-tâche renommée « ⭐ Avis Google : terminé (…) », échéance retirée).
 // Les relances sont comptées dans les commentaires « 🔁 Rappel avis n° » depuis le dernier « 🔵 Demande d'avis ».
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
 
 const PARC_ID = '901520038290';
+const NOM_TERMINE = '⭐ Avis Google : terminé';
 const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 
 async function lireTache(id: string, token: string): Promise<any | null> {
@@ -117,7 +118,7 @@ async function traiter(taskId: string, simulation: boolean) {
   const maj: any = {};
   if (plan.debut) { maj.start_date = echeanceClickUp(plan.debut); maj.start_date_time = false; }
   if (plan.echeance) { maj.due_date = echeanceClickUp(plan.echeance); maj.due_date_time = false; }
-  if (plan.fin) { maj.due_date = null; maj.name = `${NOM_SOUS_TACHE} : terminé (${plan.fin})`; }
+  if (plan.fin) { maj.due_date = null; maj.name = `${NOM_TERMINE} (${plan.fin})`; }
   const ecrit = await clickup(token, `/task/${st.id}`, 'PUT', maj);
   if (!ecrit.ok) {
     await commenter(token, id, `⚠️ Avis Google : la sous-tâche ⭐ n'a pas pu être mise à jour. ${plan.echeance ? `Note le rappel du ${libelleJour(plan.echeance)} à la main.` : ''}`, true);
