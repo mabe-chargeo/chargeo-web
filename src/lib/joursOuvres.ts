@@ -43,7 +43,7 @@ export function estOuvre(d: Jour): boolean {
   return js !== 0 && js !== 6 && !feries(d.a).has(cle(d));
 }
 
-// Aujourd'hui à Paris
+// Aujourd'hui à Paris (ou le jour à Paris d'un instant donné)
 export function aujourdhuiParis(maintenant: Date = new Date()): Jour {
   const parts = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(maintenant);
   const v = (t: string) => Number(parts.find((p) => p.type === t)?.value);
@@ -60,6 +60,19 @@ export function ajouterJoursOuvres(d: Jour, n: number): Jour {
   }
   return x;
 }
+
+// d lui-même s'il est ouvré, sinon le jour ouvré suivant
+export function prochainOuvre(d: Jour): Jour {
+  let x = d;
+  while (!estOuvre(x)) x = decaler(x, 1);
+  return x;
+}
+
+// n jours calendaires après d
+export const ajouterJours = (d: Jour, n: number): Jour => decaler(d, n);
+
+// Comparaison : négatif si a est avant b
+export const comparer = (a: Jour, b: Jour): number => (a.a - b.a) * 10000 + (a.m - b.m) * 100 + (a.j - b.j);
 
 // Échéance ClickUp sans heure : 10 h UTC, soit le bon jour à Paris en hiver comme en été
 export const echeanceClickUp = (d: Jour): number => Date.UTC(d.a, d.m - 1, d.j, 10, 0, 0);
