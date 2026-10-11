@@ -15,7 +15,8 @@
 // Point 21 (11/10/2026), prop « mode » :
 // - complet : tout le relevé (fiche simple, scénario) ;
 // - site : données communes du site (électricité, terre, réseau, infrastructure, zone, photos du site) ;
-// - emplacement : une borne (matériel, support, cheminement, percements, photo de l'emplacement).
+// - emplacement : une borne (matériel, points de charge, support, cheminement, percements, photo de l'emplacement).
+// Points de charge de la borne (1 = simple, 2 = double), avec les matériels.
 // Les attributs value des menus ne changent pas (la route /api/metre les convertit en index ClickUp).
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag, X, Plug } from 'lucide-react';
@@ -423,16 +424,25 @@ export function MetreForm({
   const aideVide = <p className="text-[13px] leading-relaxed">Laisse vide si non mesuré. Saisis 0 pour « aucun ».</p>;
 
   const blocMateriels = (
-    <div className="space-y-2">
-      <label className={labelClass}>Matériels à chiffrer</label>
-      <p className="ml-1 text-[13px] leading-relaxed">Coche un ou plusieurs matériels : un devis par matériel, avec les mêmes mesures.</p>
-      <div className="grid grid-cols-2 gap-3">
-        {MATERIELS.map(m => (
-          <label key={m.value} className="flex cursor-pointer items-center gap-3 rounded-[14px] bg-white p-3.5 ring-[1.5px] ring-[#dfe3e8]">
-            <input type="checkbox" name="materiels" value={m.value} className="h-5 w-5 shrink-0 accent-[#0097b2]" />
-            <span className="text-[14px] font-semibold leading-tight">{m.label}</span>
-          </label>
-        ))}
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <label className={labelClass}>Matériels à chiffrer</label>
+        <p className="ml-1 text-[13px] leading-relaxed">Coche un ou plusieurs matériels : un devis par matériel, avec les mêmes mesures.</p>
+        <div className="grid grid-cols-2 gap-3">
+          {MATERIELS.map(m => (
+            <label key={m.value} className="flex cursor-pointer items-center gap-3 rounded-[14px] bg-white p-3.5 ring-[1.5px] ring-[#dfe3e8]">
+              <input type="checkbox" name="materiels" value={m.value} className="h-5 w-5 shrink-0 accent-[#0097b2]" />
+              <span className="text-[14px] font-semibold leading-tight">{m.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className={labelClass}>Points de charge de la borne</label>
+        <select name="nbPdc" defaultValue="1" className={inputClass}>
+          <option value="1">1 (borne simple)</option>
+          <option value="2">2 (borne double)</option>
+        </select>
       </div>
     </div>
   );
@@ -533,7 +543,7 @@ export function MetreForm({
         </Carte>
       )}
 
-      {/* BORNE (emplacement) : matériels */}
+      {/* BORNE (emplacement) : matériels et points de charge */}
       {estEmpl && showMateriels && (
         <Carte className="space-y-5">
           <TitreCarte icon={Zap}>Borne à poser</TitreCarte>

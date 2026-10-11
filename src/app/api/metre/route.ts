@@ -11,6 +11,8 @@ import { lireTacheQualification } from '@/lib/listesClickUp';
 // - 11/10/2026 : Notes cheminement écrites seulement si le technicien a tapé quelque chose.
 // - 11/10/2026 (point 21) : raccordement et puissance dispo écrits seulement s'ils sont saisis
 //   (un emplacement ne les envoie pas : ce sont des données du site, plus de valeur par défaut).
+// - 11/10/2026 (point 21) : Nb points de charge (1 ou 2), écrit seulement si la liste possède le champ
+//   (créé sur la liste TEST ; absent de la vraie Qualification tant que Matthieu ne l'a pas validé).
 // Les menus restent écrits PAR INDEX (ne jamais réordonner les options dans ClickUp).
 
 // Matériels à chiffrer : champ à étiquettes, écrit par identifiant d'option (stable, pas d'index)
@@ -21,6 +23,8 @@ const MATERIELS_OPTIONS: Record<string, string> = {
   '11': '582c9ab0-ac96-47ca-8550-1bccc26e91ed',  // Borne 11 kW
   '22': '9b5a6497-8de0-44e6-bff7-b2206fd2f436',  // Borne 22 kW
 };
+// Nb points de charge : champ nombre (liste TEST)
+const NB_PDC_CHAMP_ID = 'ecd920d1-dff2-4bc3-9f15-25893eadae93';
 
 export async function POST(request: Request) {
   try {
@@ -32,6 +36,10 @@ export async function POST(request: Request) {
     if (!verif.ok) {
       return NextResponse.json({ success: false, error: verif.erreur }, { status: verif.status });
     }
+    // Champs disponibles sur cette fiche (pour ne pas écrire un champ absent de la liste)
+    const champsDeLaFiche = new Set<string>(
+      (Array.isArray(verif.tache?.custom_fields) ? verif.tache.custom_fields : []).map((f: any) => String(f?.id))
+    );
 
     const texte = (cle: string): string => {
       const v = formData.get(cle);
@@ -72,6 +80,10 @@ export async function POST(request: Request) {
     const puissanceViseeIndex = materiels.length === 1
       ? (puissanceViseeMap[materiels[0]] ?? null)
       : (materiels.length === 0 ? (puissanceViseeMap[texte('puissanceVisee')] ?? null) : null);
+
+    // Nb points de charge : 1 ou 2, rien sinon
+    const nbPdcStr = texte('nbPdc');
+    const nbPdc = nbPdcStr === '1' ? 1 : nbPdcStr === '2' ? 2 : null;
 
     // Support Borne : Mur Beton/Parpaing=0, Mur Placo=1, Mur Bois=2, Sur Pied=3
     let murSupportIndex: number | null = null;
@@ -136,6 +148,9 @@ export async function POST(request: Request) {
     pousser("2db3f8ea-8fae-4f9f-80ca-3ea9a512ebbb", "Source de raccordement", sourceRaccIndex);
     if (materiels.length > 0) {
       pousser(MATERIELS_CHAMP_ID, "Matériels à chiffrer", materiels.map((m) => MATERIELS_OPTIONS[m]));
+    }
+    if (champsDeLaFiche.has(NB_PDC_CHAMP_ID)) {
+      pousser(NB_PDC_CHAMP_ID, "Points de charge", nbPdc);
     }
 
     // Terre + distances + percements + infrastructure (vide = rien, 0 = zéro)
