@@ -4,6 +4,8 @@ import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClick
 // Webhook ClickUp -> Costructor (lot 3.4, 11/10/2026). Appelé par une automatisation ClickUp : POST ?taskId=...
 // Décisions : point 5 (échec propre, sans doublon, alerte au commercial), point 15 (client payeur,
 // gestionnaire et contact sur place), plan du lot 3.4 validé par Matthieu le 11/10.
+// 0. Une sous-tâche (scénario, emplacement) n'est jamais un client : elle est ignorée. L'automatisation de la liste
+//    se déclenche aussi sur les sous-tâches quand elles passent en « devis à faire ».
 // 1. « Lien Costructor » rempli et contact existant : rien n'est créé.
 // 2. Sinon recherche du client dans Costructor : SIRET d'abord, puis email ou téléphone.
 //    Pour une société, l'email ou le téléphone ne suffit pas : le nom doit correspondre aussi
@@ -231,6 +233,11 @@ async function traiter(taskId: string, simulation: boolean) {
 
   const tache = await lireTache(taskId, clickUpToken);
   if (!tache) return { status: 404, body: { success: false, error: 'Fiche introuvable' } };
+
+  // 0. Sous-tâche (scénario, emplacement) : jamais de client Costructor, rien n'est fait ni commenté
+  if (tache.parent) {
+    return { status: 200, body: { success: true, action: 'ignore_sous_tache', parent: String(tache.parent), simulation } };
+  }
 
   // Preview : vrai passage sur les fiches TEST seulement ; simulation (lecture seule) aussi sur une vraie fiche Qualification
   if (process.env.VERCEL_ENV !== 'production') {
