@@ -16,6 +16,7 @@ import { aujourdhuiParis, ajouterJoursOuvres, echeanceClickUp, libelleJour } fro
 //   Costructor. Montant laissé vide : il dépend des conditions de chaque devis (décision Matthieu du 11/10). Jamais en
 //   double : une tâche acompte déjà présente pour ce n° de devis est réutilisée.
 // Montants : l'API externe renvoie des centimes (Bacchus D202600007 : 1959994 = 19 599,94 € HT, vérifié le 11/10).
+// Statuts : l'API externe renvoie le code (open, accepted...), traduit ici comme dans Costructor (open = « En attente »).
 // Champs lus par identifiant puis par nom (ils peuvent être renommés sans « signé »).
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (aussi sur une vraie fiche, lecture seule) ou &executer=1 (fiches TEST).
 //   &forcerSigne=1 (preview seulement) : traite le devis comme signé, pour tester la création de l'acompte.
@@ -41,6 +42,9 @@ const EVENEMENTS = ['envoye', 'gagne'] as const;
 type Evenement = (typeof EVENEMENTS)[number];
 const EXCLUS = ['revised', 'draft', 'cancelled', 'refused'];
 const SIGNES = ['accepted', 'done'];
+const LIBELLES_STATUT: Record<string, string> = {
+  draft: 'Brouillon', open: 'En attente', accepted: 'Accepté', done: 'Accepté', refused: 'Refusé', cancelled: 'Annulé', revised: 'Révisé',
+};
 
 const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 const euros = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € HT`;
@@ -122,9 +126,10 @@ function montantHT(d: any): { ht: number; brut: any; centimes: boolean } {
 const clientDe = (d: any) => String(d?.customer?.id || d?.customerId || d?.customer_id || '');
 const nomClientDe = (d: any) => String(d?.customer?.fullName || d?.customer?.companyName || '');
 const statutDe = (d: any) => String(d?.status || '').toLowerCase();
+const libelleStatut = (d: any) => String(d?.statusLabel || LIBELLES_STATUT[statutDe(d)] || d?.status || '');
 const resumeDevis = (d: any) => {
   const m = montantHT(d);
-  return { id: d.id, numero: d.number, nom: d.name || '', client: nomClientDe(d), statut: d.statusLabel || d.status, envoye: d.sent, ht: m.ht, brut: m.brut };
+  return { id: d.id, numero: d.number, nom: d.name || '', client: nomClientDe(d), statut: libelleStatut(d), envoye: d.sent, ht: m.ht, brut: m.brut };
 };
 const ligneDevis = (d: any) => `• ${d.number}${d.name ? ` · ${d.name}` : ''} · ${euros(montantHT(d).ht)} : ${urlDevis(d.id)}`;
 
@@ -309,7 +314,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   } else if (signe) {
     texte = `🏆 Devis signé ${actuel.number} : ${euros(m.ht)}${nouvelleVersion ? ' (dernière version, montant mis à jour)' : ''}${forcerSigne && !signeReel ? ' [test : signature simulée]' : ''}.`;
   } else {
-    texte = `⚠️ Devis ${actuel.number} pas encore signé dans Costructor (statut « ${actuel.statusLabel || actuel.status} »). Montant ${euros(m.ht)} reporté quand même. Vérifie la signature avant de lancer le chantier.`;
+    texte = `⚠️ Devis ${actuel.number} pas encore signé dans Costructor (statut « ${libelleStatut(actuel)} »). Montant ${euros(m.ht)} reporté quand même. Vérifie la signature avant de lancer le chantier.`;
   }
   const resume: any = { action: evenement === 'envoye' ? 'devis_retenu' : signe ? 'devis_signe' : 'devis_non_signe', devis: resumeDevis(actuel), nouvelleVersion, centimes: m.centimes, forcerSigne, commentaire: texte };
   const faireAcompte = evenement === 'gagne' && signe;
