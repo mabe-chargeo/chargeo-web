@@ -11,7 +11,11 @@
 // - copie locale gardée 7 jours après confirmation, jamais purgée si l'envoi est incomplet.
 // Lot 3.3 (10/10/2026) : « Matériels à chiffrer » (choix multiple) à la place du choix unique Puissance visée.
 // Le même formulaire sert à une fiche simple et à chaque scénario (sous-tâche).
-// 11/10/2026 : prop optionnelle « retour » pour le lien de l'écran de succès (scénario = retour aux scénarios).
+// 11/10/2026 : prop optionnelle « retour » pour le lien de l'écran de succès.
+// Point 21 (11/10/2026), prop « mode » :
+// - complet : tout le relevé (fiche simple, scénario) ;
+// - site : données communes du site (électricité, terre, réseau, infrastructure, zone, photos du site) ;
+// - emplacement : une borne (matériel, support, cheminement, percements, photo de l'emplacement).
 // Les attributs value des menus ne changent pas (la route /api/metre les convertit en index ClickUp).
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag, X, Plug } from 'lucide-react';
@@ -32,21 +36,22 @@ const MATERIELS = [
 ];
 
 // Checklist photos : les 5 premieres pour tous, les 4 suivantes pour copro/flotte/tertiaire
-// (les clés ne changent pas, seuls les libellés affichés sont accentués)
+// niveau : site (relevé commun) ou borne (emplacement). Les clés ne changent pas.
 const PHOTOS = [
-  { key: 'photoTableauFerme', label: 'Tableau fermé', scope: 'all' },
-  { key: 'photoTableauOuvert', label: 'Tableau ouvert', scope: 'all' },
-  { key: 'photoEmplacementBorne', label: 'Emplacement borne', scope: 'all' },
-  { key: 'photoCompteurPDL', label: 'Compteur / PDL', scope: 'all' },
-  { key: 'photoPriseTerre', label: 'Prise de terre', scope: 'all' },
-  { key: 'photoTGBT', label: 'TGBT parties communes', scope: 'copro' },
-  { key: 'photoArtere', label: 'Cheminement artère', scope: 'copro' },
-  { key: 'photoParking', label: 'Vue parking', scope: 'copro' },
-  { key: 'photoLocalTech', label: 'Local technique / TD', scope: 'copro' },
+  { key: 'photoTableauFerme', label: 'Tableau fermé', scope: 'all', niveau: 'site' },
+  { key: 'photoTableauOuvert', label: 'Tableau ouvert', scope: 'all', niveau: 'site' },
+  { key: 'photoEmplacementBorne', label: 'Emplacement borne', scope: 'all', niveau: 'borne' },
+  { key: 'photoCompteurPDL', label: 'Compteur / PDL', scope: 'all', niveau: 'site' },
+  { key: 'photoPriseTerre', label: 'Prise de terre', scope: 'all', niveau: 'site' },
+  { key: 'photoTGBT', label: 'TGBT parties communes', scope: 'copro', niveau: 'site' },
+  { key: 'photoArtere', label: 'Cheminement artère', scope: 'copro', niveau: 'site' },
+  { key: 'photoParking', label: 'Vue parking', scope: 'copro', niveau: 'site' },
+  { key: 'photoLocalTech', label: 'Local technique / TD', scope: 'copro', niveau: 'site' },
 ];
 
 // Une photo = un identifiant stable + l'image compressée (base64)
 type Photo = { id: string; data: string };
+export type ModeReleve = 'complet' | 'site' | 'emplacement';
 
 const nouvelId = (): string =>
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -66,7 +71,19 @@ const normaliser = (brut: any): { photos: Photo[]; converti: boolean } => {
   return { photos, converti };
 };
 
-export function MetreForm({ taskId, taskName, initialSegment, retour }: { taskId: string, taskName: string, initialSegment?: string, retour?: { href: string; libelle: string } }) {
+export function MetreForm({
+  taskId,
+  taskName,
+  initialSegment,
+  retour,
+  mode = 'complet',
+}: {
+  taskId: string;
+  taskName: string;
+  initialSegment?: string;
+  retour?: { href: string; libelle: string };
+  mode?: ModeReleve;
+}) {
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [erreurMsg, setErreurMsg] = useState('');
   const [segment, setSegment] = useState(initialSegment || '');
@@ -77,17 +94,25 @@ export function MetreForm({ taskId, taskName, initialSegment, retour }: { taskId
   // Saisie sauvegardée pas encore réappliquée (champs qui n'apparaissent qu'après le choix du segment)
   const restaurationRef = useRef<Record<string, string> | null>(null);
 
-  // --- MATRICE D'AFFICHAGE (validee avec Matthieu) ---
+  const estSite = mode === 'site';
+  const estEmpl = mode === 'emplacement';
+
+  // --- MATRICE D'AFFICHAGE (validee avec Matthieu) + découpage site / borne (point 21) ---
   const isCopInfra = segment === 'COP';
-  const showInfra = INFRA_SEGMENTS.includes(segment);
+  const showElec = !estEmpl;                                          // électricité = données du site
+  const showInfra = INFRA_SEGMENTS.includes(segment) && !estEmpl;
   const showEtatTableau = sourceRacc !== 'PDL dedie';               // masque si PDL dedie (neuf)
-  const showMateriels = !!segment && !isCopInfra;                   // pas de borne en COP infra
+  const showMateriels = !!segment && !isCopInfra && !estSite;       // pas de borne en COP infra
   const showReseau = ['PAR', 'COP', 'FLT', 'TER'].includes(segment); // supervision/HUB
   const showDelesteur = ['RES', 'DAP', 'PAR'].includes(segment);     // borne seule
-  const showCheminement = !!segment && !isCopInfra;                  // pas de cheminement borne en COP infra
-  const showSupportBorne = !!segment && !isCopInfra;                 // pas de borne en COP infra
+  const showCheminement = !!segment && !isCopInfra && !estSite;      // pas de cheminement borne en COP infra
+  const showPercements = !estSite;
+  const showSupportBorne = !!segment && !isCopInfra && !estSite;     // pas de borne en COP infra
+  const showZone = !estEmpl;
   const showCoproPhotos = COPRO_PHOTO_SEGMENTS.includes(segment);
-  const visiblePhotos = PHOTOS.filter(p => p.scope === 'all' || (p.scope === 'copro' && showCoproPhotos));
+  const visiblePhotos = PHOTOS
+    .filter(p => p.scope === 'all' || (p.scope === 'copro' && showCoproPhotos))
+    .filter(p => mode === 'complet' || (estSite ? p.niveau === 'site' : p.niveau === 'borne'));
 
   // Photos déjà reçues par ClickUp (identifiants), pour ne jamais les renvoyer
   const cleEnvoyees = `metreEnvoyees_${taskId}`;
@@ -293,7 +318,9 @@ export function MetreForm({ taskId, taskName, initialSegment, retour }: { taskId
     const formData = new FormData(e.currentTarget);
     formData.set("taskId", taskId);
     formData.set("segment", segment);
-    formData.set("sourceRacc", sourceRacc);
+    // Source de raccordement : donnée du site, pas envoyée depuis un emplacement
+    if (!estEmpl) formData.set("sourceRacc", sourceRacc);
+    else formData.delete("sourceRacc");
     // Délesteur : UNE seule valeur (la case HTML envoie "on", on la remplace)
     const checkbox = formRef.current?.elements.namedItem('besoinDelesteur') as HTMLInputElement;
     if (checkbox) formData.set('besoinDelesteur', checkbox.checked ? 'true' : 'false');
@@ -352,14 +379,15 @@ export function MetreForm({ taskId, taskName, initialSegment, retour }: { taskId
         return;
       }
 
-      // 3) Tout est reçu : passage en « devis à faire » (si encore « à visiter » ; fiche principale quand tous les scénarios sont reçus)
+      // 3) Tout est reçu : finalisation (statut de la fiche, du scénario ou de l'emplacement ; site marqué reçu)
       const fin = await fetch('/api/metre/finaliser', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId })
       });
       if (!fin.ok) {
-        setErreurMsg("Mesures et photos reçues, mais le statut de la fiche n'a pas changé. Appuie à nouveau sur Valider.");
+        const d = await fin.json().catch(() => ({}));
+        setErreurMsg(d?.error ? `${d.error}.` : "Mesures et photos reçues, mais le statut de la fiche n'a pas changé. Appuie à nouveau sur Valider.");
         setStatus("error");
         return;
       }
@@ -379,10 +407,12 @@ export function MetreForm({ taskId, taskName, initialSegment, retour }: { taskId
         <div className="flex h-16 w-16 items-center justify-center rounded-[16px] text-white" style={{ backgroundColor: CYAN }}>
           <CheckCircle size={32} />
         </div>
-        <h2 className="text-[24px] font-bold">Relevé transmis !</h2>
+        <h2 className="text-[24px] font-bold">{estSite ? 'Relevé du site transmis !' : 'Relevé transmis !'}</h2>
         <p className="text-[15px] leading-relaxed">Mesures et photos bien reçues dans la fiche de {taskName}.</p>
         <p className="text-[13px] leading-relaxed">Une copie reste sur ce téléphone pendant 7 jours.</p>
-        <a href={retour?.href || '/interne'} className="mt-2 text-[15px] font-semibold underline underline-offset-4" style={{ color: LABEL }}>{retour?.libelle || 'Retour au planning'}</a>
+        <a href={estSite ? `/interne/metre/${taskId}` : (retour?.href || '/interne')} className="mt-2 text-[15px] font-semibold underline underline-offset-4" style={{ color: LABEL }}>
+          {estSite ? 'Voir les emplacements' : (retour?.libelle || 'Retour au planning')}
+        </a>
       </Carte>
     );
   }
@@ -392,12 +422,27 @@ export function MetreForm({ taskId, taskName, initialSegment, retour }: { taskId
   const photosPrises = visiblePhotos.filter(p => (photos[p.key] || []).length > 0).length;
   const aideVide = <p className="text-[13px] leading-relaxed">Laisse vide si non mesuré. Saisis 0 pour « aucun ».</p>;
 
+  const blocMateriels = (
+    <div className="space-y-2">
+      <label className={labelClass}>Matériels à chiffrer</label>
+      <p className="ml-1 text-[13px] leading-relaxed">Coche un ou plusieurs matériels : un devis par matériel, avec les mêmes mesures.</p>
+      <div className="grid grid-cols-2 gap-3">
+        {MATERIELS.map(m => (
+          <label key={m.value} className="flex cursor-pointer items-center gap-3 rounded-[14px] bg-white p-3.5 ring-[1.5px] ring-[#dfe3e8]">
+            <input type="checkbox" name="materiels" value={m.value} className="h-5 w-5 shrink-0 accent-[#0097b2]" />
+            <span className="text-[14px] font-semibold leading-tight">{m.label}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <form ref={formRef} onSubmit={handleSubmit} onChange={() => handleFormChange(true)} className="space-y-5 pb-12" style={{ color: NAVY }}>
       
       {/* SEGMENT */}
       <Carte accent className="space-y-4">
-        <TitreCarte icon={Tag}>Type de projet</TitreCarte>
+        <TitreCarte icon={Tag}>{estEmpl ? 'Type de projet (du site)' : 'Type de projet'}</TitreCarte>
         <select
           name="segment"
           value={segment}
@@ -414,92 +459,89 @@ export function MetreForm({ taskId, taskName, initialSegment, retour }: { taskId
         </select>
       </Carte>
 
-      {/* ELECTRICITE */}
-      <Carte className="space-y-5">
-        <TitreCarte icon={Zap}>Électricité</TitreCarte>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className={labelClass}>Raccordement</label>
-            <select name="typeRaccordement" className={inputClass}>
-              <option value="Monophase">Monophasé</option>
-              <option value="Triphase">Triphasé</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className={labelClass}>Puissance dispo</label>
-            <select name="puissance" className={inputClass}>
-              <option value="3 kVA">3 kVA</option>
-              <option value="6 kVA">6 kVA</option>
-              <option value="9 kVA">9 kVA</option>
-              <option value="12 kVA">12 kVA</option>
-              <option value="18 kVA et plus">18 kVA et plus</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className={labelClass}>Source de raccordement</label>
-          <select name="sourceRacc" value={sourceRacc} onChange={(e) => setSourceRacc(e.target.value)} className={inputClass}>
-            <option value="">À préciser</option>
-            <option value="Tableau individuel existant">Tableau individuel existant</option>
-            <option value="TGBT services generaux existant">TGBT services généraux existant</option>
-            <option value="PDL dedie">PDL dédié</option>
-          </select>
-        </div>
-
-        {showMateriels && (
-          <div className="space-y-2">
-            <label className={labelClass}>Matériels à chiffrer</label>
-            <p className="ml-1 text-[13px] leading-relaxed">Coche un ou plusieurs matériels : un devis par matériel, avec les mêmes mesures.</p>
-            <div className="grid grid-cols-2 gap-3">
-              {MATERIELS.map(m => (
-                <label key={m.value} className="flex cursor-pointer items-center gap-3 rounded-[14px] bg-white p-3.5 ring-[1.5px] ring-[#dfe3e8]">
-                  <input type="checkbox" name="materiels" value={m.value} className="h-5 w-5 shrink-0 accent-[#0097b2]" />
-                  <span className="text-[14px] font-semibold leading-tight">{m.label}</span>
-                </label>
-              ))}
+      {/* ELECTRICITE (données du site) */}
+      {showElec && (
+        <Carte className="space-y-5">
+          <TitreCarte icon={Zap}>Électricité</TitreCarte>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className={labelClass}>Raccordement</label>
+              <select name="typeRaccordement" className={inputClass}>
+                <option value="Monophase">Monophasé</option>
+                <option value="Triphase">Triphasé</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className={labelClass}>Puissance dispo</label>
+              <select name="puissance" className={inputClass}>
+                <option value="3 kVA">3 kVA</option>
+                <option value="6 kVA">6 kVA</option>
+                <option value="9 kVA">9 kVA</option>
+                <option value="12 kVA">12 kVA</option>
+                <option value="18 kVA et plus">18 kVA et plus</option>
+              </select>
             </div>
           </div>
-        )}
 
-        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className={labelClass}>Terre (ohms)</label>
-            <input type="number" step="0.1" name="terre" required className={inputClass} placeholder="Ex : 45" />
+            <label className={labelClass}>Source de raccordement</label>
+            <select name="sourceRacc" value={sourceRacc} onChange={(e) => setSourceRacc(e.target.value)} className={inputClass}>
+              <option value="">À préciser</option>
+              <option value="Tableau individuel existant">Tableau individuel existant</option>
+              <option value="TGBT services generaux existant">TGBT services généraux existant</option>
+              <option value="PDL dedie">PDL dédié</option>
+            </select>
           </div>
-          {showReseau && (
+
+          {showMateriels && mode === 'complet' && blocMateriels}
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className={labelClass}>Réseau</label>
-              <select name="reseau" className={inputClass}>
-                <option value="4G OK">4G OK</option>
-                <option value="WiFi OK">WiFi OK</option>
-                <option value="Cable requis">Zone blanche</option>
+              <label className={labelClass}>Terre (ohms)</label>
+              <input type="number" step="0.1" name="terre" required className={inputClass} placeholder="Ex : 45" />
+            </div>
+            {showReseau && (
+              <div className="space-y-2">
+                <label className={labelClass}>Réseau</label>
+                <select name="reseau" className={inputClass}>
+                  <option value="4G OK">4G OK</option>
+                  <option value="WiFi OK">WiFi OK</option>
+                  <option value="Cable requis">Zone blanche</option>
+                </select>
+              </div>
+            )}
+          </div>
+
+          {showEtatTableau && (
+            <div className="space-y-2">
+              <label className={labelClass}>État tableau</label>
+              <select name="etatTableau" className={inputClass}>
+                <option value="OK">OK (conforme)</option>
+                <option value="A remanier">À remanier (manque de place)</option>
+                <option value="A remplacer">À remplacer / vétuste</option>
               </select>
             </div>
           )}
-        </div>
 
-        {showEtatTableau && (
-          <div className="space-y-2">
-            <label className={labelClass}>État tableau</label>
-            <select name="etatTableau" className={inputClass}>
-              <option value="OK">OK (conforme)</option>
-              <option value="A remanier">À remanier (manque de place)</option>
-              <option value="A remplacer">À remplacer / vétuste</option>
-            </select>
-          </div>
-        )}
+          {showDelesteur && (
+            <label className="flex cursor-pointer items-center gap-3 rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
+              <input type="checkbox" name="besoinDelesteur" className="h-5 w-5 accent-[#0097b2]" />
+              <span className="text-[15px] font-semibold">Besoin d'un module délesteur</span>
+            </label>
+          )}
+        </Carte>
+      )}
 
-        {showDelesteur && (
-          <label className="flex cursor-pointer items-center gap-3 rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
-            <input type="checkbox" name="besoinDelesteur" className="h-5 w-5 accent-[#0097b2]" />
-            <span className="text-[15px] font-semibold">Besoin d'un module délesteur</span>
-          </label>
-        )}
-      </Carte>
+      {/* BORNE (emplacement) : matériels */}
+      {estEmpl && showMateriels && (
+        <Carte className="space-y-5">
+          <TitreCarte icon={Zap}>Borne à poser</TitreCarte>
+          {blocMateriels}
+        </Carte>
+      )}
 
-      {/* CHEMINEMENT : 7 DISTANCES (masque en COP infra) */}
+      {/* CHEMINEMENT : 7 DISTANCES (masque en COP infra et dans le relevé du site) */}
       {showCheminement && (
         <Carte className="space-y-5">
           <TitreCarte icon={Ruler}>Cheminement</TitreCarte>
@@ -516,19 +558,21 @@ export function MetreForm({ taskId, taskName, initialSegment, retour }: { taskId
         </Carte>
       )}
 
-      {/* PERCEMENTS (tous) */}
-      <Carte className="space-y-5">
-        <TitreCarte icon={Hammer}>Percements à réaliser</TitreCarte>
-        {aideVide}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2"><label className={labelClass}>Placo / bois</label><input type="number" name="percementPlaco" placeholder="–" className={inputClass} /></div>
-          <div className="space-y-2"><label className={labelClass}>Brique / parpaing</label><input type="number" name="percementBrique" placeholder="–" className={inputClass} /></div>
-          <div className="space-y-2"><label className={labelClass}>Béton / pierre</label><input type="number" name="percementBeton" placeholder="–" className={inputClass} /></div>
-          <div className="space-y-2"><label className={labelClass}>Dalle / sol</label><input type="number" name="percementDalle" placeholder="–" className={inputClass} /></div>
-        </div>
-      </Carte>
+      {/* PERCEMENTS (pas dans le relevé du site) */}
+      {showPercements && (
+        <Carte className="space-y-5">
+          <TitreCarte icon={Hammer}>Percements à réaliser</TitreCarte>
+          {aideVide}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2"><label className={labelClass}>Placo / bois</label><input type="number" name="percementPlaco" placeholder="–" className={inputClass} /></div>
+            <div className="space-y-2"><label className={labelClass}>Brique / parpaing</label><input type="number" name="percementBrique" placeholder="–" className={inputClass} /></div>
+            <div className="space-y-2"><label className={labelClass}>Béton / pierre</label><input type="number" name="percementBeton" placeholder="–" className={inputClass} /></div>
+            <div className="space-y-2"><label className={labelClass}>Dalle / sol</label><input type="number" name="percementDalle" placeholder="–" className={inputClass} /></div>
+          </div>
+        </Carte>
+      )}
 
-      {/* INFRASTRUCTURE (COP infra) */}
+      {/* INFRASTRUCTURE (COP infra, données du site) */}
       {showInfra && (
         <Carte className="space-y-5">
           <TitreCarte icon={Building2}>Infrastructure</TitreCarte>
@@ -553,32 +597,36 @@ export function MetreForm({ taskId, taskName, initialSegment, retour }: { taskId
         </Carte>
       )}
 
-      {/* INSTALLATION : Support Borne (masque COP infra) + Zone Deplacement (tous) */}
-      <Carte className="space-y-5">
-        <TitreCarte icon={Plug}>Installation</TitreCarte>
-        <div className="grid grid-cols-2 gap-4">
-          {showSupportBorne && (
-            <div className="space-y-2">
-              <label className={labelClass}>Support de borne</label>
-              <select name="murSupport" className={inputClass}>
-                <option value="Mur Beton/Parpaing">Mur béton / parpaing</option>
-                <option value="Mur Placo">Mur placo</option>
-                <option value="Mur Bois">Mur bois</option>
-                <option value="Sur Pied">Sur pied</option>
-              </select>
-            </div>
-          )}
-          <div className="space-y-2">
-            <label className={labelClass}>Zone déplacement</label>
-            <select name="zoneDepl" className={inputClass}>
-              <option value="">À préciser</option>
-              <option value="Z1">Z1 (max 30 min)</option>
-              <option value="Z2">Z2 (30 min à 1 h)</option>
-              <option value="Z3">Z3 (1 h à 1 h 30)</option>
-            </select>
+      {/* INSTALLATION : Support Borne (borne) + Zone Deplacement (site) */}
+      {(showSupportBorne || showZone) && (
+        <Carte className="space-y-5">
+          <TitreCarte icon={Plug}>Installation</TitreCarte>
+          <div className="grid grid-cols-2 gap-4">
+            {showSupportBorne && (
+              <div className="space-y-2">
+                <label className={labelClass}>Support de borne</label>
+                <select name="murSupport" className={inputClass}>
+                  <option value="Mur Beton/Parpaing">Mur béton / parpaing</option>
+                  <option value="Mur Placo">Mur placo</option>
+                  <option value="Mur Bois">Mur bois</option>
+                  <option value="Sur Pied">Sur pied</option>
+                </select>
+              </div>
+            )}
+            {showZone && (
+              <div className="space-y-2">
+                <label className={labelClass}>Zone déplacement</label>
+                <select name="zoneDepl" className={inputClass}>
+                  <option value="">À préciser</option>
+                  <option value="Z1">Z1 (max 30 min)</option>
+                  <option value="Z2">Z2 (30 min à 1 h)</option>
+                  <option value="Z3">Z3 (1 h à 1 h 30)</option>
+                </select>
+              </div>
+            )}
           </div>
-        </div>
-      </Carte>
+        </Carte>
+      )}
 
       {/* PHOTOS TERRAIN : checklist guidee, multi-photos par emplacement */}
       <Carte className="space-y-5">
@@ -586,9 +634,9 @@ export function MetreForm({ taskId, taskName, initialSegment, retour }: { taskId
           icon={Camera}
           extra={<span className="rounded-full bg-white px-3 py-1 text-[13px] font-bold" style={{ color: CYAN }}>{photosPrises}/{visiblePhotos.length}</span>}
         >
-          Photos terrain
+          {estSite ? 'Photos du site' : estEmpl ? 'Photos de la borne' : 'Photos terrain'}
         </TitreCarte>
-        <p className="text-[14px] leading-relaxed">Une ou plusieurs photos par emplacement, autant que nécessaire.</p>
+        <p className="text-[14px] leading-relaxed">Une ou plusieurs photos par sujet, autant que nécessaire.</p>
         
         <div className="space-y-4">
           {visiblePhotos.map(p => {
@@ -635,12 +683,12 @@ export function MetreForm({ taskId, taskName, initialSegment, retour }: { taskId
 
       {/* NOTES */}
       <Carte className="space-y-4">
-        <TitreCarte icon={FileText}>Notes cheminement</TitreCarte>
-        <textarea name="notes" rows={3} className={`${inputClass} resize-none`} placeholder="Ex : cheminement via les garages en sous-sol..."></textarea>
+        <TitreCarte icon={FileText}>{estSite ? 'Notes du site' : estEmpl ? "Notes de l'emplacement" : 'Notes cheminement'}</TitreCarte>
+        <textarea name="notes" rows={3} className={`${inputClass} resize-none`} placeholder={estEmpl ? 'Ex : borne existante à déposer...' : 'Ex : cheminement via les garages en sous-sol...'}></textarea>
       </Carte>
 
       <BoutonPrincipal type="submit" disabled={status === "uploading" || !segment} inactif={!segment}>
-        {status === "uploading" ? "Envoi en cours..." : !segment ? "Choisir un segment pour valider" : <><Send size={20} /> Valider le relevé</>}
+        {status === "uploading" ? "Envoi en cours..." : !segment ? "Choisir un segment pour valider" : <><Send size={20} /> {estSite ? 'Valider le relevé du site' : 'Valider le relevé'}</>}
       </BoutonPrincipal>
 
       {status === "error" && (

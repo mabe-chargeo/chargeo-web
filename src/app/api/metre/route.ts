@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import { lireTacheQualification } from '@/lib/listesClickUp';
 
-// Enregistrement des MESURES du relevé (lots 3.2 et 3.3, 10/10/2026).
-// - La fiche (ou le scénario) doit appartenir à la liste autorisée (vraie Qualification en production, TEST en preview).
+// Enregistrement des MESURES du relevé (lots 3.2, 3.3 et point 21).
+// - La fiche (ou le scénario, ou l'emplacement) doit appartenir à la liste autorisée (vraie Qualification en production, TEST en preview).
 // - Chaque écriture ClickUp est contrôlée : succès seulement si TOUT est enregistré.
 // - La description de la fiche n'est plus touchée (le message du client reste intact).
-// - Champ vide = non mesuré = rien écrit ; 0 = zéro, écrit (une correction 12 -> 0 passe).
+// - Champ vide ou absent = non mesuré = rien écrit ; 0 = zéro, écrit (une correction 12 -> 0 passe).
 // - Matériels à chiffrer (point 12 règle 1) : choix multiple ; Puissance Visée PDC seulement si un seul matériel.
 // - Le statut n'est plus changé ici : /api/metre/finaliser s'en charge après réception des photos.
-// - 11/10/2026 : Notes cheminement écrites seulement si le technicien a tapé quelque chose
-//   (plus de texte automatique « SUPPORT PRÉVU » : le support a son propre champ).
+// - 11/10/2026 : Notes cheminement écrites seulement si le technicien a tapé quelque chose.
+// - 11/10/2026 (point 21) : raccordement et puissance dispo écrits seulement s'ils sont saisis
+//   (un emplacement ne les envoie pas : ce sont des données du site, plus de valeur par défaut).
 // Les menus restent écrits PAR INDEX (ne jamais réordonner les options dans ClickUp).
 
 // Matériels à chiffrer : champ à étiquettes, écrit par identifiant d'option (stable, pas d'index)
@@ -79,16 +80,20 @@ export async function POST(request: Request) {
     else if (murSupport.includes('Bois')) murSupportIndex = 2;
     else if (murSupport.includes('Pied')) murSupportIndex = 3;
 
-    // Type Raccordement : Mono=0, Tri=1
-    const raccordementIndex = texte('typeRaccordement').includes('Tri') ? 1 : 0;
+    // Type Raccordement : Mono=0, Tri=1 (rien si non saisi)
+    const raccStr = texte('typeRaccordement');
+    const raccordementIndex: number | null = raccStr === '' ? null : (raccStr.includes('Tri') ? 1 : 0);
 
-    // Puissance Dispo : 3=0, 6=1, 9=2, 12=3, 18+=4
+    // Puissance Dispo : 3=0, 6=1, 9=2, 12=3, 18+=4 (rien si non saisie)
     const puissanceStr = texte('puissance');
-    let puissanceIndex = 1; // 6 kVA par défaut
-    if (puissanceStr.includes('3')) puissanceIndex = 0;
-    if (puissanceStr.includes('9')) puissanceIndex = 2;
-    if (puissanceStr.includes('12')) puissanceIndex = 3;
-    if (puissanceStr.includes('18')) puissanceIndex = 4;
+    let puissanceIndex: number | null = null;
+    if (puissanceStr !== '') {
+      puissanceIndex = 1; // 6 kVA
+      if (puissanceStr.includes('3')) puissanceIndex = 0;
+      if (puissanceStr.includes('9')) puissanceIndex = 2;
+      if (puissanceStr.includes('12')) puissanceIndex = 3;
+      if (puissanceStr.includes('18')) puissanceIndex = 4;
+    }
 
     // État Tableau : OK=0, remanier=1, remplacer=2
     const etatStr = texte('etatTableau');
