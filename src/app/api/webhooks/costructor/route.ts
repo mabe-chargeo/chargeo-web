@@ -7,8 +7,10 @@ import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClick
 // 1. « Lien Costructor » rempli et contact existant : rien n'est créé.
 // 2. Sinon recherche dans Costructor : SIRET d'abord, puis email ou téléphone.
 //    Un seul résultat : on le relie. Plusieurs : rien n'est créé, un commentaire demande de choisir.
-// 3. Rien trouvé : création du client payeur (nom de la fiche, SIRET), avec comme personnes de contact
-//    le Gestionnaire et le Contact sur place (liste Contacts). Le nom n'est plus découpé au hasard.
+// 3. Rien trouvé : création du client payeur (nom de la fiche, SIRET). L'API Costructor ne permet pas de
+//    rattacher des interlocuteurs (test du 11/10) : le contact principal (Gestionnaire, sinon Contact sur place)
+//    est mis sur le client (nom, email, téléphone), et tous les contacts avec leur rôle vont dans les notes.
+//    Après création, on relit le client pour vérifier que l'email et le téléphone sont bien enregistrés.
 // 4. Le lien n'est écrit que s'il est vide ou mort. Chaque écriture est vérifiée ; un échec pose un commentaire d'alerte.
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (vrai passage, fiches TEST uniquement).
 // La simulation est aussi acceptée sur une vraie fiche Qualification (lecture seule, décision Matthieu 11/10),
@@ -75,6 +77,7 @@ function texteAdresse(v: any): string {
   return t;
 }
 
+// Pays en code ISO minuscule, comme demandé par l'API Costructor
 function objetAdresse(texte: string) {
   const cp = texte.match(/\b\d{5}\b/);
   if (!cp) return undefined;
@@ -82,7 +85,7 @@ function objetAdresse(texte: string) {
   const street = avant.trim().replace(/,$/, '').trim();
   const city = apres.trim().replace(/^,/, '').trim().replace(/,?\s*France$/i, '').trim();
   if (!street || !city) return undefined;
-  return { street, postal_code: cp[0], city, country: 'France' };
+  return { street, postal_code: cp[0], city, country: 'fr' };
 }
 
 async function lireTache(taskId: string, token: string): Promise<any | null> {
@@ -132,31 +135,52 @@ async function listerContacts(token: string): Promise<any[] | null> {
   return tous;
 }
 
+// Relecture d'un contact après création. null = lecture impossible.
+async function lireContact(id: string, token: string): Promise<any | null> {
+  const res = await fetch(`${COSTRUCTOR}/contacts/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) return null;
+  const json = await res.json().catch(() => null);
+  return json?.data ?? json;
+}
+
 const nomContact = (c: any) => String(c?.fullName || c?.companyName || [c?.firstName, c?.lastName].filter(Boolean).join(' ') || c?.name || c?.id);
 const emailsDe = (c: any): string[] => [c?.email, ...(Array.isArray(c?.emails) ? c.emails.map((e: any) => e?.email) : [])].map(emailNormal).filter(Boolean);
 const telsDe = (c: any): string[] => [c?.phone, ...(Array.isArray(c?.phones) ? c.phones.map((p: any) => p?.phone) : [])].map(telNormal).filter(Boolean);
 
-// Personnes liées par une relation vers la liste Contacts (valeur ClickUp : liste de tâches ou d'identifiants)
-async function personnesLiees(tache: any, token: string): Promise<{ firstName?: string; lastName: string; email?: string; phone?: string }[]> {
-  const ids = new Set<string>();
-  for (const champ of [CHAMPS.gestionnaire, CHAMPS.contactSurPlace]) {
+type Personne = { role: string; firstName?: string; lastName: string; email?: string; phone?: string };
+
+// Personnes liées par une relation vers la liste Contacts, Gestionnaire d'abord
+// (valeur ClickUp : liste de tâches ou d'identifiants)
+async function personnesLiees(tache: any, token: string): Promise<Personne[]> {
+  const sources: { champ: { id: string; nom: string }; role: string }[] = [
+    { champ: CHAMPS.gestionnaire, role: 'Gestionnaire' },
+    { champ: CHAMPS.contactSurPlace, role: 'Contact sur place' },
+  ];
+  const vus = new Set<string>();
+  const personnes: Personne[] = [];
+  for (const { champ, role } of sources) {
     const v = lireChamp(tache, champ);
     const liste = Array.isArray(v) ? v : v ? [v] : [];
     for (const t of liste) {
-      const tid = typeof t === 'string' ? t : t?.id;
-      if (tid) ids.add(String(tid));
+      const tid = String(typeof t === 'string' ? t : t?.id || '');
+      if (!tid || vus.has(tid)) continue;
+      vus.add(tid);
+      const c = await lireTache(tid, token);
+      if (!c) continue;
+      const email = emailNormal(lireChamp(c, { id: CONTACT_EMAIL_ID, nom: 'Email contact' })) || undefined;
+      const phone = telNormal(lireChamp(c, { id: CONTACT_TEL_ID, nom: 'Tél. contact' })) || undefined;
+      personnes.push({ role, ...decouperNom(c.name), email, phone });
     }
-  }
-  const personnes: { firstName?: string; lastName: string; email?: string; phone?: string }[] = [];
-  for (const id of ids) {
-    const c = await lireTache(id, token);
-    if (!c) continue;
-    const email = emailNormal(lireChamp(c, { id: CONTACT_EMAIL_ID, nom: 'Email contact' })) || undefined;
-    const phone = telNormal(lireChamp(c, { id: CONTACT_TEL_ID, nom: 'Tél. contact' })) || undefined;
-    personnes.push({ ...decouperNom(c.name), email, phone });
   }
   return personnes;
 }
+
+// « Gestionnaire : Magali DUCRET PEILLEX, mducretpeillex@citya.com »
+const ligneNote = (p: Personne) =>
+  `${p.role} : ${[[p.firstName, p.lastName].filter(Boolean).join(' '), p.email, p.phone].filter(Boolean).join(', ')}`;
 
 async function traiter(taskId: string, simulation: boolean) {
   const clickUpToken = process.env.CLICKUP_API_KEY;
@@ -249,23 +273,30 @@ async function traiter(taskId: string, simulation: boolean) {
   }
 
   // 3. Création du client payeur
-  const personnes = estSociete ? await personnesLiees(tache, clickUpToken) : [];
+  const personnes: Personne[] = estSociete ? await personnesLiees(tache, clickUpToken) : [];
   if (estSociete && personnes.length === 0 && (email || telephone)) {
-    personnes.push({ lastName: 'Contact', email: email || undefined, phone: telephone || undefined });
+    // Pas de relation remplie : on garde l'email et le téléphone de la fiche, sans inventer de nom
+    personnes.push({ role: 'Contact de la fiche', lastName: '', email: email || undefined, phone: telephone || undefined });
   }
+  const principal = personnes.find((p) => p.lastName) || personnes[0];
+  // Email et téléphone du client : ceux du contact principal, complétés par les autres contacts, puis par la fiche
+  const emailClient = estSociete ? (principal?.email || personnes.find((p) => p.email)?.email || email) : email;
+  const telClient = estSociete ? (principal?.phone || personnes.find((p) => p.phone)?.phone || telephone) : telephone;
+  const notes = estSociete && personnes.length > 0
+    ? ['Interlocuteurs (depuis ClickUp) :', ...personnes.map(ligneNote)].join('\n')
+    : undefined;
   const adresseObj = objetAdresse(adresse);
   const nom = decouperNom(nomFiche);
   const payload: any = {
     type: 'client',
     legalStatus: estSociete ? 'company' : 'individual',
-    name: nomFiche,
     companyName: estSociete ? nomFiche : undefined,
-    firstName: estSociete ? undefined : nom.firstName,
-    lastName: estSociete ? undefined : nom.lastName,
+    firstName: estSociete ? (principal?.lastName ? principal.firstName : undefined) : nom.firstName,
+    lastName: estSociete ? (principal?.lastName || undefined) : nom.lastName,
     taxId: estSociete && siret ? siret : undefined,
-    emails: !estSociete && email ? [{ email, primary: true }] : undefined,
-    phones: !estSociete && telephone ? [{ phone: telephone, primary: true }] : undefined,
-    contacts: estSociete && personnes.length > 0 ? personnes : undefined,
+    emails: emailClient ? [{ email: emailClient, primary: true }] : undefined,
+    phones: telClient ? [{ phone: telClient, primary: true }] : undefined,
+    notes,
     addresses: adresseObj ? [{ address: adresseObj, primary: true }] : [],
   };
 
@@ -295,7 +326,20 @@ async function traiter(taskId: string, simulation: boolean) {
     await alerter(`client créé mais le lien n'a pas pu être écrit dans la fiche : ${url}`);
     return { status: 502, body: { success: false, error: 'Écriture du lien impossible' } };
   }
-  return { status: 200, body: { success: true, action: 'cree', client: { id: creeId, url }, lienMort } };
+
+  // Vérification : Costructor peut ignorer un champ sans prévenir (test du 11/10)
+  const relu = await lireContact(creeId, costructorToken);
+  const verif = {
+    email: !emailClient || (!!relu && emailsDe(relu).includes(emailNormal(emailClient))),
+    telephone: !telClient || (!!relu && telsDe(relu).includes(telNormal(telClient))),
+  };
+  const manques = [!verif.email ? "l'email" : '', !verif.telephone ? 'le téléphone' : ''].filter(Boolean);
+  if (!relu) {
+    await alerter(`client créé (${url}) mais impossible de le relire pour vérifier l'email et le téléphone. Vérifiez-le dans Costructor.`);
+  } else if (manques.length > 0) {
+    await alerter(`client créé (${url}) mais ${manques.join(' et ')} n'a pas été enregistré. Complétez-le à la main dans Costructor.`);
+  }
+  return { status: 200, body: { success: true, action: 'cree', client: { id: creeId, url }, verif, lienMort } };
 }
 
 export async function POST(request: Request) {
