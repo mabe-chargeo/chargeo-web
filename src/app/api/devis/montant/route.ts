@@ -6,6 +6,8 @@ import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClick
 // - envoye (📩 devis envoyé) : si 🔗 Lien devis est déjà rempli, c'est ce devis qui compte. Sinon le site lit les devis
 //   du client (🔗 Lien Costructor) et écarte versions révisées, brouillons, annulés et refusés. Un seul devis en cours :
 //   N°, montant HT et lien sont remplis. Plusieurs : rien n'est choisi ni additionné, un commentaire liste les devis.
+//   Lien Costructor mort (client supprimé, vu sur Bacchus le 11/10) : commentaire, avec les devis dont le client porte
+//   le même nom que la fiche, sans en choisir un.
 // - gagne (🏆 gagné) : relit le devis du lien, suit sa dernière version s'il a été révisé, met à jour le montant et
 //   signale (sans bloquer) un devis pas encore signé dans Costructor.
 // Champs lus par identifiant puis par nom (ils peuvent être renommés sans « signé »).
@@ -27,6 +29,18 @@ const SIGNES = ['accepted', 'done'];
 const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 const euros = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € HT`;
 const urlDevis = (id: string) => `https://app.costructor.co/quotes/${id}/details`;
+
+// Même nom de client, en ignorant les mots génériques (même règle que le webhook Costructor)
+const MOTS_GENERIQUES = new Set(['test', 'sdc', 'copr', 'copro', 'copropriete', 'synd', 'syndic', 'syndicat', 'residence', 'res',
+  'le', 'la', 'les', 'l', 'du', 'de', 'des', 'd', 'et', 'sarl', 'sas', 'sasu', 'eurl', 'sa', 'sci']);
+function memeNom(a: string, b: string): boolean {
+  const ma = normal(a).split(' ').filter((m) => m && !MOTS_GENERIQUES.has(m));
+  const mb = normal(b).split(' ').filter((m) => m && !MOTS_GENERIQUES.has(m));
+  if (!ma.length || !mb.length) return false;
+  const [court, long] = ma.length <= mb.length ? [ma, mb] : [mb, ma];
+  const dansLong = new Set(long);
+  return court.every((m) => dansLong.has(m));
+}
 
 async function clickup(token: string, chemin: string, methode = 'GET', corps?: any): Promise<Response> {
   return fetch(`https://api.clickup.com/api/v2${chemin}`, {
@@ -63,6 +77,14 @@ async function listerDevis(token: string): Promise<any[] | null> {
   return tous;
 }
 
+// Le client du lien existe-t-il encore ? true / false, ou null si Costructor ne répond pas
+async function clientExiste(token: string, id: string): Promise<boolean | null> {
+  const res = await costructor(token, `/contacts/${encodeURIComponent(id)}`);
+  if (res.ok) return true;
+  if (res.status === 404) return false;
+  return null;
+}
+
 function trouverChamp(tache: any, c: { id: string; nom: string }): any {
   const champs: any[] = Array.isArray(tache?.custom_fields) ? tache.custom_fields : [];
   return champs.find((f) => f.id === c.id) || champs.find((f) => normal(f.name).includes(c.nom));
@@ -72,24 +94,30 @@ const valeur = (tache: any, c: { id: string; nom: string }) => {
   return v === undefined || v === null ? '' : String(v).trim();
 };
 
-// Montant HT en euros. L'API externe peut renvoyer des centimes (entier) : on le détecte avec la TVA et le TTC.
+// Montant HT en euros. Variable Vercel COSTRUCTOR_MONTANTS_CENTIMES=1 si l'API externe renvoie des centimes.
 function montantHT(d: any): { ht: number; brut: any; centimes: boolean } {
   const brut = d?.subtotal ?? d?.subTotal ?? d?.totalExclTax ?? d?.total_ht;
+  if (typeof d?.subtotalDecimal === 'string') return { ht: Number(d.subtotalDecimal), brut, centimes: false };
   const n = Number(brut);
-  const tva = Number(d?.taxTotal ?? 0);
-  const ttc = Number(d?.total ?? 0);
-  let centimes = false;
-  if (typeof d?.subtotalDecimal === 'string') return { ht: Number(d.subtotalDecimal), brut, centimes };
-  if (Number.isInteger(n) && Number.isInteger(ttc) && ttc > 0 && Math.abs(n + tva - ttc) <= 2 && n >= 10000) centimes = !!process.env.COSTRUCTOR_MONTANTS_CENTIMES || false;
-  if (process.env.COSTRUCTOR_MONTANTS_CENTIMES === '1') centimes = true;
+  const centimes = process.env.COSTRUCTOR_MONTANTS_CENTIMES === '1';
   return { ht: centimes ? Math.round(n) / 100 : Math.round(n * 100) / 100, brut, centimes };
 }
 
 const clientDe = (d: any) => String(d?.customer?.id || d?.customerId || d?.customer_id || '');
+const nomClientDe = (d: any) => String(d?.customer?.fullName || d?.customer?.companyName || '');
 const statutDe = (d: any) => String(d?.status || '').toLowerCase();
-const resumeDevis = (d: any) => ({
-  id: d.id, numero: d.number, nom: d.name || '', statut: d.statusLabel || d.status, envoye: d.sent, ...(() => { const m = montantHT(d); return { ht: m.ht, brut: m.brut }; })(),
-});
+const resumeDevis = (d: any) => {
+  const m = montantHT(d);
+  return { id: d.id, numero: d.number, nom: d.name || '', client: nomClientDe(d), statut: d.statusLabel || d.status, envoye: d.sent, ht: m.ht, brut: m.brut };
+};
+const ligneDevis = (d: any) => `• ${d.number}${d.name ? ` · ${d.name}` : ''} · ${euros(montantHT(d).ht)} : ${urlDevis(d.id)}`;
+
+// Devis en cours d'une liste : hors révisés, brouillons, annulés, refusés ; les envoyés d'abord
+function enCours(liste: any[]): any[] {
+  const actifs = liste.filter((d) => !EXCLUS.includes(statutDe(d)));
+  const envoyes = actifs.filter((d) => d.sent !== false);
+  return envoyes.length ? envoyes : actifs;
+}
 
 // Dernière version d'un devis : même numéro et même client, hors révisé / brouillon
 function derniereVersion(devis: any[], d: any): any {
@@ -150,32 +178,38 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
     choisi = devis.find((d) => d.id === devisIdLien) || devis.find((d) => d.hostedUrl && lienDevis.startsWith(String(d.hostedUrl).split('?')[0]));
   }
   const base = { evenement, clientId: clientId || null, lienDevis: lienDevis || null, champsPresents, simulation };
+  const signaler = async (action: string, texte: string, extra: any = {}) => {
+    if (!simulation) await commenter(cu, id, texte, true);
+    return { status: 200, body: { success: true, action, ...base, ...extra, commentaire: texte } };
+  };
 
   if (!choisi) {
     if (lienDevis) {
-      const texte = '⚠️ Devis : le lien collé dans « 🔗 Lien devis » ne correspond à aucun devis Costructor. Colle le lien de la page du devis (app.costructor.co/quotes/…).';
-      if (!simulation) await commenter(cu, id, texte, true);
-      return { status: 200, body: { success: true, action: 'lien_devis_inconnu', ...base, commentaire: texte } };
+      return signaler('lien_devis_inconnu', '⚠️ Devis : le lien collé dans « 🔗 Lien devis » ne correspond à aucun devis Costructor. Colle le lien de la page du devis (app.costructor.co/quotes/…).');
     }
     if (evenement === 'gagne' && !clientId) return { status: 200, body: { success: true, action: 'ignore_sans_lien', ...base } };
     if (!clientId) {
-      const texte = '⚠️ Devis : « 🔗 Lien Costructor » est vide, je ne peux pas retrouver le devis. Colle le lien du devis dans « 🔗 Lien devis ».';
-      if (!simulation) await commenter(cu, id, texte, true);
-      return { status: 200, body: { success: true, action: 'sans_client', ...base, commentaire: texte } };
+      return signaler('sans_client', '⚠️ Devis : « 🔗 Lien Costructor » est vide, je ne peux pas retrouver le devis. Colle le lien du devis dans « 🔗 Lien devis ».');
     }
-    const enCours = devis.filter((d) => clientDe(d) === clientId && !EXCLUS.includes(statutDe(d)));
-    const envoyes = enCours.filter((d) => d.sent !== false);
-    const candidats = envoyes.length ? envoyes : enCours;
+    const candidats = enCours(devis.filter((d) => clientDe(d) === clientId));
     if (!candidats.length) {
-      const texte = '⚠️ Devis : aucun devis en cours trouvé dans Costructor pour ce client. Colle le lien du devis dans « 🔗 Lien devis ».';
-      if (!simulation) await commenter(cu, id, texte, true);
-      return { status: 200, body: { success: true, action: 'aucun_devis', ...base, commentaire: texte } };
+      // Lien mort ? On propose les devis d'un client du même nom, sans en choisir un
+      const existe = await clientExiste(co, clientId);
+      const homonymes = enCours(devis.filter((d) => memeNom(nomClientDe(d), tache.name)));
+      const propositions = homonymes.length ? `\nDevis en cours d'un client du même nom :\n${homonymes.map(ligneDevis).join('\n')}` : '';
+      if (existe === false) {
+        return signaler('lien_client_mort',
+          `⚠️ Devis : « 🔗 Lien Costructor » pointe vers un client supprimé dans Costructor. Corrige le lien, ou colle le lien du devis dans « 🔗 Lien devis ».${propositions}`,
+          { propositions: homonymes.map(resumeDevis) });
+      }
+      return signaler('aucun_devis',
+        `⚠️ Devis : aucun devis en cours trouvé dans Costructor pour ce client. Colle le lien du devis dans « 🔗 Lien devis ».${propositions}`,
+        { clientExiste: existe, propositions: homonymes.map(resumeDevis) });
     }
     if (candidats.length > 1) {
-      const lignes = candidats.map((d) => `• ${d.number}${d.name ? ` · ${d.name}` : ''} · ${euros(montantHT(d).ht)} : ${urlDevis(d.id)}`);
-      const texte = `⚠️ Devis : ${candidats.length} devis en cours pour ce client, aucun n'a été retenu ni additionné. Colle le bon lien dans « 🔗 Lien devis » :\n${lignes.join('\n')}`;
-      if (!simulation) await commenter(cu, id, texte, true);
-      return { status: 200, body: { success: true, action: 'plusieurs_devis', ...base, candidats: candidats.map(resumeDevis), commentaire: texte } };
+      return signaler('plusieurs_devis',
+        `⚠️ Devis : ${candidats.length} devis en cours pour ce client, aucun n'a été retenu ni additionné. Colle le bon lien dans « 🔗 Lien devis » :\n${candidats.map(ligneDevis).join('\n')}`,
+        { candidats: candidats.map(resumeDevis) });
     }
     choisi = candidats[0];
   }
