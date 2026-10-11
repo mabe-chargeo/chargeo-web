@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server';
 // TEST TEMPORAIRE (Preview seulement, validé par Matthieu le 11/10) : l'API Costructor accepte-t-elle
 // 1. de créer une personne de type « contact » (interlocuteur), absente de la doc ?
 // 2. de la rattacher comme interlocuteur au client TEST · SDC Le Relax ?
-// Rien d'autre n'est touché. À supprimer après le test.
+// Rien d'autre n'est touché. Se lance seulement avec ?lancer=1. À supprimer après le test.
+
+export const dynamic = 'force-dynamic';
 
 const COSTRUCTOR = 'https://api.costructor.co/external/v1';
 const CLIENT_TEST = 'cnt_01m4mzy5992x6qw8bqv1r0b860'; // TEST · SDC Le Relax
@@ -24,9 +26,12 @@ async function appel(token: string, methode: string, chemin: string, corps?: any
 const idsInterlocuteurs = (c: any): string[] =>
   [...(c?.contactPeople || []), ...(c?.people || [])].map((p: any) => p?.person?.id || p?.personId || p?.id).filter(Boolean);
 
-export async function GET() {
+export async function GET(request: Request) {
   if (process.env.VERCEL_ENV === 'production') {
     return NextResponse.json({ error: 'Non disponible' }, { status: 404 });
+  }
+  if (new URL(request.url).searchParams.get('lancer') !== '1') {
+    return NextResponse.json({ error: 'Ajoute ?lancer=1 pour lancer le test' }, { status: 400 });
   }
   const token = process.env.COSTRUCTOR_API_KEY;
   if (!token) return NextResponse.json({ error: 'Clé Costructor absente' }, { status: 500 });
