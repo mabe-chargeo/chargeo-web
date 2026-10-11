@@ -17,11 +17,13 @@
 // - site : données communes du site (électricité, terre, réseau, infrastructure, zone, photos du site) ;
 // - emplacement : une borne (matériel, points de charge, support, cheminement, percements, photo de l'emplacement).
 // Points de charge de la borne (1 = simple, 2 = double), avec les matériels.
+// Photos conseillées (décision du 11/10/2026) : tableau ouvert, et emplacement borne hors COP infra.
+// S'il en manque, le premier appui sur Valider avertit, le second valide sans elles. Jamais bloquant.
 // Les attributs value des menus ne changent pas (la route /api/metre les convertit en index ClickUp).
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag, X, Plug } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
-import { NAVY, CYAN, LABEL, CYAN_PALE } from '@/components/charte/couleurs';
+import { NAVY, CYAN, LABEL, CYAN_PALE, ORANGE } from '@/components/charte/couleurs';
 import { noterModification, noterConfirmation, relevesAPurger, retirerDeIndex } from '@/lib/releveLocal';
 
 // Regle de depart : COP = toujours infra ; FLT/TER = borne complete
@@ -91,6 +93,8 @@ export function MetreForm({
   const [sourceRacc, setSourceRacc] = useState('');
   // Chaque emplacement -> liste de photos
   const [photos, setPhotos] = useState<Record<string, Photo[]>>({});
+  // Avertissement photos conseillées déjà affiché : le prochain appui valide sans elles
+  const [avertiPhotos, setAvertiPhotos] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   // Saisie sauvegardée pas encore réappliquée (champs qui n'apparaissent qu'après le choix du segment)
   const restaurationRef = useRef<Record<string, string> | null>(null);
@@ -114,6 +118,10 @@ export function MetreForm({
   const visiblePhotos = PHOTOS
     .filter(p => p.scope === 'all' || (p.scope === 'copro' && showCoproPhotos))
     .filter(p => mode === 'complet' || (estSite ? p.niveau === 'site' : p.niveau === 'borne'));
+  // Photos conseillées parmi celles affichées, et celles qui manquent encore
+  const photosConseillees = visiblePhotos.filter(p =>
+    p.key === 'photoTableauOuvert' || (p.key === 'photoEmplacementBorne' && !isCopInfra));
+  const photosManquantes = photosConseillees.filter(p => (photos[p.key] || []).length === 0);
 
   // Photos déjà reçues par ClickUp (identifiants), pour ne jamais les renvoyer
   const cleEnvoyees = `metreEnvoyees_${taskId}`;
@@ -183,6 +191,7 @@ export function MetreForm({
       savePhotoArray(photoKey, updated[photoKey]);
       return updated;
     });
+    setAvertiPhotos(false);
     noterModification(taskId, taskName);
     e.target.value = '';
   };
@@ -195,6 +204,7 @@ export function MetreForm({
       savePhotoArray(photoKey, arr);
       return updated;
     });
+    setAvertiPhotos(false);
     noterModification(taskId, taskName);
   };
 
@@ -314,6 +324,11 @@ export function MetreForm({
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Photos conseillées manquantes : on avertit une fois, le prochain appui valide sans elles
+    if (photosManquantes.length > 0 && !avertiPhotos) {
+      setAvertiPhotos(true);
+      return;
+    }
     setStatus("uploading");
     setErreurMsg('');
     const formData = new FormData(e.currentTarget);
@@ -422,6 +437,8 @@ export function MetreForm({
   const labelClass = ETIQUETTE;
   const photosPrises = visiblePhotos.filter(p => (photos[p.key] || []).length > 0).length;
   const aideVide = <p className="text-[13px] leading-relaxed">Laisse vide si non mesuré. Saisis 0 pour « aucun ».</p>;
+  const avertissementPhotos = avertiPhotos && photosManquantes.length > 0;
+  const plurielManquantes = photosManquantes.length > 1 ? 's' : '';
 
   const blocMateriels = (
     <div className="space-y-5">
@@ -646,11 +663,12 @@ export function MetreForm({
         >
           {estSite ? 'Photos du site' : estEmpl ? 'Photos de la borne' : 'Photos terrain'}
         </TitreCarte>
-        <p className="text-[14px] leading-relaxed">Une ou plusieurs photos par sujet, autant que nécessaire.</p>
+        <p className="text-[14px] leading-relaxed">Une ou plusieurs photos par sujet, autant que nécessaire. Celles marquées « Conseillée » servent au chiffrage.</p>
         
         <div className="space-y-4">
           {visiblePhotos.map(p => {
             const shots = photos[p.key] || [];
+            const conseillee = photosConseillees.some(c => c.key === p.key);
             return (
               <div
                 key={p.key}
@@ -663,6 +681,7 @@ export function MetreForm({
                     {p.label}
                   </span>
                   {shots.length > 0 && <span className="rounded-full px-2.5 py-0.5 text-[12px] font-bold text-white" style={{ backgroundColor: CYAN }}>{shots.length} photo{shots.length > 1 ? 's' : ''}</span>}
+                  {shots.length === 0 && conseillee && <span className="rounded-full px-2.5 py-0.5 text-[12px] font-bold text-white" style={{ backgroundColor: ORANGE }}>Conseillée</span>}
                 </div>
 
                 {shots.length > 0 && (
@@ -697,8 +716,14 @@ export function MetreForm({
         <textarea name="notes" rows={3} className={`${inputClass} resize-none`} placeholder={estEmpl ? 'Ex : borne existante à déposer...' : 'Ex : cheminement via les garages en sous-sol...'}></textarea>
       </Carte>
 
+      {avertissementPhotos && (
+        <Alerte className="text-center">
+          Photo{plurielManquantes} conseillée{plurielManquantes} manquante{plurielManquantes} : {photosManquantes.map(p => p.label.toLowerCase()).join(', ')}. Prends-la si tu peux, sinon appuie à nouveau pour valider sans.
+        </Alerte>
+      )}
+
       <BoutonPrincipal type="submit" disabled={status === "uploading" || !segment} inactif={!segment}>
-        {status === "uploading" ? "Envoi en cours..." : !segment ? "Choisir un segment pour valider" : <><Send size={20} /> {estSite ? 'Valider le relevé du site' : 'Valider le relevé'}</>}
+        {status === "uploading" ? "Envoi en cours..." : !segment ? "Choisir un segment pour valider" : <><Send size={20} /> {avertissementPhotos ? `Valider sans ${photosManquantes.length > 1 ? 'ces photos' : 'cette photo'}` : (estSite ? 'Valider le relevé du site' : 'Valider le relevé')}</>}
       </BoutonPrincipal>
 
       {status === "error" && (
