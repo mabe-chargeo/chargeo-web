@@ -1,0 +1,224 @@
+import { NextResponse } from 'next/server';
+import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
+
+// Réception, réserves et passage au Parc (Phase 4, bloc 2 validé par Matthieu le 11/10/2026).
+// Appelé par les automatisations de Planning Chantiers : POST ?taskId=...&evenement=realise | termine
+// - realise (statut → ✅ réalisé) : contrôle PV, photos et 🧾 Réserves. Commentaire ⚠️ s'il manque quelque chose,
+//   sans retour en arrière.
+// - termine (statut → 🏁 terminé) : refusé si Réserves vide ou 🔴 Bloquante, PV manquant, ou réserve mineure sans
+//   sous-tâche « 🔧 Réserve : … » complète (responsable + échéance). Refus : retour en ✅ réalisé + motif.
+//   Sinon le site déplace la même tâche au Parc installé (🟢 en service ; sous-tâches de réserve ouvertes en
+//   ⚠️ sous surveillance) et commente. Les règlements et aides ne conditionnent pas ce passage.
+// Preview : GET ?taskId=...&evenement=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
+
+const WORKSPACE_ID = process.env.CLICKUP_TEAM_ID || '90151325642';
+const PLANNING_CHANTIERS_ID = '901520038258';
+const PARC_ID = '901520038290';
+const CHAMP_RESERVES = '1463a905-0b11-4693-b9d9-e8cca4f79eeb';
+const CHAMP_PV = 'ea4cf46a-c8bc-41ad-a46e-c7d313099f1b';
+const CHAMP_PHOTOS = 'e907f3f8-c702-47bd-b523-017e684e78c1';
+const CHAMPS_A_GARDER = [CHAMP_PV, CHAMP_PHOTOS, CHAMP_RESERVES];
+const PREFIXE_REFUS = '🔴 Passage au Parc refusé';
+const EVENEMENTS = ['realise', 'termine'] as const;
+type Evenement = (typeof EVENEMENTS)[number];
+
+const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+async function api(token: string, chemin: string, methode = 'GET', corps?: any, version = 'v2'): Promise<Response> {
+  return fetch(`https://api.clickup.com/api/${version}${chemin}`, {
+    method: methode,
+    headers: { Authorization: token, 'Content-Type': 'application/json' },
+    body: corps ? JSON.stringify(corps) : undefined,
+    cache: 'no-store',
+  });
+}
+
+async function lireTache(taskId: string, token: string): Promise<any | null> {
+  const res = await api(token, `/task/${encodeURIComponent(taskId)}?custom_task_ids=true&include_subtasks=true`);
+  return res.ok ? res.json() : null;
+}
+
+async function commenter(taskId: string, token: string, texte: string, notifier = false): Promise<boolean> {
+  const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: notifier });
+  if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${taskId}`);
+  return res.ok;
+}
+
+async function statutsListe(listId: string, token: string): Promise<any[]> {
+  const res = await api(token, `/list/${listId}`);
+  if (!res.ok) return [];
+  const json = await res.json().catch(() => ({}));
+  return Array.isArray(json?.statuses) ? json.statuses : [];
+}
+
+function champ(tache: any, id: string): any {
+  return (Array.isArray(tache?.custom_fields) ? tache.custom_fields : []).find((c: any) => c.id === id);
+}
+
+const aFichier = (t: any, id: string) => { const v = champ(t, id)?.value; return Array.isArray(v) ? v.length > 0 : !!v; };
+
+function reserves(t: any): 'aucune' | 'mineure' | 'bloquante' | '' {
+  const f = champ(t, CHAMP_RESERVES);
+  if (!f || f.value === undefined || f.value === null || f.value === '') return '';
+  const o = (f.type_config?.options || []).find((x: any) => x.orderindex === Number(f.value) || x.id === f.value);
+  const n = normal(o?.name || '');
+  if (n.includes('aucune')) return 'aucune';
+  if (n.includes('mineure')) return 'mineure';
+  if (n.includes('bloquante')) return 'bloquante';
+  return '';
+}
+
+// Sous-tâches « 🔧 Réserve : … » et celles qui n'ont pas de responsable ou d'échéance
+function sousTachesReserve(t: any) {
+  const st = (Array.isArray(t?.subtasks) ? t.subtasks : []).filter((s: any) => normal(s?.name).includes('reserve'));
+  const incompletes = st.filter((s: any) => !(Array.isArray(s?.assignees) && s.assignees.length) || !s?.due_date).map((s: any) => s.name);
+  return { total: st.length, incompletes };
+}
+
+async function dernierCommentaireRefusRecent(taskId: string, token: string): Promise<boolean> {
+  const res = await api(token, `/task/${taskId}/comment`);
+  if (!res.ok) return false;
+  const json = await res.json().catch(() => ({}));
+  const c = Array.isArray(json?.comments) ? json.comments[0] : null;
+  if (!c) return false;
+  const recent = Date.now() - Number(c.date || 0) < 3 * 60 * 1000;
+  return recent && String(c.comment_text || '').trim().startsWith(PREFIXE_REFUS);
+}
+
+async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean; detail?: string }> {
+  const [source, dest] = await Promise.all([statutsListe(PLANNING_CHANTIERS_ID, token), statutsListe(PARC_ID, token)]);
+  const enService = dest.find((s: any) => normal(s.status).includes('en service'));
+  const surveillance = dest.find((s: any) => normal(s.status).includes('surveillance')) || enService;
+  if (!enService || !source.length) return { ok: false, detail: 'statuts introuvables' };
+  // Tâche principale (terminée) et sous-tâches finies → en service ; sous-tâches encore ouvertes → sous surveillance
+  const status_mappings = source.map((s: any) => ({
+    source_status_id: s.id,
+    destination_status_id: s.type === 'closed' || s.type === 'done' ? enService.id : surveillance.id,
+  }));
+  const res = await api(
+    token,
+    `/workspaces/${WORKSPACE_ID}/tasks/${tache.id}/home_list/${PARC_ID}`,
+    'PUT',
+    { move_custom_fields: true, custom_fields_to_move: CHAMPS_A_GARDER, status_mappings },
+    'v3',
+  );
+  if (!res.ok) return { ok: false, detail: `HTTP ${res.status} ${(await res.text().catch(() => '')).slice(0, 200)}` };
+  const relue = await lireTache(String(tache.id), token);
+  return { ok: String(relue?.list?.id ?? '') === PARC_ID, detail: relue?.status?.status };
+}
+
+async function traiter(taskId: string, evenement: Evenement, simulation: boolean) {
+  const token = process.env.CLICKUP_API_KEY;
+  if (!token) return { status: 500, body: { success: false, error: 'Configuration serveur incomplète' } };
+
+  const tache = await lireTache(taskId, token);
+  if (!tache) return { status: 404, body: { success: false, error: 'Fiche introuvable' } };
+  if (tache.parent) return { status: 200, body: { success: true, action: 'ignore_sous_tache', simulation } };
+  if (String(tache?.list?.id ?? '') !== PLANNING_CHANTIERS_ID) {
+    return { status: 200, body: { success: true, action: 'ignore_hors_planning_chantiers', simulation } };
+  }
+  if (process.env.VERCEL_ENV !== 'production' && !simulation && !normal(tache.name).startsWith('test')) {
+    return { status: 403, body: { success: false, error: 'En preview : exécution sur une fiche « Test » uniquement, simulation partout' } };
+  }
+
+  const id = String(tache.id);
+  const pv = aFichier(tache, CHAMP_PV);
+  const photos = aFichier(tache, CHAMP_PHOTOS);
+  const res = reserves(tache);
+  const st = sousTachesReserve(tache);
+  const jour = libelleJour(aujourdhuiParis());
+  const etat = { pv, photos, reserves: res || 'vide', sousTachesReserve: st.total, sousTachesIncompletes: st.incompletes };
+
+  if (evenement === 'realise') {
+    const manque: string[] = [];
+    if (!pv) manque.push('📂 PV Réception');
+    if (!photos) manque.push('📸 Photos Chantier');
+    if (!res) manque.push('🧾 Réserves (Aucune, Mineure ou Bloquante)');
+    if (res === 'mineure' && !st.total) manque.push('une sous-tâche « 🔧 Réserve : … » par réserve mineure');
+    if (!manque.length) return { status: 200, body: { success: true, action: 'realise_complet', ...etat, simulation } };
+    const texte = `⚠️ Chantier réalisé, mais il manque : ${manque.join(', ')}. À compléter avant le passage au Parc.`;
+    if (simulation) return { status: 200, body: { success: true, action: 'realise_incomplet', ...etat, commentaire: texte, simulation } };
+    if (await dernierCommentaireRefusRecent(id, token)) {
+      return { status: 200, body: { success: true, action: 'ignore_retour_apres_refus', ...etat } };
+    }
+    await commenter(id, token, texte);
+    return { status: 200, body: { success: true, action: 'realise_incomplet', ...etat, commentaire: texte } };
+  }
+
+  // evenement termine
+  if (String(tache?.status?.type || '') !== 'closed') {
+    return { status: 200, body: { success: true, action: 'ignore_pas_termine', statut: tache?.status?.status, simulation } };
+  }
+  const motifs: string[] = [];
+  if (!res) motifs.push('🧾 Réserves n’est pas renseigné');
+  if (res === 'bloquante') motifs.push('une réserve 🔴 Bloquante empêche la mise en service');
+  if (!pv) motifs.push('📂 PV Réception manquant');
+  if (res === 'mineure' && !st.total) motifs.push('réserve mineure sans sous-tâche « 🔧 Réserve : … »');
+  if (res === 'mineure' && st.incompletes.length) motifs.push(`sous-tâche sans responsable ou sans échéance (${st.incompletes.join(', ')})`);
+
+  if (motifs.length) {
+    const texte = `${PREFIXE_REFUS} : ${motifs.join(' ; ')}. Le chantier est remis en ✅ réalisé.`;
+    if (simulation) return { status: 200, body: { success: true, action: 'parc_refuse', ...etat, motifs, commentaire: texte, simulation } };
+    const statuts = await statutsListe(PLANNING_CHANTIERS_ID, token);
+    const realise = statuts.find((s: any) => normal(s.status).includes('realise'));
+    const retour = realise ? await api(token, `/task/${id}`, 'PUT', { status: realise.status }) : null;
+    await commenter(id, token, texte, true);
+    return { status: 200, body: { success: true, action: 'parc_refuse', ...etat, motifs, remisEnRealise: !!retour?.ok, commentaire: texte } };
+  }
+
+  const mineures = res === 'mineure' ? ` ${st.total} réserve${st.total > 1 ? 's' : ''} mineure${st.total > 1 ? 's' : ''} suivie${st.total > 1 ? 's' : ''} en sous-tâche.` : '';
+  const sansPhotos = photos ? '' : ' ⚠️ Pas de 📸 Photos Chantier : à ajouter pour le SAV.';
+  const texte = `🏁 Réception confirmée le ${jour} : chantier passé au Parc installé.${mineures}${sansPhotos}`;
+  if (simulation) return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, simulation } };
+
+  const d = await deplacerAuParc(tache, token);
+  if (!d.ok) {
+    await commenter(id, token, `⚠️ Passage au Parc : la tâche n'a pas pu être déplacée (${d.detail || 'erreur'}). Déplace-la à la main vers Parc installé.`, true);
+    return { status: 502, body: { success: false, error: 'Déplacement impossible', detail: d.detail, ...etat } };
+  }
+  await commenter(id, token, texte);
+  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, ...etat, commentaire: texte } };
+}
+
+function lireEvenement(p: URLSearchParams): Evenement | null {
+  const e = p.get('evenement') as Evenement;
+  return EVENEMENTS.includes(e) ? e : null;
+}
+
+export async function POST(request: Request) {
+  try {
+    const p = new URL(request.url).searchParams;
+    const taskId = p.get('taskId');
+    const evenement = lireEvenement(p);
+    if (!taskId || !evenement) {
+      return NextResponse.json({ success: false, error: 'Il faut ?taskId=...&evenement=realise|termine' }, { status: 400 });
+    }
+    const r = await traiter(taskId, evenement, false);
+    return NextResponse.json(r.body, { status: r.status });
+  } catch (error) {
+    console.error('Erreur réception chantier :', error);
+    return NextResponse.json({ success: false, error: 'Erreur interne du serveur' }, { status: 500 });
+  }
+}
+
+// Preview uniquement : ?taskId=...&evenement=...&simulation=1 ou &executer=1
+export async function GET(request: Request) {
+  if (process.env.VERCEL_ENV === 'production') {
+    return NextResponse.json({ error: 'Non disponible' }, { status: 404 });
+  }
+  try {
+    const p = new URL(request.url).searchParams;
+    const taskId = p.get('taskId');
+    const evenement = lireEvenement(p);
+    const executer = p.get('executer') === '1';
+    const simulation = p.get('simulation') === '1';
+    if (!taskId || !evenement || (!executer && !simulation)) {
+      return NextResponse.json({ error: 'Ajoute ?taskId=...&evenement=realise|termine&simulation=1 ou &executer=1' }, { status: 400 });
+    }
+    const r = await traiter(taskId, evenement, !executer);
+    return NextResponse.json(r.body, { status: r.status });
+  } catch (error) {
+    console.error('Erreur réception chantier (preview) :', error);
+    return NextResponse.json({ success: false, error: 'Erreur interne du serveur' }, { status: 500 });
+  }
+}
