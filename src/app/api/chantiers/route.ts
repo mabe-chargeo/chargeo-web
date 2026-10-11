@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getQualificationListId, estAVisiter } from '@/lib/listesClickUp';
+import { typeDesSousReleves } from '@/lib/scenarios';
 
-// Planning terrain (lots 3.2 et 3.3, 10/10/2026) :
+// Planning terrain (lots 3.2, 3.3 et point 21) :
 // - liste choisie selon l'environnement (vraie Qualification en production, TEST en preview) ;
 // - toutes les pages ClickUp lues (100 fiches par page), sous-tâches comprises ;
-// - seules les fiches principales « à visiter » sont listées, avec le compte de leurs scénarios ;
+// - seules les fiches principales « à visiter » sont listées, avec le compte de leurs scénarios ou emplacements ;
 // - adresse lue par identifiant de champ : Lieu du chantier d'abord, puis Adresse du client.
 const LIEU_CHANTIER_ID = '5b9cbfd6-535c-4416-b530-776f949ce432';
 const ADRESSE_ID = '990a7f3b-989f-416d-9a80-eba5654b228d';
@@ -45,24 +46,25 @@ export async function GET() {
       if (data.last_page !== false || taches.length === 0) break;
     }
 
-    // Scénarios (sous-tâches) regroupés par fiche principale
-    const scenariosParFiche = new Map<string, any[]>();
+    // Sous-relevés (scénarios ou emplacements) regroupés par fiche principale
+    const sousRelevesParFiche = new Map<string, any[]>();
     for (const t of toutes) {
       if (!t.parent) continue;
       const cle = String(t.parent);
-      scenariosParFiche.set(cle, [...(scenariosParFiche.get(cle) || []), t]);
+      sousRelevesParFiche.set(cle, [...(sousRelevesParFiche.get(cle) || []), t]);
     }
 
     const chantiersAVisiter = toutes
       .filter((task: any) => !task.parent && estAVisiter(task.status?.status))
       .map((task: any) => {
-        const scenarios = scenariosParFiche.get(String(task.id)) || [];
+        const sousReleves = sousRelevesParFiche.get(String(task.id)) || [];
         return {
           id: task.id,
           nom: task.name,
           adresse: lireAdresse(task),
-          scenarios: scenarios.length,
-          scenariosRecus: scenarios.filter((s) => !estAVisiter(s.status?.status)).length,
+          scenarios: sousReleves.length,
+          scenariosRecus: sousReleves.filter((s) => !estAVisiter(s.status?.status)).length,
+          typeSousReleves: typeDesSousReleves(sousReleves.map((s) => ({ nom: String(s.name || '') }))),
         };
       });
 

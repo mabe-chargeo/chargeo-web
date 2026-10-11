@@ -4,9 +4,9 @@
 // 10/10/2026 : habillage charte 2026 (briques communes src/components/charte/Appli.tsx).
 // Lot 3.2 : section « relevés à terminer sur ce téléphone », pour reprendre une fiche
 // même si elle n'est plus « à visiter » (envoi interrompu, photos manquantes...).
-// Lot 3.3 : compteur de scénarios sur la carte de la fiche.
+// Lot 3.3 et point 21 : compteur de scénarios ou d'emplacements sur la carte de la fiche.
 import { useEffect, useState } from 'react';
-import { ChevronRight, ClipboardList, GitBranch, History, MapPin, RefreshCw } from 'lucide-react';
+import { ChevronRight, ClipboardList, GitBranch, History, MapPin, RefreshCw, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { relevesATerminer } from '@/lib/releveLocal';
@@ -17,6 +17,7 @@ interface Chantier {
   adresse: string;
   scenarios?: number;
   scenariosRecus?: number;
+  typeSousReleves?: 'scenario' | 'emplacement' | null;
 }
 
 export default function InternePage() {
@@ -55,7 +56,7 @@ export default function InternePage() {
     window.location.href = `/interne/metre/${id}`;
   };
 
-  // Relevés commencés sur ce téléphone mais absents du planning (déjà sortis de « à visiter », ou scénarios)
+  // Relevés commencés sur ce téléphone mais absents du planning (déjà sortis de « à visiter », ou sous-relevés)
   const idsPlanning = new Set(chantiers.map((c) => c.id));
   const aReprendre = aTerminer.filter((r) => !idsPlanning.has(r.id));
 
@@ -116,32 +117,39 @@ export default function InternePage() {
           </Carte>
         )}
 
-        {!loading && !erreur && chantiers.map((chantier) => (
-          <button
-            key={chantier.id}
-            onClick={() => handleSelectChantier(chantier.id)}
-            className="flex w-full items-center gap-4 rounded-[20px] p-5 text-left transition-transform active:scale-[0.98]"
-            style={{ backgroundColor: GRIS }}
-          >
-            <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
-              <ClipboardList size={22} color="#ffffff" strokeWidth={1.8} />
-            </div>
-            <div className="min-w-0 grow">
-              <p className="text-[17px] font-bold leading-tight">{chantier.nom}</p>
-              <p className="mt-1.5 flex items-center gap-1.5 text-[13px]">
-                <MapPin size={14} className="shrink-0" color={CYAN} />
-                <span className="truncate">{chantier.adresse}</span>
-              </p>
-              {!!chantier.scenarios && (
-                <p className="mt-1 flex items-center gap-1.5 text-[13px] font-semibold">
-                  <GitBranch size={14} className="shrink-0" color={CYAN} />
-                  {chantier.scenarios} scénario{chantier.scenarios > 1 ? 's' : ''} · {chantier.scenariosRecus || 0} reçu{(chantier.scenariosRecus || 0) > 1 ? 's' : ''}
+        {!loading && !erreur && chantiers.map((chantier) => {
+          const n = chantier.scenarios || 0;
+          const recus = chantier.scenariosRecus || 0;
+          const emplacements = chantier.typeSousReleves === 'emplacement';
+          return (
+            <button
+              key={chantier.id}
+              onClick={() => handleSelectChantier(chantier.id)}
+              className="flex w-full items-center gap-4 rounded-[20px] p-5 text-left transition-transform active:scale-[0.98]"
+              style={{ backgroundColor: GRIS }}
+            >
+              <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
+                <ClipboardList size={22} color="#ffffff" strokeWidth={1.8} />
+              </div>
+              <div className="min-w-0 grow">
+                <p className="text-[17px] font-bold leading-tight">{chantier.nom}</p>
+                <p className="mt-1.5 flex items-center gap-1.5 text-[13px]">
+                  <MapPin size={14} className="shrink-0" color={CYAN} />
+                  <span className="truncate">{chantier.adresse}</span>
                 </p>
-              )}
-            </div>
-            <ChevronRight size={22} className="shrink-0" color={CYAN} />
-          </button>
-        ))}
+                {n > 0 && (
+                  <p className="mt-1 flex items-center gap-1.5 text-[13px] font-semibold">
+                    {emplacements
+                      ? <Zap size={14} className="shrink-0" color={CYAN} />
+                      : <GitBranch size={14} className="shrink-0" color={CYAN} />}
+                    {n} {emplacements ? 'emplacement' : 'scénario'}{n > 1 ? 's' : ''} · {recus} reçu{recus > 1 ? 's' : ''}
+                  </p>
+                )}
+              </div>
+              <ChevronRight size={22} className="shrink-0" color={CYAN} />
+            </button>
+          );
+        })}
       </ContenuAppli>
     </PageAppli>
   );
