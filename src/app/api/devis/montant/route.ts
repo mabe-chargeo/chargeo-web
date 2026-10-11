@@ -10,6 +10,7 @@ import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClick
 //   le même nom que la fiche, sans en choisir un.
 // - gagne (🏆 gagné) : relit le devis du lien, suit sa dernière version s'il a été révisé, met à jour le montant et
 //   signale (sans bloquer) un devis pas encore signé dans Costructor.
+// Montants : l'API externe renvoie des centimes (Bacchus D202600007 : 1959994 = 19 599,94 € HT, vérifié le 11/10).
 // Champs lus par identifiant puis par nom (ils peuvent être renommés sans « signé »).
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (aussi sur une vraie fiche, lecture seule) ou &executer=1 (fiches TEST).
 
@@ -94,12 +95,12 @@ const valeur = (tache: any, c: { id: string; nom: string }) => {
   return v === undefined || v === null ? '' : String(v).trim();
 };
 
-// Montant HT en euros. Variable Vercel COSTRUCTOR_MONTANTS_CENTIMES=1 si l'API externe renvoie des centimes.
+// Montant HT en euros. L'API externe renvoie des centimes ; variable Vercel COSTRUCTOR_MONTANTS_CENTIMES=0 si cela change.
 function montantHT(d: any): { ht: number; brut: any; centimes: boolean } {
   const brut = d?.subtotal ?? d?.subTotal ?? d?.totalExclTax ?? d?.total_ht;
   if (typeof d?.subtotalDecimal === 'string') return { ht: Number(d.subtotalDecimal), brut, centimes: false };
   const n = Number(brut);
-  const centimes = process.env.COSTRUCTOR_MONTANTS_CENTIMES === '1';
+  const centimes = process.env.COSTRUCTOR_MONTANTS_CENTIMES !== '0';
   return { ht: centimes ? Math.round(n) / 100 : Math.round(n * 100) / 100, brut, centimes };
 }
 
