@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClickUp';
+import { aujourdhuiParis, ajouterJoursOuvres, echeanceClickUp, libelleJour } from '@/lib/joursOuvres';
 
 // Remontée du devis Costructor dans la fiche (Phase 4, validé par Matthieu le 11/10/2026).
 // Appelé par les automatisations de Qualification : POST ?taskId=...&evenement=envoye | gagne
@@ -10,17 +11,31 @@ import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClick
 //   le même nom que la fiche, sans en choisir un.
 // - gagne (🏆 gagné) : relit le devis du lien, suit sa dernière version s'il a été révisé, met à jour le montant et
 //   signale (sans bloquer) un devis pas encore signé dans Costructor.
+//   Devis signé : crée la tâche « Acompte · client · n° devis » dans Factures Clients (📄 à émettre, Type de pièce Acompte,
+//   Client, Réf. devis signé, Lien Costructor, 🔗 Affaire), échéance = rappel à J+1 ouvré pour émettre l'acompte dans
+//   Costructor. Montant laissé vide : il dépend des conditions de chaque devis (décision Matthieu du 11/10). Jamais en
+//   double : une tâche acompte déjà présente pour ce n° de devis est réutilisée.
 // Montants : l'API externe renvoie des centimes (Bacchus D202600007 : 1959994 = 19 599,94 € HT, vérifié le 11/10).
 // Champs lus par identifiant puis par nom (ils peuvent être renommés sans « signé »).
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (aussi sur une vraie fiche, lecture seule) ou &executer=1 (fiches TEST).
+//   &forcerSigne=1 (preview seulement) : traite le devis comme signé, pour tester la création de l'acompte.
 
 const COSTRUCTOR = 'https://api.costructor.co/external/v1';
 const PLANNING_CHANTIERS_ID = '901520038258';
+const FACTURES_ID = process.env.CLICKUP_FACTURES_LIST_ID || '1200630000003863';
 const CHAMPS = {
   lienClient: { id: 'd9f88e8f-4e20-4a98-aee8-3ded30fef5fc', nom: 'lien costructor' },
   montant: { id: '58a159c7-edbc-4d53-a81a-5ec48337c7eb', nom: 'montant devis' },
   numero: { id: '4423a27f-ecc1-4107-9488-4784360178c0', nom: 'n devis' },
   lienDevis: { id: 'ae80f202-2ef3-4302-b778-f36075ee398f', nom: 'lien devis' },
+};
+// Champs de Factures Clients (v2)
+const FACTURE = {
+  type: '2885d2af-84ee-4c56-aa4d-3be5e2efd671',
+  client: '00a44fea-ea64-4350-be16-9c6e505373b4',
+  ref: '70524913-0dea-4ce4-828e-fea0338a6d1f',
+  affaire: '70f095a0-d0ec-413a-9ed9-fbc763306869',
+  lien: '87363f81-73a0-4928-b637-5a1c63fdc075',
 };
 const EVENEMENTS = ['envoye', 'gagne'] as const;
 type Evenement = (typeof EVENEMENTS)[number];
@@ -139,7 +154,75 @@ async function commenter(token: string, taskId: string, texte: string, notifier 
   if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${taskId}`);
 }
 
-async function traiter(taskId: string, evenement: Evenement, simulation: boolean) {
+// ---------- Facture d'acompte ----------
+
+// Tâche acompte déjà présente pour ce n° de devis ? tâche, null, ou undefined si lecture impossible
+async function acompteExistant(cu: string, numero: string): Promise<any | null | undefined> {
+  for (let page = 0; page < 10; page++) {
+    const res = await clickup(cu, `/list/${FACTURES_ID}/task?include_closed=true&subtasks=true&page=${page}`);
+    if (!res.ok) return undefined;
+    const json = await res.json().catch(() => ({}));
+    const taches: any[] = Array.isArray(json?.tasks) ? json.tasks : [];
+    const trouvee = taches.find((t) => {
+      const ref = (t.custom_fields || []).find((c: any) => c.id === FACTURE.ref)?.value;
+      return String(ref || '').trim() === numero && normal(t.name).includes('acompte');
+    });
+    if (trouvee) return trouvee;
+    if (json?.last_page !== false || taches.length === 0) break;
+  }
+  return null;
+}
+
+async function optionAcompte(cu: string): Promise<string | null> {
+  const res = await clickup(cu, `/list/${FACTURES_ID}/field`);
+  if (!res.ok) return null;
+  const json = await res.json().catch(() => ({}));
+  const f = (json?.fields || []).find((x: any) => x.id === FACTURE.type);
+  const o = (f?.type_config?.options || []).find((x: any) => normal(x.name) === 'acompte');
+  return o ? String(o.id) : null;
+}
+
+async function creerAcompte(cu: string, tache: any, devis: any, lienClient: string, simulation: boolean) {
+  const numero = String(devis.number || '');
+  const existant = await acompteExistant(cu, numero);
+  if (existant === undefined) return { acompte: 'lecture_factures_impossible' };
+  if (existant) return { acompte: 'deja_cree', nom: existant.name, url: existant.url };
+
+  const client = nomClientDe(devis) || String(tache.name || '');
+  const estTest = normal(tache.name).startsWith('test');
+  const nom = `${estTest ? 'Test · ' : ''}Acompte · ${client} · ${numero}`;
+  const rappel = ajouterJoursOuvres(aujourdhuiParis(), 1);
+  const base = { nom, rappel: libelleJour(rappel) };
+  if (simulation) return { acompte: 'creerait', ...base };
+
+  const option = await optionAcompte(cu);
+  const description = [
+    `Facture d'acompte du devis ${numero} (${euros(montantHT(devis).ht)}) : ${urlDevis(devis.id)}`,
+    `Montant selon les conditions de ce devis (pas de taux fixe).`,
+    `1. Émettre la facture d'acompte dans Costructor.`,
+    `2. Remplir ici 🧾 N° facture Costructor, Montant HT et Date d'échéance.`,
+    `3. Passer la tâche en 📤 émise : les rappels de relance se programment seuls.`,
+  ].join('\n');
+  const champs: any[] = [
+    { id: FACTURE.client, value: client },
+    { id: FACTURE.ref, value: numero },
+  ];
+  if (option) champs.push({ id: FACTURE.type, value: option });
+  if (/^https?:\/\//.test(lienClient)) champs.push({ id: FACTURE.lien, value: lienClient });
+
+  const res = await clickup(cu, `/list/${FACTURES_ID}/task`, 'POST', {
+    name: nom, description, due_date: echeanceClickUp(rappel), due_date_time: false, custom_fields: champs,
+  });
+  if (!res.ok) {
+    console.error(`Création de l'acompte refusée (${res.status})`, await res.text().catch(() => ''));
+    return { acompte: 'erreur_creation', ...base };
+  }
+  const creee = await res.json();
+  const lien = await clickup(cu, `/task/${creee.id}/field/${FACTURE.affaire}`, 'POST', { value: { add: [String(tache.id)], rem: [] } });
+  return { acompte: 'cree', ...base, url: creee.url, typeRempli: !!option, affaireReliee: lien.ok };
+}
+
+async function traiter(taskId: string, evenement: Evenement, simulation: boolean, forcerSigne = false) {
   const cu = process.env.CLICKUP_API_KEY;
   const co = process.env.COSTRUCTOR_API_KEY;
   if (!cu || !co) return { status: 500, body: { success: false, error: 'Configuration serveur incomplète' } };
@@ -217,18 +300,23 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
 
   const actuel = derniereVersion(devis, choisi);
   const m = montantHT(actuel);
-  const signe = SIGNES.includes(statutDe(actuel));
+  const signeReel = SIGNES.includes(statutDe(actuel));
+  const signe = signeReel || forcerSigne;
   const nouvelleVersion = actuel.id !== choisi.id;
   let texte = '';
   if (evenement === 'envoye') {
     texte = `💶 Devis ${actuel.number} retenu : ${euros(m.ht)}. N°, montant et lien remplis sur la fiche.`;
   } else if (signe) {
-    texte = `🏆 Devis signé ${actuel.number} : ${euros(m.ht)}${nouvelleVersion ? ' (dernière version, montant mis à jour)' : ''}.`;
+    texte = `🏆 Devis signé ${actuel.number} : ${euros(m.ht)}${nouvelleVersion ? ' (dernière version, montant mis à jour)' : ''}${forcerSigne && !signeReel ? ' [test : signature simulée]' : ''}.`;
   } else {
     texte = `⚠️ Devis ${actuel.number} pas encore signé dans Costructor (statut « ${actuel.statusLabel || actuel.status} »). Montant ${euros(m.ht)} reporté quand même. Vérifie la signature avant de lancer le chantier.`;
   }
-  const resume = { action: evenement === 'envoye' ? 'devis_retenu' : signe ? 'devis_signe' : 'devis_non_signe', devis: resumeDevis(actuel), nouvelleVersion, centimes: m.centimes, commentaire: texte };
-  if (simulation) return { status: 200, body: { success: true, ...base, ...resume } };
+  const resume: any = { action: evenement === 'envoye' ? 'devis_retenu' : signe ? 'devis_signe' : 'devis_non_signe', devis: resumeDevis(actuel), nouvelleVersion, centimes: m.centimes, forcerSigne, commentaire: texte };
+  const faireAcompte = evenement === 'gagne' && signe;
+  if (simulation) {
+    if (faireAcompte) Object.assign(resume, await creerAcompte(cu, tache, actuel, lienClient, true));
+    return { status: 200, body: { success: true, ...base, ...resume } };
+  }
 
   const ok = {
     montant: await ecrire(cu, id, tache, CHAMPS.montant, m.ht),
@@ -238,6 +326,16 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   const rates = Object.entries(ok).filter(([, v]) => !v).map(([k]) => k);
   if (rates.length) texte += ` ⚠️ Non écrit : ${rates.join(', ')} (champ absent de la liste ou refusé), à remplir à la main.`;
   await commenter(cu, id, texte, evenement === 'gagne' && !signe);
+
+  if (faireAcompte) {
+    const a: any = await creerAcompte(cu, tache, actuel, lienClient, false);
+    Object.assign(resume, a);
+    if (a.acompte === 'cree') {
+      await commenter(cu, id, `🧾 Facture d'acompte à émettre : tâche créée dans Factures Clients (montant selon les conditions du devis), rappel le ${a.rappel}. ${a.url}`);
+    } else if (a.acompte !== 'deja_cree') {
+      await commenter(cu, id, `⚠️ Facture d'acompte : je n'ai pas pu créer la tâche dans Factures Clients. Crée-la à la main (Type de pièce Acompte, Réf. devis signé ${actuel.number}).`, true);
+    }
+  }
   return { status: 200, body: { success: rates.length === 0, ...base, ...resume, ecrit: ok, commentaire: texte } };
 }
 
@@ -260,7 +358,7 @@ export async function POST(request: Request) {
   }
 }
 
-// Preview uniquement : ?taskId=...&evenement=...&simulation=1 ou &executer=1
+// Preview uniquement : ?taskId=...&evenement=...&simulation=1 ou &executer=1 (option &forcerSigne=1)
 export async function GET(request: Request) {
   if (process.env.VERCEL_ENV === 'production') return NextResponse.json({ error: 'Non disponible' }, { status: 404 });
   try {
@@ -269,10 +367,11 @@ export async function GET(request: Request) {
     const evenement = lireEvenement(p);
     const executer = p.get('executer') === '1';
     const simulation = p.get('simulation') === '1';
+    const forcerSigne = p.get('forcerSigne') === '1';
     if (!taskId || !evenement || (!executer && !simulation)) {
       return NextResponse.json({ error: 'Ajoute ?taskId=...&evenement=envoye|gagne&simulation=1 ou &executer=1' }, { status: 400 });
     }
-    const r = await traiter(taskId, evenement, !executer);
+    const r = await traiter(taskId, evenement, !executer, forcerSigne);
     return NextResponse.json(r.body, { status: r.status });
   } catch (error) {
     console.error('Erreur montant devis (preview) :', error);
