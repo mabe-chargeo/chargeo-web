@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation';
 import { MetreForm } from '@/components/ui/MetreForm';
-import { Scenarios, trierScenarios, type ScenarioResume } from '@/components/ui/Scenarios';
+import { Scenarios } from '@/components/ui/Scenarios';
 import { PageAppli, EnTeteAppli, ContenuAppli } from '@/components/charte/Appli';
 import { lireTacheQualification } from '@/lib/listesClickUp';
+import { trierScenarios, type ScenarioResume } from '@/lib/scenarios';
 
 // Page de relevé (lots 3.2 et 3.3, 10/10/2026). La fiche doit appartenir à la liste autorisée
 // (vraie Qualification en production, TEST en preview), sinon page introuvable.

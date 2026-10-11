@@ -9,14 +9,9 @@ import { useState } from 'react';
 import { CheckCircle, ChevronRight, ClipboardList, GitBranch, Plus } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, Repere, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE, GRIS, LABEL } from '@/components/charte/couleurs';
+import { estAVisiter, trierScenarios, type ScenarioResume } from '@/lib/scenarios';
 
-export type ScenarioResume = { id: string; nom: string; statut: string };
-
-const estAVisiter = (statut: string) => statut.toUpperCase().includes('VISITER');
-
-// Tri naturel en français : « Scénario 2 » avant « Scénario 10 », A avant B
-export const trierScenarios = (liste: ScenarioResume[]): ScenarioResume[] =>
-  [...liste].sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { numeric: true, sensitivity: 'base' }));
+export type { ScenarioResume };
 
 export function Scenarios({ affaireId, scenarios, mode }: { affaireId: string; scenarios: ScenarioResume[]; mode: 'liste' | 'proposition' }) {
   const [ouvert, setOuvert] = useState(mode === 'liste');
