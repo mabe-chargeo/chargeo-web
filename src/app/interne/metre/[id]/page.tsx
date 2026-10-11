@@ -11,6 +11,7 @@ import { trierScenarios, type ScenarioResume } from '@/lib/scenarios';
 // - fiche sans scénario : relevé direct, comme avant, avec la possibilité de créer des scénarios ;
 // - fiche avec scénarios : écran Scénarios (un relevé par scénario), triés A, B, C ;
 // - scénario : relevé complet, avec retour vers les scénarios de la fiche (en-tête et écran de succès).
+// Le statut de la fiche est transmis à l'écran Scénarios : avertissement si elle n'est plus « à visiter ».
 const SEGMENT_OPTIONS: Record<number, string> = { 0: 'RES', 1: 'DAP', 2: 'COP', 3: 'PAR', 4: 'FLT', 5: 'TER' };
 
 async function lireFiche(taskId: string) {
@@ -41,7 +42,7 @@ async function lireFiche(taskId: string) {
       parent = { id: String(data.parent), nom: lp.ok ? String(lp.tache?.name || 'Fiche') : 'Fiche' };
     }
 
-    return { name: data.name as string, segment, scenarios, parent };
+    return { name: data.name as string, statut: String(data.status?.status || ''), segment, scenarios, parent };
   } catch (error) {
     return null;
   }
@@ -75,7 +76,7 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
       <PageAppli>
         <EnTeteAppli surtitre="Visite technique" titre={fiche.name} retour={{ href: '/interne', libelle: 'Planning' }} />
         <ContenuAppli>
-          <Scenarios affaireId={taskId} scenarios={fiche.scenarios} mode="liste" />
+          <Scenarios affaireId={taskId} scenarios={fiche.scenarios} mode="liste" statutFiche={fiche.statut} />
         </ContenuAppli>
       </PageAppli>
     );
@@ -86,7 +87,7 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
     <PageAppli>
       <EnTeteAppli surtitre="Visite technique" titre={fiche.name} retour={{ href: '/interne', libelle: 'Planning' }} />
       <ContenuAppli className="space-y-5">
-        <Scenarios affaireId={taskId} scenarios={[]} mode="proposition" />
+        <Scenarios affaireId={taskId} scenarios={[]} mode="proposition" statutFiche={fiche.statut} />
         <MetreForm taskId={taskId} taskName={fiche.name} initialSegment={fiche.segment} />
       </ContenuAppli>
     </PageAppli>

@@ -5,15 +5,31 @@
 // - mode "proposition" : fiche sans scénario, petite carte pour en créer au-dessus du relevé direct.
 // Les scénarios se créent avec du réseau, avant de descendre au sous-sol.
 // 11/10/2026 : scénarios triés par nom (A, B, C... et 2 avant 10), accord « relevés reçus ».
+// 11/10/2026 (décision Matthieu) : scénario ajouté sur une fiche qui n'est plus « à visiter » :
+// la fiche garde son statut (pas de retour en arrière), on affiche simplement un avertissement.
 import { useState } from 'react';
-import { CheckCircle, ChevronRight, ClipboardList, GitBranch, Plus } from 'lucide-react';
+import { CheckCircle, ChevronRight, ClipboardList, GitBranch, Info, Plus } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, Repere, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
-import { CYAN, ORANGE, GRIS, LABEL } from '@/components/charte/couleurs';
+import { CYAN, ORANGE, GRIS, LABEL, CYAN_PALE } from '@/components/charte/couleurs';
 import { estAVisiter, trierScenarios, type ScenarioResume } from '@/lib/scenarios';
 
 export type { ScenarioResume };
 
-export function Scenarios({ affaireId, scenarios, mode }: { affaireId: string; scenarios: ScenarioResume[]; mode: 'liste' | 'proposition' }) {
+// « 📝 devis à faire » -> « devis à faire »
+const libelleStatut = (statut: string) => statut.replace(/^[^\p{L}]+/u, '').trim() || statut;
+
+function Avertissement({ statutFiche }: { statutFiche: string }) {
+  return (
+    <div className="flex gap-3 rounded-[16px] p-4 text-[14px] leading-relaxed" style={{ backgroundColor: CYAN_PALE }}>
+      <Info size={20} className="mt-0.5 shrink-0" color={LABEL} />
+      <p>
+        La fiche est déjà en <strong>« {libelleStatut(statutFiche)} »</strong> et y reste. Un nouveau scénario s'ajoute au chiffrage en cours : son relevé arrive dans sa propre sous-tâche.
+      </p>
+    </div>
+  );
+}
+
+export function Scenarios({ affaireId, scenarios, mode, statutFiche = '' }: { affaireId: string; scenarios: ScenarioResume[]; mode: 'liste' | 'proposition'; statutFiche?: string }) {
   const [ouvert, setOuvert] = useState(mode === 'liste');
   const [nom, setNom] = useState('');
   const [envoi, setEnvoi] = useState(false);
@@ -49,6 +65,7 @@ export function Scenarios({ affaireId, scenarios, mode }: { affaireId: string; s
   const tries = trierScenarios(scenarios);
   const recus = tries.filter((s) => !estAVisiter(s.statut)).length;
   const pluriel = tries.length > 1 ? 's' : '';
+  const ficheAvancee = !!statutFiche && !estAVisiter(statutFiche);
 
   return (
     <div className="space-y-4">
@@ -56,8 +73,10 @@ export function Scenarios({ affaireId, scenarios, mode }: { affaireId: string; s
         <>
           <Repere>Scénarios de raccordement</Repere>
           <p className="px-1 text-[14px] leading-relaxed">
-            {recus}/{tries.length} relevé{pluriel} reçu{pluriel}. La fiche passe en « devis à faire » quand tous les scénarios sont reçus.
+            {recus}/{tries.length} relevé{pluriel} reçu{pluriel}.
+            {!ficheAvancee && ' La fiche passe en « devis à faire » quand tous les scénarios sont reçus.'}
           </p>
+          {ficheAvancee && <Avertissement statutFiche={statutFiche} />}
           {tries.map((s) => {
             const fait = !estAVisiter(s.statut);
             return (
@@ -101,6 +120,7 @@ export function Scenarios({ affaireId, scenarios, mode }: { affaireId: string; s
           </>
         ) : (
           <>
+            {mode === 'proposition' && ficheAvancee && <Avertissement statutFiche={statutFiche} />}
             <div className="space-y-2">
               <label className={ETIQUETTE} htmlFor={`nom-scenario-${affaireId}`}>Nom du scénario</label>
               <input
