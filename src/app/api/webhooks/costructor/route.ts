@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getQualificationListId } from '@/lib/listesClickUp';
+import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClickUp';
 
 // Webhook ClickUp -> Costructor (lot 3.4, 11/10/2026). Appelé par une automatisation ClickUp : POST ?taskId=...
 // Décisions : point 5 (échec propre, sans doublon, alerte au commercial), point 15 (client payeur,
@@ -10,7 +10,9 @@ import { getQualificationListId } from '@/lib/listesClickUp';
 // 3. Rien trouvé : création du client payeur (nom de la fiche, SIRET), avec comme personnes de contact
 //    le Gestionnaire et le Contact sur place (liste Contacts). Le nom n'est plus découpé au hasard.
 // 4. Le lien n'est écrit que s'il est vide ou mort. Chaque écriture est vérifiée ; un échec pose un commentaire d'alerte.
-// Preview : fiches TEST uniquement, et GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (vrai passage).
+// Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (vrai passage, fiches TEST uniquement).
+// La simulation est aussi acceptée sur une vraie fiche Qualification (lecture seule, décision Matthieu 11/10),
+// pour vérifier la lecture du Gestionnaire et du Contact sur place, impossibles à ajouter à la liste TEST.
 // Les champs sont lus par identifiant, puis par nom en secours (les noms lus avant : Email, Telephone,
 // Type Client, Adresse, Lien Costructor, ne doivent toujours pas être renommés).
 
@@ -134,12 +136,16 @@ const nomContact = (c: any) => String(c?.fullName || c?.companyName || [c?.first
 const emailsDe = (c: any): string[] => [c?.email, ...(Array.isArray(c?.emails) ? c.emails.map((e: any) => e?.email) : [])].map(emailNormal).filter(Boolean);
 const telsDe = (c: any): string[] => [c?.phone, ...(Array.isArray(c?.phones) ? c.phones.map((p: any) => p?.phone) : [])].map(telNormal).filter(Boolean);
 
-// Personnes liées par une relation vers la liste Contacts
+// Personnes liées par une relation vers la liste Contacts (valeur ClickUp : liste de tâches ou d'identifiants)
 async function personnesLiees(tache: any, token: string): Promise<{ firstName?: string; lastName: string; email?: string; phone?: string }[]> {
   const ids = new Set<string>();
   for (const champ of [CHAMPS.gestionnaire, CHAMPS.contactSurPlace]) {
     const v = lireChamp(tache, champ);
-    if (Array.isArray(v)) for (const t of v) if (t?.id) ids.add(String(t.id));
+    const liste = Array.isArray(v) ? v : v ? [v] : [];
+    for (const t of liste) {
+      const tid = typeof t === 'string' ? t : t?.id;
+      if (tid) ids.add(String(tid));
+    }
   }
   const personnes: { firstName?: string; lastName: string; email?: string; phone?: string }[] = [];
   for (const id of ids) {
@@ -162,11 +168,14 @@ async function traiter(taskId: string, simulation: boolean) {
   const tache = await lireTache(taskId, clickUpToken);
   if (!tache) return { status: 404, body: { success: false, error: 'Fiche introuvable' } };
 
-  // Preview : jamais une vraie fiche client
+  // Preview : vrai passage sur les fiches TEST seulement ; simulation (lecture seule) aussi sur une vraie fiche Qualification
   if (process.env.VERCEL_ENV !== 'production') {
     const listeTest = getQualificationListId();
-    if (!listeTest || String(tache?.list?.id) !== String(listeTest)) {
-      return { status: 403, body: { success: false, error: 'En preview, seules les fiches de la liste TEST sont acceptées' } };
+    const liste = String(tache?.list?.id ?? '');
+    const estTest = !!listeTest && liste === String(listeTest);
+    const simulationVraieFiche = simulation && liste === QUALIFICATION_PROD_ID;
+    if (!estTest && !simulationVraieFiche) {
+      return { status: 403, body: { success: false, error: 'En preview : fiches TEST, ou simulation seule sur une vraie fiche Qualification' } };
     }
   }
   const id = String(tache.id);
@@ -301,7 +310,7 @@ export async function POST(request: Request) {
   }
 }
 
-// Preview uniquement : ?taskId=...&simulation=1 (rien n'est écrit) ou ?taskId=...&executer=1 (vrai passage)
+// Preview uniquement : ?taskId=...&simulation=1 (rien n'est écrit) ou ?taskId=...&executer=1 (vrai passage, TEST)
 export async function GET(request: Request) {
   if (process.env.VERCEL_ENV === 'production') {
     return NextResponse.json({ error: 'Non disponible' }, { status: 404 });
