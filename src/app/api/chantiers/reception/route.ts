@@ -85,26 +85,51 @@ async function dernierCommentaireRefusRecent(taskId: string, token: string): Pro
   return recent && String(c.comment_text || '').trim().startsWith(PREFIXE_REFUS);
 }
 
-async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean; detail?: string }> {
+// Statut source (objet de la liste Planning Chantiers) correspondant au statut d'une tâche ou sous-tâche
+function statutSource(source: any[], s: any): any | undefined {
+  return source.find((x: any) => x.id === s?.id) || source.find((x: any) => normal(x.status) === normal(s?.status));
+}
+
+async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean; detail?: string; essai?: string }> {
   const [source, dest] = await Promise.all([statutsListe(PLANNING_CHANTIERS_ID, token), statutsListe(PARC_ID, token)]);
   const enService = dest.find((s: any) => normal(s.status).includes('en service'));
   const surveillance = dest.find((s: any) => normal(s.status).includes('surveillance')) || enService;
   if (!enService || !source.length) return { ok: false, detail: 'statuts introuvables' };
-  // Tâche principale (terminée) et sous-tâches finies → en service ; sous-tâches encore ouvertes → sous surveillance
-  const status_mappings = source.map((s: any) => ({
-    source_status_id: s.id,
-    destination_status_id: s.type === 'closed' || s.type === 'done' ? enService.id : surveillance.id,
-  }));
-  const res = await api(
-    token,
-    `/workspaces/${WORKSPACE_ID}/tasks/${tache.id}/home_list/${PARC_ID}`,
-    'PUT',
-    { move_custom_fields: true, custom_fields_to_move: CHAMPS_A_GARDER, status_mappings },
-    'v3',
-  );
-  if (!res.ok) return { ok: false, detail: `HTTP ${res.status} ${(await res.text().catch(() => '')).slice(0, 200)}` };
-  const relue = await lireTache(String(tache.id), token);
-  return { ok: String(relue?.list?.id ?? '') === PARC_ID, detail: relue?.status?.status };
+  const cible = (s: any) => (s?.type === 'closed' || s?.type === 'done' ? enService.id : surveillance.id);
+
+  // Statuts réellement utilisés : la tâche principale puis ses sous-tâches (sans doublon)
+  const actuel = statutSource(source, tache.status);
+  if (!actuel) return { ok: false, detail: 'statut actuel introuvable' };
+  const utilises: any[] = [actuel];
+  for (const st of Array.isArray(tache?.subtasks) ? tache.subtasks : []) {
+    const s = statutSource(source, st.status);
+    if (s && !utilises.some((u) => u.id === s.id)) utilises.push(s);
+  }
+
+  // La doc ClickUp n'est pas claire sur le nom des clés : on essaie les deux formats, du plus complet au plus simple
+  const essais: { nom: string; mappings: any[] }[] = [
+    { nom: 'utilises_id', mappings: utilises.map((s) => ({ source_status_id: s.id, destination_status_id: cible(s) })) },
+    { nom: 'utilises', mappings: utilises.map((s) => ({ source_status: s.id, destination_status: cible(s) })) },
+    { nom: 'actuel_id', mappings: [{ source_status_id: actuel.id, destination_status_id: enService.id }] },
+    { nom: 'actuel', mappings: [{ source_status: actuel.id, destination_status: enService.id }] },
+  ];
+  const erreurs: string[] = [];
+  for (const e of essais) {
+    const res = await api(
+      token,
+      `/workspaces/${WORKSPACE_ID}/tasks/${tache.id}/home_list/${PARC_ID}`,
+      'PUT',
+      { move_custom_fields: true, custom_fields_to_move: CHAMPS_A_GARDER, status_mappings: e.mappings },
+      'v3',
+    );
+    if (res.ok) {
+      const relue = await lireTache(String(tache.id), token);
+      return { ok: String(relue?.list?.id ?? '') === PARC_ID, detail: relue?.status?.status, essai: e.nom };
+    }
+    erreurs.push(`${e.nom}: HTTP ${res.status} ${(await res.text().catch(() => '')).slice(0, 120)}`);
+    if (res.status !== 400) break;
+  }
+  return { ok: false, detail: erreurs.join(' | ') };
 }
 
 async function traiter(taskId: string, evenement: Evenement, simulation: boolean) {
@@ -173,11 +198,11 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
 
   const d = await deplacerAuParc(tache, token);
   if (!d.ok) {
-    await commenter(id, token, `⚠️ Passage au Parc : la tâche n'a pas pu être déplacée (${d.detail || 'erreur'}). Déplace-la à la main vers Parc installé.`, true);
+    await commenter(id, token, `⚠️ Passage au Parc : la tâche n'a pas pu être déplacée. Déplace-la à la main vers Parc installé.`, true);
     return { status: 502, body: { success: false, error: 'Déplacement impossible', detail: d.detail, ...etat } };
   }
   await commenter(id, token, texte);
-  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, ...etat, commentaire: texte } };
+  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, ...etat, commentaire: texte } };
 }
 
 function lireEvenement(p: URLSearchParams): Evenement | null {
