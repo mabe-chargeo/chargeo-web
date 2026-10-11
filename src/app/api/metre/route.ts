@@ -8,6 +8,8 @@ import { lireTacheQualification } from '@/lib/listesClickUp';
 // - Champ vide = non mesuré = rien écrit ; 0 = zéro, écrit (une correction 12 -> 0 passe).
 // - Matériels à chiffrer (point 12 règle 1) : choix multiple ; Puissance Visée PDC seulement si un seul matériel.
 // - Le statut n'est plus changé ici : /api/metre/finaliser s'en charge après réception des photos.
+// - 11/10/2026 : Notes cheminement écrites seulement si le technicien a tapé quelque chose
+//   (plus de texte automatique « SUPPORT PRÉVU » : le support a son propre champ).
 // Les menus restent écrits PAR INDEX (ne jamais réordonner les options dans ClickUp).
 
 // Matériels à chiffrer : champ à étiquettes, écrit par identifiant d'option (stable, pas d'index)
@@ -43,8 +45,9 @@ export async function POST(request: Request) {
     };
 
     const murSupport = texte('murSupport');
-    const notesBrutes = texte('notes');
-    const notesFinales = `SUPPORT PRÉVU : ${murSupport}\n\nOBSERVATIONS :\n${notesBrutes}`;
+    // Notes : texte du technicien tel quel, rien écrit si vide
+    const notesSaisies = texte('notes').trim();
+    const notesFinales = notesSaisies !== '' ? notesSaisies : null;
 
     // Traduction des menus déroulants par index
     // Segment : RES=0, DAP=1, COP=2, PAR=3, FLT=4, TER=5
