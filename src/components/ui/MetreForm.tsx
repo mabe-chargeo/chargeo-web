@@ -11,6 +11,7 @@
 // - copie locale gardée 7 jours après confirmation, jamais purgée si l'envoi est incomplet.
 // Lot 3.3 (10/10/2026) : « Matériels à chiffrer » (choix multiple) à la place du choix unique Puissance visée.
 // Le même formulaire sert à une fiche simple et à chaque scénario (sous-tâche).
+// 11/10/2026 : prop optionnelle « retour » pour le lien de l'écran de succès (scénario = retour aux scénarios).
 // Les attributs value des menus ne changent pas (la route /api/metre les convertit en index ClickUp).
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag, X, Plug } from 'lucide-react';
@@ -65,7 +66,7 @@ const normaliser = (brut: any): { photos: Photo[]; converti: boolean } => {
   return { photos, converti };
 };
 
-export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string, taskName: string, initialSegment?: string }) {
+export function MetreForm({ taskId, taskName, initialSegment, retour }: { taskId: string, taskName: string, initialSegment?: string, retour?: { href: string; libelle: string } }) {
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [erreurMsg, setErreurMsg] = useState('');
   const [segment, setSegment] = useState(initialSegment || '');
@@ -381,7 +382,7 @@ export function MetreForm({ taskId, taskName, initialSegment }: { taskId: string
         <h2 className="text-[24px] font-bold">Relevé transmis !</h2>
         <p className="text-[15px] leading-relaxed">Mesures et photos bien reçues dans la fiche de {taskName}.</p>
         <p className="text-[13px] leading-relaxed">Une copie reste sur ce téléphone pendant 7 jours.</p>
-        <a href="/interne" className="mt-2 text-[15px] font-semibold underline underline-offset-4" style={{ color: LABEL }}>Retour au planning</a>
+        <a href={retour?.href || '/interne'} className="mt-2 text-[15px] font-semibold underline underline-offset-4" style={{ color: LABEL }}>{retour?.libelle || 'Retour au planning'}</a>
       </Carte>
     );
   }

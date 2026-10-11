@@ -4,6 +4,7 @@
 // - mode "liste" : la fiche a déjà des scénarios, on les affiche et on peut en ajouter ;
 // - mode "proposition" : fiche sans scénario, petite carte pour en créer au-dessus du relevé direct.
 // Les scénarios se créent avec du réseau, avant de descendre au sous-sol.
+// 11/10/2026 : scénarios triés par nom (A, B, C... et 2 avant 10), accord « relevés reçus ».
 import { useState } from 'react';
 import { CheckCircle, ChevronRight, ClipboardList, GitBranch, Plus } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, Repere, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
@@ -12,6 +13,10 @@ import { CYAN, ORANGE, GRIS, LABEL } from '@/components/charte/couleurs';
 export type ScenarioResume = { id: string; nom: string; statut: string };
 
 const estAVisiter = (statut: string) => statut.toUpperCase().includes('VISITER');
+
+// Tri naturel en français : « Scénario 2 » avant « Scénario 10 », A avant B
+export const trierScenarios = (liste: ScenarioResume[]): ScenarioResume[] =>
+  [...liste].sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { numeric: true, sensitivity: 'base' }));
 
 export function Scenarios({ affaireId, scenarios, mode }: { affaireId: string; scenarios: ScenarioResume[]; mode: 'liste' | 'proposition' }) {
   const [ouvert, setOuvert] = useState(mode === 'liste');
@@ -46,7 +51,9 @@ export function Scenarios({ affaireId, scenarios, mode }: { affaireId: string; s
     }
   };
 
-  const recus = scenarios.filter((s) => !estAVisiter(s.statut)).length;
+  const tries = trierScenarios(scenarios);
+  const recus = tries.filter((s) => !estAVisiter(s.statut)).length;
+  const pluriel = tries.length > 1 ? 's' : '';
 
   return (
     <div className="space-y-4">
@@ -54,9 +61,9 @@ export function Scenarios({ affaireId, scenarios, mode }: { affaireId: string; s
         <>
           <Repere>Scénarios de raccordement</Repere>
           <p className="px-1 text-[14px] leading-relaxed">
-            {recus}/{scenarios.length} relevé{scenarios.length > 1 ? 's' : ''} reçu{recus > 1 ? 's' : ''}. La fiche passe en « devis à faire » quand tous les scénarios sont reçus.
+            {recus}/{tries.length} relevé{pluriel} reçu{pluriel}. La fiche passe en « devis à faire » quand tous les scénarios sont reçus.
           </p>
-          {scenarios.map((s) => {
+          {tries.map((s) => {
             const fait = !estAVisiter(s.statut);
             return (
               <button

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { MetreForm } from '@/components/ui/MetreForm';
-import { Scenarios, type ScenarioResume } from '@/components/ui/Scenarios';
+import { Scenarios, trierScenarios, type ScenarioResume } from '@/components/ui/Scenarios';
 import { PageAppli, EnTeteAppli, ContenuAppli } from '@/components/charte/Appli';
 import { lireTacheQualification } from '@/lib/listesClickUp';
 
@@ -8,8 +8,8 @@ import { lireTacheQualification } from '@/lib/listesClickUp';
 // (vraie Qualification en production, TEST en preview), sinon page introuvable.
 // Trois cas (point 12 des Décisions ERP) :
 // - fiche sans scénario : relevé direct, comme avant, avec la possibilité de créer des scénarios ;
-// - fiche avec scénarios : écran Scénarios (un relevé par scénario) ;
-// - scénario : relevé complet, avec retour vers les scénarios de la fiche.
+// - fiche avec scénarios : écran Scénarios (un relevé par scénario), triés A, B, C ;
+// - scénario : relevé complet, avec retour vers les scénarios de la fiche (en-tête et écran de succès).
 const SEGMENT_OPTIONS: Record<number, string> = { 0: 'RES', 1: 'DAP', 2: 'COP', 3: 'PAR', 4: 'FLT', 5: 'TER' };
 
 async function lireFiche(taskId: string) {
@@ -28,11 +28,11 @@ async function lireFiche(taskId: string) {
       segment = SEGMENT_OPTIONS[idx] || '';
     }
 
-    const scenarios: ScenarioResume[] = (Array.isArray(data.subtasks) ? data.subtasks : []).map((s: any) => ({
+    const scenarios: ScenarioResume[] = trierScenarios((Array.isArray(data.subtasks) ? data.subtasks : []).map((s: any) => ({
       id: String(s.id),
       nom: String(s.name || ''),
       statut: String(s.status?.status || ''),
-    }));
+    })));
 
     let parent: { id: string; nom: string } | null = null;
     if (data.parent) {
@@ -57,11 +57,12 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
 
   // Scénario : relevé complet, retour vers les scénarios de la fiche
   if (fiche.parent) {
+    const retourScenarios = { href: `/interne/metre/${fiche.parent.id}`, libelle: 'Retour aux scénarios' };
     return (
       <PageAppli>
-        <EnTeteAppli surtitre={`Scénario · ${fiche.parent.nom}`} titre={fiche.name} retour={{ href: `/interne/metre/${fiche.parent.id}`, libelle: 'Scénarios' }} />
+        <EnTeteAppli surtitre={`Scénario · ${fiche.parent.nom}`} titre={fiche.name} retour={{ href: retourScenarios.href, libelle: 'Scénarios' }} />
         <ContenuAppli>
-          <MetreForm taskId={taskId} taskName={fiche.name} initialSegment={fiche.segment} />
+          <MetreForm taskId={taskId} taskName={fiche.name} initialSegment={fiche.segment} retour={retourScenarios} />
         </ContenuAppli>
       </PageAppli>
     );
