@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClickUp';
-import { aujourdhuiParis, ajouterJoursOuvres, echeanceClickUp, libelleJour } from '@/lib/joursOuvres';
+import { aujourdhuiParis, ajouterJoursOuvres, echeanceClickUp, libelleJour, type Jour } from '@/lib/joursOuvres';
 
 // Devis envoyé (Phase 4, décision Matthieu du 11/10/2026). Appelé par l'automatisation ClickUp
 // « statut → 📩 devis envoyé » de Qualification : POST ?taskId=...
@@ -10,11 +10,14 @@ import { aujourdhuiParis, ajouterJoursOuvres, echeanceClickUp, libelleJour } fro
 // 2. La fiche doit être en « devis envoyé » au moment de l'appel, sinon rien n'est fait.
 // 3. Échéance = première relance interne à J+3 ouvrés (week-ends et jours fériés français sautés).
 //    C'est un rappel au commercial : aucun email n'est envoyé au client.
-// 4. L'écriture est vérifiée par relecture, puis un commentaire note l'envoi et la date de relance.
+// 4. L'écriture est vérifiée par relecture (même jour à Paris : ClickUp arrondit l'heure d'une date sans heure,
+//    constaté au test du 11/10), puis un commentaire note l'envoi et la date de relance.
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches TEST uniquement).
 
 const STATUT_ENVOYE = 'devis envoy';
 const DELAI_OUVRES = 3;
+
+const memeJour = (a: Jour, b: Jour) => a.a === b.a && a.m === b.m && a.j === b.j;
 
 async function lireTache(taskId: string, token: string): Promise<any | null> {
   const res = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(taskId)}?custom_task_ids=true`, {
@@ -80,13 +83,14 @@ async function traiter(taskId: string, simulation: boolean) {
   const resume = { envoi: libelleJour(envoi), relance: libelleJour(relance), echeance: ms };
   if (simulation) return { status: 200, body: { success: true, action: 'programmerait', ...resume, simulation } };
 
-  // 4. Écriture vérifiée, puis commentaire
+  // 4. Écriture vérifiée (même jour à Paris), puis commentaire
   const ecrit = await ecrireEcheance(id, token, ms);
   const relue = ecrit ? await lireTache(id, token) : null;
-  const verif = !!relue && Number(relue.due_date) === ms;
+  const lue = relue?.due_date ? aujourdhuiParis(new Date(Number(relue.due_date))) : null;
+  const verif = !!lue && memeJour(lue, relance);
   if (!verif) {
     await commenter(id, token, `⚠️ Relance : l'échéance du ${resume.relance} n'a pas pu être enregistrée. Mets-la à la main sur la fiche.`);
-    return { status: 502, body: { success: false, error: 'Écriture de l’échéance impossible', ...resume } };
+    return { status: 502, body: { success: false, error: 'Écriture de l’échéance impossible', ...resume, lue: lue ? libelleJour(lue) : null } };
   }
   await commenter(id, token, `📩 Devis envoyé le ${resume.envoi}. Première relance prévue le ${resume.relance} (J+${DELAI_OUVRES} ouvrés), dans l'échéance de la fiche.`);
   return { status: 200, body: { success: true, action: 'programme', ...resume, verif } };
