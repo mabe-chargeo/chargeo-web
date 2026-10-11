@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
+import { CHAMP_AVIS, CHAMP_TECHNICIEN, creerRappelAvis, poseurs } from '@/lib/avisGoogle';
 
 // Réception, réserves et passage au Parc (Phase 4, bloc 2 validé par Matthieu le 11/10/2026).
 // Appelé par les automatisations de Planning Chantiers : POST ?taskId=...&evenement=realise | termine
@@ -8,7 +9,8 @@ import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
 // - termine (statut → 🏁 terminé) : refusé si Réserves vide ou 🔴 Bloquante, PV manquant, ou réserve mineure sans
 //   sous-tâche « 🔧 Réserve : … » complète (responsable + échéance). Refus : retour en ✅ réalisé + motif.
 //   Sinon le site déplace la même tâche au Parc installé (🟢 en service ; sous-tâches de réserve ouvertes en
-//   ⚠️ sous surveillance) et commente. Les règlements et aides ne conditionnent pas ce passage.
+//   ⚠️ sous surveillance), crée la sous-tâche « ⭐ Demander un avis Google » pour le poseur (lendemain) et commente.
+//   Les règlements et aides ne conditionnent pas ce passage.
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
 
 const WORKSPACE_ID = process.env.CLICKUP_TEAM_ID || '90151325642';
@@ -17,7 +19,7 @@ const PARC_ID = '901520038290';
 const CHAMP_RESERVES = '1463a905-0b11-4693-b9d9-e8cca4f79eeb';
 const CHAMP_PV = 'ea4cf46a-c8bc-41ad-a46e-c7d313099f1b';
 const CHAMP_PHOTOS = 'e907f3f8-c702-47bd-b523-017e684e78c1';
-const CHAMPS_A_GARDER = [CHAMP_PV, CHAMP_PHOTOS, CHAMP_RESERVES];
+const CHAMPS_A_GARDER = [CHAMP_PV, CHAMP_PHOTOS, CHAMP_RESERVES, CHAMP_TECHNICIEN, CHAMP_AVIS];
 const PREFIXE_REFUS = '🔴 Passage au Parc refusé';
 const EVENEMENTS = ['realise', 'termine'] as const;
 type Evenement = (typeof EVENEMENTS)[number];
@@ -106,12 +108,12 @@ async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean;
     if (s && !utilises.some((u) => u.id === s.id)) utilises.push(s);
   }
 
-  // La doc ClickUp n'est pas claire sur le nom des clés : on essaie les deux formats, du plus complet au plus simple
+  // Format validé le 11/10 : source_status_id / destination_status_id sur les statuts utilisés (essai « utilises_id »).
+  // Les autres formats restent en secours.
   const essais: { nom: string; mappings: any[] }[] = [
     { nom: 'utilises_id', mappings: utilises.map((s) => ({ source_status_id: s.id, destination_status_id: cible(s) })) },
     { nom: 'utilises', mappings: utilises.map((s) => ({ source_status: s.id, destination_status: cible(s) })) },
     { nom: 'actuel_id', mappings: [{ source_status_id: actuel.id, destination_status_id: enService.id }] },
-    { nom: 'actuel', mappings: [{ source_status: actuel.id, destination_status: enService.id }] },
   ];
   const erreurs: string[] = [];
   for (const e of essais) {
@@ -151,8 +153,9 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   const photos = aFichier(tache, CHAMP_PHOTOS);
   const res = reserves(tache);
   const st = sousTachesReserve(tache);
+  const pose = poseurs(tache);
   const jour = libelleJour(aujourdhuiParis());
-  const etat = { pv, photos, reserves: res || 'vide', sousTachesReserve: st.total, sousTachesIncompletes: st.incompletes };
+  const etat = { pv, photos, reserves: res || 'vide', sousTachesReserve: st.total, sousTachesIncompletes: st.incompletes, poseurs: pose.noms };
 
   if (evenement === 'realise') {
     const manque: string[] = [];
@@ -193,7 +196,8 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
 
   const mineures = res === 'mineure' ? ` ${st.total} réserve${st.total > 1 ? 's' : ''} mineure${st.total > 1 ? 's' : ''} suivie${st.total > 1 ? 's' : ''} en sous-tâche.` : '';
   const sansPhotos = photos ? '' : ' ⚠️ Pas de 📸 Photos Chantier : à ajouter pour le SAV.';
-  const texte = `🏁 Réception confirmée le ${jour} : chantier passé au Parc installé.${mineures}${sansPhotos}`;
+  const avis = ` ⭐ Demande d'avis Google à faire demain${pose.noms.length ? ` par ${pose.noms.join(', ')}` : ''}.`;
+  let texte = `🏁 Réception confirmée le ${jour} : chantier passé au Parc installé.${mineures}${sansPhotos}${avis}`;
   if (simulation) return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, simulation } };
 
   const d = await deplacerAuParc(tache, token);
@@ -201,8 +205,11 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
     await commenter(id, token, `⚠️ Passage au Parc : la tâche n'a pas pu être déplacée. Déplace-la à la main vers Parc installé.`, true);
     return { status: 502, body: { success: false, error: 'Déplacement impossible', detail: d.detail, ...etat } };
   }
+  const rappel = await creerRappelAvis(tache, token, PARC_ID, pose);
+  if (!rappel.ok) texte = texte.replace(avis, ' ⚠️ La sous-tâche ⭐ avis Google n\'a pas pu être créée : demande l\'avis à la main demain.');
+  else if (rappel.deja) texte = texte.replace(avis, ' ⭐ Sous-tâche d\'avis Google déjà présente.');
   await commenter(id, token, texte);
-  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, ...etat, commentaire: texte } };
+  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, avis: rappel, ...etat, commentaire: texte } };
 }
 
 function lireEvenement(p: URLSearchParams): Evenement | null {
