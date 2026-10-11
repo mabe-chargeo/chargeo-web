@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
+import { aujourdhuiParis, ajouterJours, libelleJour } from '@/lib/joursOuvres';
 import { CHAMP_AVIS, CHAMP_TECHNICIEN, creerRappelAvis, poseurs } from '@/lib/avisGoogle';
 
 // Réception, réserves et passage au Parc (Phase 4, bloc 2 validé par Matthieu le 11/10/2026).
@@ -9,8 +9,8 @@ import { CHAMP_AVIS, CHAMP_TECHNICIEN, creerRappelAvis, poseurs } from '@/lib/av
 // - termine (statut → 🏁 terminé) : refusé si Réserves vide ou 🔴 Bloquante, PV manquant, ou réserve mineure sans
 //   sous-tâche « 🔧 Réserve : … » complète (responsable + échéance). Refus : retour en ✅ réalisé + motif.
 //   Sinon le site déplace la même tâche au Parc installé (🟢 en service ; sous-tâches de réserve ouvertes en
-//   ⚠️ sous surveillance), crée la sous-tâche « ⭐ Demander un avis Google » pour le poseur (lendemain) et commente.
-//   Les règlements et aides ne conditionnent pas ce passage.
+//   ⚠️ sous surveillance), note la demande d'avis faite sur place (QR code) et crée la sous-tâche ⭐ de relance
+//   par email à J+7 pour le poseur. Les règlements et aides ne conditionnent pas ce passage.
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
 
 const WORKSPACE_ID = process.env.CLICKUP_TEAM_ID || '90151325642';
@@ -154,7 +154,8 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   const res = reserves(tache);
   const st = sousTachesReserve(tache);
   const pose = poseurs(tache);
-  const jour = libelleJour(aujourdhuiParis());
+  const aujourdhui = aujourdhuiParis();
+  const jour = libelleJour(aujourdhui);
   const etat = { pv, photos, reserves: res || 'vide', sousTachesReserve: st.total, sousTachesIncompletes: st.incompletes, poseurs: pose.noms };
 
   if (evenement === 'realise') {
@@ -196,7 +197,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
 
   const mineures = res === 'mineure' ? ` ${st.total} réserve${st.total > 1 ? 's' : ''} mineure${st.total > 1 ? 's' : ''} suivie${st.total > 1 ? 's' : ''} en sous-tâche.` : '';
   const sansPhotos = photos ? '' : ' ⚠️ Pas de 📸 Photos Chantier : à ajouter pour le SAV.';
-  const avis = ` ⭐ Demande d'avis Google à faire demain${pose.noms.length ? ` par ${pose.noms.join(', ')}` : ''}.`;
+  const avis = ` ⭐ Avis Google demandé sur place${pose.noms.length ? ` par ${pose.noms.join(', ')}` : ''} ; sans avis, relance par email le ${libelleJour(ajouterJours(aujourdhui, 7))}.`;
   let texte = `🏁 Réception confirmée le ${jour} : chantier passé au Parc installé.${mineures}${sansPhotos}${avis}`;
   if (simulation) return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, simulation } };
 
@@ -205,8 +206,8 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
     await commenter(id, token, `⚠️ Passage au Parc : la tâche n'a pas pu être déplacée. Déplace-la à la main vers Parc installé.`, true);
     return { status: 502, body: { success: false, error: 'Déplacement impossible', detail: d.detail, ...etat } };
   }
-  const rappel = await creerRappelAvis(tache, token, PARC_ID, pose);
-  if (!rappel.ok) texte = texte.replace(avis, ' ⚠️ La sous-tâche ⭐ avis Google n\'a pas pu être créée : demande l\'avis à la main demain.');
+  const rappel = await creerRappelAvis(tache, token, PARC_ID, pose, true);
+  if (!rappel.ok) texte = texte.replace(avis, ' ⚠️ La sous-tâche ⭐ avis Google n\'a pas pu être créée : note la relance à J+7 à la main.');
   else if (rappel.deja) texte = texte.replace(avis, ' ⭐ Sous-tâche d\'avis Google déjà présente.');
   await commenter(id, token, texte);
   return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, avis: rappel, ...etat, commentaire: texte } };
