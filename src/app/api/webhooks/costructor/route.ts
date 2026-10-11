@@ -5,11 +5,15 @@ import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClick
 // Décisions : point 5 (échec propre, sans doublon, alerte au commercial), point 15 (client payeur,
 // gestionnaire et contact sur place), plan du lot 3.4 validé par Matthieu le 11/10.
 // 1. « Lien Costructor » rempli et contact existant : rien n'est créé.
-// 2. Sinon recherche dans Costructor : SIRET d'abord, puis email ou téléphone.
+// 2. Sinon recherche du client dans Costructor : SIRET d'abord, puis email ou téléphone.
+//    Pour une société, l'email ou le téléphone ne suffit pas : le nom doit correspondre aussi
+//    (un gestionnaire de syndic porte le même email sur plusieurs copros). Sinon on crée, avec un avertissement.
 //    Un seul résultat : on le relie. Plusieurs : rien n'est créé, un commentaire demande de choisir.
-// 3. Rien trouvé : création du client payeur (nom de la fiche, SIRET). L'API Costructor ne permet pas de
-//    rattacher des interlocuteurs (test du 11/10) : le contact principal (Gestionnaire, sinon Contact sur place)
-//    est mis sur le client (nom, email, téléphone), et tous les contacts avec leur rôle vont dans les notes.
+// 3. Rien trouvé : création du client payeur (nom de la fiche, SIRET). Le contact principal (Gestionnaire,
+//    sinon Contact sur place) est mis sur le client (nom, email, téléphone), tous les contacts vont dans les notes.
+//    Interlocuteurs : l'API sait créer une fiche interlocuteur (type « contact ») mais pas la rattacher (test du 11/10).
+//    Chaque personne est retrouvée dans Costructor (email, téléphone, nom) ou créée, puis un commentaire
+//    sur la fiche liste qui rattacher à la main, ⭐ = principal (Gestionnaire d'abord).
 //    Après création, on relit le client pour vérifier que l'email et le téléphone sont bien enregistrés.
 // 4. Le lien n'est écrit que s'il est vide ou mort. Chaque écriture est vérifiée ; un échec pose un commentaire d'alerte.
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (vrai passage, fiches TEST uniquement).
@@ -44,6 +48,23 @@ function telNormal(s: any): string {
   if (t.startsWith('0')) t = '+33' + t.slice(1);
   return t;
 }
+const mots = (s: string): string[] =>
+  String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter(Boolean);
+
+// Comparaison de noms de société : on ignore les mots génériques, et tous les mots du nom le plus court
+// doivent se retrouver dans l'autre (« TEST · CCPEVA » = « CCPEVA COMMUNAUTE DE COMMUNES… », « SDC Le Relax » ≠ « COPR LES ROUSSY »)
+const MOTS_GENERIQUES = new Set(['test', 'sdc', 'copr', 'copro', 'copropriete', 'synd', 'syndic', 'syndicat', 'residence', 'res',
+  'le', 'la', 'les', 'l', 'du', 'de', 'des', 'd', 'et', 'sarl', 'sas', 'sasu', 'eurl', 'sa', 'sci']);
+function memeNomSociete(a: string, b: string): boolean {
+  const ma = mots(a).filter((m) => !MOTS_GENERIQUES.has(m));
+  const mb = mots(b).filter((m) => !MOTS_GENERIQUES.has(m));
+  if (ma.length === 0 || mb.length === 0) return false;
+  const [court, long] = ma.length <= mb.length ? [ma, mb] : [mb, ma];
+  const dansLong = new Set(long);
+  return court.every((m) => dansLong.has(m));
+}
+// Comparaison de noms de personne, dans n'importe quel ordre (« Magali DUCRET PEILLEX » = « Ducret-Peillex Magali »)
+const clePersonne = (s: string) => mots(s).sort().join(' ');
 
 function lireChamp(tache: any, champ: { id: string; nom: string }): any {
   const champs: any[] = Array.isArray(tache?.custom_fields) ? tache.custom_fields : [];
@@ -58,12 +79,12 @@ function lireChamp(tache: any, champ: { id: string; nom: string }): any {
 
 // « Florian PIERRU » -> prénom Florian, nom PIERRU ; sinon premier mot = prénom
 function decouperNom(nom: string): { firstName?: string; lastName: string } {
-  const mots = String(nom || '').trim().split(/\s+/).filter(Boolean);
-  const enMajuscules = mots.filter((m) => m.length > 1 && m === m.toUpperCase() && /[A-ZÀ-Ý]/.test(m));
-  if (enMajuscules.length > 0 && enMajuscules.length < mots.length) {
-    return { firstName: mots.filter((m) => !enMajuscules.includes(m)).join(' '), lastName: enMajuscules.join(' ') };
+  const liste = String(nom || '').trim().split(/\s+/).filter(Boolean);
+  const enMajuscules = liste.filter((m) => m.length > 1 && m === m.toUpperCase() && /[A-ZÀ-Ý]/.test(m));
+  if (enMajuscules.length > 0 && enMajuscules.length < liste.length) {
+    return { firstName: liste.filter((m) => !enMajuscules.includes(m)).join(' '), lastName: enMajuscules.join(' ') };
   }
-  if (mots.length >= 2) return { firstName: mots[0], lastName: mots.slice(1).join(' ') };
+  if (liste.length >= 2) return { firstName: liste[0], lastName: liste.slice(1).join(' ') };
   return { lastName: String(nom || '').trim() };
 }
 
@@ -116,15 +137,28 @@ async function ecrireLien(taskId: string, token: string, url: string): Promise<b
   return res.ok;
 }
 
+// Appel Costructor avec nouvel essai si trop de requêtes (429 vu pendant le test du 11/10)
+async function costructor(token: string, chemin: string, methode = 'GET', corps?: any): Promise<Response> {
+  let res: Response | null = null;
+  for (let essai = 0; essai < 3; essai++) {
+    res = await fetch(`${COSTRUCTOR}${chemin}`, {
+      method: methode,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: corps ? JSON.stringify(corps) : undefined,
+      cache: 'no-store',
+    });
+    if (res.status !== 429) return res;
+    await new Promise((r) => setTimeout(r, 1500 * (essai + 1)));
+  }
+  return res as Response;
+}
+
 // Tous les contacts Costructor (l'API pagine avec _limit/_page, comme pour les devis). null = lecture impossible.
 async function listerContacts(token: string): Promise<any[] | null> {
   const tous: any[] = [];
   const vus = new Set<string>();
   for (let page = 1; page <= 30; page++) {
-    const res = await fetch(`${COSTRUCTOR}/contacts?_limit=100&limit=100&_page=${page}&page=${page}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store',
-    });
+    const res = await costructor(token, `/contacts?_limit=100&limit=100&_page=${page}&page=${page}`);
     if (!res.ok) return page === 1 ? null : tous;
     const json = await res.json().catch(() => ({}));
     const lot: any[] = Array.isArray(json?.data) ? json.data : [];
@@ -137,13 +171,18 @@ async function listerContacts(token: string): Promise<any[] | null> {
 
 // Relecture d'un contact après création. null = lecture impossible.
 async function lireContact(id: string, token: string): Promise<any | null> {
-  const res = await fetch(`${COSTRUCTOR}/contacts/${encodeURIComponent(id)}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: 'no-store',
-  });
+  const res = await costructor(token, `/contacts/${encodeURIComponent(id)}`);
   if (!res.ok) return null;
   const json = await res.json().catch(() => null);
   return json?.data ?? json;
+}
+
+// Création d'un contact. Renvoie son identifiant, ou '' si refusé.
+async function creerContact(token: string, corps: any): Promise<string> {
+  const res = await costructor(token, '/contacts', 'POST', corps);
+  const texte = await res.text();
+  if (!res.ok) { console.error(`Création Costructor refusée (${res.status})`, texte); return ''; }
+  try { return String(JSON.parse(texte)?.data?.id || ''); } catch { return ''; }
 }
 
 const nomContact = (c: any) => String(c?.fullName || c?.companyName || [c?.firstName, c?.lastName].filter(Boolean).join(' ') || c?.name || c?.id);
@@ -151,6 +190,7 @@ const emailsDe = (c: any): string[] => [c?.email, ...(Array.isArray(c?.emails) ?
 const telsDe = (c: any): string[] => [c?.phone, ...(Array.isArray(c?.phones) ? c.phones.map((p: any) => p?.phone) : [])].map(telNormal).filter(Boolean);
 
 type Personne = { role: string; firstName?: string; lastName: string; email?: string; phone?: string };
+const nomPersonne = (p: Personne) => [p.firstName, p.lastName].filter(Boolean).join(' ');
 
 // Personnes liées par une relation vers la liste Contacts, Gestionnaire d'abord
 // (valeur ClickUp : liste de tâches ou d'identifiants)
@@ -180,7 +220,7 @@ async function personnesLiees(tache: any, token: string): Promise<Personne[]> {
 
 // « Gestionnaire : Magali DUCRET PEILLEX, mducretpeillex@citya.com »
 const ligneNote = (p: Personne) =>
-  `${p.role} : ${[[p.firstName, p.lastName].filter(Boolean).join(' '), p.email, p.phone].filter(Boolean).join(', ')}`;
+  `${p.role} : ${[nomPersonne(p), p.email, p.phone].filter(Boolean).join(', ')}`;
 
 async function traiter(taskId: string, simulation: boolean) {
   const clickUpToken = process.env.CLICKUP_API_KEY;
@@ -237,6 +277,7 @@ async function traiter(taskId: string, simulation: boolean) {
   const clients = contacts.filter((c) => ['client', 'lead'].includes(String(c?.type || 'client')));
   let raison = '';
   let candidats: any[] = [];
+  let homonymes: any[] = []; // même email ou téléphone mais autre nom (sociétés seulement)
   if (siret.length >= 9) {
     const exacts = clients.filter((c) => chiffres(c.taxId) === siret);
     const memeSiren = clients.filter((c) => chiffres(c.taxId).slice(0, 9) === siret.slice(0, 9));
@@ -247,10 +288,18 @@ async function traiter(taskId: string, simulation: boolean) {
     const parEmail = email ? clients.filter((c) => emailsDe(c).includes(email)) : [];
     const parTel = telephone ? clients.filter((c) => telsDe(c).includes(telephone)) : [];
     const vus = new Set<string>();
-    candidats = [...parEmail, ...parTel].filter((c) => (vus.has(c.id) ? false : (vus.add(c.id), true)));
-    raison = parEmail.length > 0 && parTel.length > 0 ? 'email et téléphone' : parEmail.length > 0 ? 'email' : 'téléphone';
+    let trouves = [...parEmail, ...parTel].filter((c) => (vus.has(c.id) ? false : (vus.add(c.id), true)));
+    if (estSociete) {
+      homonymes = trouves.filter((c) => !memeNomSociete(nomContact(c), nomFiche));
+      trouves = trouves.filter((c) => memeNomSociete(nomContact(c), nomFiche));
+    }
+    candidats = trouves;
+    const viaEmail = candidats.some((c) => parEmail.includes(c));
+    const viaTel = candidats.some((c) => parTel.includes(c));
+    raison = viaEmail && viaTel ? 'email et téléphone' : viaEmail ? 'email' : 'téléphone';
   }
   const resume = candidats.map((c) => ({ id: c.id, nom: nomContact(c), url: URL_CONTACT(c.id) }));
+  const resumeHomonymes = homonymes.map((c) => ({ id: c.id, nom: nomContact(c), url: URL_CONTACT(c.id) }));
 
   // Plusieurs clients possibles : on ne choisit pas à la place du commercial
   if (candidats.length > 1) {
@@ -300,26 +349,30 @@ async function traiter(taskId: string, simulation: boolean) {
     addresses: adresseObj ? [{ address: adresseObj, primary: true }] : [],
   };
 
+  // Interlocuteurs : seulement les personnes nommées (Costructor exige un nom). Retrouvées ou à créer.
+  const fichesPersonnes = contacts.filter((c) => String(c?.type) === 'contact');
+  const trouverPersonne = (p: Personne): any | undefined => {
+    if (p.email) { const r = fichesPersonnes.find((c) => emailsDe(c).includes(p.email as string)); if (r) return r; }
+    if (p.phone) { const r = fichesPersonnes.find((c) => telsDe(c).includes(p.phone as string)); if (r) return r; }
+    const cle = clePersonne(nomPersonne(p));
+    return cle ? fichesPersonnes.find((c) => clePersonne(nomContact(c)) === cle) : undefined;
+  };
+  const plan = personnes.filter((p) => p.lastName).map((p) => ({ personne: p, existant: trouverPersonne(p) }));
+
   if (simulation) {
-    return { status: 200, body: { success: true, action: 'creerait', lienMort, payload, simulation } };
+    const interlocuteurs = plan.map(({ personne, existant }) => ({
+      nom: nomPersonne(personne),
+      role: personne.role,
+      action: existant ? 'reutiliserait' : 'creerait',
+      url: existant ? URL_CONTACT(existant.id) : undefined,
+    }));
+    return { status: 200, body: { success: true, action: 'creerait', lienMort, payload, interlocuteurs, homonymes: resumeHomonymes, simulation } };
   }
 
-  const res = await fetch(`${COSTRUCTOR}/contacts`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${costructorToken}` },
-    body: JSON.stringify(payload),
-  });
-  const texte = await res.text();
-  if (!res.ok) {
-    console.error(`Création Costructor refusée (${res.status})`, texte);
-    await alerter("la création du client a été refusée par Costructor. Vérifiez le nom, l'email et l'adresse de la fiche.");
-    return { status: 502, body: { success: false, error: 'Création Costructor refusée' } };
-  }
-  let creeId = '';
-  try { creeId = String(JSON.parse(texte)?.data?.id || ''); } catch { /* réponse illisible */ }
+  const creeId = await creerContact(costructorToken, payload);
   if (!creeId) {
-    await alerter("client créé mais son identifiant n'a pas été renvoyé. Retrouvez-le dans Costructor et collez son lien dans la fiche.");
-    return { status: 502, body: { success: false, error: 'Identifiant Costructor absent' } };
+    await alerter("la création du client a été refusée par Costructor (ou son identifiant n'a pas été renvoyé). Vérifiez dans Costructor avant de le créer à la main.");
+    return { status: 502, body: { success: false, error: 'Création Costructor refusée' } };
   }
   const url = URL_CONTACT(creeId);
   if (!(await ecrireLien(id, clickUpToken, url))) {
@@ -339,7 +392,40 @@ async function traiter(taskId: string, simulation: boolean) {
   } else if (manques.length > 0) {
     await alerter(`client créé (${url}) mais ${manques.join(' et ')} n'a pas été enregistré. Complétez-le à la main dans Costructor.`);
   }
-  return { status: 200, body: { success: true, action: 'cree', client: { id: creeId, url }, verif, lienMort } };
+
+  // Fiches interlocuteurs : réutilisées ou créées (le rattachement reste manuel)
+  const interlocuteurs: { nom: string; role: string; action: string; url?: string }[] = [];
+  for (const { personne, existant } of plan) {
+    const base = { nom: nomPersonne(personne), role: personne.role };
+    if (existant) { interlocuteurs.push({ ...base, action: 'reutilise', url: URL_CONTACT(existant.id) }); continue; }
+    const pid = await creerContact(costructorToken, {
+      type: 'contact',
+      legalStatus: 'individual',
+      firstName: personne.firstName,
+      lastName: personne.lastName,
+      emails: personne.email ? [{ email: personne.email, primary: true }] : undefined,
+      phones: personne.phone ? [{ phone: personne.phone, primary: true }] : undefined,
+    });
+    interlocuteurs.push(pid ? { ...base, action: 'cree', url: URL_CONTACT(pid) } : { ...base, action: 'echec' });
+  }
+
+  // Commentaire sur la fiche : client créé, interlocuteurs à rattacher, doublons possibles
+  const lignes = [`✅ Costructor : client créé : ${url}`];
+  if (interlocuteurs.length > 0) {
+    lignes.push('', 'À rattacher comme interlocuteurs (Modifier → Interlocuteurs, ⭐ = principal) :');
+    interlocuteurs.forEach((i, n) => {
+      const puce = n === 0 ? '⭐' : '•';
+      const etat = i.action === 'reutilise' ? 'déjà dans Costructor' : i.action === 'cree' ? 'fiche créée' : 'création impossible, à ajouter à la main';
+      lignes.push(`${puce} ${i.nom} (${i.role}${n === 0 ? ', principal' : ''}, ${etat})${i.url ? ` : ${i.url}` : ''}`);
+    });
+  }
+  if (resumeHomonymes.length > 0) {
+    lignes.push('', `⚠️ Attention : ${resumeHomonymes.length > 1 ? 'des clients existants ont' : 'un client existant a'} le même email ou téléphone mais un autre nom. Vérifiez que ce n'est pas un doublon :`);
+    resumeHomonymes.forEach((h) => lignes.push(`• ${h.nom} : ${h.url}`));
+  }
+  await commenter(id, clickUpToken, lignes.join('\n'));
+
+  return { status: 200, body: { success: true, action: 'cree', client: { id: creeId, url }, verif, interlocuteurs, homonymes: resumeHomonymes, lienMort } };
 }
 
 export async function POST(request: Request) {
