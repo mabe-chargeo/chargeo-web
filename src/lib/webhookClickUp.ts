@@ -8,7 +8,7 @@ import { alerter } from '@/lib/alerteSite';
 //   l'abonnement). Le secret est relu dans ClickUp (liste des webhooks de l'espace), ou pris dans la variable
 //   Vercel CLICKUP_WEBHOOK_SECRET si elle existe. Un envoi mal signé est refusé.
 // - Adresse : production = domaine de production (CHARGEO_SITE_URL ou VERCEL_PROJECT_PRODUCTION_URL, sinon chargeo.fr).
-//   Preview = adresse fixe de la branche (VERCEL_BRANCH_URL), avec le jeton Vercel « Protection Bypass for Automation »
+//   Preview = adresse du déploiement (VERCEL_URL), avec le jeton Vercel « Protection Bypass for Automation »
 //   (VERCEL_AUTOMATION_BYPASS_SECRET), sans quoi ClickUp serait bloqué par la protection des previews.
 // - Santé : ClickUp suspend un abonnement après trop d'échecs. Le contrôle quotidien le réactive et prévient
 //   (tâche CLICKUP_TACHE_ALERTES_ID si elle est renseignée).
@@ -40,13 +40,16 @@ export function adresseWebhook(): { url: string; erreur?: string } {
     const base = (process.env.CHARGEO_SITE_URL || prod || 'https://chargeo.fr').replace(/\/$/, '');
     return { url: `${base}${CHEMIN}` };
   }
-  const branche = process.env.VERCEL_BRANCH_URL;
-  if (!branche) return { url: '', erreur: "Adresse de la branche introuvable (VERCEL_BRANCH_URL)" };
+  // ClickUp refuse l'adresse fixe de la branche (test du 12/10 : « Specified URL not allowed », nom trop long) mais
+  // accepte celle du déploiement. Elle change à chaque déploiement : relancer ?action=installer après chaque mise à jour
+  // (l'ancien abonnement de preview est alors remplacé).
+  const deploiement = process.env.VERCEL_URL;
+  if (!deploiement) return { url: '', erreur: "Adresse du déploiement introuvable (VERCEL_URL)" };
   const jeton = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
   if (!jeton) {
-    return { url: `https://${branche}${CHEMIN}`, erreur: "Active « Protection Bypass for Automation » dans Vercel (Settings > Deployment Protection), puis redéploie : sans ce jeton, ClickUp est bloqué par la protection des previews." };
+    return { url: `https://${deploiement}${CHEMIN}`, erreur: "Active « Protection Bypass for Automation » dans Vercel (Settings > Deployment Protection), puis redéploie : sans ce jeton, ClickUp est bloqué par la protection des previews." };
   }
-  return { url: `https://${branche}${CHEMIN}?x-vercel-protection-bypass=${encodeURIComponent(jeton)}` };
+  return { url: `https://${deploiement}${CHEMIN}?x-vercel-protection-bypass=${encodeURIComponent(jeton)}` };
 }
 
 const sansRequete = (u: string) => String(u || '').split('?')[0];
@@ -86,13 +89,24 @@ export async function installerWebhook(token: string) {
   if (!liste) return { success: false, error: 'Lecture des webhooks ClickUp impossible' };
   const existant = liste.find((w) => estNotreAdresse(w, url));
   if (existant) return { success: true, action: 'deja_installe', webhook: resumeWebhook(existant) };
+  // Preview : un seul abonnement à la fois, les anciens déploiements de preview sont désabonnés
+  const remplaces: any[] = [];
+  if (process.env.VERCEL_ENV !== 'production') {
+    for (const w of liste) {
+      const base = sansRequete(w?.endpoint);
+      if (!base.endsWith(CHEMIN) || !/\.vercel\.app\//.test(base)) continue;
+      const del = await api(token, `/webhook/${w.id}`, 'DELETE');
+      secrets.delete(String(w.id));
+      remplaces.push({ ...resumeWebhook(w), supprime: del.ok });
+    }
+  }
   const res = await api(token, `/team/${TEAM_ID}/webhook`, 'POST', { endpoint: url, events: EVENEMENTS_WEBHOOK });
   const texte = await res.text();
   if (!res.ok) return { success: false, error: `Création refusée par ClickUp (${res.status})`, detail: texte.slice(0, 200) };
   const json = (() => { try { return JSON.parse(texte); } catch { return {}; } })();
   const id = String(json?.id || json?.webhook?.id || '');
   if (id && json?.webhook?.secret) secrets.set(id, String(json.webhook.secret));
-  return { success: true, action: 'installe', webhook: resumeWebhook({ ...(json?.webhook || {}), id, endpoint: url, events: EVENEMENTS_WEBHOOK }) };
+  return { success: true, action: 'installe', webhook: resumeWebhook({ ...(json?.webhook || {}), id, endpoint: url, events: EVENEMENTS_WEBHOOK }), remplaces };
 }
 
 export async function supprimerWebhook(token: string, id: string) {
