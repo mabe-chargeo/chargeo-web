@@ -7,17 +7,23 @@ import { aujourdhuiParis, ajouterJoursOuvres, echeanceClickUp, libelleJour, type
 // Le devis part par email depuis la tâche, puis le commercial passe la fiche en devis envoyé (ClickUp ne sait pas
 // réagir à un email envoyé). Le futur bouton « Envoyer le devis » de l'appli (Phase 6) réutilisera ce calcul.
 // 1. Sous-tâche (scénario, emplacement) : ignorée, seule la fiche principale porte la relance.
-// 2. La fiche doit être en « devis envoyé » au moment de l'appel, sinon rien n'est fait.
-// 3. Échéance = première relance interne à J+3 ouvrés (week-ends et jours fériés français sautés).
+// 2. Fin des relances (décision Matthieu du 12/10, trou vu au test à blanc) : fiche 🏆 gagnée, ❌ perdue ou archivée
+//    (statut terminé), ou déjà arrivée dans Planning Chantiers (l'automatisation du gagné peut la déplacer avant
+//    l'appel) : l'échéance de relance est retirée et un commentaire le note. Appelé aussi par l'automatisation
+//    « statut → 🏆 gagné ou ❌ perdu » de Qualification.
+// 3. Sinon la fiche doit être en « devis envoyé » au moment de l'appel, sinon rien n'est fait.
+// 4. Échéance = première relance interne à J+3 ouvrés (week-ends et jours fériés français sautés).
 //    C'est un rappel au commercial : aucun email n'est envoyé au client.
-// 4. L'écriture est vérifiée par relecture (même jour à Paris : ClickUp arrondit l'heure d'une date sans heure,
+// 5. L'écriture est vérifiée par relecture (même jour à Paris : ClickUp arrondit l'heure d'une date sans heure,
 //    constaté au test du 11/10), puis un commentaire note l'envoi et la date de relance.
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches TEST uniquement).
 
 const STATUT_ENVOYE = 'devis envoy';
 const DELAI_OUVRES = 3;
+const PLANNING_CHANTIERS_ID = '901520038258';
 
 const memeJour = (a: Jour, b: Jour) => a.a === b.a && a.m === b.m && a.j === b.j;
+const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 async function lireTache(taskId: string, token: string): Promise<any | null> {
   const res = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(taskId)}?custom_task_ids=true`, {
@@ -37,11 +43,12 @@ async function commenter(taskId: string, token: string, texte: string): Promise<
   return res.ok;
 }
 
-async function ecrireEcheance(taskId: string, token: string, ms: number): Promise<boolean> {
+// ms = null : retire l'échéance
+async function ecrireEcheance(taskId: string, token: string, ms: number | null): Promise<boolean> {
   const res = await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
     method: 'PUT',
     headers: { Authorization: token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ due_date: ms, due_date_time: false }),
+    body: JSON.stringify(ms === null ? { due_date: null } : { due_date: ms, due_date_time: false }),
   });
   if (!res.ok) console.error(`Écriture de l'échéance refusée (${res.status}) sur ${taskId}`, await res.text().catch(() => ''));
   return res.ok;
@@ -59,31 +66,46 @@ async function traiter(taskId: string, simulation: boolean) {
     return { status: 200, body: { success: true, action: 'ignore_sous_tache', parent: String(tache.parent), simulation } };
   }
 
+  const liste = String(tache?.list?.id ?? '');
   // Preview : vrai passage sur les fiches TEST seulement ; simulation aussi sur une vraie fiche Qualification
   if (process.env.VERCEL_ENV !== 'production') {
     const listeTest = getQualificationListId();
-    const liste = String(tache?.list?.id ?? '');
-    const estTest = !!listeTest && liste === String(listeTest);
+    const estTest = (!!listeTest && liste === String(listeTest))
+      || (liste === PLANNING_CHANTIERS_ID && normal(tache.name).startsWith('test'));
     if (!estTest && !(simulation && liste === QUALIFICATION_PROD_ID)) {
       return { status: 403, body: { success: false, error: 'En preview : fiches TEST, ou simulation seule sur une vraie fiche Qualification' } };
     }
   }
   const id = String(tache.id);
-
-  // 2. Statut actuel
   const statut = String(tache?.status?.status || '');
+
+  // 2. Fin des relances : gagné, perdu, archivé, ou fiche déjà partie en Planning Chantiers
+  const typeStatut = String(tache?.status?.type || '');
+  if (typeStatut === 'done' || typeStatut === 'closed' || liste === PLANNING_CHANTIERS_ID) {
+    if (!tache.due_date) return { status: 200, body: { success: true, action: 'deja_sans_relance', statut, simulation } };
+    const texte = `🛑 Relances commerciales arrêtées (fiche « ${statut} ») : l'échéance de relance est retirée.`;
+    if (simulation) return { status: 200, body: { success: true, action: 'arreterait', statut, commentaire: texte, simulation } };
+    if (!(await ecrireEcheance(id, token, null))) {
+      await commenter(id, token, "⚠️ Relances : l'échéance de relance n'a pas pu être retirée. Retire-la à la main sur la fiche.");
+      return { status: 502, body: { success: false, error: 'Retrait de l’échéance impossible', statut } };
+    }
+    await commenter(id, token, texte);
+    return { status: 200, body: { success: true, action: 'arret', statut, commentaire: texte } };
+  }
+
+  // 3. Statut actuel
   if (!statut.toLowerCase().includes(STATUT_ENVOYE)) {
     return { status: 200, body: { success: true, action: 'ignore_statut', statut, simulation } };
   }
 
-  // 3. Date de relance
+  // 4. Date de relance
   const envoi = aujourdhuiParis();
   const relance = ajouterJoursOuvres(envoi, DELAI_OUVRES);
   const ms = echeanceClickUp(relance);
   const resume = { envoi: libelleJour(envoi), relance: libelleJour(relance), echeance: ms };
   if (simulation) return { status: 200, body: { success: true, action: 'programmerait', ...resume, simulation } };
 
-  // 4. Écriture vérifiée (même jour à Paris), puis commentaire
+  // 5. Écriture vérifiée (même jour à Paris), puis commentaire
   const ecrit = await ecrireEcheance(id, token, ms);
   const relue = ecrit ? await lireTache(id, token) : null;
   const lue = relue?.due_date ? aujourdhuiParis(new Date(Number(relue.due_date))) : null;
