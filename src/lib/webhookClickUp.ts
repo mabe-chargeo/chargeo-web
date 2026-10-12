@@ -131,3 +131,29 @@ export async function verifierWebhooks(token: string, reparer: boolean) {
   if (problemes.length) console.error('Webhook ClickUp :', problemes.join(' ; '));
   return { success: !problemes.length || resultats.some((r) => r.action === 'reactive'), adresse: sansRequete(url), problemes, webhooks: resultats, autres };
 }
+
+// Diagnostic (preview) : quelles adresses ClickUp accepte-t-il ? Chaque abonnement d'essai accepté est supprimé
+// aussitôt. Sert à comprendre un refus « Specified URL not allowed » (vu le 12/10 sur l'adresse de la preview).
+export async function diagnostiquerAdresses(token: string) {
+  const branche = process.env.VERCEL_BRANCH_URL || '';
+  const deploiement = process.env.VERCEL_URL || '';
+  const jeton = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '';
+  const essais: { nom: string; url: string }[] = [
+    { nom: 'branche_avec_jeton', url: `https://${branche}${CHEMIN}?x-vercel-protection-bypass=${encodeURIComponent(jeton)}` },
+    { nom: 'branche_sans_jeton', url: `https://${branche}${CHEMIN}` },
+    { nom: 'branche_parametre_simple', url: `https://${branche}${CHEMIN}?essai=1` },
+    { nom: 'deploiement_sans_jeton', url: `https://${deploiement}${CHEMIN}` },
+    { nom: 'domaine_chargeo', url: `https://www.chargeo.fr${CHEMIN}-essai` },
+  ];
+  const resultats: any[] = [];
+  for (const e of essais) {
+    if (e.url.includes('https:///')) { resultats.push({ essai: e.nom, accepte: false, detail: 'adresse vide' }); continue; }
+    const res = await api(token, `/team/${TEAM_ID}/webhook`, 'POST', { endpoint: e.url, events: ['taskCreated'] });
+    const texte = await res.text();
+    let id = '';
+    try { const j = JSON.parse(texte); id = String(j?.id || j?.webhook?.id || ''); } catch { /* rien */ }
+    const supprime = res.ok && id ? (await api(token, `/webhook/${id}`, 'DELETE')).ok : undefined;
+    resultats.push({ essai: e.nom, accepte: res.ok, detail: res.ok ? undefined : texte.slice(0, 120), supprime });
+  }
+  return { resultats };
+}

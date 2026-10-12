@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server';
 import { executer, listeSuivie, planifier, sansDoublon, traiterEvenement, type Changement } from '@/lib/aiguillage';
-import { installerWebhook, secretDuWebhook, signatureValide, supprimerWebhook, verifierWebhooks, listerWebhooks, resumeWebhook } from '@/lib/webhookClickUp';
+import { diagnostiquerAdresses, installerWebhook, secretDuWebhook, signatureValide, supprimerWebhook, verifierWebhooks, listerWebhooks, resumeWebhook } from '@/lib/webhookClickUp';
 
 // Point d'entrée unique des changements ClickUp (bascule du 12/10/2026, décision Matthieu).
 // POST (ClickUp) : signature vérifiée, réponse immédiate, puis traitement en arrière-plan (after) par l'aiguillage
@@ -13,6 +13,7 @@ import { installerWebhook, secretDuWebhook, signatureValide, supprimerWebhook, v
 //   ?action=sante : contrôle et réactivation (aussi fait chaque matin par /api/cron/quotidien).
 // GET preview uniquement : ?action=simuler&taskId=... (option &champ=<id> ou &creation=1, sinon le statut actuel de
 //   la tâche) : montre les règles choisies et les lance en simulation ; &executer=1 pour un vrai passage (fiches Test).
+//   ?action=diagnostic : teste les adresses acceptées par ClickUp (abonnements d'essai supprimés aussitôt).
 
 export const maxDuration = 60;
 
@@ -89,6 +90,10 @@ export async function GET(request: Request) {
     }
     if (action === 'sante') {
       return NextResponse.json(await verifierWebhooks(token, p.get('reparer') !== '0'));
+    }
+    if (action === 'diagnostic') {
+      if (process.env.VERCEL_ENV === 'production') return NextResponse.json({ error: 'Non disponible' }, { status: 404 });
+      return NextResponse.json(await diagnostiquerAdresses(token));
     }
     if (action === 'simuler') {
       if (process.env.VERCEL_ENV === 'production') return NextResponse.json({ error: 'Non disponible' }, { status: 404 });
