@@ -19,6 +19,7 @@
 // Points de charge de la borne (1 = simple, 2 = double), avec les matériels.
 // Photos conseillées (décision du 11/10/2026) : tableau ouvert, et emplacement borne hors COP infra.
 // S'il en manque, le premier appui sur Valider avertit, le second valide sans elles. Jamais bloquant.
+// 12/10/2026 : « Prends-la » / « Prends-les » selon le nombre de photos conseillées manquantes.
 // Les attributs value des menus ne changent pas (la route /api/metre les convertit en index ClickUp).
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag, X, Plug } from 'lucide-react';
@@ -718,7 +719,7 @@ export function MetreForm({
 
       {avertissementPhotos && (
         <Alerte className="text-center">
-          Photo{plurielManquantes} conseillée{plurielManquantes} manquante{plurielManquantes} : {photosManquantes.map(p => p.label.toLowerCase()).join(', ')}. Prends-la si tu peux, sinon appuie à nouveau pour valider sans.
+          Photo{plurielManquantes} conseillée{plurielManquantes} manquante{plurielManquantes} : {photosManquantes.map(p => p.label.toLowerCase()).join(', ')}. Prends-{plurielManquantes ? 'les' : 'la'} si tu peux, sinon appuie à nouveau pour valider sans.
         </Alerte>
       )}
 
