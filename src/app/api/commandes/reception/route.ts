@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
+import { alerter } from '@/lib/alerteSite';
 
 // Réception matériel (Phase 4, bloc 1 validé par Matthieu le 11/10/2026).
 // Appelé par les automatisations de Commandes Matériel (statut modifié, tâche créée) : POST ?taskId=<commande>
@@ -8,6 +9,7 @@ import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
 //   📦 Matériel reçu conforme passe à ✅ Confirmé (commentaire « 📦 MATÉRIEL OK »). Sinon il repasse à ❌ Manquant
 //   s'il était confirmé, et le feu vert est retiré s'il était donné. Une livraison partielle reste en 🚚 en livraison.
 // - Commande sans chantier : commentaire d'alerte sur la commande.
+// Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (commande et chantier « Test » uniquement).
 
 const COMMANDES_ID = '901520038249';
@@ -32,8 +34,10 @@ async function lireTache(taskId: string, token: string): Promise<any | null> {
   return res.ok ? res.json() : null;
 }
 
+// notifier = true : alerte relayée par ClickBot (src/lib/alerteSite.ts), sinon simple commentaire
 async function commenter(taskId: string, token: string, texte: string, notifier = false): Promise<boolean> {
-  const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: notifier });
+  if (notifier) return alerter(token, taskId, texte);
+  const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: false });
   if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${taskId}`);
   return res.ok;
 }

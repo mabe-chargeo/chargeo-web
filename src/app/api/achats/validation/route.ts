@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
 import { chantiersSansAcompte } from '@/lib/acompteChantier';
+import { alerter } from '@/lib/alerteSite';
 
 // Validation des achats (Phase 4, décision Matthieu du 11/10/2026 : Matthieu valide au démarrage, puis le chef de chantier).
 // Appelé par l'automatisation « statut modifié » de Commandes Matériel et d'Achats Fournisseurs : POST ?taskId=...
@@ -14,6 +15,7 @@ import { chantiersSansAcompte } from '@/lib/acompteChantier';
 //    (le matériel est peut-être déjà là, on ne casse pas la réception).
 // 4. Achats : une facture reliée à une commande (🔗 Commande liée) hérite de la validation de cette commande.
 // ClickUp ne sait pas qui a rempli le champ : l'historique de la tâche en garde la trace.
+// Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à l'équipe de l'espace (src/lib/alerteSite.ts).
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (tâches « Test » uniquement).
 
 const COMMANDES_ID = '901520038249';
@@ -37,8 +39,10 @@ async function lireTache(taskId: string, token: string): Promise<any | null> {
   return res.ok ? res.json() : null;
 }
 
+// notifier = true : alerte relayée par ClickBot (src/lib/alerteSite.ts), sinon simple commentaire
 async function commenter(taskId: string, token: string, texte: string, notifier = false): Promise<boolean> {
-  const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: notifier });
+  if (notifier) return alerter(token, taskId, texte);
+  const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: false });
   if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${taskId}`);
   return res.ok;
 }

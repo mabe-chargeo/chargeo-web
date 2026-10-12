@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { ESPACE_CLIENT_COOKIE, getClickUpTask, tokenAllowsDossier } from '@/lib/espace-client';
+import { alerter } from '@/lib/alerteSite';
 
 // Ticket SAV envoyé depuis le suivi de dossier (lot 3.4, 12/10/2026).
 // - Le dossier doit être ouvert dans l'Espace client (cookie signé) : impossible de créer un ticket pour le dossier d'un autre.
 // - Le nom du client est relu dans ClickUp, il n'est plus pris du formulaire.
 // - Le lien vers l'installation est contrôlé. S'il échoue (dossier pas encore au Parc, champ refusé), le ticket est gardé
-//   (le client a bien signalé sa panne) et un commentaire prévient l'équipe avec le lien du dossier, pour le relier à la main.
+//   (le client a bien signalé sa panne) et une alerte prévient l'équipe avec le lien du dossier, pour le relier à la main
+//   (écrite dans 📣 Alerte site, relayée par ClickBot à @charge-doperation, src/lib/alerteSite.ts).
 // - Preview : dossiers « Test » uniquement.
 const CHAMP_INSTALLATION = '3804df6e-a2e1-4058-913c-447189c73d35';
 const CHAMP_SEVERITE = 'c2ae4e08-6903-4698-af96-a40082c11b39';
@@ -74,10 +76,7 @@ export async function POST(request: Request) {
     if (!relie) {
       console.error('Lien SAV vers installation refusé', lien.status, await lien.text().catch(() => ''));
       const statut = String(dossier?.status?.status || '');
-      await clickup(token, `/task/${ticket.id}/comment`, 'POST', {
-        comment_text: `⚠️ Ticket non relié automatiquement à l'installation (dossier « ${nom} », statut « ${statut} »). Relie-le à la bonne fiche du Parc à la main : ${dossier.url || dossier.id}`,
-        notify_all: true,
-      });
+      await alerter(token, String(ticket.id), `⚠️ Ticket non relié automatiquement à l'installation (dossier « ${nom} », statut « ${statut} »). Relie-le à la bonne fiche du Parc à la main : ${dossier.url || dossier.id}`);
     }
 
     return NextResponse.json({ success: true, relie });

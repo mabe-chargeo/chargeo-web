@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
+import { alerter } from '@/lib/alerteSite';
 
 // Feu vert chantier (Phase 4, champs validés par Matthieu le 11/10/2026), liste Planning Chantiers.
 // Appelé par les automatisations ClickUp : POST ?taskId=...&evenement=feu_vert | en_cours | prerequis
@@ -12,6 +13,7 @@ import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
 // ✅ Confirmé et ➖ Non applicable comptent comme OK. Sous-tâche : ignorée.
 // 👤 Validé par : même champ que Commandes Matériel et Achats (85d92954), ajouté à Planning Chantiers le 12/10.
 // 📝 Devis signé (348cc59d) : anciennement « Périmètre signé », renommé par Matthieu le 12/10 (lu par identifiant).
+// Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
 
 const PLANNING_CHANTIERS_ID = '901520038258';
@@ -73,8 +75,10 @@ async function lireTache(taskId: string, token: string): Promise<any | null> {
   return res.ok ? res.json() : null;
 }
 
+// notifier = true : alerte relayée par ClickBot (src/lib/alerteSite.ts), sinon simple commentaire
 async function commenter(taskId: string, token: string, texte: string, notifier = false): Promise<boolean> {
-  const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: notifier });
+  if (notifier) return alerter(token, taskId, texte);
+  const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: false });
   if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${taskId}`);
   return res.ok;
 }
