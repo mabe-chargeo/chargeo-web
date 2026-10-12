@@ -11,13 +11,14 @@ import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
 //   la case est décochée avec un commentaire.
 // ✅ Confirmé et ➖ Non applicable comptent comme OK. Sous-tâche : ignorée.
 // 👤 Validé par : même champ que Commandes Matériel et Achats (85d92954), ajouté à Planning Chantiers le 12/10.
+// 📝 Devis signé (348cc59d) : anciennement « Périmètre signé », renommé par Matthieu le 12/10 (lu par identifiant).
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
 
 const PLANNING_CHANTIERS_ID = '901520038258';
 const CHAMP_FEU_VERT = 'c27f8084-e2f2-4eaf-83bd-d75e082e0d0a';
 const CHAMP_VALIDE_PAR = '85d92954-e954-451c-bb14-405ba83de4f4';
 const PREREQUIS: { id: string; libelle: string }[] = [
-  { id: '348cc59d-5adc-4ed4-b07d-5da40a9e6abc', libelle: '📝 Périmètre signé' },
+  { id: '348cc59d-5adc-4ed4-b07d-5da40a9e6abc', libelle: '📝 Devis signé' },
   { id: 'ba4a2025-43ec-44a0-8938-1cbc497f7bbf', libelle: '💶 Acompte' },
   { id: '8074d071-24d4-4711-8726-4c20098321fd', libelle: '📜 Autorisations et aides' },
   { id: '7ac103cd-7b52-40ca-a2d4-939e59427f56', libelle: '📦 Matériel reçu conforme' },
