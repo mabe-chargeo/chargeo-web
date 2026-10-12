@@ -12,8 +12,10 @@ import { Jour, aujourdhuiParis, echeanceClickUp } from '@/lib/joursOuvres';
 // - 🔢 Nb points de charge = quantité de la ligne contrat (prix par point de charge et par an) si vide.
 // Aucune visite n'est créée ici : sa préparation 30 jours avant l'échéance relève du circuit maintenance (Phase 5).
 // Champs déjà remplis : jamais écrasés ; un écart avec le devis est signalé.
-// API externe : GET /quotes/{id} ne renvoie pas les lignes (constaté le 12/10, 3 devis). Les variantes ci-dessous
-// (non documentées) sont essayées dans l'ordre ; sans lignes, la fiche reçoit un ⚠️ pour remplir à la main.
+// API externe : GET /quotes/{id} ne renvoie pas les lignes (constaté le 12/10 sur 3 devis). Les 8 variantes ci-dessous
+// (non documentées) ont été essayées le 12/10 : 200 sans lignes, 405 ou 404. Demande faite au support Costructor
+// (tâche « Envoyer les demandes groupées au support Costructor »). Sans lignes, la fiche reçoit un ⚠️ pour remplir
+// à la main ; le jour où Costructor transmet les lignes, la lecture automatique prend le relais sans autre changement.
 
 const COSTRUCTOR = 'https://api.costructor.co/external/v1';
 const PARC_ID = '901520038290';
