@@ -1,4 +1,5 @@
 import { Jour, aujourdhuiParis, echeanceClickUp } from '@/lib/joursOuvres';
+import { alerter } from '@/lib/alerteSite';
 
 // Contrat de maintenance vendu (Phase 4, prestations vendues, demandé par Matthieu le 12/10/2026).
 // Au passage au Parc, le site lit les lignes du devis signé (🔗 Lien devis du chantier) et remplit la fiche Parc :
@@ -12,6 +13,7 @@ import { Jour, aujourdhuiParis, echeanceClickUp } from '@/lib/joursOuvres';
 // - 🔢 Nb points de charge = quantité de la ligne contrat (prix par point de charge et par an) si vide.
 // Aucune visite n'est créée ici : sa préparation 30 jours avant l'échéance relève du circuit maintenance (Phase 5).
 // Champs déjà remplis : jamais écrasés ; un écart avec le devis est signalé.
+// Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
 // API externe : GET /quotes/{id} ne renvoie pas les lignes (constaté le 12/10 sur 3 devis). Les 8 variantes ci-dessous
 // (non documentées) ont été essayées le 12/10 : 200 sans lignes, 405 ou 404. Demande faite au support Costructor
 // (tâche « Envoyer les demandes groupées au support Costructor »). Sans lignes, la fiche reçoit un ⚠️ pour remplir
@@ -220,13 +222,13 @@ export async function traiterContrat(cu: string, co: string, taskId: string, dev
     texte = `📜 Aucun contrat de maintenance dans ${nomDevis} : 📜 Type de Contrat = Aucun. Mise en service le ${dateFr(mes)} ; un contrat sera à reproposer un mois avant le premier anniversaire.${note}`;
   } else if (c.etat === 'ambigu') {
     notifier = true;
-    texte = `⚠️ Contrat de maintenance : ${nomDevis} contient plusieurs contrats (${c.refs!.join(', ')}). Rien n'a été choisi : remplis 📜 Type de Contrat, 🔄 Echéance annuelle et 🔢 Nb points de charge à la main.`;
+    texte = `⚠️ Contrat de maintenance : ${nomDevis} contient plusieurs contrats (${c.refs!.join(', ')}). Rien n'a été choisi : remplis 📜 Type de Contrat, 🔄 Echeance annuelle et 🔢 Nb points de charge à la main.`;
   } else if (c.etat === 'inconnu') {
     notifier = true;
-    texte = `⚠️ Contrat de maintenance : référence ${c.refs!.join(', ')} dans ${nomDevis}, non reconnue. Rien n'a été choisi : remplis 📜 Type de Contrat et 🔄 Echéance annuelle à la main.`;
+    texte = `⚠️ Contrat de maintenance : référence ${c.refs!.join(', ')} dans ${nomDevis}, non reconnue. Rien n'a été choisi : remplis 📜 Type de Contrat et 🔄 Echeance annuelle à la main.`;
   } else {
     notifier = true;
-    texte = `⚠️ Contrat de maintenance : impossible de lire le devis (${raisonLisible(c.raison)}). Remplis 📜 Type de Contrat à la main (Aucun si rien n'a été vendu) et, s'il y a un contrat, 🔄 Echéance annuelle = mise en service + 1 an.`;
+    texte = `⚠️ Contrat de maintenance : impossible de lire le devis (${raisonLisible(c.raison)}). Remplis 📜 Type de Contrat à la main (Aucun si rien n'a été vendu) et, s'il y a un contrat, 🔄 Echeance annuelle = mise en service + 1 an.`;
   }
 
   const resume = { action: `contrat_${c.etat}`, contrat: c, ficheAvant: { typeContrat: actuel || null, miseEnService: vide(mesVal) ? null : dateFr(mes) } };
@@ -239,6 +241,9 @@ export async function traiterContrat(cu: string, co: string, taskId: string, dev
     if (!r.ok) rates.push(e.champ);
   }
   if (rates.length) { texte += ` ⚠️ Non écrit : ${rates.join(', ')}, à remplir à la main.`; notifier = true; }
-  const com = await clickup(cu, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: notifier });
-  return { ...resume, ecrit: prevues.filter((p) => !rates.includes(p.champ)), rates, commentaire: texte, commente: com.ok };
+  // Alerte (relayée par ClickBot) si quelque chose est à faire à la main, sinon simple commentaire
+  const commente = notifier
+    ? await alerter(cu, taskId, texte)
+    : (await clickup(cu, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: false })).ok;
+  return { ...resume, ecrit: prevues.filter((p) => !rates.includes(p.champ)), rates, commentaire: texte, commente };
 }
