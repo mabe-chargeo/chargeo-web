@@ -3,6 +3,7 @@ import { aujourdhuiParis, ajouterJours, libelleJour } from '@/lib/joursOuvres';
 import { CHAMP_AVIS, CHAMP_TECHNICIEN, creerRappelAvis, poseurs } from '@/lib/avisGoogle';
 import { devisIdDe, traiterContrat } from '@/lib/contratMaintenance';
 import { creerSolde } from '@/lib/factureSolde';
+import { alerter } from '@/lib/alerteSite';
 
 // Réception, réserves et passage au Parc (Phase 4, bloc 2 validé par Matthieu le 11/10/2026).
 // Appelé par les automatisations de Planning Chantiers : POST ?taskId=...&evenement=realise | termine
@@ -18,6 +19,8 @@ import { creerSolde } from '@/lib/factureSolde';
 //   src/lib/contratMaintenance.ts). Aucune visite n'est créée ici.
 //   Facture de solde (décision Matthieu du 12/10/2026) : « Solde · client · n° devis » créée dans Factures Clients,
 //   📄 à émettre, rappel J+1 ouvré, sans doublon (voir src/lib/factureSolde.ts).
+// Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
+//   Le refus garde en plus son commentaire du site : c'est lui qui évite le ⚠️ « réalisé incomplet » juste après le retour.
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
 //   GET ?taskId=...&evenement=contrat&devis=quote_...&simulation=1|executer=1 : lecture du contrat seule, sur une fiche
 //   du Parc ou de Planning (exécution : fiche « Test » du Parc uniquement). Sans &devis, le 🔗 Lien devis de la fiche.
@@ -49,8 +52,10 @@ async function lireTache(taskId: string, token: string): Promise<any | null> {
   return res.ok ? res.json() : null;
 }
 
+// notifier = true : alerte relayée par ClickBot (src/lib/alerteSite.ts), sinon simple commentaire
 async function commenter(taskId: string, token: string, texte: string, notifier = false): Promise<boolean> {
-  const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: notifier });
+  if (notifier) return alerter(token, taskId, texte);
+  const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: false });
   if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${taskId}`);
   return res.ok;
 }
@@ -89,14 +94,13 @@ function sousTachesReserve(t: any) {
   return { total: st.length, incompletes };
 }
 
+// Un refus récent (moins de 3 min) parmi les derniers commentaires : celui du site ou son relais par ClickBot
 async function dernierCommentaireRefusRecent(taskId: string, token: string): Promise<boolean> {
   const res = await api(token, `/task/${taskId}/comment`);
   if (!res.ok) return false;
   const json = await res.json().catch(() => ({}));
-  const c = Array.isArray(json?.comments) ? json.comments[0] : null;
-  if (!c) return false;
-  const recent = Date.now() - Number(c.date || 0) < 3 * 60 * 1000;
-  return recent && String(c.comment_text || '').trim().startsWith(PREFIXE_REFUS);
+  const derniers: any[] = Array.isArray(json?.comments) ? json.comments.slice(0, 3) : [];
+  return derniers.some((c: any) => Date.now() - Number(c?.date || 0) < 3 * 60 * 1000 && String(c?.comment_text || '').includes(PREFIXE_REFUS));
 }
 
 // Statut source (objet de la liste Planning Chantiers) correspondant au statut d'une tâche ou sous-tâche
@@ -205,7 +209,8 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
     const statuts = await statutsListe(PLANNING_CHANTIERS_ID, token);
     const realise = statuts.find((s: any) => normal(s.status).includes('realise'));
     const retour = realise ? await api(token, `/task/${id}`, 'PUT', { status: realise.status }) : null;
-    await commenter(id, token, texte, true);
+    await commenter(id, token, texte);
+    await alerter(token, id, `${PREFIXE_REFUS}, chantier remis en ✅ réalisé : le motif est dans le commentaire du site sur la fiche.`);
     return { status: 200, body: { success: true, action: 'parc_refuse', ...etat, motifs, remisEnRealise: !!retour?.ok, commentaire: texte } };
   }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aujourdhuiParis, echeanceClickUp, libelleJour, type Jour } from '@/lib/joursOuvres';
+import { alerter } from '@/lib/alerteSite';
 
 // Alertes d'échéance des dossiers ADVENIR (Phase 4, plan validé par Matthieu le 12/10/2026).
 // Contrôle quotidien de la liste Dossiers Advenir (cron Vercel en production, lien de test en preview).
@@ -10,6 +11,8 @@ import { aujourdhuiParis, echeanceClickUp, libelleJour, type Jour } from '@/lib/
 //   date) relance les paliers. Un premier passage tardif ne donne que le palier en cours (pas de rattrapage en rafale).
 // - Date Limite vide sur un dossier surveillé : une alerte « date à remplir ».
 // - 🧐 en révision : priorité urgente (règle d'or n°2), une fois.
+// Alertes (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
+//   Le relais commence par la mention : l'anti-doublon cherche la marque dans le texte (includes), pas en début.
 // Production : GET appelé par le cron Vercel avec l'en-tête Authorization: Bearer CRON_SECRET.
 // Preview : GET ?simulation=1 (rien n'est écrit) ou &executer=1 (dossiers dont le nom commence par « Test »), option &taskId=.
 
@@ -87,7 +90,7 @@ async function planifier(token: string, t: any, aujourdhui: Jour): Promise<Plan 
 
   if (!brut) {
     const marque = '⚠️ ADVENIR : 📅 Date Limite Réalisation vide';
-    if (deja.some((c) => c.startsWith(marque))) return null;
+    if (deja.some((c) => c.includes(marque))) return null;
     return { ...base, action: 'date_manquante',
       commentaire: `${marque}. Sans elle, aucune alerte d'expiration. Reprends la date exacte indiquée dans le dossier ADVENIR (6 mois, ou 9 mois en infrastructure collective, à compter de la signature de l'offre, prolongations comprises).` };
   }
@@ -99,7 +102,7 @@ async function planifier(token: string, t: any, aujourdhui: Jour): Promise<Plan 
 
   const quand = `échéance ${libelleJour(limite)}`;
   const marque = `⏰ ADVENIR ${palier} (${quand})`;
-  if (deja.some((c) => c.startsWith(marque))) return null;
+  if (deja.some((c) => c.includes(marque))) return null;
 
   const manque = e === 'surveille_pieces'
     ? 'transmettre tous les justificatifs et soumettre le dossier final'
@@ -119,8 +122,7 @@ async function appliquer(token: string, p: Plan): Promise<boolean> {
     if (!res.ok) console.error(`Mise à jour ADVENIR refusée (${res.status}) sur ${p.id}`);
   }
   if (!p.commentaire) return true;
-  const c = await api(token, `/task/${p.id}/comment`, 'POST', { comment_text: p.commentaire, notify_all: true });
-  return c.ok;
+  return alerter(token, p.id, p.commentaire);
 }
 
 async function controler(simulation: boolean, testSeulement: boolean, taskId?: string | null) {

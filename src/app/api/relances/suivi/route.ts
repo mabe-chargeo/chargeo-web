@@ -3,6 +3,7 @@ import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClick
 import {
   aujourdhuiParis, ajouterJoursOuvres, ajouterJours, prochainOuvre, comparer, echeanceClickUp, libelleJour, type Jour,
 } from '@/lib/joursOuvres';
+import { alerter } from '@/lib/alerteSite';
 
 // Suivi des relances commerciales internes (Phase 4, champs validés par Matthieu le 11/10/2026).
 // Appelé par l'automatisation ClickUp « champ 🔁 Suivi relance ou 📅 Date AG ou RDV modifié » : POST ?taskId=...
@@ -15,6 +16,8 @@ import {
 // - « Date convenue avec le client » : relance à cette date (jour ouvré suivant si elle tombe un jour chômé).
 // Une nouvelle date remplace l'ancienne échéance, sans doublon. Les tentatives sont comptées dans les
 // commentaires « 🔁 Relance n° » depuis le dernier envoi (📩) ou la dernière pause (📅).
+// Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @commercial (src/lib/alerteSite.ts).
+//   Le relais commence par la mention : les tentatives sont donc cherchées dans le texte (includes), pas en début.
 // Arrêt : fiche gagnée, perdue ou archivée. Sous-tâche : ignorée.
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches TEST uniquement).
 
@@ -50,8 +53,10 @@ async function lireTache(taskId: string, token: string): Promise<any | null> {
   return res.ok ? res.json() : null;
 }
 
+// notifier = true : alerte relayée par ClickBot (src/lib/alerteSite.ts), sinon simple commentaire
 async function commenter(taskId: string, token: string, texte: string, notifier = false): Promise<boolean> {
-  const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: notifier });
+  if (notifier) return alerter(token, taskId, texte);
+  const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: false });
   if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${taskId}`);
   return res.ok;
 }
@@ -66,7 +71,7 @@ async function compterTentatives(taskId: string, token: string): Promise<number 
   for (const c of liste) {
     const t = String(c?.comment_text || '').trim();
     if (t.startsWith('📩') || t.startsWith('📅')) break;
-    if (t.startsWith('🔁 Relance n°')) n++;
+    if (t.includes('🔁 Relance n°')) n++;
   }
   return n;
 }

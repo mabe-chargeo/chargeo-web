@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { aujourdhuiParis, ajouterJours, comparer, echeanceClickUp, libelleJour, type Jour } from '@/lib/joursOuvres';
 import { CHAMP_AVIS, NOM_SOUS_TACHE, clickup, creerRappelAvis, infosBrouillon, poseurs, sousTacheAvis } from '@/lib/avisGoogle';
+import { alerter } from '@/lib/alerteSite';
 
 // Suivi des avis Google (Phase 4, validé par Matthieu le 11/10/2026). Rappels internes, aucun email au client.
 // Appelé par l'automatisation de Parc Installé « ⭐ Avis Google modifié » : POST ?taskId=<fiche Parc>
@@ -9,6 +10,7 @@ import { CHAMP_AVIS, NOM_SOUS_TACHE, clickup, creerRappelAvis, infosBrouillon, p
 //   après chaque relance notée, pour pouvoir noter la suivante (comme pour les devis).
 // - ✅ Avis reçu / 🚫 Refus du client : fin de séquence (sous-tâche renommée « ⭐ Avis Google : terminé (…) », échéance retirée).
 // Les relances sont comptées dans les commentaires « 🔁 Rappel avis n° » depuis le dernier « 🔵 Demande d'avis ».
+// Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
 
 const PARC_ID = '901520038290';
@@ -20,8 +22,10 @@ async function lireTache(id: string, token: string): Promise<any | null> {
   return res.ok ? res.json() : null;
 }
 
+// notifier = true : alerte relayée par ClickBot (src/lib/alerteSite.ts), sinon simple commentaire
 async function commenter(token: string, id: string, texte: string, notifier = false) {
-  const res = await clickup(token, `/task/${id}/comment`, 'POST', { comment_text: texte, notify_all: notifier });
+  if (notifier) { await alerter(token, id, texte); return; }
+  const res = await clickup(token, `/task/${id}/comment`, 'POST', { comment_text: texte, notify_all: false });
   if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${id}`);
 }
 
