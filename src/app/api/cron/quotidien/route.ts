@@ -7,6 +7,7 @@ import { verifierWebhooks } from '@/lib/webhookClickUp';
 // 2. santé de l'abonnement ClickUp du site : réactivé s'il a été suspendu après des échecs.
 // Production : appelé par le cron avec l'en-tête Authorization: Bearer CRON_SECRET (vercel.json).
 // Preview : GET ?simulation=1 (rien n'est écrit ni réactivé).
+// Jeton Vercel « Protection Bypass for Automation » créé par Matthieu le 12/10 (note « Webhooks ClickUp »).
 
 export const maxDuration = 60;
 
