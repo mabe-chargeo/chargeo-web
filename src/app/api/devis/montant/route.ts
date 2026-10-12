@@ -9,6 +9,9 @@ import { aujourdhuiParis, ajouterJoursOuvres, echeanceClickUp, libelleJour } fro
 //   N°, montant HT et lien sont remplis. Plusieurs : rien n'est choisi ni additionné, un commentaire liste les devis.
 //   Lien Costructor mort (client supprimé, vu sur Bacchus le 11/10) : commentaire, avec les devis dont le client porte
 //   le même nom que la fiche, sans en choisir un.
+// - Mauvaise affaire (validé par Matthieu le 12/10) : si le devis du 🔗 Lien devis appartient à un autre client que celui
+//   du 🔗 Lien Costructor, rien n'est écrit et un commentaire alerte. Exception : client du Lien Costructor supprimé
+//   dans Costructor (lien mort) : le devis est retenu et le commentaire demande de corriger le lien.
 // - gagne (🏆 gagné) : relit le devis du lien, suit sa dernière version s'il a été révisé, met à jour le montant et
 //   signale (sans bloquer) un devis pas encore signé dans Costructor.
 //   Devis signé : crée la tâche « Acompte · client · n° devis » dans Factures Clients (📄 à émettre, Type de pièce Acompte,
@@ -266,6 +269,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   if (lienDevis) {
     choisi = devis.find((d) => d.id === devisIdLien) || devis.find((d) => d.hostedUrl && lienDevis.startsWith(String(d.hostedUrl).split('?')[0]));
   }
+  const viaLien = !!choisi;
   const base = { evenement, clientId: clientId || null, lienDevis: lienDevis || null, champsPresents, simulation };
   const signaler = async (action: string, texte: string, extra: any = {}) => {
     if (!simulation) await commenter(cu, id, texte, true);
@@ -303,6 +307,18 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
     choisi = candidats[0];
   }
 
+  // Mauvaise affaire : devis du lien appartenant à un autre client que celui de la fiche
+  let noteLien = '';
+  if (viaLien && clientId && clientDe(choisi) && clientDe(choisi) !== clientId) {
+    const existe = await clientExiste(co, clientId);
+    if (existe !== false) {
+      return signaler('devis_autre_client',
+        `⚠️ Devis : le devis ${choisi.number} collé dans « 🔗 Lien devis » appartient au client Costructor « ${nomClientDe(choisi) || clientDe(choisi)} », pas au client de « 🔗 Lien Costructor » de cette fiche. Rien n'a été écrit. Vérifie que c'est la bonne affaire, puis corrige l'un des deux liens.`,
+        { devis: resumeDevis(choisi), clientDevis: clientDe(choisi), clientExiste: existe });
+    }
+    noteLien = ' ⚠️ « 🔗 Lien Costructor » pointe vers un client supprimé dans Costructor : remplace-le par le lien du client de ce devis.';
+  }
+
   const actuel = derniereVersion(devis, choisi);
   const m = montantHT(actuel);
   const signeReel = SIGNES.includes(statutDe(actuel));
@@ -316,6 +332,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   } else {
     texte = `⚠️ Devis ${actuel.number} pas encore signé dans Costructor (statut « ${libelleStatut(actuel)} »). Montant ${euros(m.ht)} reporté quand même. Vérifie la signature avant de lancer le chantier.`;
   }
+  texte += noteLien;
   const resume: any = { action: evenement === 'envoye' ? 'devis_retenu' : signe ? 'devis_signe' : 'devis_non_signe', devis: resumeDevis(actuel), nouvelleVersion, centimes: m.centimes, forcerSigne, commentaire: texte };
   const faireAcompte = evenement === 'gagne' && signe;
   if (simulation) {
@@ -330,7 +347,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   };
   const rates = Object.entries(ok).filter(([, v]) => !v).map(([k]) => k);
   if (rates.length) texte += ` ⚠️ Non écrit : ${rates.join(', ')} (champ absent de la liste ou refusé), à remplir à la main.`;
-  await commenter(cu, id, texte, evenement === 'gagne' && !signe);
+  await commenter(cu, id, texte, (evenement === 'gagne' && !signe) || !!noteLien);
 
   if (faireAcompte) {
     const a: any = await creerAcompte(cu, tache, actuel, lienClient, false);
