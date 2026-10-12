@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClickUp';
 import { aujourdhuiParis, ajouterJoursOuvres, echeanceClickUp, libelleJour } from '@/lib/joursOuvres';
+import { alerter } from '@/lib/alerteSite';
 
 // Remontée du devis Costructor dans la fiche (Phase 4, validé par Matthieu le 11/10/2026).
 // Appelé par les automatisations de Qualification : POST ?taskId=...&evenement=envoye | gagne
@@ -21,6 +22,7 @@ import { aujourdhuiParis, ajouterJoursOuvres, echeanceClickUp, libelleJour } fro
 // Montants : l'API externe renvoie des centimes (Bacchus D202600007 : 1959994 = 19 599,94 € HT, vérifié le 11/10).
 // Statuts : l'API externe renvoie le code (open, accepted...), traduit ici comme dans Costructor (open = « En attente »).
 // Champs lus par identifiant puis par nom (ils peuvent être renommés sans « signé »).
+// Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à l'équipe de l'espace (src/lib/alerteSite.ts).
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (aussi sur une vraie fiche, lecture seule) ou &executer=1 (fiches TEST).
 //   &forcerSigne=1 (preview seulement) : traite le devis comme signé, pour tester la création de l'acompte.
 
@@ -157,8 +159,10 @@ async function ecrire(token: string, taskId: string, tache: any, c: { id: string
   return res.ok;
 }
 
+// notifier = true : alerte relayée par ClickBot (src/lib/alerteSite.ts), sinon simple commentaire
 async function commenter(token: string, taskId: string, texte: string, notifier = false) {
-  const res = await clickup(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: notifier });
+  if (notifier) { await alerter(token, taskId, texte); return; }
+  const res = await clickup(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: false });
   if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${taskId}`);
 }
 
