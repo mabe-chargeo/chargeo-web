@@ -11,9 +11,11 @@ import { alerter } from '@/lib/alerteSite';
 //   sans retour en arrière.
 // - termine (statut → 🏁 terminé) : refusé si Réserves vide ou 🔴 Bloquante, PV manquant, ou réserve mineure sans
 //   sous-tâche « 🔧 Réserve : … » complète (responsable + échéance). Refus : retour en ✅ réalisé + motif.
-//   Sinon le site déplace la même tâche au Parc installé (🟢 en service ; sous-tâches de réserve ouvertes en
-//   ⚠️ sous surveillance), note la demande d'avis faite sur place (QR code) et crée la sous-tâche ⭐ de relance
-//   par email à J+7 pour le poseur. Les règlements et aides ne conditionnent pas ce passage.
+//   Sinon le site déplace la même tâche au Parc installé en 🟢 en service, avec ses sous-tâches. Seules les
+//   sous-tâches « 🔧 Réserve » encore ouvertes passent en ⚠️ sous surveillance ; les autres (scénarios de relevé…)
+//   passent en 🟢 en service (décision Matthieu du 12/10, test TEST · Scénarios). Le site note la demande d'avis
+//   faite sur place (QR code) et crée la sous-tâche ⭐ de relance par email à J+7 pour le poseur.
+//   Les règlements et aides ne conditionnent pas ce passage.
 //   Prestations vendues (12/10/2026) : le contrat de maintenance du devis signé (🔗 Lien devis, lu avant le déplacement)
 //   remplit 📜 Type de Contrat, 📅 Date de Mise en Service, 🔄 Echeance annuelle et 🔢 Nb points de charge (voir
 //   src/lib/contratMaintenance.ts). Aucune visite n'est créée ici.
@@ -98,8 +100,9 @@ function reserves(t: any): 'aucune' | 'mineure' | 'bloquante' | '' {
 }
 
 // Sous-tâches « 🔧 Réserve : … » et celles qui n'ont pas de responsable ou d'échéance
+const estReserve = (s: any) => normal(s?.name).includes('reserve');
 function sousTachesReserve(t: any) {
-  const st = (Array.isArray(t?.subtasks) ? t.subtasks : []).filter((s: any) => normal(s?.name).includes('reserve'));
+  const st = (Array.isArray(t?.subtasks) ? t.subtasks : []).filter(estReserve);
   const incompletes = st.filter((s: any) => !(Array.isArray(s?.assignees) && s.assignees.length) || !s?.due_date).map((s: any) => s.name);
   return { total: st.length, incompletes };
 }
@@ -118,18 +121,19 @@ function statutSource(source: any[], s: any): any | undefined {
   return source.find((x: any) => x.id === s?.id) || source.find((x: any) => normal(x.status) === normal(s?.status));
 }
 
-async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean; detail?: string; essai?: string }> {
+async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean; detail?: string; essai?: string; surveillance?: number }> {
   const [source, dest] = await Promise.all([statutsListe(PLANNING_CHANTIERS_ID, token), statutsListe(PARC_ID, token)]);
   const enService = dest.find((s: any) => normal(s.status).includes('en service'));
-  const surveillance = dest.find((s: any) => normal(s.status).includes('surveillance')) || enService;
+  const surveillance = dest.find((s: any) => normal(s.status).includes('surveillance'));
   if (!enService || !source.length) return { ok: false, detail: 'statuts introuvables' };
-  const cible = (s: any) => (s?.type === 'closed' || s?.type === 'done' ? enService.id : surveillance.id);
 
-  // Statuts réellement utilisés : la tâche principale puis ses sous-tâches (sans doublon)
+  // Statuts réellement utilisés : la tâche principale puis ses sous-tâches (sans doublon), tous vers 🟢 en service.
+  // Un même statut peut porter une réserve et un scénario : le tri se fait après le déplacement, sous-tâche par sous-tâche.
   const actuel = statutSource(source, tache.status);
   if (!actuel) return { ok: false, detail: 'statut actuel introuvable' };
   const utilises: any[] = [actuel];
-  for (const st of Array.isArray(tache?.subtasks) ? tache.subtasks : []) {
+  const sousTaches: any[] = Array.isArray(tache?.subtasks) ? tache.subtasks : [];
+  for (const st of sousTaches) {
     const s = statutSource(source, st.status);
     if (s && !utilises.some((u) => u.id === s.id)) utilises.push(s);
   }
@@ -137,8 +141,8 @@ async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean;
   // Format validé le 11/10 : source_status_id / destination_status_id sur les statuts utilisés (essai « utilises_id »).
   // Les autres formats restent en secours.
   const essais: { nom: string; mappings: any[] }[] = [
-    { nom: 'utilises_id', mappings: utilises.map((s) => ({ source_status_id: s.id, destination_status_id: cible(s) })) },
-    { nom: 'utilises', mappings: utilises.map((s) => ({ source_status: s.id, destination_status: cible(s) })) },
+    { nom: 'utilises_id', mappings: utilises.map((s) => ({ source_status_id: s.id, destination_status_id: enService.id })) },
+    { nom: 'utilises', mappings: utilises.map((s) => ({ source_status: s.id, destination_status: enService.id })) },
     { nom: 'actuel_id', mappings: [{ source_status_id: actuel.id, destination_status_id: enService.id }] },
   ];
   const erreurs: string[] = [];
@@ -151,8 +155,18 @@ async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean;
       'v3',
     );
     if (res.ok) {
+      // Réserves encore ouvertes (ni done ni closed) : ⚠️ sous surveillance. Les autres sous-tâches restent en service.
+      const ouvertes = sousTaches.filter((st) => estReserve(st) && !['done', 'closed'].includes(String(st?.status?.type || '')));
+      let enSurveillance = 0;
+      if (surveillance) {
+        for (const st of ouvertes) {
+          const r = await api(token, `/task/${st.id}`, 'PUT', { status: surveillance.status });
+          if (r.ok) enSurveillance++;
+          else console.error(`Réserve ${st.id} : passage en sous surveillance refusé (${r.status})`);
+        }
+      }
       const relue = await lireTache(String(tache.id), token);
-      return { ok: String(relue?.list?.id ?? '') === PARC_ID, detail: relue?.status?.status, essai: e.nom };
+      return { ok: String(relue?.list?.id ?? '') === PARC_ID, detail: relue?.status?.status, essai: e.nom, surveillance: enSurveillance };
     }
     erreurs.push(`${e.nom}: HTTP ${res.status} ${(await res.text().catch(() => '')).slice(0, 120)}`);
     if (res.status !== 400) break;
@@ -270,7 +284,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
 
   const alerte = aFaire.length ? regrouperAlertes(aFaire) : null;
   if (alerte) await alerter(token, id, alerte);
-  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, avis: rappel, contrat, solde, alerte, ...etat, commentaire: texte } };
+  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, reservesSurveillance: d.surveillance, avis: rappel, contrat, solde, alerte, ...etat, commentaire: texte } };
 }
 
 // Preview : contrat de maintenance seul (lecture partout, écriture sur la fiche « Test » du Parc)
