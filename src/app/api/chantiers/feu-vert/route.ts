@@ -3,16 +3,19 @@ import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
 
 // Feu vert chantier (Phase 4, champs validés par Matthieu le 11/10/2026), liste Planning Chantiers.
 // Appelé par les automatisations ClickUp : POST ?taskId=...&evenement=feu_vert | en_cours | prerequis
-// - feu_vert : la case 🟢 Feu vert vient d'être cochée. Si un prérequis est ❌ Manquant (ou vide), la case est
-//   décochée et un commentaire dit ce qui manque. Sinon, commentaire « 🟢 Feu vert donné le ... ».
+// - feu_vert : la case 🟢 Feu vert vient d'être cochée. Si un prérequis est ❌ Manquant (ou vide), ou si 👤 Validé par
+//   est vide (décision Matthieu du 12/10 : on trace qui autorise), la case est décochée et un commentaire dit ce qui
+//   manque. Sinon, commentaire « 🟢 Feu vert donné le ... par ... ».
 // - en_cours : le chantier passe en 🚧 en cours. Sans feu vert, alerte notifiée (ClickUp ne peut pas bloquer).
 // - prerequis : un prérequis a changé. Si le feu vert était donné et qu'un prérequis repasse à Manquant,
 //   la case est décochée avec un commentaire.
 // ✅ Confirmé et ➖ Non applicable comptent comme OK. Sous-tâche : ignorée.
+// 👤 Validé par : même champ que Commandes Matériel et Achats (85d92954), ajouté à Planning Chantiers le 12/10.
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
 
 const PLANNING_CHANTIERS_ID = '901520038258';
 const CHAMP_FEU_VERT = 'c27f8084-e2f2-4eaf-83bd-d75e082e0d0a';
+const CHAMP_VALIDE_PAR = '85d92954-e954-451c-bb14-405ba83de4f4';
 const PREREQUIS: { id: string; libelle: string }[] = [
   { id: '348cc59d-5adc-4ed4-b07d-5da40a9e6abc', libelle: '📝 Périmètre signé' },
   { id: 'ba4a2025-43ec-44a0-8938-1cbc497f7bbf', libelle: '💶 Acompte' },
@@ -39,6 +42,12 @@ function lireOption(tache: any, id: string): string | undefined {
 function feuVertCoche(tache: any): boolean {
   const v = champ(tache, CHAMP_FEU_VERT)?.value;
   return v === true || v === 'true';
+}
+
+// Personnes de 👤 Validé par (noms), liste vide si le champ est vide ou absent de la liste
+function validePar(tache: any): string[] {
+  const v = champ(tache, CHAMP_VALIDE_PAR)?.value;
+  return (Array.isArray(v) ? v : []).map((u: any) => String(u?.username || u?.email || '')).filter(Boolean);
 }
 
 // Prérequis manquants : ❌ Manquant, vide, ou valeur inconnue
@@ -97,19 +106,28 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   const id = String(tache.id);
   const coche = feuVertCoche(tache);
   const manque = manquants(tache);
+  const valideurs = validePar(tache);
   const jour = libelleJour(aujourdhuiParis());
 
   let plan: { action: string; commentaire?: string; decocher?: boolean; notifier?: boolean };
 
   if (evenement === 'feu_vert') {
     if (!coche) plan = { action: 'ignore_case_decochee' };
-    else if (manque.length) {
+    else if (manque.length || !valideurs.length) {
+      const raisons = [
+        manque.length ? `il manque ${liste(manque)}` : '',
+        !valideurs.length ? '👤 Validé par est vide (qui donne le feu vert ?)' : '',
+      ].filter(Boolean).join(' ; ');
+      const quoi = [
+        manque.length ? 'passe chaque prérequis à ✅ Confirmé ou ➖ Non applicable' : '',
+        !valideurs.length ? 'mets ton nom dans 👤 Validé par' : '',
+      ].filter(Boolean).join(', ');
       plan = {
         action: 'feu_vert_refuse', decocher: true, notifier: true,
-        commentaire: `🔴 Feu vert refusé : il manque ${liste(manque)}. La case a été décochée. Passe chaque prérequis à ✅ Confirmé ou ➖ Non applicable, puis recoche 🟢 Feu vert.`,
+        commentaire: `🔴 Feu vert refusé : ${raisons}. La case a été décochée. ${quoi.charAt(0).toUpperCase()}${quoi.slice(1)}, puis recoche 🟢 Feu vert.`,
       };
     } else {
-      plan = { action: 'feu_vert_donne', commentaire: `🟢 Feu vert donné le ${jour} : les 5 prérequis sont OK, le chantier peut démarrer.` };
+      plan = { action: 'feu_vert_donne', commentaire: `🟢 Feu vert donné le ${jour} par ${liste(valideurs)} : les 5 prérequis sont OK, le chantier peut démarrer.` };
     }
   } else if (evenement === 'en_cours') {
     if (coche && !manque.length) plan = { action: 'ignore_feu_vert_ok' };
@@ -129,11 +147,11 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
     }
   }
 
-  const resume = { action: plan.action, evenement, feuVert: coche, manquants: manque, commentaire: plan.commentaire ?? null };
+  const resume = { action: plan.action, evenement, feuVert: coche, manquants: manque, validePar: valideurs, commentaire: plan.commentaire ?? null };
   if (simulation || !plan.commentaire) return { status: 200, body: { success: true, ...resume, simulation } };
 
   if (plan.decocher && !(await decocher(id, token))) {
-    await commenter(id, token, `⚠️ Feu vert : il manque ${liste(manque)}, mais la case n'a pas pu être décochée. Décoche-la à la main.`, true);
+    await commenter(id, token, `⚠️ Feu vert : ${manque.length ? `il manque ${liste(manque)}` : '👤 Validé par est vide'}, mais la case n'a pas pu être décochée. Décoche-la à la main.`, true);
     return { status: 502, body: { success: false, error: 'Décochage impossible', ...resume } };
   }
   await commenter(id, token, plan.commentaire, !!plan.notifier);
