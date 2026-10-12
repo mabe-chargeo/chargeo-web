@@ -7,6 +7,8 @@ import { aujourdhuiParis, ajouterJours, prochainOuvre, comparer, echeanceClickUp
 // Le site ne fait que poser l'échéance de la tâche (rappel interne) et commenter. Un humain relance le client,
 // puis augmente « Relances envoyées » de 1, ce qui programme la relance suivante.
 // 1. 📄 à émettre : rien. ✅ payée, 🚫 annulée, fermée : séquence arrêtée.
+//    ⚖️ en litige (statut ajouté par Matthieu le 12/10, reconnu par le mot « litige ») : rappel retiré, relances
+//    suspendues. Retour en 📤 émise ou 💵 partiellement payée : la relance suivante se reprogramme (compteur conservé).
 // 2. 📤 émise ou 💵 partiellement payée : il faut une Date d'échéance, sinon commentaire ⚠️.
 // 3. Relances envoyées = 0 → rappel à échéance + 3 j ; = 1 → + 10 j ; = 2 → + 15 j, prise en charge back-office ;
 //    3 ou plus → plus de rappel, dossier au back-office.
@@ -40,11 +42,12 @@ async function commenter(taskId: string, token: string, texte: string): Promise<
   return res.ok;
 }
 
-async function ecrireEcheance(taskId: string, token: string, ms: number): Promise<boolean> {
+// ms = null : retire l'échéance de la tâche
+async function ecrireEcheance(taskId: string, token: string, ms: number | null): Promise<boolean> {
   const res = await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
     method: 'PUT',
     headers: { Authorization: token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ due_date: ms, due_date_time: false }),
+    body: JSON.stringify(ms === null ? { due_date: null } : { due_date: ms, due_date_time: false }),
   });
   if (!res.ok) console.error(`Écriture de l'échéance refusée (${res.status}) sur ${taskId}`, await res.text().catch(() => ''));
   return res.ok;
@@ -52,8 +55,9 @@ async function ecrireEcheance(taskId: string, token: string, ms: number): Promis
 
 const champ = (tache: any, id: string) => (tache?.custom_fields || []).find((c: any) => c?.id === id)?.value;
 
-function lireStatut(statut: string): 'a_emettre' | 'emise' | 'partielle' | 'payee' | 'annulee' | 'fermee' | 'autre' {
+function lireStatut(statut: string): 'a_emettre' | 'emise' | 'partielle' | 'litige' | 'payee' | 'annulee' | 'fermee' | 'autre' {
   const s = sansAccent(statut);
+  if (s.includes('litige')) return 'litige';
   if (s.includes('a emettre')) return 'a_emettre';
   if (s.includes('partiel')) return 'partielle';
   if (s.includes('emise')) return 'emise';
@@ -92,6 +96,18 @@ async function traiter(taskId: string, simulation: boolean) {
     const texte = etat === 'annulee' ? '🚫 Facture annulée : relances arrêtées.' : '✅ Facture payée : relances arrêtées.';
     if (!simulation) await commenter(id, token, texte);
     return { status: 200, body: { success: true, action: 'arret', statut, commentaire: texte, simulation } };
+  }
+  if (etat === 'litige') {
+    // Déjà suspendue (plus d'échéance) : rien, pour ne pas commenter en double
+    if (!tache.due_date) return { status: 200, body: { success: true, action: 'deja_suspendu', statut, simulation } };
+    const texte = '⚖️ Facture en litige : relances suspendues, rappel retiré. Quand le litige est réglé, repasse la facture en 📤 émise (ou 💵 partiellement payée) : la relance suivante se reprogramme toute seule.';
+    if (simulation) return { status: 200, body: { success: true, action: 'suspendrait', statut, commentaire: texte, simulation } };
+    if (!(await ecrireEcheance(id, token, null))) {
+      await commenter(id, token, '⚠️ Facture en litige : le rappel n\'a pas pu être retiré. Retire l\'échéance à la main pour suspendre les relances.');
+      return { status: 502, body: { success: false, error: 'Retrait de l’échéance impossible', statut } };
+    }
+    await commenter(id, token, texte);
+    return { status: 200, body: { success: true, action: 'suspendu', statut, commentaire: texte } };
   }
 
   // 2. Date d'échéance obligatoire
