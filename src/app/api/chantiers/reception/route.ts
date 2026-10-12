@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { aujourdhuiParis, ajouterJours, libelleJour } from '@/lib/joursOuvres';
 import { CHAMP_AVIS, CHAMP_TECHNICIEN, creerRappelAvis, poseurs } from '@/lib/avisGoogle';
+import { devisIdDe, traiterContrat } from '@/lib/contratMaintenance';
 
 // Réception, réserves et passage au Parc (Phase 4, bloc 2 validé par Matthieu le 11/10/2026).
 // Appelé par les automatisations de Planning Chantiers : POST ?taskId=...&evenement=realise | termine
@@ -11,7 +12,12 @@ import { CHAMP_AVIS, CHAMP_TECHNICIEN, creerRappelAvis, poseurs } from '@/lib/av
 //   Sinon le site déplace la même tâche au Parc installé (🟢 en service ; sous-tâches de réserve ouvertes en
 //   ⚠️ sous surveillance), note la demande d'avis faite sur place (QR code) et crée la sous-tâche ⭐ de relance
 //   par email à J+7 pour le poseur. Les règlements et aides ne conditionnent pas ce passage.
+//   Prestations vendues (12/10/2026) : le contrat de maintenance du devis signé (🔗 Lien devis, lu avant le déplacement)
+//   remplit 📜 Type de Contrat, 📅 Date de Mise en Service, 🔄 Echéance annuelle et 🔢 Nb points de charge (voir
+//   src/lib/contratMaintenance.ts). Aucune visite n'est créée ici.
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
+//   GET ?taskId=...&evenement=contrat&devis=quote_...&simulation=1|executer=1 : lecture du contrat seule, sur une fiche
+//   du Parc ou de Planning (exécution : fiche « Test » du Parc uniquement). Sans &devis, le 🔗 Lien devis de la fiche.
 
 const WORKSPACE_ID = process.env.CLICKUP_TEAM_ID || '90151325642';
 const PLANNING_CHANTIERS_ID = '901520038258';
@@ -58,6 +64,9 @@ function champ(tache: any, id: string): any {
 }
 
 const aFichier = (t: any, id: string) => { const v = champ(t, id)?.value; return Array.isArray(v) ? v.length > 0 : !!v; };
+
+// 🔗 Lien devis du chantier (lu par nom : le champ n'existe pas dans le Parc)
+const lienDevis = (t: any) => String((Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => normal(c.name).includes('lien devis'))?.value || '');
 
 function reserves(t: any): 'aucune' | 'mineure' | 'bloquante' | '' {
   const f = champ(t, CHAMP_RESERVES);
@@ -137,6 +146,7 @@ async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean;
 async function traiter(taskId: string, evenement: Evenement, simulation: boolean) {
   const token = process.env.CLICKUP_API_KEY;
   if (!token) return { status: 500, body: { success: false, error: 'Configuration serveur incomplète' } };
+  const co = process.env.COSTRUCTOR_API_KEY || '';
 
   const tache = await lireTache(taskId, token);
   if (!tache) return { status: 404, body: { success: false, error: 'Fiche introuvable' } };
@@ -156,6 +166,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   const pose = poseurs(tache);
   const aujourdhui = aujourdhuiParis();
   const jour = libelleJour(aujourdhui);
+  const devisId = devisIdDe(lienDevis(tache));
   const etat = { pv, photos, reserves: res || 'vide', sousTachesReserve: st.total, sousTachesIncompletes: st.incompletes, poseurs: pose.noms };
 
   if (evenement === 'realise') {
@@ -199,7 +210,10 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   const sansPhotos = photos ? '' : ' ⚠️ Pas de 📸 Photos Chantier : à ajouter pour le SAV.';
   const avis = ` ⭐ Avis Google demandé sur place${pose.noms.length ? ` par ${pose.noms.join(', ')}` : ''} ; sans avis, relance par email le ${libelleJour(ajouterJours(aujourdhui, 7))}.`;
   let texte = `🏁 Réception confirmée le ${jour} : chantier passé au Parc installé.${mineures}${sansPhotos}${avis}`;
-  if (simulation) return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, simulation } };
+  if (simulation) {
+    const contrat = co ? await traiterContrat(token, co, id, devisId, aujourdhui, true) : { action: 'cle_costructor_absente' };
+    return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, contrat, simulation } };
+  }
 
   const d = await deplacerAuParc(tache, token);
   if (!d.ok) {
@@ -210,7 +224,27 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   if (!rappel.ok) texte = texte.replace(avis, ' ⚠️ La sous-tâche ⭐ avis Google n\'a pas pu être créée : note la relance à J+7 à la main.');
   else if (rappel.deja) texte = texte.replace(avis, ' ⭐ Sous-tâche d\'avis Google déjà présente.');
   await commenter(id, token, texte);
-  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, avis: rappel, ...etat, commentaire: texte } };
+  let contrat: any = { action: 'cle_costructor_absente' };
+  if (co) contrat = await traiterContrat(token, co, id, devisId, aujourdhui, false);
+  else await commenter(id, token, '⚠️ Contrat de maintenance : lecture du devis impossible (configuration). Remplis 📜 Type de Contrat à la main.', true);
+  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, avis: rappel, contrat, ...etat, commentaire: texte } };
+}
+
+// Preview : contrat de maintenance seul (lecture partout, écriture sur la fiche « Test » du Parc)
+async function testerContrat(taskId: string, devis: string, simulation: boolean) {
+  const token = process.env.CLICKUP_API_KEY;
+  const co = process.env.COSTRUCTOR_API_KEY;
+  if (!token || !co) return { status: 500, body: { success: false, error: 'Configuration serveur incomplète' } };
+  const tache = await lireTache(taskId, token);
+  if (!tache) return { status: 404, body: { success: false, error: 'Fiche introuvable' } };
+  const liste = String(tache?.list?.id ?? '');
+  if (![PARC_ID, PLANNING_CHANTIERS_ID].includes(liste)) return { status: 200, body: { success: true, action: 'ignore_hors_liste', simulation } };
+  if (!simulation && (liste !== PARC_ID || !normal(tache.name).startsWith('test'))) {
+    return { status: 403, body: { success: false, error: 'Exécution : fiche « Test » du Parc uniquement, simulation partout' } };
+  }
+  const devisId = devisIdDe(devis) || devisIdDe(lienDevis(tache));
+  const r = await traiterContrat(token, co, String(tache.id), devisId, aujourdhuiParis(), simulation);
+  return { status: 200, body: { success: true, devisId: devisId || null, ...r } };
 }
 
 function lireEvenement(p: URLSearchParams): Evenement | null {
@@ -242,11 +276,15 @@ export async function GET(request: Request) {
   try {
     const p = new URL(request.url).searchParams;
     const taskId = p.get('taskId');
-    const evenement = lireEvenement(p);
     const executer = p.get('executer') === '1';
     const simulation = p.get('simulation') === '1';
+    if (taskId && p.get('evenement') === 'contrat' && (executer || simulation)) {
+      const r = await testerContrat(taskId, p.get('devis') || '', !executer);
+      return NextResponse.json(r.body, { status: r.status });
+    }
+    const evenement = lireEvenement(p);
     if (!taskId || !evenement || (!executer && !simulation)) {
-      return NextResponse.json({ error: 'Ajoute ?taskId=...&evenement=realise|termine&simulation=1 ou &executer=1' }, { status: 400 });
+      return NextResponse.json({ error: 'Ajoute ?taskId=...&evenement=realise|termine|contrat&simulation=1 ou &executer=1' }, { status: 400 });
     }
     const r = await traiter(taskId, evenement, !executer);
     return NextResponse.json(r.body, { status: r.status });
