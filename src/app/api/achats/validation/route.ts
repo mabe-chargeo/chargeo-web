@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server';
 import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
+import { chantiersSansAcompte } from '@/lib/acompteChantier';
 
 // Validation des achats (Phase 4, décision Matthieu du 11/10/2026 : Matthieu valide au démarrage, puis le chef de chantier).
 // Appelé par l'automatisation « statut modifié » de Commandes Matériel et d'Achats Fournisseurs : POST ?taskId=...
 // 1. Passage en « commandé » sans 👤 Validé par : la tâche revient à l'étape d'avant (📝 à commander ou 🖊️ à valider)
 //    et un commentaire explique quoi faire.
-// 2. Statuts suivants (en livraison, reçu, soldé) sans validation : simple alerte en commentaire, pas de retour en arrière
+// 2. Commandes Matériel (décision Matthieu du 12/10 : pas d'achat de matériel avant l'acompte) : passage en « commandé »
+//    alors que 💶 Acompte d'un chantier relié n'est ni ✅ Confirmé ni ➖ Non applicable = même retour en arrière.
+//    💶 Acompte passe tout seul à ✅ quand la facture d'acompte est payée (route factures/relances).
+//    Commande sans chantier (stock) : pas de contrôle d'acompte.
+// 3. Statuts suivants (en livraison, reçu, soldé) sans validation : simple alerte en commentaire, pas de retour en arrière
 //    (le matériel est peut-être déjà là, on ne casse pas la réception).
-// 3. Achats : une facture reliée à une commande (🔗 Commande liée) hérite de la validation de cette commande.
+// 4. Achats : une facture reliée à une commande (🔗 Commande liée) hérite de la validation de cette commande.
 // ClickUp ne sait pas qui a rempli le champ : l'historique de la tâche en garde la trace.
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (tâches « Test » uniquement).
 
@@ -97,7 +102,14 @@ async function traiter(taskId: string, simulation: boolean) {
       if (v.length) { par = v; source = `commande ${c.name}`; break; }
     }
   }
-  if (par.length) return { status: 200, body: { success: true, action: 'valide', statut, validePar: par, source, simulation } };
+
+  // Acompte du ou des chantiers reliés (Commandes Matériel, au passage en commandé)
+  const controleAcompte = !achats && e === 'commande';
+  const acompte = controleAcompte ? await chantiersSansAcompte(token, t) : { verifies: 0, sansAcompte: [] as string[] };
+
+  if (par.length && !acompte.sansAcompte.length) {
+    return { status: 200, body: { success: true, action: 'valide', statut, validePar: par, source, chantiersVerifies: controleAcompte ? acompte.verifies : undefined, simulation } };
+  }
 
   const jour = libelleJour(aujourdhuiParis());
   if (e === 'apres') {
@@ -106,21 +118,30 @@ async function traiter(taskId: string, simulation: boolean) {
     return { status: 200, body: { success: true, action: 'alerte_sans_validation', statut, commentaire: texte, simulation } };
   }
 
-  // e === 'commande' : retour à l'étape d'avant
+  // e === 'commande' : retour à l'étape d'avant (validation manquante et / ou acompte non encaissé)
+  const motifs = [
+    !par.length ? '👤 Validé par est vide' : '',
+    acompte.sansAcompte.length ? `acompte pas encore encaissé (${acompte.sansAcompte.join(', ')})` : '',
+  ].filter(Boolean);
+  const conseils = [
+    !par.length ? "Fais valider l'achat (Matthieu pour l'instant) et remplis 👤 Validé par." : '',
+    acompte.sansAcompte.length ? "Pas d'achat de matériel avant l'acompte : 💶 Acompte du chantier passe tout seul à ✅ Confirmé quand la facture d'acompte est payée (➖ Non applicable si le devis n'en prévoit pas)." : '',
+  ].filter(Boolean).join(' ');
   const retour = await statutRetour(listeId, token, achats);
-  const texte = `⛔ Commande bloquée le ${jour} : 👤 Validé par est vide. La tâche revient en « ${retour || 'étape précédente'} ». Fais valider l'achat (Matthieu pour l'instant), remplis le champ, puis repasse en commandé.`;
-  if (simulation) return { status: 200, body: { success: true, action: 'bloquerait', statut, retour, commentaire: texte, simulation } };
+  const texte = `⛔ Commande bloquée le ${jour} : ${motifs.join(' ; ')}. La tâche revient en « ${retour || 'étape précédente'} ». ${conseils} Puis repasse en commandé.`;
+  const detail = { statut, retour, motifs, validePar: par, sansAcompte: acompte.sansAcompte };
+  if (simulation) return { status: 200, body: { success: true, action: 'bloquerait', ...detail, commentaire: texte, simulation } };
   if (!retour) {
-    await commenter(id, token, `⚠️ Commande passée en commandé sans 👤 Validé par, et je n'ai pas trouvé le statut de retour. Remets-la à la main.`, true);
-    return { status: 502, body: { success: false, error: 'Statut de retour introuvable', statut } };
+    await commenter(id, token, `⚠️ Commande passée en commandé (${motifs.join(' ; ')}), et je n'ai pas trouvé le statut de retour. Remets-la à la main.`, true);
+    return { status: 502, body: { success: false, error: 'Statut de retour introuvable', ...detail } };
   }
   const r = await api(token, `/task/${id}`, 'PUT', { status: retour });
   if (!r.ok) {
-    await commenter(id, token, `⚠️ Commande passée en commandé sans 👤 Validé par : je n'ai pas pu la remettre en « ${retour} ». Fais-le à la main.`, true);
-    return { status: 502, body: { success: false, error: 'Retour de statut impossible', statut, retour } };
+    await commenter(id, token, `⚠️ Commande passée en commandé (${motifs.join(' ; ')}) : je n'ai pas pu la remettre en « ${retour} ». Fais-le à la main.`, true);
+    return { status: 502, body: { success: false, error: 'Retour de statut impossible', ...detail } };
   }
   await commenter(id, token, texte, true);
-  return { status: 200, body: { success: true, action: 'bloque', statut, retour, commentaire: texte } };
+  return { status: 200, body: { success: true, action: 'bloque', ...detail, commentaire: texte } };
 }
 
 export async function POST(request: Request) {
