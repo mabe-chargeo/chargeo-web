@@ -12,6 +12,8 @@ import { Jour, aujourdhuiParis, echeanceClickUp } from '@/lib/joursOuvres';
 // - 🔢 Nb points de charge = quantité de la ligne contrat (prix par point de charge et par an) si vide.
 // Aucune visite n'est créée ici : sa préparation 30 jours avant l'échéance relève du circuit maintenance (Phase 5).
 // Champs déjà remplis : jamais écrasés ; un écart avec le devis est signalé.
+// API externe : GET /quotes/{id} ne renvoie pas les lignes (constaté le 12/10, 3 devis). Les variantes ci-dessous
+// (non documentées) sont essayées dans l'ordre ; sans lignes, la fiche reçoit un ⚠️ pour remplir à la main.
 
 const COSTRUCTOR = 'https://api.costructor.co/external/v1';
 const PARC_ID = '901520038290';
@@ -91,6 +93,16 @@ function referencesRetenues(lignesDevis: any): Ref[] | null {
   return [...gardees.values()].flat();
 }
 
+// Lignes trouvées dans une réponse, quelle que soit son enveloppe
+function lignesDe(json: any): any[] | null {
+  if (Array.isArray(json)) return json;
+  const d = json?.data && !Array.isArray(json.data) ? json.data : json;
+  for (const c of [d?.lines, d?.quoteLines, d?.items, json?.data, d?.content?.lines, d?.document?.lines]) {
+    if (Array.isArray(c) && c.length) return c;
+  }
+  return null;
+}
+
 export type Contrat = {
   etat: 'souscrit' | 'aucun' | 'ambigu' | 'inconnu' | 'illisible';
   option?: string;
@@ -100,38 +112,54 @@ export type Contrat = {
   payeur?: string;
   raison?: string;
   references?: string[];
-  cles?: string[];
+  source?: string;
+  essais?: string[];
 };
 
 export async function lireContrat(co: string, devisId: string): Promise<Contrat> {
   if (!devisId) return { etat: 'illisible', raison: 'sans_lien_devis' };
-  const res = await costructor(co, `/quotes/${encodeURIComponent(devisId)}`);
+  const id = encodeURIComponent(devisId);
+  const res = await costructor(co, `/quotes/${id}`);
   if (!res.ok) return { etat: 'illisible', raison: `costructor_http_${res.status}` };
   const json = await res.json().catch(() => null);
   const d = json?.data && !Array.isArray(json.data) ? json.data : json;
-  let refs = referencesRetenues(d?.lines);
-  if (!refs) {
-    const r2 = await costructor(co, `/quotes/${encodeURIComponent(devisId)}/lines`);
-    if (r2.ok) {
-      const j2 = await r2.json().catch(() => null);
-      refs = referencesRetenues(Array.isArray(j2) ? j2 : j2?.data ?? j2?.lines);
-    }
-  }
   const base = { numero: String(d?.number || ''), payeur: String(d?.customer?.fullName || d?.customer?.companyName || '') };
-  if (!refs) return { etat: 'illisible', raison: 'lignes_absentes', ...base, cles: d && typeof d === 'object' ? Object.keys(d).slice(0, 40) : [] };
+
+  let lignes = lignesDe(json);
+  let source = lignes ? 'quotes/id' : '';
+  const essais: string[] = [];
+  const variantes = [
+    `/quotes/${id}?include=lines`, `/quotes/${id}?expand=lines`, `/quotes/${id}?expand[]=lines`, `/quotes/${id}?with=lines`,
+    `/quotes/${id}?_embed=lines`, `/quotes/${id}/lines`, `/quote-lines?quote=${id}`, `/quotes/${id}/details`,
+  ];
+  for (const v of variantes) {
+    if (lignes) break;
+    const r = await costructor(co, v);
+    let trouve = false;
+    if (r.ok) {
+      const j = await r.json().catch(() => null);
+      lignes = lignesDe(j);
+      trouve = !!lignes;
+      if (trouve) source = v.replace(id, '{id}');
+    }
+    essais.push(`${v.replace(id, '{id}')} → ${r.status}${r.ok ? (trouve ? ' lignes' : ' sans lignes') : ''}`);
+  }
+  const refs = referencesRetenues(lignes);
+  if (!refs) return { etat: 'illisible', raison: 'lignes_absentes', ...base, essais };
   const references = [...new Set(refs.map((r) => r.ref))];
   const contrats = refs.filter((r) => r.ref.startsWith(PREFIXE));
   const trouves = [...new Set(contrats.map((r) => r.ref))];
-  if (!trouves.length) return { etat: 'aucun', ...base, references };
-  if (trouves.some((r) => !CONTRATS[r])) return { etat: 'inconnu', refs: trouves, ...base, references };
-  if (trouves.length > 1) return { etat: 'ambigu', refs: trouves, ...base, references };
+  const fin = { ...base, references, source, essais };
+  if (!trouves.length) return { etat: 'aucun', ...fin };
+  if (trouves.some((r) => !CONTRATS[r])) return { etat: 'inconnu', refs: trouves, ...fin };
+  if (trouves.length > 1) return { etat: 'ambigu', refs: trouves, ...fin };
   const qte = Math.round(contrats.reduce((s, r) => s + r.qte, 0) * 100) / 100;
-  return { etat: 'souscrit', option: CONTRATS[trouves[0]], refs: trouves, qte, ...base, references };
+  return { etat: 'souscrit', option: CONTRATS[trouves[0]], refs: trouves, qte, ...fin };
 }
 
 const RAISONS: Record<string, string> = {
   sans_lien_devis: '« 🔗 Lien devis » était vide sur le chantier',
-  lignes_absentes: 'Costructor ne renvoie pas les lignes du devis',
+  lignes_absentes: 'Costructor ne transmet pas les lignes du devis au site',
 };
 const raisonLisible = (r = '') => RAISONS[r] || (r.startsWith('costructor_http_') ? 'Costructor ne répond pas' : r);
 
