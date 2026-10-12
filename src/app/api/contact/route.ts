@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getQualificationListId } from '@/lib/listesClickUp';
-import { notifierEquipe } from '@/lib/notifEquipe';
 
 // Liste Qualification choisie selon l'environnement (src/lib/listesClickUp.ts) :
 // production = vraie liste, preview = liste TEST uniquement, sinon refus.
-// Apres creation, le lead est signale a l'equipe Commercial (commentaire assigne a l'equipe, 12/10/2026).
 export async function POST(request: Request) {
   try {
     const data = await request.json();
@@ -65,10 +63,6 @@ export async function POST(request: Request) {
     });
 
     if (response.ok) {
-      const tache = await response.json().catch(() => null);
-      if (tache?.id) {
-        await notifierEquipe(CLICKUP_API_KEY, String(tache.id), 'commercial', `🦁 Nouveau lead du site : ${data.nom}, à qualifier !`);
-      }
       return NextResponse.json({ success: true });
     } else {
       const errorData = await response.json();
