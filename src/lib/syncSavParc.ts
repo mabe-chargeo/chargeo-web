@@ -9,7 +9,8 @@ import { alerter } from '@/lib/alerteSite';
 //   concerne encore (elle reste sous surveillance). Plusieurs installations liées : rien n'est changé, un commentaire
 //   demande de corriger le lien (même règle que l'agent).
 // - Un ticket qui quitte « résolu » ne remet jamais le Parc en arrière (cas humain).
-// - Champ 🔗 Fiche Installation vide : rien à la création (le lien arrive juste après), alerte sinon (une seule fois).
+// - Champ 🔗 Fiche Installation vide : rien à la création ni dans les 2 minutes qui suivent (le lien arrive juste
+//   après), alerte sinon (une seule fois).
 // Preview : vrai passage sur un ticket et une installation « Test… » (« SAV - Test… » accepté), simulation partout.
 
 const SAV_IDS = Array.from(new Set([process.env.CLICKUP_SAV_LIST_ID || '', '901520038282'].filter(Boolean)));
@@ -102,7 +103,9 @@ export async function synchroniserSav(ticketId: string, simulation: boolean, dec
 
   const lies = installations(ticket);
   if (!lies.length) {
-    if (declencheur === 'creation') return { success: true, action: 'ignore_sans_lien_creation', ...base };
+    // Ticket tout juste créé : le lien arrive juste après (formulaire du site ou saisie à la main), pas d'alerte
+    const age = Date.now() - Number(ticket?.date_created || 0);
+    if (declencheur === 'creation' || age < 2 * 60 * 1000) return { success: true, action: 'ignore_sans_lien_creation', ...base };
     const texte = `⚠️ SAV : ${MARQUE_SANS_LIEN}, la fiche du Parc installé n'a pas été mise à jour. Relie le ticket à la bonne installation.`;
     if (!simulation && !(await dejaDit(token, id, MARQUE_SANS_LIEN))) await alerter(token, id, texte);
     return { success: true, action: 'sans_installation', ...base, commentaire: texte };

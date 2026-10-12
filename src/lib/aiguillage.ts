@@ -85,8 +85,11 @@ export function listeSuivie(listeId: string): boolean {
 export function lireChangements(evenement: string, items: any[]): Changement[] {
   if (evenement === 'taskCreated') return [{ type: 'creation' }];
   if (evenement === 'taskStatusUpdated') {
-    const statuts = items.filter((i) => i?.field === 'status')
-      .map((i) => ({ type: 'statut' as const, statut: String(i?.after?.status || ''), typeStatut: String(i?.after?.type || '') }));
+    // Statut sans « avant » : c'est le statut posé à la création de la tâche (vu au test SAV du 12/10), pas un changement
+    const statuts: Changement[] = items.filter((i) => i?.field === 'status')
+      .map((i) => (!i?.before?.status
+        ? { type: 'creation' as const }
+        : { type: 'statut' as const, statut: String(i?.after?.status || ''), typeStatut: String(i?.after?.type || '') }));
     return statuts.length ? statuts : [{ type: 'statut', statut: '', typeStatut: '' }];
   }
   if (evenement === 'taskUpdated') {
