@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aujourdhuiParis, ajouterJours, prochainOuvre, comparer, echeanceClickUp, libelleJour, type Jour } from '@/lib/joursOuvres';
+import { confirmerAcompte, estFactureAcompte } from '@/lib/acompteChantier';
 
 // Relances impayés (Phase 4, décision Matthieu du 11/10/2026 : aucun email automatique au client).
 // Appelé par les automatisations ClickUp de Factures Clients v2 (statut modifié, Date d'échéance modifiée,
@@ -7,6 +8,8 @@ import { aujourdhuiParis, ajouterJours, prochainOuvre, comparer, echeanceClickUp
 // Le site ne fait que poser l'échéance de la tâche (rappel interne) et commenter. Un humain relance le client,
 // puis augmente « Relances envoyées » de 1, ce qui programme la relance suivante.
 // 1. 📄 à émettre : rien. ✅ payée, 🚫 annulée, fermée : séquence arrêtée.
+//    Facture d'acompte payée (décision Matthieu du 12/10) : 💶 Acompte passe à ✅ Confirmé sur le chantier relié par
+//    🔗 Affaire (voir src/lib/acompteChantier.ts). Pas d'achat de matériel ni de feu vert avant.
 //    ⚖️ en litige (statut ajouté par Matthieu le 12/10, reconnu par le mot « litige ») : rappel retiré, relances
 //    suspendues. Retour en 📤 émise ou 💵 partiellement payée : la relance suivante se reprogramme (compteur conservé).
 // 2. 📤 émise ou 💵 partiellement payée : il faut une Date d'échéance, sinon commentaire ⚠️.
@@ -95,7 +98,17 @@ async function traiter(taskId: string, simulation: boolean) {
   if (etat === 'payee' || etat === 'annulee' || etat === 'fermee') {
     const texte = etat === 'annulee' ? '🚫 Facture annulée : relances arrêtées.' : '✅ Facture payée : relances arrêtées.';
     if (!simulation) await commenter(id, token, texte);
-    return { status: 200, body: { success: true, action: 'arret', statut, commentaire: texte, simulation } };
+    // Acompte payé : le chantier peut acheter le matériel et recevoir son feu vert
+    let acompte: any;
+    if (etat === 'payee' && estFactureAcompte(tache)) {
+      acompte = await confirmerAcompte(token, tache, simulation);
+      const rate = acompte.action === 'sans_affaire'
+        || (acompte.chantiers || []).some((c: any) => ['introuvable', 'option_introuvable', 'erreur_ecriture'].includes(c.action));
+      if (!simulation && rate) {
+        await commenter(id, token, '⚠️ Acompte payé, mais je n\'ai pas pu mettre à jour le chantier (🔗 Affaire vide ou chantier introuvable). Passe 💶 Acompte à ✅ Confirmé à la main sur la fiche du chantier.');
+      }
+    }
+    return { status: 200, body: { success: true, action: 'arret', statut, commentaire: texte, acompte, simulation } };
   }
   if (etat === 'litige') {
     // Déjà suspendue (plus d'échéance) : rien, pour ne pas commenter en double
