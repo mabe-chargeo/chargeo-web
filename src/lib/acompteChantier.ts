@@ -6,6 +6,7 @@ import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
 // - chantiersSansAcompte : chantiers de Planning Chantiers reliés à une commande (🏗️ Chantier ou lien de tâche) dont
 //   💶 Acompte n'est ni ✅ Confirmé ni ➖ Non applicable (route achats/validation). Commande sans chantier (stock) :
 //   pas de contrôle.
+// Retesté sur Preview le 12/10/2026 avec TEST · Blanc 2 (commande bloquée, acompte confirmé, commande validée).
 
 const PLANNING_CHANTIERS_ID = '901520038258';
 const CHAMP_ACOMPTE = 'ba4a2025-43ec-44a0-8938-1cbc497f7bbf';
