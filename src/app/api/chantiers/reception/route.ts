@@ -64,7 +64,7 @@ async function commenter(taskId: string, token: string, texte: string, notifier 
 
 // Plusieurs choses à faire à la main au passage au Parc : une seule alerte numérotée (le champ ne garde que la
 // dernière écriture, une alerte écrite juste après une autre la remplace avant que ClickBot ne la relaie)
-export function regrouperAlertes(alertes: string[]): string {
+function regrouperAlertes(alertes: string[]): string {
   if (alertes.length === 1) return alertes[0];
   const liste = alertes.map((a, i) => `${i + 1}. ${a.replace(/^⚠️\s*/, '')}`).join(' ');
   return `⚠️ Passage au Parc : ${alertes.length} choses à faire à la main. ${liste}`;
