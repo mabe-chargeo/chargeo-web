@@ -21,6 +21,8 @@ import { alerter } from '@/lib/alerteSite';
 //   📄 à émettre, rappel J+1 ouvré, sans doublon (voir src/lib/factureSolde.ts).
 // Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
 //   Le refus garde en plus son commentaire du site : c'est lui qui évite le ⚠️ « réalisé incomplet » juste après le retour.
+//   Passage au Parc : UNE seule alerte regroupant tout ce qui est à faire à la main (contrat, facture de solde). Deux
+//   alertes écrites coup sur coup écrasent le champ avant le relais : la première était perdue (test du 12/10).
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
 //   GET ?taskId=...&evenement=contrat&devis=quote_...&simulation=1|executer=1 : lecture du contrat seule, sur une fiche
 //   du Parc ou de Planning (exécution : fiche « Test » du Parc uniquement). Sans &devis, le 🔗 Lien devis de la fiche.
@@ -58,6 +60,14 @@ async function commenter(taskId: string, token: string, texte: string, notifier 
   const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: false });
   if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${taskId}`);
   return res.ok;
+}
+
+// Plusieurs choses à faire à la main au passage au Parc : une seule alerte numérotée (le champ ne garde que la
+// dernière écriture, une alerte écrite juste après une autre la remplace avant que ClickBot ne la relaie)
+export function regrouperAlertes(alertes: string[]): string {
+  if (alertes.length === 1) return alertes[0];
+  const liste = alertes.map((a, i) => `${i + 1}. ${a.replace(/^⚠️\s*/, '')}`).join(' ');
+  return `⚠️ Passage au Parc : ${alertes.length} choses à faire à la main. ${liste}`;
 }
 
 async function statutsListe(listId: string, token: string): Promise<any[]> {
@@ -219,9 +229,14 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   const avis = ` ⭐ Avis Google demandé sur place${pose.noms.length ? ` par ${pose.noms.join(', ')}` : ''} ; sans avis, relance par email le ${libelleJour(ajouterJours(aujourdhui, 7))}.`;
   let texte = `🏁 Réception confirmée le ${jour} : chantier passé au Parc installé.${mineures}${sansPhotos}${avis}`;
   if (simulation) {
-    const contrat = co ? await traiterContrat(token, co, id, devisId, aujourdhui, true) : { action: 'cle_costructor_absente' };
+    const contrat: any = co ? await traiterContrat(token, co, id, devisId, aujourdhui, true) : { action: 'cle_costructor_absente' };
     const solde = await creerSolde(token, tache, true);
-    return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, contrat, solde, simulation } };
+    const aFaire: string[] = [];
+    if (!co) aFaire.push('⚠️ Contrat de maintenance : lecture du devis impossible (configuration). Remplis 📜 Type de Contrat à la main.');
+    else if (contrat?.notifier) aFaire.push(String(contrat.commentaire || ''));
+    if (solde.solde === 'sans_numero_devis') aFaire.push('⚠️ Facture de solde : je n\'ai pas pu créer la tâche dans Factures Clients (📝 N° devis vide). Crée-la à la main (Type de pièce Solde, Réf. devis signé).');
+    const alerte = aFaire.length ? regrouperAlertes(aFaire) : null;
+    return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, contrat, solde, alerte, simulation } };
   }
 
   const d = await deplacerAuParc(tache, token);
@@ -233,9 +248,16 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   if (!rappel.ok) texte = texte.replace(avis, ' ⚠️ La sous-tâche ⭐ avis Google n\'a pas pu être créée : note la relance à J+7 à la main.');
   else if (rappel.deja) texte = texte.replace(avis, ' ⭐ Sous-tâche d\'avis Google déjà présente.');
   await commenter(id, token, texte);
+
+  // Tout ce qui est à faire à la main est regroupé en une seule alerte, écrite à la fin
+  const aFaire: string[] = [];
   let contrat: any = { action: 'cle_costructor_absente' };
-  if (co) contrat = await traiterContrat(token, co, id, devisId, aujourdhui, false);
-  else await commenter(id, token, '⚠️ Contrat de maintenance : lecture du devis impossible (configuration). Remplis 📜 Type de Contrat à la main.', true);
+  if (co) {
+    contrat = await traiterContrat(token, co, id, devisId, aujourdhui, false, true);
+    if (contrat?.alerte) aFaire.push(String(contrat.alerte));
+  } else {
+    aFaire.push('⚠️ Contrat de maintenance : lecture du devis impossible (configuration). Remplis 📜 Type de Contrat à la main.');
+  }
 
   // Facture de solde, à partir de la fiche lue avant le déplacement (N° devis, montant, liens)
   const solde = await creerSolde(token, tache, false);
@@ -243,9 +265,12 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
     await commenter(id, token, `🧾 Facture de solde à émettre : tâche créée dans Factures Clients (montant = devis moins acompte), rappel le ${solde.rappel}. ${solde.url}`);
   } else if (solde.solde !== 'deja_cree') {
     const raison = solde.solde === 'sans_numero_devis' ? '📝 N° devis vide' : 'erreur de création';
-    await commenter(id, token, `⚠️ Facture de solde : je n'ai pas pu créer la tâche dans Factures Clients (${raison}). Crée-la à la main (Type de pièce Solde, Réf. devis signé).`, true);
+    aFaire.push(`⚠️ Facture de solde : je n'ai pas pu créer la tâche dans Factures Clients (${raison}). Crée-la à la main (Type de pièce Solde, Réf. devis signé).`);
   }
-  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, avis: rappel, contrat, solde, ...etat, commentaire: texte } };
+
+  const alerte = aFaire.length ? regrouperAlertes(aFaire) : null;
+  if (alerte) await alerter(token, id, alerte);
+  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, avis: rappel, contrat, solde, alerte, ...etat, commentaire: texte } };
 }
 
 // Preview : contrat de maintenance seul (lecture partout, écriture sur la fiche « Test » du Parc)

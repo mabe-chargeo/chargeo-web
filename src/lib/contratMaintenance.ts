@@ -14,6 +14,8 @@ import { alerter } from '@/lib/alerteSite';
 // Aucune visite n'est créée ici : sa préparation 30 jours avant l'échéance relève du circuit maintenance (Phase 5).
 // Champs déjà remplis : jamais écrasés ; un écart avec le devis est signalé.
 // Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
+//   differerAlerte = true (passage au Parc) : l'alerte n'est pas écrite ici mais renvoyée dans « alerte », pour que la
+//   réception la regroupe avec les autres (deux alertes coup sur coup : la première est perdue, test du 12/10).
 // API externe : GET /quotes/{id} ne renvoie pas les lignes (constaté le 12/10 sur 3 devis). Les 8 variantes ci-dessous
 // (non documentées) ont été essayées le 12/10 : 200 sans lignes, 405 ou 404. Demande faite au support Costructor
 // (tâche « Envoyer les demandes groupées au support Costructor »). Sans lignes, la fiche reçoit un ⚠️ pour remplir
@@ -168,7 +170,8 @@ const RAISONS: Record<string, string> = {
 const raisonLisible = (r = '') => RAISONS[r] || (r.startsWith('costructor_http_') ? 'Costructor ne répond pas' : r);
 
 // Remplit la fiche Parc à partir du contrat lu. simulation : rien n'est écrit.
-export async function traiterContrat(cu: string, co: string, taskId: string, devisId: string, jour: Jour, simulation: boolean) {
+// differerAlerte : alerte renvoyée dans « alerte » au lieu d'être écrite (l'appelant la regroupe avec les autres).
+export async function traiterContrat(cu: string, co: string, taskId: string, devisId: string, jour: Jour, simulation: boolean, differerAlerte = false) {
   const c = await lireContrat(co, devisId);
   const [tRes, fRes] = await Promise.all([
     clickup(cu, `/task/${encodeURIComponent(taskId)}`),
@@ -233,7 +236,7 @@ export async function traiterContrat(cu: string, co: string, taskId: string, dev
 
   const resume = { action: `contrat_${c.etat}`, contrat: c, ficheAvant: { typeContrat: actuel || null, miseEnService: vide(mesVal) ? null : dateFr(mes) } };
   const prevues = ecritures.map((e) => ({ champ: e.champ, valeur: e.libelle }));
-  if (simulation) return { ...resume, ecrirait: prevues, commentaire: texte, simulation: true };
+  if (simulation) return { ...resume, ecrirait: prevues, commentaire: texte, notifier, simulation: true };
 
   const rates: string[] = [];
   for (const e of ecritures) {
@@ -241,9 +244,12 @@ export async function traiterContrat(cu: string, co: string, taskId: string, dev
     if (!r.ok) rates.push(e.champ);
   }
   if (rates.length) { texte += ` ⚠️ Non écrit : ${rates.join(', ')}, à remplir à la main.`; notifier = true; }
+  const ecrit = prevues.filter((p) => !rates.includes(p.champ));
+  // Alerte à regrouper par l'appelant : rien n'est écrit ici
+  if (notifier && differerAlerte) return { ...resume, ecrit, rates, commentaire: texte, commente: false, alerte: texte };
   // Alerte (relayée par ClickBot) si quelque chose est à faire à la main, sinon simple commentaire
   const commente = notifier
     ? await alerter(cu, taskId, texte)
     : (await clickup(cu, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: false })).ok;
-  return { ...resume, ecrit: prevues.filter((p) => !rates.includes(p.champ)), rates, commentaire: texte, commente };
+  return { ...resume, ecrit, rates, commentaire: texte, commente, alerte: null };
 }
