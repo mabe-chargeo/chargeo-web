@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { aujourdhuiParis, ajouterJours, libelleJour } from '@/lib/joursOuvres';
 import { CHAMP_AVIS, CHAMP_TECHNICIEN, creerRappelAvis, poseurs } from '@/lib/avisGoogle';
 import { devisIdDe, traiterContrat } from '@/lib/contratMaintenance';
+import { creerSolde } from '@/lib/factureSolde';
 
 // Réception, réserves et passage au Parc (Phase 4, bloc 2 validé par Matthieu le 11/10/2026).
 // Appelé par les automatisations de Planning Chantiers : POST ?taskId=...&evenement=realise | termine
@@ -13,8 +14,10 @@ import { devisIdDe, traiterContrat } from '@/lib/contratMaintenance';
 //   ⚠️ sous surveillance), note la demande d'avis faite sur place (QR code) et crée la sous-tâche ⭐ de relance
 //   par email à J+7 pour le poseur. Les règlements et aides ne conditionnent pas ce passage.
 //   Prestations vendues (12/10/2026) : le contrat de maintenance du devis signé (🔗 Lien devis, lu avant le déplacement)
-//   remplit 📜 Type de Contrat, 📅 Date de Mise en Service, 🔄 Echéance annuelle et 🔢 Nb points de charge (voir
+//   remplit 📜 Type de Contrat, 📅 Date de Mise en Service, 🔄 Echeance annuelle et 🔢 Nb points de charge (voir
 //   src/lib/contratMaintenance.ts). Aucune visite n'est créée ici.
+//   Facture de solde (décision Matthieu du 12/10/2026) : « Solde · client · n° devis » créée dans Factures Clients,
+//   📄 à émettre, rappel J+1 ouvré, sans doublon (voir src/lib/factureSolde.ts).
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
 //   GET ?taskId=...&evenement=contrat&devis=quote_...&simulation=1|executer=1 : lecture du contrat seule, sur une fiche
 //   du Parc ou de Planning (exécution : fiche « Test » du Parc uniquement). Sans &devis, le 🔗 Lien devis de la fiche.
@@ -212,7 +215,8 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   let texte = `🏁 Réception confirmée le ${jour} : chantier passé au Parc installé.${mineures}${sansPhotos}${avis}`;
   if (simulation) {
     const contrat = co ? await traiterContrat(token, co, id, devisId, aujourdhui, true) : { action: 'cle_costructor_absente' };
-    return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, contrat, simulation } };
+    const solde = await creerSolde(token, tache, true);
+    return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, contrat, solde, simulation } };
   }
 
   const d = await deplacerAuParc(tache, token);
@@ -227,7 +231,16 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   let contrat: any = { action: 'cle_costructor_absente' };
   if (co) contrat = await traiterContrat(token, co, id, devisId, aujourdhui, false);
   else await commenter(id, token, '⚠️ Contrat de maintenance : lecture du devis impossible (configuration). Remplis 📜 Type de Contrat à la main.', true);
-  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, avis: rappel, contrat, ...etat, commentaire: texte } };
+
+  // Facture de solde, à partir de la fiche lue avant le déplacement (N° devis, montant, liens)
+  const solde = await creerSolde(token, tache, false);
+  if (solde.solde === 'cree') {
+    await commenter(id, token, `🧾 Facture de solde à émettre : tâche créée dans Factures Clients (montant = devis moins acompte), rappel le ${solde.rappel}. ${solde.url}`);
+  } else if (solde.solde !== 'deja_cree') {
+    const raison = solde.solde === 'sans_numero_devis' ? '📝 N° devis vide' : 'erreur de création';
+    await commenter(id, token, `⚠️ Facture de solde : je n'ai pas pu créer la tâche dans Factures Clients (${raison}). Crée-la à la main (Type de pièce Solde, Réf. devis signé).`, true);
+  }
+  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, avis: rappel, contrat, solde, ...etat, commentaire: texte } };
 }
 
 // Preview : contrat de maintenance seul (lecture partout, écriture sur la fiche « Test » du Parc)
