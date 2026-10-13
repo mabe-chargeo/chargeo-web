@@ -1,8 +1,10 @@
 "use client";
 
-// Réception chantier, écran du chargé d'opération (Phase 6, 13/10/2026).
+// Réception chantier, écran du technicien poseur (Phase 6, 13/10/2026 ; décision Matthieu : la réception se fait sur place
+// par le poseur).
 // Une carte par chantier en 🚧 en cours ou ✅ réalisé : PV et photos déposés depuis le téléphone, 🧾 Réserves en un
-// geste, réserves mineures créées en sous-tâche (responsable = personne connectée), puis Confirmer la réception.
+// geste, réserves mineures créées en sous-tâche (responsable = 👷 Technicien du chantier, sinon la personne connectée),
+// puis Confirmer la réception.
 // Le passage au Parc (contrat, facture de solde, avis Google) reste fait par la route existante.
 import { useEffect, useState } from 'react';
 import { Camera, ClipboardCheck, ExternalLink, FileText, Plus, RefreshCw } from 'lucide-react';
@@ -13,7 +15,7 @@ interface Reserve { id: string; nom: string; responsables: string[]; echeance: n
 interface Option { id: string; nom: string; orderindex: number }
 interface Chantier {
   id: string; nom: string; statut: string; couleurStatut: string; url: string;
-  pv: string[]; photos: string[]; reservesOptionId: string | null; niveau: string;
+  pv: string[]; photos: string[]; techniciens: string[]; reservesOptionId: string | null; niveau: string;
   reserves: Reserve[]; motifs: string[]; avertissements: string[]; ecritureAutorisee: boolean;
 }
 
@@ -221,7 +223,7 @@ export default function ReceptionPage() {
                     }}
                     className={`flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8] ${!s.libelle.trim() || !s.echeance ? 'opacity-50' : ''}`}
                   >
-                    <Plus size={16} color={CYAN} /> {enCours === `${c.id}:ajout` ? 'Création...' : 'Ajouter la réserve (à mon nom)'}
+                    <Plus size={16} color={CYAN} /> {enCours === `${c.id}:ajout` ? 'Création...' : `Ajouter la réserve (${c.techniciens?.length ? c.techniciens.join(', ') : 'à mon nom'})`}
                   </button>
                 </div>
               )}
@@ -271,7 +273,7 @@ export default function ReceptionPage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Chargé d'opération" titre="Réception chantiers" retour={{ href: '/interne', libelle: 'Planning' }} />
+      <EnTeteAppli surtitre="Technicien poseur" titre="Réception chantiers" retour={{ href: '/interne', libelle: 'Planning' }} />
       <ContenuAppli className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[13px]">PV signé, réserves renseignées, puis confirme : le chantier passe au Parc.</p>

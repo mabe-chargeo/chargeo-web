@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
 import { sessionDeRequete } from '@/lib/session';
 
-// Écran Réception du chargé d'opération (Phase 6, 13/10/2026), /interne/reception.
+// Écran Réception du technicien poseur (Phase 6, 13/10/2026), /interne/reception. Décision Matthieu du 13/10 : la
+// réception se fait sur place par le poseur (PV signé, photos, réserves) ; le site contrôle les conditions du passage au Parc.
 // Chantiers de Planning Chantiers en 🚧 en cours ou ✅ réalisé : PV, photos, 🧾 Réserves et sous-tâches « 🔧 Réserve : … ».
 // Mêmes règles que le passage au Parc (src/app/api/chantiers/reception/route.ts), qui reste seul juge : l'écran met le
 // statut, l'automatisation existante contrôle, refuse ou déplace au Parc.
 // GET : liste des chantiers à réceptionner.
 // POST JSON { taskId, action } :
 //   - 'reserves' + optionId : règle 🧾 Réserves ;
-//   - 'reserve_ajout' + libelle + echeance (AAAA-MM-JJ) : sous-tâche « 🔧 Réserve : … », responsable = personne connectée ;
+//   - 'reserve_ajout' + libelle + echeance (AAAA-MM-JJ) : sous-tâche « 🔧 Réserve : … », responsable = 👷 Technicien du
+//     chantier (c'est en général lui qui revient la lever), à défaut la personne connectée (décision Matthieu du 13/10) ;
 //   - 'realise' : statut ✅ réalisé ;
 //   - 'terminer' : statut 🏁 terminé si tout est en règle (sinon refus avec la liste).
 // POST multipart { taskId, cible: 'pv' | 'photos', fichier } : fichier déposé dans 📂 PV Réception ou 📸 Photos Chantier
@@ -20,6 +22,7 @@ const PLANNING_CHANTIERS_ID = '901520038258';
 const CHAMP_RESERVES = '1463a905-0b11-4693-b9d9-e8cca4f79eeb';
 const CHAMP_PV = 'ea4cf46a-c8bc-41ad-a46e-c7d313099f1b';
 const CHAMP_PHOTOS = 'e907f3f8-c702-47bd-b523-017e684e78c1';
+const CHAMP_TECHNICIEN = 'b400c953-ae06-4336-b471-405296f9ff1c';
 const PAGES_MAX = 10;
 
 export const dynamic = 'force-dynamic';
@@ -70,6 +73,10 @@ function niveauReserves(t: any, options: Option[]): { option: Option | null; niv
 }
 
 const estReserve = (s: any) => normal(s?.name).includes('reserve');
+const techniciens = (t: any): { id: number; nom: string }[] => {
+  const v = champ(t, CHAMP_TECHNICIEN)?.value;
+  return (Array.isArray(v) ? v : []).filter((u: any) => u?.id).map((u: any) => ({ id: Number(u.id), nom: String(u.username || u.email || '') }));
+};
 const ecritureAutorisee = (t: any) => process.env.VERCEL_ENV === 'production' || normal(t?.name).trim().startsWith('test');
 
 function decrire(t: any, sousTaches: any[], options: Option[]) {
@@ -99,6 +106,7 @@ function decrire(t: any, sousTaches: any[], options: Option[]) {
     url: String(t.url || `https://app.clickup.com/t/${t.id}`),
     pv,
     photos,
+    techniciens: techniciens(t).map((u) => u.nom).filter(Boolean),
     reservesOptionId: r.option?.id ?? null,
     niveau: r.niveau,
     reserves,
@@ -206,12 +214,16 @@ export async function POST(request: Request) {
         const libelle = String(corps?.libelle || '').trim().slice(0, 200);
         const m = String(corps?.echeance || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (!libelle || !m) return NextResponse.json({ error: 'Il faut un libellé et une échéance' }, { status: 400 });
-        const session = await sessionDeRequete(request);
-        if (!session?.id) return NextResponse.json({ error: 'Session expirée : reconnecte-toi' }, { status: 401 });
+        let responsables = techniciens(c.tache).map((u) => u.id);
+        if (!responsables.length) {
+          const session = await sessionDeRequete(request);
+          if (!session?.id) return NextResponse.json({ error: 'Session expirée : reconnecte-toi' }, { status: 401 });
+          responsables = [session.id];
+        }
         const res = await api(token, `/list/${PLANNING_CHANTIERS_ID}/task`, 'POST', {
           name: `🔧 Réserve : ${libelle}`,
           parent: id,
-          assignees: [session.id],
+          assignees: responsables,
           due_date: Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 10),
           due_date_time: false,
         });
