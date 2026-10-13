@@ -25,6 +25,8 @@ import { normaliserIdentifiant, rechercherEntreprise, rechercherCopro, type Iden
 // - SIRET / SIREN : raison sociale officielle, adresse du siège, SIRET et TVA (si l'annuaire en connaît une).
 // - RNIC : « SDC » + nom du registre, adresse de référence, RNIC en identifiant ; syndic et places notés.
 // - Rien trouvé : nom de la fiche et adresse de la fiche, comme avant, avec un avertissement dans le commentaire.
+// - Aucun numéro sur une fiche société ou copro : même repli, et le commentaire prévient le commercial
+//   (le numéro est saisi par le commercial dans la fiche ClickUp, décision Matthieu 13/10).
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (vrai passage, fiches TEST uniquement).
 // La simulation est aussi acceptée sur une vraie fiche Qualification (lecture seule, décision Matthieu 11/10),
 // pour vérifier la lecture du Gestionnaire et du Contact sur place, impossibles à ajouter à la liste TEST.
@@ -348,6 +350,8 @@ async function traiter(taskId: string, simulation: boolean) {
   const entreprise: IdentiteEntreprise | null = estSociete && siret.length >= 9 ? await rechercherEntreprise(siret) : null;
   const copro: IdentiteCopro | null = estSociete && rnic ? await rechercherCopro(rnic) : null;
   const identiteIntrouvable = !!(siret.length >= 9 || rnic) && !entreprise && !copro;
+  // Société ou copro sans numéro : le commercial est prévenu (c'est lui qui le saisit dans la fiche)
+  const identifiantManquant = estSociete && !identifiantBrut;
 
   const personnes: Personne[] = estSociete ? await personnesLiees(tache, clickUpToken) : [];
   if (estSociete && personnes.length === 0 && (email || telephone)) {
@@ -389,7 +393,7 @@ async function traiter(taskId: string, simulation: boolean) {
   const identite = {
     saisi: identifiantBrut || undefined,
     type: identifiant?.type,
-    source: entreprise ? 'annuaire des entreprises' : copro ? 'registre des copropriétés' : identiteIntrouvable ? 'introuvable' : undefined,
+    source: entreprise ? 'annuaire des entreprises' : copro ? 'registre des copropriétés' : identiteIntrouvable ? 'introuvable' : identifiantManquant ? 'absent' : undefined,
   };
 
   // Interlocuteurs : seulement les personnes nommées (Costructor exige un nom). Retrouvées ou à créer.
@@ -457,6 +461,7 @@ async function traiter(taskId: string, simulation: boolean) {
   if (entreprise) lignes.push(`Raison sociale, adresse et SIRET repris de l'annuaire des entreprises : ${entreprise.raisonSociale}${entreprise.tva ? `, TVA ${entreprise.tva}` : ''}.`);
   if (copro) lignes.push(`Nom et adresse repris du registre des copropriétés : SDC ${copro.nom}${copro.syndic ? `, syndic ${copro.syndic}` : ''}.`);
   if (identiteIntrouvable) lignes.push(`⚠️ « ${identifiantBrut} » introuvable dans les registres officiels : nom et adresse de la fiche utilisés. Vérifiez le numéro.`);
+  if (identifiantManquant) lignes.push('⚠️ Pas de SIRET / N° RNIC sur la fiche : nom et adresse de la fiche utilisés. Renseignez « 🏛️ SIRET / N° RNIC » et corrigez le client dans Costructor.');
   if (entreprise?.fermee) lignes.push('⚠️ L\'annuaire indique un établissement fermé : vérifiez le SIRET.');
   if (interlocuteurs.length > 0) {
     lignes.push('', 'À rattacher comme interlocuteurs (Modifier → Interlocuteurs, ⭐ = principal) :');
