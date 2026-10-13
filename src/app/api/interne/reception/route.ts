@@ -42,9 +42,16 @@ async function api(token: string, chemin: string, methode = 'GET', corps?: any, 
 }
 
 const champ = (t: any, id: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => c.id === id);
-const fichiers = (t: any, id: string): string[] => {
+// Fichiers du champ, avec leur id pour l'aperçu (/api/interne/fichier, test du 13/10 : le chargé d'opération doit
+// pouvoir ouvrir le PV et les photos avant de valider)
+type Fichier = { id: string; nom: string; image: boolean };
+const fichiers = (t: any, id: string): Fichier[] => {
   const v = champ(t, id)?.value;
-  return (Array.isArray(v) ? v : v ? [v] : []).map((f: any) => String(f?.title || f?.name || f?.extension || 'fichier'));
+  return (Array.isArray(v) ? v : v ? [v] : []).map((f: any) => ({
+    id: String(f?.id || ''),
+    nom: String(f?.title || f?.name || f?.extension || 'fichier'),
+    image: String(f?.mimetype || '').startsWith('image/') || /^(jpe?g|png|gif|webp|heic|heif)$/i.test(String(f?.extension || '')),
+  }));
 };
 
 type Option = { id: string; nom: string; orderindex: number };
