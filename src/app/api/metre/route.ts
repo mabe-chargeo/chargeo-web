@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { lireTacheQualification } from '@/lib/listesClickUp';
-import { normaliserIdentifiant } from '@/lib/identiteClient';
 
 // Enregistrement des MESURES du relevé (lots 3.2, 3.3 et point 21).
 // - La fiche (ou le scénario, ou l'emplacement) doit appartenir à la liste autorisée (vraie Qualification en production, TEST en preview).
@@ -14,8 +13,6 @@ import { normaliserIdentifiant } from '@/lib/identiteClient';
 //   (un emplacement ne les envoie pas : ce sont des données du site, plus de valeur par défaut).
 // - 11/10/2026 (point 21) : Nb points de charge (1 ou 2), écrit seulement si la liste possède le champ
 //   (créé sur la liste TEST ; absent de la vraie Qualification tant que Matthieu ne l'a pas validé).
-// - 13/10/2026 (lot 3.5) : SIRET / N° RNIC du client, écrit seulement s'il est saisi, toujours sur la fiche
-//   principale (un scénario ou un emplacement l'écrit sur sa fiche parente) ; saisie reconnue remise au propre.
 // Les menus restent écrits PAR INDEX (ne jamais réordonner les options dans ClickUp).
 
 // Matériels à chiffrer : champ à étiquettes, écrit par identifiant d'option (stable, pas d'index)
@@ -28,8 +25,6 @@ const MATERIELS_OPTIONS: Record<string, string> = {
 };
 // Nb points de charge : champ nombre (liste TEST)
 const NB_PDC_CHAMP_ID = 'ecd920d1-dff2-4bc3-9f15-25893eadae93';
-// SIRET / N° RNIC du client payeur (Qualification et liste TEST)
-const SIRET_CHAMP_ID = 'f840aa7d-0a85-4618-9e13-620c156355ed';
 
 export async function POST(request: Request) {
   try {
@@ -45,9 +40,6 @@ export async function POST(request: Request) {
     const champsDeLaFiche = new Set<string>(
       (Array.isArray(verif.tache?.custom_fields) ? verif.tache.custom_fields : []).map((f: any) => String(f?.id))
     );
-    // Fiche principale : la parente d'un scénario ou d'un emplacement (même liste), sinon la fiche elle-même
-    const parente = verif.tache?.parent ? String(verif.tache.parent) : '';
-    const fichePrincipale = parente && /^[a-z0-9]+$/i.test(parente) ? parente : taskId;
 
     const texte = (cle: string): string => {
       const v = formData.get(cle);
@@ -65,11 +57,6 @@ export async function POST(request: Request) {
     // Notes : texte du technicien tel quel, rien écrit si vide
     const notesSaisies = texte('notes').trim();
     const notesFinales = notesSaisies !== '' ? notesSaisies : null;
-
-    // SIRET / N° RNIC : rien écrit si vide ; saisie reconnue remise au propre (AE0812248, 14 chiffres)
-    const siretSaisi = texte('siret').trim().slice(0, 40);
-    const identifiant = normaliserIdentifiant(siretSaisi);
-    const siretFinal = siretSaisi === '' ? null : (identifiant ? identifiant.valeur : siretSaisi);
 
     // Traduction des menus déroulants par index
     // Segment : RES=0, DAP=1, COP=2, PAR=3, FLT=4, TER=5
@@ -147,10 +134,9 @@ export async function POST(request: Request) {
     const delesteur = delesteurStr === 'true' ? true : delesteurStr === 'false' ? false : null;
 
     // Liste des écritures : rien n'est écrit pour une valeur absente (null)
-    // tache : fiche à écrire (par défaut celle du relevé)
-    const champs: { id: string; nom: string; value: any; tache?: string }[] = [];
-    const pousser = (id: string, nom: string, value: any, tache?: string) => {
-      if (value !== null && value !== undefined) champs.push({ id, nom, value, tache });
+    const champs: { id: string; nom: string; value: any }[] = [];
+    const pousser = (id: string, nom: string, value: any) => {
+      if (value !== null && value !== undefined) champs.push({ id, nom, value });
     };
 
     pousser("f122fe49-8a32-4fbd-a374-f27eeb4e25c1", "Type raccordement", raccordementIndex);
@@ -165,9 +151,6 @@ export async function POST(request: Request) {
     }
     if (champsDeLaFiche.has(NB_PDC_CHAMP_ID)) {
       pousser(NB_PDC_CHAMP_ID, "Points de charge", nbPdc);
-    }
-    if (champsDeLaFiche.has(SIRET_CHAMP_ID)) {
-      pousser(SIRET_CHAMP_ID, "SIRET / N° RNIC", siretFinal, fichePrincipale);
     }
 
     // Terre + distances + percements + infrastructure (vide = rien, 0 = zéro)
@@ -198,7 +181,7 @@ export async function POST(request: Request) {
     // Envoi en parallèle, chaque réponse contrôlée
     const resultats = await Promise.all(champs.map(async (champ) => {
       try {
-        const res = await fetch(`https://api.clickup.com/api/v2/task/${champ.tache || taskId}/field/${champ.id}`, {
+        const res = await fetch(`https://api.clickup.com/api/v2/task/${taskId}/field/${champ.id}`, {
           method: 'POST',
           headers: { 'Authorization': token, 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: champ.value })
