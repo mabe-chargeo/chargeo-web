@@ -1,6 +1,6 @@
 # Variables d'environnement Vercel (chargeo-web)
 
-Mise à jour : 10/10/2026 (Phase 3, lot 3.0)
+Mise à jour : 13/10/2026 (Phase 4, bascule)
 
 | Variable | Environnement | Rôle |
 | --- | --- | --- |
@@ -11,6 +11,8 @@ Mise à jour : 10/10/2026 (Phase 3, lot 3.0)
 | CLICKUP_SAV_LIST_ID | Production + Preview | Liste Tickets SAV |
 | COSTRUCTOR_API_KEY | Production + Preview | Clé API Costructor |
 | NEXT_PUBLIC_GTM_ID | Production + Preview | Google Tag Manager |
+| CRON_SECRET | Production (secret) | Clé du contrôle quotidien /api/cron/quotidien et de l'installation de la sonnette ClickUp (?action=installer&cle=...). Ajoutée le 13/10/2026 |
+| VERCEL_AUTOMATION_BYPASS_SECRET | Système (Preview) | Jeton « Protection Bypass for Automation » (note « Webhooks ClickUp »), créé le 12/10/2026 pour la sonnette sur les previews |
 
 ## Règle de sécurité
 
