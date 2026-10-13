@@ -6,7 +6,9 @@ import { alerter } from '@/lib/alerteSite';
 // Contrat souscrit (📜 Type de Contrat = Maintenance, Maintenance + relevé ou Visite seule) :
 // - 🔄 Echéance annuelle vide : alerte (une fois) ;
 // - à 30 jours de l'échéance : création de la visite dans Maintenance 🛠️ (à planifier, 📅 Échéance, 🔋 Borne visitée),
-//   une seule par borne et par échéance (aucun doublon, même si la visite a déjà été faite et fermée) ;
+//   une par point de charge (point 18 des Décisions ERP : borne double = 2 visites, 🔌 PDC concerné = PDC 1 / PDC 2,
+//   d'après 🔢 Nb points de charge, 1 si vide), une seule par point et par échéance (aucun doublon, même si la visite
+//   a déjà été faite et fermée). Le regroupement se fait au planning, jamais automatiquement ;
 // - lendemain de l'échéance : 🔄 Echéance annuelle avance d'un an. L'anniversaire ne bouge jamais avec la date réelle
 //   de la visite (une visite tardive ne décale rien) et la visite due reste à faire ;
 // - visite dont l'échéance est passée, toujours à planifier ou rdv confirmé : alerte, au plus une fois par semaine.
@@ -21,11 +23,14 @@ const P = {
   contrat: 'a0505dec-e32f-485d-b501-2288a4c5f150',
   echeance: '837dd2a3-2b7c-4ce8-b62f-6f0884c53ec1',
   miseEnService: '5e301b44-b0b8-478a-90c2-86e0201ef9d5',
+  nbPdc: '56a64d37-0a10-4a5a-84d5-d6123ec47364',
 };
 const M = {
   echeance: 'e7040d3d-3b17-430b-95c7-4a4ab40e35ea',
   borne: 'bf8c35b7-65e1-4bcf-afe3-5740e1acc9fa',
+  pdc: 'e5abcdd3-1c1c-4d10-a571-16de69c1ef51',
 };
+const OPTIONS_PDC: Record<number, string> = { 1: '9cadcc14-cab4-46d3-a83c-d33e4d31e582', 2: 'bd273b55-181f-485e-9f3a-e04cfe59f37b' };
 const PREAVIS_JOURS = 30;
 const MARQUE_SANS_ECHEANCE = '🛠️ Maintenance : contrat souscrit mais 🔄 Echéance annuelle vide';
 const MARQUE_RETARD = '🛠️ Visite de maintenance en retard';
@@ -96,11 +101,22 @@ async function derniereMarque(token: string, id: string, marque: string): Promis
 
 export type Constat =
   | { type: 'sans_echeance' }
-  | { type: 'creer_visite'; echeance: Jour }
+  | { type: 'creer_visite'; echeance: Jour; pdc: number }
   | { type: 'avancer_echeance'; echeance: Jour; suivante: Jour }
   | { type: 'relance_onze_mois'; miseEnService: Jour; anniversaire: Jour };
 
-// Ce qu'il faut faire pour une borne (sans lecture réseau). visites = clés « borne|jour » déjà créées.
+// Nombre de points de charge de la borne (1 ou 2, 1 si vide)
+export const nbPointsDeCharge = (t: any): number => (Number(champ(t, P.nbPdc)?.value) >= 2 ? 2 : 1);
+
+// Points de charge sans visite pour cette échéance. pdc 0 = borne simple (pas de 🔌 PDC concerné).
+// Une visite sans PDC concerné couvre la borne simple, ou le PDC 1 d'une borne double.
+export function pdcSansVisite(id: string, e: Jour, nb: number, visites: Set<string>): number[] {
+  const a = (p: number) => visites.has(`${id}|${cleJour(e)}|${p}`);
+  if (nb === 1) return a(0) || a(1) ? [] : [0];
+  return [1, 2].filter((p) => !a(p) && !(p === 1 && a(0)));
+}
+
+// Ce qu'il faut faire pour une borne (sans lecture réseau). visites = clés « borne|jour|pdc » déjà créées.
 export function constater(parc: any, aujourdhui: Jour, visites: Set<string>): Constat[] {
   if (String(parc?.status?.type || '') === 'closed' || normal(parc?.status?.status).includes('hors service')) return [];
   const contrat = normal(option(parc, P.contrat));
@@ -111,8 +127,8 @@ export function constater(parc: any, aujourdhui: Jour, visites: Set<string>): Co
     if (!e) return [{ type: 'sans_echeance' }];
     // Échéance passée depuis plus de 60 jours (date jamais tenue à jour) : on avance sans créer de visite ancienne
     const ancienne = comparer(aujourdhui, ajouterJours(e, 60)) > 0;
-    if (!ancienne && comparer(aujourdhui, ajouterJours(e, -PREAVIS_JOURS)) >= 0 && !visites.has(`${parc.id}|${cleJour(e)}`)) {
-      out.push({ type: 'creer_visite', echeance: e });
+    if (!ancienne && comparer(aujourdhui, ajouterJours(e, -PREAVIS_JOURS)) >= 0) {
+      for (const pdc of pdcSansVisite(String(parc.id), e, nbPointsDeCharge(parc), visites)) out.push({ type: 'creer_visite', echeance: e, pdc });
     }
     if (comparer(aujourdhui, e) > 0) out.push({ type: 'avancer_echeance', echeance: e, suivante: ajouterMois(e, 12) });
     return out;
@@ -139,7 +155,8 @@ export async function controlerMaintenance(simulation: boolean) {
   const visites = new Set<string>();
   for (const v of visitesListe) {
     const e = jourDe(v, M.echeance);
-    if (e) for (const b of liees(v, M.borne)) visites.add(`${b}|${cleJour(e)}`);
+    const pdc = Number((option(v, M.pdc).match(/\d/) || ['0'])[0]);
+    if (e) for (const b of liees(v, M.borne)) visites.add(`${b}|${cleJour(e)}|${pdc}`);
   }
   const resultats: any[] = [];
 
@@ -152,26 +169,29 @@ export async function controlerMaintenance(simulation: boolean) {
         if (!simulation) await alerter(token, id, texte);
         resultats.push({ borne: b.name, type: c.type, action: simulation ? 'signalerait' : 'signale', commentaire: texte });
       } else if (c.type === 'creer_visite') {
-        const nom = `🛠️ Visite annuelle · ${b.name} · échéance ${dateFr(c.echeance)}`;
+        const nom = `🛠️ Visite annuelle · ${b.name}${c.pdc ? ` · PDC ${c.pdc}` : ''} · échéance ${dateFr(c.echeance)}`;
         if (simulation) { resultats.push({ borne: b.name, type: c.type, action: 'creerait', visite: nom }); continue; }
         const res = await clickup(token, `/list/${MAINTENANCE_ID}/task`, 'POST', {
           name: nom,
           status: 'à planifier',
           due_date: echeanceClickUp(c.echeance),
           due_date_time: false,
-          custom_fields: [{ id: M.echeance, value: echeanceClickUp(c.echeance), value_options: { time: false } }],
+          custom_fields: [
+            { id: M.echeance, value: echeanceClickUp(c.echeance), value_options: { time: false } },
+            ...(c.pdc ? [{ id: M.pdc, value: OPTIONS_PDC[c.pdc] }] : []),
+          ],
         });
         const visite = res.ok ? await res.json().catch(() => null) : null;
         if (!visite?.id) {
-          await alerter(token, id, `⚠️ Maintenance : je n'ai pas pu créer la visite de l'échéance du ${dateFr(c.echeance)}. Crée-la à la main dans Maintenance 🛠️.`);
+          await alerter(token, id, `⚠️ Maintenance : je n'ai pas pu créer la visite${c.pdc ? ` du PDC ${c.pdc}` : ''} de l'échéance du ${dateFr(c.echeance)}. Crée-la à la main dans Maintenance 🛠️.`);
           resultats.push({ borne: b.name, type: c.type, action: 'erreur_creation' });
           continue;
         }
-        visites.add(`${id}|${cleJour(c.echeance)}`);
+        visites.add(`${id}|${cleJour(c.echeance)}|${c.pdc}`);
         const lien = await clickup(token, `/task/${visite.id}/field/${M.borne}`, 'POST', { value: { add: [id], rem: [] } });
         const manque = lien.ok ? '' : ' ⚠️ Lien 🔋 Borne visitée non écrit, relie la borne à la main.';
-        await alerter(token, String(visite.id), `🛠️ Visite de maintenance à planifier avant le ${dateFr(c.echeance)} pour « ${b.name} » (${option(b, P.contrat)}). Cale le rendez-vous avec le client, puis renseigne 📆 Date de RDV et 👷 Technicien.${manque} ${b.url || ''}`.trim());
-        await clickup(token, `/task/${id}/comment`, 'POST', { comment_text: `🛠️ Visite annuelle créée dans Maintenance 🛠️ (échéance ${dateFr(c.echeance)}). ${visite.url || ''}`.trim(), notify_all: false });
+        await alerter(token, String(visite.id), `🛠️ Visite de maintenance à planifier avant le ${dateFr(c.echeance)} pour « ${b.name} »${c.pdc ? `, PDC ${c.pdc}` : ''} (${option(b, P.contrat)}). Cale le rendez-vous avec le client, puis renseigne 📆 Date de RDV et 👷 Technicien.${manque} ${b.url || ''}`.trim());
+        await clickup(token, `/task/${id}/comment`, 'POST', { comment_text: `🛠️ Visite annuelle${c.pdc ? ` du PDC ${c.pdc}` : ''} créée dans Maintenance 🛠️ (échéance ${dateFr(c.echeance)}). ${visite.url || ''}`.trim(), notify_all: false });
         resultats.push({ borne: b.name, type: c.type, action: 'cree', visite: nom, lienBorne: lien.ok });
       } else if (c.type === 'avancer_echeance') {
         const texte = `🔄 Echéance annuelle passée au ${dateFr(c.suivante)} (anniversaire du ${dateFr(c.echeance)} atteint). Si la visite de cette échéance n'est pas faite, elle reste due.`;
