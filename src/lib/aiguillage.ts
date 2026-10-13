@@ -13,6 +13,7 @@ import { CHAMP_ALERTE_SITE } from '@/lib/alerteSite';
 import { CHAMP_AVIS } from '@/lib/avisGoogle';
 import { traiterGagne } from '@/lib/passageGagne';
 import { synchroniserSav } from '@/lib/syncSavParc';
+import { CHAMP_RESULTAT_APPEL, PROSPECTION_ID, traiterProspection, type DeclencheurProspection } from '@/lib/prospection';
 
 // Aiguillage des changements ClickUp (bascule du 12/10/2026) : remplace les automatisations « Appeler le webhook »
 // et les Super Agents de synchro. ClickUp prévient le site (src/app/api/webhooks/clickup), l'aiguillage choisit
@@ -21,6 +22,8 @@ import { synchroniserSav } from '@/lib/syncSavParc';
 // Ignoré : le champ 📣 Alerte site (écrit par le site, relayé par ClickBot), les listes non suivies (DIRECTION…).
 // Restent dans ClickUp : Notif lead site, Notifier Devis À Faire (Brief Billie), #4 perdu, Notif SAV site.
 //
+// Prospection (13/10/2026) : création, statut, 📢 Résultat Appel → échéances de relance internes ; 📅 rdv fixé → la
+//   même fiche part en Qualification, 📍 à visiter (src/lib/prospection.ts).
 // Qualification : 📝 devis à faire → client Costructor ; 📩 devis envoyé → relance J+3 ouvrés + montant du devis ;
 //   🏆 gagné → montant + facture d'acompte, arrêt des relances, puis Planning Chantiers, commande matériel, ADVENIR
 //   (src/lib/passageGagne.ts) ; 🔁 Suivi relance ou 📅 Date AG ou RDV → suivi des relances.
@@ -77,7 +80,7 @@ function listesQualification(): string[] {
 }
 
 export function listeSuivie(listeId: string): boolean {
-  return [...listesQualification(), PLANNING_CHANTIERS_ID, COMMANDES_ID, PARC_ID, ...SAV_IDS, String(FACTURES_ID), String(ACHATS_ID)].includes(listeId);
+  return [String(PROSPECTION_ID), ...listesQualification(), PLANNING_CHANTIERS_ID, COMMANDES_ID, PARC_ID, ...SAV_IDS, String(FACTURES_ID), String(ACHATS_ID)].includes(listeId);
 }
 
 // Changements lus dans l'envoi de ClickUp. Chaque type d'événement n'apporte que son changement (pas de doublon
@@ -102,6 +105,13 @@ export function lireChangements(evenement: string, items: any[]): Changement[] {
 
 export function planifier(listeId: string, ch: Changement): Etape[] {
   const s = ch.type === 'statut' ? normal(ch.statut) : '';
+
+  if (listeId === String(PROSPECTION_ID)) {
+    if (ch.type === 'creation') return [{ cle: 'prospection', params: { declencheur: 'creation' } }];
+    if (ch.type === 'statut') return [{ cle: 'prospection', params: { declencheur: 'statut' } }];
+    if (ch.type === 'champ' && ch.champId === CHAMP_RESULTAT_APPEL) return [{ cle: 'prospection', params: { declencheur: 'resultat' } }];
+    return [];
+  }
 
   if (listesQualification().includes(listeId)) {
     if (ch.type === 'statut') {
@@ -185,6 +195,7 @@ export async function executer(taskId: string, etapes: Etape[], simulation: bool
     try {
       if (e.cle === 'gagne') r = await traiterGagne(taskId, simulation);
       else if (e.cle === 'sav') r = await synchroniserSav(taskId, simulation, e.params?.declencheur);
+      else if (e.cle === 'prospection') r = await traiterProspection(taskId, (e.params?.declencheur || 'statut') as DeclencheurProspection, simulation);
       else r = await appelerRoute(e.cle, taskId, e.params || {}, simulation);
     } catch (erreur) {
       console.error(`Aiguillage : ${libelle(e)} en erreur sur ${taskId}`, erreur);
