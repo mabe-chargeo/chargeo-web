@@ -15,7 +15,8 @@ import { alerter } from '@/lib/alerteSite';
 //   - 'envoyer' (poseur) : refusé s'il manque quelque chose ; sinon statut ✅ réalisé et alerte au chargé d'opération
 //     (📣 Alerte site, relais @charge-doperation) ;
 //   - 'terminer' (chargé d'opération) : statut 🏁 terminé si tout est en règle (sinon refus avec la liste).
-// POST multipart { taskId, cible: 'pv' | 'photos', fichier } : fichier déposé dans 📂 PV Réception ou 📸 Photos Chantier
+// POST multipart { taskId, cible: 'pv' | 'photos' | 'rapport', fichier } : fichier déposé dans 📂 PV Réception, 📸 Photos
+//   Chantier ou 📊 Rapport de mesures (rapport du contrôleur d'installation, obligatoire : décision Matthieu du 13/10)
 //   (API v3 des pièces jointes de champ, puis rattachement au champ). Un fichier par envoi (limite Vercel 4,5 Mo).
 // Un seul compte ClickUp pour l'instant : les deux écrans sont ouverts à toute personne connectée.
 // Preview : écriture uniquement sur les fiches dont le nom commence par « Test ».
@@ -25,6 +26,8 @@ const PLANNING_CHANTIERS_ID = '901520038258';
 const CHAMP_RESERVES = '1463a905-0b11-4693-b9d9-e8cca4f79eeb';
 const CHAMP_PV = 'ea4cf46a-c8bc-41ad-a46e-c7d313099f1b';
 const CHAMP_PHOTOS = 'e907f3f8-c702-47bd-b523-017e684e78c1';
+const CHAMP_RAPPORT = '463edfd0-faf9-40e6-b37a-9ee126c2b449';
+const CHAMPS_FICHIERS: Record<string, string> = { pv: CHAMP_PV, photos: CHAMP_PHOTOS, rapport: CHAMP_RAPPORT };
 const CHAMP_TECHNICIEN = 'b400c953-ae06-4336-b471-405296f9ff1c';
 const PAGES_MAX = 10;
 
@@ -92,6 +95,7 @@ const ecritureAutorisee = (t: any) => process.env.VERCEL_ENV === 'production' ||
 function decrire(t: any, sousTaches: any[], options: Option[]) {
   const pv = fichiers(t, CHAMP_PV);
   const photos = fichiers(t, CHAMP_PHOTOS);
+  const rapport = fichiers(t, CHAMP_RAPPORT);
   const r = niveauReserves(t, options);
   const reserves = sousTaches.filter(estReserve).map((s) => ({
     id: String(s.id),
@@ -106,6 +110,7 @@ function decrire(t: any, sousTaches: any[], options: Option[]) {
   if (!r.niveau) motifs.push('🧾 Réserves pas renseigné');
   if (r.niveau === 'bloquante') motifs.push('réserve 🔴 Bloquante : pas de mise en service');
   if (!pv.length) motifs.push('📂 PV Réception manquant');
+  if (!rapport.length) motifs.push('📊 Rapport de mesures manquant');
   if (r.niveau === 'mineure' && !reserves.length) motifs.push('réserve mineure sans sous-tâche « 🔧 Réserve : … »');
   if (r.niveau === 'mineure' && incompletes.length) motifs.push(`réserve sans responsable ou sans échéance (${incompletes.join(', ')})`);
   return {
@@ -116,6 +121,7 @@ function decrire(t: any, sousTaches: any[], options: Option[]) {
     url: String(t.url || `https://app.clickup.com/t/${t.id}`),
     pv,
     photos,
+    rapport,
     techniciens: techniciens(t).map((u) => u.nom).filter(Boolean),
     reservesOptionId: r.option?.id ?? null,
     niveau: r.niveau,
@@ -198,13 +204,13 @@ export async function POST(request: Request) {
       const taskId = String(form.get('taskId') || '');
       const cible = String(form.get('cible') || '');
       const fichier = form.get('fichier');
-      if (!taskId || !['pv', 'photos'].includes(cible) || !(fichier instanceof File)) {
+      if (!taskId || !CHAMPS_FICHIERS[cible] || !(fichier instanceof File)) {
         return NextResponse.json({ error: 'Envoi incomplet' }, { status: 400 });
       }
       const c = await chantierEcrivable(token, taskId);
       if ('erreur' in c) return NextResponse.json({ error: c.erreur }, { status: c.status });
       idEcrit = String(c.tache.id);
-      const echec = await deposer(token, idEcrit, cible === 'pv' ? CHAMP_PV : CHAMP_PHOTOS, fichier);
+      const echec = await deposer(token, idEcrit, CHAMPS_FICHIERS[cible], fichier);
       if (echec) return NextResponse.json({ error: `Fichier non enregistré : ${echec}` }, { status: 502 });
     } else {
       const corps = await request.json().catch(() => ({}));
@@ -253,7 +259,7 @@ export async function POST(request: Request) {
         const session = await sessionDeRequete(request);
         const par = avant.techniciens.join(', ') || session?.nom || 'le poseur';
         const reserves = avant.niveau === 'mineure' ? `${avant.reserves.length} réserve${avant.reserves.length > 1 ? 's' : ''} mineure${avant.reserves.length > 1 ? 's' : ''}` : 'aucune réserve';
-        await alerter(token, id, `📋 Réception à valider : PV et ${avant.photos.length} photo${avant.photos.length > 1 ? 's' : ''} déposés par ${par}, ${reserves}. Contrôle et valide dans l'appli (Valider les réceptions).`);
+        await alerter(token, id, `📋 Réception à valider : PV, rapport de mesures et ${avant.photos.length} photo${avant.photos.length > 1 ? 's' : ''} déposés par ${par}, ${reserves}. Contrôle et valide dans l'appli (Valider les réceptions).`);
       } else {
         const sousTaches = Array.isArray(c.tache.subtasks) ? c.tache.subtasks : [];
         const avant = decrire(c.tache, sousTaches, l.optionsReserves);

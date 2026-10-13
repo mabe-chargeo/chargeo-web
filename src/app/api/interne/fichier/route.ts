@@ -1,13 +1,14 @@
 import { sessionDeRequete } from '@/lib/session';
 
-// Aperçu des fichiers de réception (Phase 6, test du 13/10/2026) : le chargé d'opération doit voir le PV et les photos
-// avant de valider. Le site relit la fiche, retrouve le fichier dans 📂 PV Réception ou 📸 Photos Chantier et le renvoie
+// Aperçu des fichiers de réception (Phase 6, test du 13/10/2026) : le chargé d'opération doit voir le PV, le rapport de
+// mesures et les photos avant de valider. Le site relit la fiche, retrouve le fichier dans son champ et le renvoie
 // tel quel (le lien ClickUp n'est pas donné au navigateur). Réservé aux personnes connectées.
-// GET ?taskId=...&cible=pv|photos&id=<id du fichier>[&mini=1 : miniature]
+// GET ?taskId=...&cible=pv|photos|rapport&id=<id du fichier>[&mini=1 : miniature]
 
 const CHAMPS: Record<string, string> = {
   pv: 'ea4cf46a-c8bc-41ad-a46e-c7d313099f1b',
   photos: 'e907f3f8-c702-47bd-b523-017e684e78c1',
+  rapport: '463edfd0-faf9-40e6-b37a-9ee126c2b449', // 📊 Rapport de mesures
 };
 const LISTES = ['901520038258', '901520038290']; // Planning Chantiers, Parc installé
 
