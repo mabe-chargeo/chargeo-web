@@ -1,12 +1,13 @@
 // src/app/api/espace-client/route.ts
 // Vérifie le couple n° de dossier + email, puis ouvre l'accès au suivi du dossier (cookie signé).
+// Emails acceptés : celui de la fiche, et ceux du Gestionnaire et du Contact sur place reliés (depuis le 11/10/2026).
 import { NextResponse } from 'next/server';
 import {
   DOSSIER_REGEX,
   ESPACE_CLIENT_COOKIE,
   ESPACE_CLIENT_MAX_AGE,
   getClickUpTask,
-  getTaskEmail,
+  getTaskAllowedEmails,
   makeAccessToken,
 } from '@/lib/espace-client';
 
@@ -29,9 +30,9 @@ export async function POST(req: Request) {
   }
 
   const task = await getClickUpTask(dossier);
-  const taskEmail = task ? getTaskEmail(task) : null;
+  const emailsAutorises = task ? await getTaskAllowedEmails(task) : [];
 
-  if (!task || !taskEmail || taskEmail !== email) {
+  if (!task || !emailsAutorises.includes(email)) {
     // Petite pause pour décourager les essais en série
     await new Promise((r) => setTimeout(r, 800));
     return NextResponse.json({ ok: false, error: MESSAGE_ERREUR }, { status: 401 });

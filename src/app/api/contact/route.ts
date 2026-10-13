@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
+import { getQualificationListId } from '@/lib/listesClickUp';
 
+// Liste Qualification choisie selon l'environnement (src/lib/listesClickUp.ts) :
+// production = vraie liste, preview = liste TEST uniquement, sinon refus.
 export async function POST(request: Request) {
   try {
     const data = await request.json();
 
     const CLICKUP_API_KEY = process.env.CLICKUP_API_KEY as string; 
-    const LIST_ID = "901519702632";
+    const LIST_ID = getQualificationListId();
+
+    if (!CLICKUP_API_KEY || !LIST_ID) {
+      console.error("Configuration manquante : CLICKUP_API_KEY ou liste Qualification (TEST en preview)");
+      return NextResponse.json({ success: false, error: "Configuration serveur incomplète" }, { status: 500 });
+    }
 
     // SÉCURITÉ ANTI-VIDE : On bloque le robot si un champ obligatoire manque
     if (!data.nom || !data.email || !data.telephone) {
