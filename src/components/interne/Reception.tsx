@@ -1,6 +1,7 @@
 "use client";
 
 // Réception chantier en deux temps (Phase 6, décision Matthieu du 13/10/2026, page « Qui fait quoi ») :
+// Aperçu : PV et photos s'ouvrent depuis l'écran (vignettes), sans passer par ClickUp (test du 13/10).
 // Envoi : toujours possible quand tout est complet (un chantier peut déjà être en ✅ réalisé sans avoir été envoyé ;
 // renvoyer ne fait que reprévenir le chargé d'opération, test du 13/10).
 // - role « poseur » (/interne/reception) : sur place, le technicien poseur fait signer le PV, dépose PV et photos, déclare
@@ -15,9 +16,10 @@ import { CYAN, ORANGE } from '@/components/charte/couleurs';
 
 interface Reserve { id: string; nom: string; responsables: string[]; echeance: number | null; faite: boolean }
 interface Option { id: string; nom: string; orderindex: number }
+interface Fichier { id: string; nom: string; image: boolean }
 interface Chantier {
   id: string; nom: string; statut: string; couleurStatut: string; url: string;
-  pv: string[]; photos: string[]; techniciens: string[]; reservesOptionId: string | null; niveau: string;
+  pv: Fichier[]; photos: Fichier[]; techniciens: string[]; reservesOptionId: string | null; niveau: string;
   reserves: Reserve[]; motifs: string[]; avertissements: string[]; ecritureAutorisee: boolean; envoye: boolean;
 }
 
@@ -163,6 +165,27 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
                 {liste.length ? `${liste.length} fichier${liste.length > 1 ? 's' : ''}` : 'aucun fichier'}
               </span>
             </div>
+            {/* Aperçu : vignette pour les images, icône pour les PDF, ouverture en grand dans un nouvel onglet */}
+            {liste.length > 0 && (
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {liste.map((f, i) => {
+                  const lien = `/api/interne/fichier?taskId=${encodeURIComponent(c.id)}&cible=${cible}&id=${encodeURIComponent(f.id)}`;
+                  return (
+                    <a key={f.id || i} href={lien} target="_blank" rel="noreferrer" title={f.nom} className="block overflow-hidden rounded-[10px] ring-[1.5px] ring-[#dfe3e8]">
+                      {f.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={`${lien}&mini=1`} alt={f.nom} loading="lazy" className="aspect-square w-full object-cover" />
+                      ) : (
+                        <div className="flex aspect-square flex-col items-center justify-center gap-1 p-2 text-center">
+                          <FileText size={22} color={CYAN} />
+                          <span className="line-clamp-2 break-all text-[11px]">{f.nom}</span>
+                        </div>
+                      )}
+                    </a>
+                  );
+                })}
+              </div>
+            )}
             <label className={`mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8] ${bloque || occupe ? 'pointer-events-none opacity-50' : ''}`}>
               <Icone size={16} color={CYAN} />
               {enCours === `${c.id}:${cible}` ? 'Envoi...' : cible === 'pv' ? 'Ajouter le PV signé' : 'Ajouter des photos'}
