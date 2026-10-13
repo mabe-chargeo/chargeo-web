@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import { blocageResident, estResident, lireTache } from '@/lib/residentInfra';
+import { sessionDeRequete } from '@/lib/session';
 
 // Écran Feu vert du chargé d'opération (Phase 6, 13/10/2026), /interne/feu-vert.
-// Un seul compte ClickUp (Matthieu) et Vercel Hobby : pas de connexion par personne, l'écran agit avec la clé du site.
+// Accès réservé aux personnes connectées avec leur compte ClickUp (src/proxy.ts). Les écritures passent par la clé du
+// site ; 👤 Validé par reçoit la personne connectée.
 // GET : fiches principales ouvertes de Planning Chantiers, avec les 5 prérequis, le blocage borne résident, 👤 Validé par
 //   et 🟢 Feu vert.
 // POST { taskId, action: 'prerequis', fieldId, optionId } : change un prérequis (l'automatisation « prérequis » existante
 //   retire le feu vert si besoin).
-// POST { taskId, action: 'feu_vert' } : refusé tant qu'un prérequis manque. Sinon 👤 Validé par = titulaire de la clé si
+// POST { taskId, action: 'feu_vert' } : refusé tant qu'un prérequis manque. Sinon 👤 Validé par = personne connectée si
 //   vide, puis 🟢 Feu vert coché. Le commentaire « Feu vert donné » vient de l'automatisation existante
 //   (src/app/api/chantiers/feu-vert/route.ts), qui revérifie tout.
 // Preview : écriture uniquement sur les fiches dont le nom commence par « Test ».
@@ -157,10 +159,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: `Feu vert impossible : il manque ${avant.manquants.join(', ')}`, chantier: avant }, { status: 409 });
       }
       if (!avant.validePar.length) {
-        const moi = await api(token, '/user');
-        const jsonMoi = moi.ok ? await moi.json().catch(() => ({})) : {};
-        const userId = jsonMoi?.user?.id;
-        if (!userId) return NextResponse.json({ error: 'Impossible de savoir qui donne le feu vert : mets ton nom dans 👤 Validé par' }, { status: 502 });
+        const session = await sessionDeRequete(request);
+        const userId = session?.id;
+        if (!userId) return NextResponse.json({ error: 'Session expirée : reconnecte-toi pour donner le feu vert' }, { status: 401 });
         const res = await api(token, `/task/${id}/field/${CHAMP_VALIDE_PAR}`, 'POST', { value: { add: [userId], rem: [] } });
         if (!res.ok) return NextResponse.json({ error: `👤 Validé par n'a pas pu être rempli (${res.status})` }, { status: 502 });
       }

@@ -7,7 +7,8 @@
 // Lot 3.3 et point 21 : compteur de scénarios ou d'emplacements sur la carte de la fiche.
 // 13/10/2026 : le commercial cale le relevé (📅 Date Visite Technique). « Relevés planifiés » triés par date, avec
 // le jour et l'heure ; « Pas encore calées » ensuite (le commercial doit fixer le rendez-vous), toujours ouvrables.
-// 13/10/2026 (Phase 6) : accès à l'écran Feu vert chantiers du chargé d'opération (/interne/feu-vert).
+// 13/10/2026 (Phase 6) : accès à l'écran Feu vert chantiers du chargé d'opération (/interne/feu-vert), et lien de
+// déconnexion (connexion avec le compte ClickUp, src/proxy.ts).
 import { useEffect, useState } from 'react';
 import { CalendarClock, ChevronRight, ClipboardList, GitBranch, History, MapPin, RefreshCw, TrafficCone, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
@@ -200,6 +201,10 @@ export default function InternePage() {
             {aCaler.map((c) => carteChantier(c, false))}
           </>
         )}
+
+        <div className="pt-6 text-center">
+          <a href="/api/auth/deconnexion" className="text-[13px] font-semibold underline" style={{ color: CYAN }}>Se déconnecter</a>
+        </div>
       </ContenuAppli>
     </PageAppli>
   );
