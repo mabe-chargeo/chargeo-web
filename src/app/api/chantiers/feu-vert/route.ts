@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
 import { alerter } from '@/lib/alerteSite';
+import { blocageResident } from '@/lib/residentInfra';
 
 // Feu vert chantier (Phase 4, champs validés par Matthieu le 11/10/2026), liste Planning Chantiers.
 // Appelé par les automatisations ClickUp : POST ?taskId=...&evenement=feu_vert | en_cours | prerequis
@@ -13,6 +14,8 @@ import { alerter } from '@/lib/alerteSite';
 // ✅ Confirmé et ➖ Non applicable comptent comme OK. Sous-tâche : ignorée.
 // 👤 Validé par : même champ que Commandes Matériel et Achats (85d92954), ajouté à Planning Chantiers le 12/10.
 // 📝 Devis signé (348cc59d) : anciennement « Périmètre signé », renommé par Matthieu le 12/10 (lu par identifiant).
+// Borne résident en copropriété (13/10/2026, src/lib/residentInfra.ts) : condition en plus, l'infrastructure liée doit
+//   être au Parc (en service). Sinon, elle compte comme un prérequis manquant.
 // Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
 
@@ -110,7 +113,9 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
 
   const id = String(tache.id);
   const coche = feuVertCoche(tache);
-  const manque = manquants(tache);
+  const prerequisManquants = manquants(tache);
+  const infra = await blocageResident(tache, token);
+  const manque = [...prerequisManquants, ...(infra ? [infra] : [])];
   const valideurs = validePar(tache);
   const jour = libelleJour(aujourdhuiParis());
 
@@ -124,7 +129,8 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
         !valideurs.length ? '👤 Validé par est vide (qui donne le feu vert ?)' : '',
       ].filter(Boolean).join(' ; ');
       const quoi = [
-        manque.length ? 'passe chaque prérequis à ✅ Confirmé ou ➖ Non applicable' : '',
+        prerequisManquants.length ? 'passe chaque prérequis à ✅ Confirmé ou ➖ Non applicable' : '',
+        infra ? 'attends la mise en service de l\'infrastructure de la copropriété' : '',
         !valideurs.length ? 'mets ton nom dans 👤 Validé par' : '',
       ].filter(Boolean).join(', ');
       plan = {
@@ -147,7 +153,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
     else {
       plan = {
         action: 'feu_vert_retire', decocher: true, notifier: true,
-        commentaire: `🔴 Feu vert retiré : ${liste(manque)} est repassé à Manquant. La case a été décochée.`,
+        commentaire: `🔴 Feu vert retiré : ${liste(manque)}. La case a été décochée.`,
       };
     }
   }
