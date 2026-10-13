@@ -5,6 +5,7 @@ import { COOKIE_SESSION, lireSession } from '@/lib/session';
 // Sans session valide : les pages /interne renvoient vers /connexion (puis retour à la page demandée), les API
 // de l'application répondent 401. Les routes appelées par ClickUp (webhooks, /api/chantiers/feu-vert, réception,
 // cron) ne sont pas concernées : seul le chemin exact /api/chantiers (liste du planning) est protégé.
+// Clés Vercel : CLICKUP_OAUTH_CLIENT_ID et CLICKUP_OAUTH_CLIENT_SECRET (application « CHARGéO Équipe », 13/10/2026).
 export async function proxy(request: NextRequest) {
   const session = await lireSession(request.cookies.get(COOKIE_SESSION)?.value);
   if (session) return NextResponse.next();
