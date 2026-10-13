@@ -13,12 +13,16 @@ self.addEventListener("fetch", (event) => {
   
   // On ne gère que les requêtes web classiques (on ignore les extensions Chrome, etc.)
   if (event.request.method !== "GET" || (url.protocol !== "http:" && url.protocol !== "https:")) return;
+  // Connexion (13/10/2026) : jamais en cache, ClickUp et le site doivent répondre en direct
+  if (url.pathname.startsWith("/api/auth") || url.pathname.startsWith("/connexion")) return;
 
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
         // SI ON A DU RÉSEAU : On télécharge la page et on la clone dans le cache "au cas où" on descende au sous-sol
-        if (networkResponse && networkResponse.status === 200) {
+        // Réponse redirigée (session expirée renvoyée vers /connexion) : pas en cache, sinon la page de connexion
+        // remplacerait la vraie page hors-ligne.
+        if (networkResponse && networkResponse.status === 200 && !networkResponse.redirected) {
           const responseClone = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseClone);

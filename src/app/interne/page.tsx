@@ -7,8 +7,10 @@
 // Lot 3.3 et point 21 : compteur de scénarios ou d'emplacements sur la carte de la fiche.
 // 13/10/2026 : le commercial cale le relevé (📅 Date Visite Technique). « Relevés planifiés » triés par date, avec
 // le jour et l'heure ; « Pas encore calées » ensuite (le commercial doit fixer le rendez-vous), toujours ouvrables.
+// 13/10/2026 (Phase 6) : accès à l'écran Feu vert chantiers du chargé d'opération (/interne/feu-vert), et lien de
+// déconnexion (connexion avec le compte ClickUp, src/proxy.ts).
 import { useEffect, useState } from 'react';
-import { CalendarClock, ChevronRight, ClipboardList, GitBranch, History, MapPin, RefreshCw, Zap } from 'lucide-react';
+import { CalendarClock, ChevronRight, ClipboardList, GitBranch, History, MapPin, RefreshCw, TrafficCone, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { relevesATerminer } from '@/lib/releveLocal';
@@ -131,6 +133,22 @@ export default function InternePage() {
       <EnTeteAppli surtitre="Espace technique" titre="Mon planning" action={boutonActualiser} />
 
       <ContenuAppli className="space-y-4">
+        <a
+          href="/interne/feu-vert"
+          className="flex w-full items-center gap-4 rounded-[20px] bg-white p-5 text-left ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
+          style={{ boxShadow: `inset 5px 0 0 ${CYAN}` }}
+        >
+          <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
+            <TrafficCone size={22} color="#ffffff" strokeWidth={1.8} />
+          </div>
+          <div className="min-w-0 grow">
+            <p className="text-[17px] font-bold leading-tight">Feu vert chantiers</p>
+            <p className="mt-1.5 text-[13px]">Prérequis et feu vert, pour le chargé d'opération</p>
+          </div>
+          <ChevronRight size={22} className="shrink-0" color={CYAN} />
+        </a>
+        <div className="h-2" />
+
         {aReprendre.length > 0 && (
           <>
             <Repere>Relevés à terminer sur ce téléphone</Repere>
@@ -183,6 +201,10 @@ export default function InternePage() {
             {aCaler.map((c) => carteChantier(c, false))}
           </>
         )}
+
+        <div className="pt-6 text-center">
+          <a href="/api/auth/deconnexion" className="text-[13px] font-semibold underline" style={{ color: CYAN }}>Se déconnecter</a>
+        </div>
       </ContenuAppli>
     </PageAppli>
   );
