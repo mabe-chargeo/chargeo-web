@@ -23,14 +23,15 @@ interface Chantier {
   typeSousReleves?: 'scenario' | 'emplacement' | null;
 }
 
-// « mer. 14/10 à 14h30 » (heure de Paris), sans heure si le rendez-vous est posé à minuit
+// « mer. 14/10 à 14h30 » (heure de Paris). Date sans heure dans ClickUp : enregistrée à 4 h (heure locale), parfois
+// à minuit (vu le 13/10 sur TEST · SDC Sonnet du Lac : « 04h00 » affiché) : on n'affiche alors que le jour.
 function libelleRdv(ms: number): string {
   const d = new Date(ms);
   const jour = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: '2-digit', month: '2-digit' }).format(d);
   const parts = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d);
   const h = parts.find((p) => p.type === 'hour')?.value || '00';
   const m = parts.find((p) => p.type === 'minute')?.value || '00';
-  return h === '00' && m === '00' ? jour : `${jour} à ${h}h${m}`;
+  return m === '00' && (h === '00' || h === '04') ? jour : `${jour} à ${h}h${m}`;
 }
 
 export default function InternePage() {
