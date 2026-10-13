@@ -5,8 +5,10 @@
 // Lot 3.2 : section « relevés à terminer sur ce téléphone », pour reprendre une fiche
 // même si elle n'est plus « à visiter » (envoi interrompu, photos manquantes...).
 // Lot 3.3 et point 21 : compteur de scénarios ou d'emplacements sur la carte de la fiche.
+// 13/10/2026 : le commercial cale le relevé (📅 Date Visite Technique). « Relevés planifiés » triés par date, avec
+// le jour et l'heure ; « Pas encore calées » ensuite (le commercial doit fixer le rendez-vous), toujours ouvrables.
 import { useEffect, useState } from 'react';
-import { ChevronRight, ClipboardList, GitBranch, History, MapPin, RefreshCw, Zap } from 'lucide-react';
+import { CalendarClock, ChevronRight, ClipboardList, GitBranch, History, MapPin, RefreshCw, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { relevesATerminer } from '@/lib/releveLocal';
@@ -15,9 +17,20 @@ interface Chantier {
   id: string;
   nom: string;
   adresse: string;
+  dateVisite?: number | null;
   scenarios?: number;
   scenariosRecus?: number;
   typeSousReleves?: 'scenario' | 'emplacement' | null;
+}
+
+// « mer. 14/10 à 14h30 » (heure de Paris), sans heure si le rendez-vous est posé à minuit
+function libelleRdv(ms: number): string {
+  const d = new Date(ms);
+  const jour = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: '2-digit', month: '2-digit' }).format(d);
+  const parts = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d);
+  const h = parts.find((p) => p.type === 'hour')?.value || '00';
+  const m = parts.find((p) => p.type === 'minute')?.value || '00';
+  return h === '00' && m === '00' ? jour : `${jour} à ${h}h${m}`;
 }
 
 export default function InternePage() {
@@ -59,6 +72,8 @@ export default function InternePage() {
   // Relevés commencés sur ce téléphone mais absents du planning (déjà sortis de « à visiter », ou sous-relevés)
   const idsPlanning = new Set(chantiers.map((c) => c.id));
   const aReprendre = aTerminer.filter((r) => !idsPlanning.has(r.id));
+  const planifies = chantiers.filter((c) => !!c.dateVisite);
+  const aCaler = chantiers.filter((c) => !c.dateVisite);
 
   const boutonActualiser = (
     <button
@@ -69,6 +84,46 @@ export default function InternePage() {
       <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
     </button>
   );
+
+  const carteChantier = (chantier: Chantier, calee: boolean) => {
+    const n = chantier.scenarios || 0;
+    const recus = chantier.scenariosRecus || 0;
+    const emplacements = chantier.typeSousReleves === 'emplacement';
+    return (
+      <button
+        key={chantier.id}
+        onClick={() => handleSelectChantier(chantier.id)}
+        className={`flex w-full items-center gap-4 rounded-[20px] p-5 text-left transition-transform active:scale-[0.98] ${calee ? '' : 'opacity-70'}`}
+        style={{ backgroundColor: GRIS }}
+      >
+        <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: calee ? CYAN : '#9aa3ad' }}>
+          <ClipboardList size={22} color="#ffffff" strokeWidth={1.8} />
+        </div>
+        <div className="min-w-0 grow">
+          <p className="text-[17px] font-bold leading-tight">{chantier.nom}</p>
+          {calee && chantier.dateVisite && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: CYAN }}>
+              <CalendarClock size={15} className="shrink-0" color={CYAN} />
+              {libelleRdv(chantier.dateVisite)}
+            </p>
+          )}
+          <p className="mt-1.5 flex items-center gap-1.5 text-[13px]">
+            <MapPin size={14} className="shrink-0" color={CYAN} />
+            <span className="truncate">{chantier.adresse}</span>
+          </p>
+          {n > 0 && (
+            <p className="mt-1 flex items-center gap-1.5 text-[13px] font-semibold">
+              {emplacements
+                ? <Zap size={14} className="shrink-0" color={CYAN} />
+                : <GitBranch size={14} className="shrink-0" color={CYAN} />}
+              {n} {emplacements ? 'emplacement' : 'scénario'}{n > 1 ? 's' : ''} · {recus} reçu{recus > 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
+        <ChevronRight size={22} className="shrink-0" color={calee ? CYAN : '#9aa3ad'} />
+      </button>
+    );
+  };
 
   return (
     <PageAppli>
@@ -99,7 +154,7 @@ export default function InternePage() {
           </>
         )}
 
-        <Repere>Visites à réaliser</Repere>
+        <Repere>Relevés planifiés</Repere>
 
         {loading && (
           <Carte className="p-8 text-center">
@@ -110,46 +165,23 @@ export default function InternePage() {
 
         {!loading && erreur && <Alerte>{erreur}</Alerte>}
 
-        {!loading && !erreur && chantiers.length === 0 && (
+        {!loading && !erreur && planifies.length === 0 && (
           <Carte className="p-8 text-center">
             <ClipboardList className="mx-auto mb-3" size={40} color={CYAN} strokeWidth={1.6} />
-            <p className="text-[15px] font-semibold">Aucune visite technique à l'ordre du jour.</p>
+            <p className="text-[15px] font-semibold">Aucun relevé planifié pour l'instant.</p>
           </Carte>
         )}
 
-        {!loading && !erreur && chantiers.map((chantier) => {
-          const n = chantier.scenarios || 0;
-          const recus = chantier.scenariosRecus || 0;
-          const emplacements = chantier.typeSousReleves === 'emplacement';
-          return (
-            <button
-              key={chantier.id}
-              onClick={() => handleSelectChantier(chantier.id)}
-              className="flex w-full items-center gap-4 rounded-[20px] p-5 text-left transition-transform active:scale-[0.98]"
-              style={{ backgroundColor: GRIS }}
-            >
-              <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
-                <ClipboardList size={22} color="#ffffff" strokeWidth={1.8} />
-              </div>
-              <div className="min-w-0 grow">
-                <p className="text-[17px] font-bold leading-tight">{chantier.nom}</p>
-                <p className="mt-1.5 flex items-center gap-1.5 text-[13px]">
-                  <MapPin size={14} className="shrink-0" color={CYAN} />
-                  <span className="truncate">{chantier.adresse}</span>
-                </p>
-                {n > 0 && (
-                  <p className="mt-1 flex items-center gap-1.5 text-[13px] font-semibold">
-                    {emplacements
-                      ? <Zap size={14} className="shrink-0" color={CYAN} />
-                      : <GitBranch size={14} className="shrink-0" color={CYAN} />}
-                    {n} {emplacements ? 'emplacement' : 'scénario'}{n > 1 ? 's' : ''} · {recus} reçu{recus > 1 ? 's' : ''}
-                  </p>
-                )}
-              </div>
-              <ChevronRight size={22} className="shrink-0" color={CYAN} />
-            </button>
-          );
-        })}
+        {!loading && !erreur && planifies.map((c) => carteChantier(c, true))}
+
+        {!loading && !erreur && aCaler.length > 0 && (
+          <>
+            <div className="h-2" />
+            <Repere>Pas encore calées</Repere>
+            <p className="text-[13px]">Le commercial doit fixer le rendez-vous avec le client.</p>
+            {aCaler.map((c) => carteChantier(c, false))}
+          </>
+        )}
       </ContenuAppli>
     </PageAppli>
   );
