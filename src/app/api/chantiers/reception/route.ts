@@ -16,6 +16,8 @@ import { alerter } from '@/lib/alerteSite';
 //   passent en 🟢 en service (décision Matthieu du 12/10, test TEST · Scénarios). Le site note la demande d'avis
 //   faite sur place (QR code) et crée la sous-tâche ⭐ de relance par email à J+7 pour le poseur.
 //   Les règlements et aides ne conditionnent pas ce passage.
+//   📊 Rapport de mesures (contrôleur d'installation, décision Matthieu du 13/10) : obligatoire, il fait partie de la
+//   procédure de mise en service (qualification). Refus du passage au Parc s'il manque ; le champ suit la fiche au Parc.
 //   Prestations vendues (12/10/2026) : le contrat de maintenance du devis signé (🔗 Lien devis, lu avant le déplacement)
 //   remplit 📜 Type de Contrat, 📅 Date de Mise en Service, 🔄 Echeance annuelle et 🔢 Nb points de charge (voir
 //   src/lib/contratMaintenance.ts). Aucune visite n'est créée ici.
@@ -36,7 +38,8 @@ const PARC_ID = '901520038290';
 const CHAMP_RESERVES = '1463a905-0b11-4693-b9d9-e8cca4f79eeb';
 const CHAMP_PV = 'ea4cf46a-c8bc-41ad-a46e-c7d313099f1b';
 const CHAMP_PHOTOS = 'e907f3f8-c702-47bd-b523-017e684e78c1';
-const CHAMPS_A_GARDER = [CHAMP_PV, CHAMP_PHOTOS, CHAMP_RESERVES, CHAMP_TECHNICIEN, CHAMP_AVIS];
+const CHAMP_RAPPORT = '463edfd0-faf9-40e6-b37a-9ee126c2b449';
+const CHAMPS_A_GARDER = [CHAMP_PV, CHAMP_PHOTOS, CHAMP_RAPPORT, CHAMP_RESERVES, CHAMP_TECHNICIEN, CHAMP_AVIS];
 const PREFIXE_REFUS = '🔴 Passage au Parc refusé';
 const EVENEMENTS = ['realise', 'termine'] as const;
 type Evenement = (typeof EVENEMENTS)[number];
@@ -193,17 +196,19 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   const id = String(tache.id);
   const pv = aFichier(tache, CHAMP_PV);
   const photos = aFichier(tache, CHAMP_PHOTOS);
+  const rapport = aFichier(tache, CHAMP_RAPPORT);
   const res = reserves(tache);
   const st = sousTachesReserve(tache);
   const pose = poseurs(tache);
   const aujourdhui = aujourdhuiParis();
   const jour = libelleJour(aujourdhui);
   const devisId = devisIdDe(lienDevis(tache));
-  const etat = { pv, photos, reserves: res || 'vide', sousTachesReserve: st.total, sousTachesIncompletes: st.incompletes, poseurs: pose.noms };
+  const etat = { pv, photos, rapport, reserves: res || 'vide', sousTachesReserve: st.total, sousTachesIncompletes: st.incompletes, poseurs: pose.noms };
 
   if (evenement === 'realise') {
     const manque: string[] = [];
     if (!pv) manque.push('📂 PV Réception');
+    if (!rapport) manque.push('📊 Rapport de mesures (contrôleur d\'installation)');
     if (!photos) manque.push('📸 Photos Chantier');
     if (!res) manque.push('🧾 Réserves (Aucune, Mineure ou Bloquante)');
     if (res === 'mineure' && !st.total) manque.push('une sous-tâche « 🔧 Réserve : … » par réserve mineure');
@@ -225,6 +230,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   if (!res) motifs.push('🧾 Réserves n’est pas renseigné');
   if (res === 'bloquante') motifs.push('une réserve 🔴 Bloquante empêche la mise en service');
   if (!pv) motifs.push('📂 PV Réception manquant');
+  if (!rapport) motifs.push('📊 Rapport de mesures manquant');
   if (res === 'mineure' && !st.total) motifs.push('réserve mineure sans sous-tâche « 🔧 Réserve : … »');
   if (res === 'mineure' && st.incompletes.length) motifs.push(`sous-tâche sans responsable ou sans échéance (${st.incompletes.join(', ')})`);
 

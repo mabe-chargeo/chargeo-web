@@ -1,7 +1,8 @@
 "use client";
 
 // Réception chantier en deux temps (Phase 6, décision Matthieu du 13/10/2026, page « Qui fait quoi ») :
-// Aperçu : PV et photos s'ouvrent depuis l'écran (vignettes), sans passer par ClickUp (test du 13/10).
+// 📊 Rapport de mesures du contrôleur d'installation : obligatoire (décision Matthieu du 13/10, procédure de mise en service).
+// Aperçu : PV, rapport et photos s'ouvrent depuis l'écran (vignettes), sans passer par ClickUp (test du 13/10).
 // Envoi : toujours possible quand tout est complet (un chantier peut déjà être en ✅ réalisé sans avoir été envoyé ;
 // renvoyer ne fait que reprévenir le chargé d'opération, test du 13/10).
 // - role « poseur » (/interne/reception) : sur place, le technicien poseur fait signer le PV, dépose PV et photos, déclare
@@ -10,7 +11,7 @@
 //   valide la réception (statut 🏁 terminé). Le passage au Parc (contrat, facture de solde, avis Google) reste fait par
 //   la route existante ; ce qui est administratif part au back-office.
 import { useEffect, useState } from 'react';
-import { Camera, ClipboardCheck, ExternalLink, FileText, Plus, RefreshCw } from 'lucide-react';
+import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Plus, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 
@@ -19,7 +20,7 @@ interface Option { id: string; nom: string; orderindex: number }
 interface Fichier { id: string; nom: string; image: boolean }
 interface Chantier {
   id: string; nom: string; statut: string; couleurStatut: string; url: string;
-  pv: Fichier[]; photos: Fichier[]; techniciens: string[]; reservesOptionId: string | null; niveau: string;
+  pv: Fichier[]; photos: Fichier[]; rapport: Fichier[]; techniciens: string[]; reservesOptionId: string | null; niveau: string;
   reserves: Reserve[]; motifs: string[]; avertissements: string[]; ecritureAutorisee: boolean; envoye: boolean;
 }
 
@@ -112,7 +113,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
     }
   };
 
-  const deposer = async (c: Chantier, cible: 'pv' | 'photos', liste: FileList | null) => {
+  const deposer = async (c: Chantier, cible: 'pv' | 'photos' | 'rapport', liste: FileList | null) => {
     if (!liste?.length) return;
     setEnCours(`${c.id}:${cible}`);
     message(c.id, '');
@@ -157,7 +158,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
         </p>
 
         {/* PV et photos */}
-        {([['pv', '📂 PV Réception', c.pv, FileText, 'image/*,application/pdf'], ['photos', '📸 Photos Chantier', c.photos, Camera, 'image/*']] as const).map(([cible, libelle, liste, Icone, accept]) => (
+        {([['pv', '📂 PV Réception', c.pv, FileText, 'image/*,application/pdf'], ['rapport', '📊 Rapport de mesures', (c.rapport || []) as Fichier[], Gauge, 'application/pdf,image/*'], ['photos', '📸 Photos Chantier', c.photos, Camera, 'image/*']] as const).map(([cible, libelle, liste, Icone, accept]) => (
           <div key={cible} className="rounded-[14px] bg-white p-3">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[14px] font-bold">{libelle}</p>
@@ -188,7 +189,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
             )}
             <label className={`mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8] ${bloque || occupe ? 'pointer-events-none opacity-50' : ''}`}>
               <Icone size={16} color={CYAN} />
-              {enCours === `${c.id}:${cible}` ? 'Envoi...' : cible === 'pv' ? 'Ajouter le PV signé' : 'Ajouter des photos'}
+              {enCours === `${c.id}:${cible}` ? 'Envoi...' : cible === 'pv' ? 'Ajouter le PV signé' : cible === 'rapport' ? 'Ajouter le rapport du contrôleur' : 'Ajouter des photos'}
               <input type="file" accept={accept} multiple={cible === 'photos'} className="hidden" onChange={(e) => { deposer(c, cible, e.target.files); e.target.value = ''; }} />
             </label>
           </div>
@@ -307,8 +308,8 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
         <div className="flex items-center justify-between gap-3">
           <p className="text-[13px]">
             {poseur
-              ? 'Fais signer le PV, dépose PV et photos, déclare les réserves, puis envoie au chargé d\'opération.'
-              : 'Contrôle le PV, les photos et les réserves, puis valide : le chantier passe au Parc.'}
+              ? 'Fais signer le PV, dépose PV, rapport de mesures et photos, déclare les réserves, puis envoie au chargé d\'opération.'
+              : 'Contrôle le PV, le rapport de mesures, les photos et les réserves, puis valide : le chantier passe au Parc.'}
           </p>
           <button onClick={charger} aria-label="Actualiser" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95">
             <RefreshCw size={18} color={CYAN} className={loading ? 'animate-spin' : ''} />
