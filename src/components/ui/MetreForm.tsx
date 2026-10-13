@@ -20,11 +20,9 @@
 // Photos conseillées (décision du 11/10/2026) : tableau ouvert, et emplacement borne hors COP infra.
 // S'il en manque, le premier appui sur Valider avertit, le second valide sans elles. Jamais bloquant.
 // 12/10/2026 : « Prends-la » / « Prends-les » selon le nombre de photos conseillées manquantes.
-// 13/10/2026 (lot 3.5) : carte « Client » avec le SIRET ou N° d'immatriculation, facultatif, pour COP, PAR, FLT
-// et TER, hors emplacement. Écrit sur la fiche principale par /api/metre.
 // Les attributs value des menus ne changent pas (la route /api/metre les convertit en index ClickUp).
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag, X, Plug, Landmark } from 'lucide-react';
+import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag, X, Plug } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { NAVY, CYAN, LABEL, CYAN_PALE, ORANGE } from '@/components/charte/couleurs';
 import { noterModification, noterConfirmation, relevesAPurger, retirerDeIndex } from '@/lib/releveLocal';
@@ -32,8 +30,6 @@ import { noterModification, noterConfirmation, relevesAPurger, retirerDeIndex } 
 // Regle de depart : COP = toujours infra ; FLT/TER = borne complete
 const INFRA_SEGMENTS = ['COP'];
 const COPRO_PHOTO_SEGMENTS = ['COP', 'PAR', 'FLT', 'TER'];
-// Client société ou copropriété : SIRET / N° d'immatriculation (lot 3.5)
-const CLIENT_SOCIETE_SEGMENTS = ['COP', 'PAR', 'FLT', 'TER'];
 
 // Matériels à chiffrer (point 12 règle 1) : mêmes mesures, un devis par matériel coché
 const MATERIELS = [
@@ -119,7 +115,6 @@ export function MetreForm({
   const showPercements = !estSite;
   const showSupportBorne = !!segment && !isCopInfra && !estSite;     // pas de borne en COP infra
   const showZone = !estEmpl;
-  const showClient = CLIENT_SOCIETE_SEGMENTS.includes(segment) && !estEmpl; // donnée de la fiche, pas d'un emplacement
   const showCoproPhotos = COPRO_PHOTO_SEGMENTS.includes(segment);
   const visiblePhotos = PHOTOS
     .filter(p => p.scope === 'all' || (p.scope === 'copro' && showCoproPhotos))
@@ -491,18 +486,6 @@ export function MetreForm({
           <option value="TER">TER · Tertiaire / ERP</option>
         </select>
       </Carte>
-
-      {/* CLIENT (lot 3.5) : SIRET ou N° d'immatriculation de la copropriété, facultatif */}
-      {showClient && (
-        <Carte className="space-y-4">
-          <TitreCarte icon={Landmark}>Client</TitreCarte>
-          <div className="space-y-2">
-            <label className={labelClass}>SIRET ou N° d'immatriculation</label>
-            <input type="text" name="siret" autoCapitalize="characters" autoComplete="off" className={inputClass} placeholder="Ex : AE0812248 ou 14 chiffres" />
-            <p className="ml-1 text-[13px] leading-relaxed">Facultatif. Fiche synthétique de la copro, ou Kbis de l'entreprise. Laisse vide si tu ne l'as pas.</p>
-          </div>
-        </Carte>
-      )}
 
       {/* ELECTRICITE (données du site) */}
       {showElec && (
