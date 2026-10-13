@@ -11,6 +11,8 @@ import { alerter } from '@/lib/alerteSite';
 // tâche de Factures Clients (espace BACK OFFICE, relais vers @back-office), jamais sur la fiche du chantier. Sans 📝 N° devis,
 // la tâche est quand même créée, avec « N° devis à compléter » : c'est au back-office de le retrouver.
 // Seul cas qui reste au chantier : création impossible (erreur ClickUp), il n'y a alors aucune tâche où écrire.
+// aussi : autre chose à faire par le back-office au même passage au Parc (contrat de maintenance à remplir à la main),
+//   ajouté à la même alerte (deux alertes coup sur coup : la première est perdue, test du 12/10).
 
 const FACTURES_ID = process.env.CLICKUP_FACTURES_LIST_ID || '1200630000003863';
 const FACTURE = {
@@ -79,12 +81,17 @@ async function optionSolde(token: string): Promise<string | null> {
 }
 
 // chantier = fiche lue avant son déplacement au Parc (champs de Planning Chantiers)
-export async function creerSolde(token: string, chantier: any, simulation: boolean): Promise<any> {
+export async function creerSolde(token: string, chantier: any, simulation: boolean, aussi = ''): Promise<any> {
   const numero = valeur(chantier, CHAMP_NUMERO);
   const chantierId = String(chantier.id);
   const f = await facturesDuDevis(token, numero, chantierId);
   if (f === undefined) return { solde: 'lecture_factures_impossible', numero };
-  if (f.solde) return { solde: 'deja_cree', nom: f.solde.name, url: f.solde.url };
+  const enPlus = aussi ? ` Aussi : ${aussi.replace(/^⚠️\s*/, '')}` : '';
+  if (f.solde) {
+    // Solde déjà créé : l'éventuel point contrat part quand même au back-office, sur cette tâche
+    const prevenu = aussi && !simulation ? await alerter(token, String(f.solde.id), `⚠️ ${aussi.replace(/^⚠️\s*/, '')}`) : false;
+    return { solde: 'deja_cree', id: String(f.solde.id), nom: f.solde.name, url: f.solde.url, backOfficePrevenu: prevenu };
+  }
 
   const client = (f.acompte ? valeur(f.acompte, FACTURE.client) : '') || String(chantier.name || '');
   const estTest = normal(chantier.name).startsWith('test');
@@ -92,7 +99,7 @@ export async function creerSolde(token: string, chantier: any, simulation: boole
   const aujourdhui = aujourdhuiParis();
   const rappel = ajouterJoursOuvres(aujourdhui, 1);
   const base = { nom, numero, sansNumero: !numero, rappel: libelleJour(rappel), acompteTrouve: !!f.acompte };
-  if (simulation) return { solde: 'creerait', ...base };
+  if (simulation) return { solde: 'creerait', ...base, alerteBackOffice: enPlus || null };
 
   const montant = Number(valeur(chantier, CHAMP_MONTANT));
   const lienDevis = valeur(chantier, CHAMP_LIEN_DEVIS);
@@ -127,6 +134,6 @@ export async function creerSolde(token: string, chantier: any, simulation: boole
   const alerte = numero
     ? `🧾 Solde à émettre dans Costructor (devis ${numero}) : chantier « ${chantier.name} » réceptionné le ${libelleJour(aujourdhui)}. Rappel le ${libelleJour(rappel)}.`
     : `⚠️ Solde à émettre, mais 📝 N° devis vide sur le chantier « ${chantier.name} » : retrouve le devis signé dans Costructor, remplis Réf. devis signé, puis émets le solde. Rappel le ${libelleJour(rappel)}.`;
-  const prevenu = await alerter(token, String(creee.id), alerte);
-  return { solde: 'cree', ...base, url: creee.url, typeRempli: !!option, affaireReliee: lien.ok, backOfficePrevenu: prevenu };
+  const prevenu = await alerter(token, String(creee.id), alerte + enPlus);
+  return { solde: 'cree', ...base, id: String(creee.id), url: creee.url, typeRempli: !!option, affaireReliee: lien.ok, backOfficePrevenu: prevenu };
 }
