@@ -23,8 +23,9 @@ import { alerter } from '@/lib/alerteSite';
 //   📄 à émettre, rappel J+1 ouvré, sans doublon (voir src/lib/factureSolde.ts).
 // Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
 //   Le refus garde en plus son commentaire du site : c'est lui qui évite le ⚠️ « réalisé incomplet » juste après le retour.
-//   Passage au Parc : UNE seule alerte regroupant tout ce qui est à faire à la main (contrat, facture de solde). Deux
-//   alertes écrites coup sur coup écrasent le champ avant le relais : la première était perdue (test du 12/10).
+//   Passage au Parc : contrat de maintenance et facture de solde = back-office (décision Matthieu du 13/10) : une seule
+//   alerte sur la tâche de solde de Factures Clients (relais @back-office), voir src/lib/factureSolde.ts. Deux alertes
+//   écrites coup sur coup écrasent le champ avant le relais : la première était perdue (test du 12/10).
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
 //   GET ?taskId=...&evenement=contrat&devis=quote_...&simulation=1|executer=1 : lecture du contrat seule, sur une fiche
 //   du Parc ou de Planning (exécution : fiche « Test » du Parc uniquement). Sans &devis, le 🔗 Lien devis de la fiche.
@@ -244,13 +245,12 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   let texte = `🏁 Réception confirmée le ${jour} : chantier passé au Parc installé.${mineures}${sansPhotos}${avis}`;
   if (simulation) {
     const contrat: any = co ? await traiterContrat(token, co, id, devisId, aujourdhui, true) : { action: 'cle_costructor_absente' };
-    const solde = await creerSolde(token, tache, true);
-    const aFaire: string[] = [];
-    if (!co) aFaire.push('⚠️ Contrat de maintenance : lecture du devis impossible (configuration). Remplis 📜 Type de Contrat à la main.');
-    else if (contrat?.notifier) aFaire.push(String(contrat.commentaire || ''));
-    if (solde.solde === 'sans_numero_devis') aFaire.push('⚠️ Facture de solde : je n\'ai pas pu créer la tâche dans Factures Clients (📝 N° devis vide). Crée-la à la main (Type de pièce Solde, Réf. devis signé).');
-    const alerte = aFaire.length ? regrouperAlertes(aFaire) : null;
-    return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, contrat, solde, alerte, simulation } };
+    // Contrat et solde : alerte au back-office (sur la tâche de solde), pas au chantier
+    const pourBackOffice = !co
+      ? '⚠️ Contrat de maintenance : lecture du devis impossible (configuration). Remplis 📜 Type de Contrat à la main.'
+      : contrat?.notifier ? String(contrat.commentaire || '') : '';
+    const solde = await creerSolde(token, tache, true, pourBackOffice);
+    return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, contrat, solde, alerteBackOffice: solde.alerteBackOffice ?? null, alerte: null, simulation } };
   }
 
   const d = await deplacerAuParc(tache, token);
@@ -263,23 +263,27 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   else if (rappel.deja) texte = texte.replace(avis, ' ⭐ Sous-tâche d\'avis Google déjà présente.');
   await commenter(id, token, texte);
 
-  // Tout ce qui est à faire à la main est regroupé en une seule alerte, écrite à la fin
+  // Contrat de maintenance et facture de solde : c'est le back-office (décision Matthieu du 13/10, page « Qui fait quoi »).
+  // Les deux points partent en UNE alerte sur la tâche de solde de Factures Clients (espace BACK OFFICE, relais
+  // @back-office). Seul repli sur le chantier (chargé d'opération) : la tâche de solde n'a pas pu être créée.
   const aFaire: string[] = [];
   let contrat: any = { action: 'cle_costructor_absente' };
+  let pourBackOffice = '';
   if (co) {
     contrat = await traiterContrat(token, co, id, devisId, aujourdhui, false, true);
-    if (contrat?.alerte) aFaire.push(String(contrat.alerte));
+    if (contrat?.alerte) pourBackOffice = String(contrat.alerte);
   } else {
-    aFaire.push('⚠️ Contrat de maintenance : lecture du devis impossible (configuration). Remplis 📜 Type de Contrat à la main.');
+    pourBackOffice = '⚠️ Contrat de maintenance : lecture du devis impossible (configuration). Remplis 📜 Type de Contrat à la main.';
   }
+  const ficheParc = pourBackOffice ? `${pourBackOffice} Fiche Parc : https://app.clickup.com/t/${id}` : '';
 
   // Facture de solde, à partir de la fiche lue avant le déplacement (N° devis, montant, liens)
-  const solde = await creerSolde(token, tache, false);
+  const solde = await creerSolde(token, tache, false, ficheParc);
   if (solde.solde === 'cree') {
-    await commenter(id, token, `🧾 Facture de solde à émettre : tâche créée dans Factures Clients (montant = devis moins acompte), rappel le ${solde.rappel}. ${solde.url}`);
+    await commenter(id, token, `🧾 Facture de solde à émettre : tâche créée dans Factures Clients, back-office prévenu${pourBackOffice ? ' (contrat de maintenance à compléter aussi)' : ''}. Rappel le ${solde.rappel}. ${solde.url}`);
   } else if (solde.solde !== 'deja_cree') {
-    const raison = solde.solde === 'sans_numero_devis' ? '📝 N° devis vide' : 'erreur de création';
-    aFaire.push(`⚠️ Facture de solde : je n'ai pas pu créer la tâche dans Factures Clients (${raison}). Crée-la à la main (Type de pièce Solde, Réf. devis signé).`);
+    aFaire.push(`⚠️ Facture de solde : je n'ai pas pu créer la tâche dans Factures Clients (${solde.solde === 'lecture_factures_impossible' ? 'lecture impossible' : 'erreur de création'}). Préviens le back-office : solde à créer à la main (Type de pièce Solde, Réf. devis signé).`);
+    if (pourBackOffice) aFaire.push(pourBackOffice);
   }
 
   const alerte = aFaire.length ? regrouperAlertes(aFaire) : null;

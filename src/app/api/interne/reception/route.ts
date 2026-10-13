@@ -1,18 +1,23 @@
 import { NextResponse } from 'next/server';
 import { sessionDeRequete } from '@/lib/session';
+import { alerter } from '@/lib/alerteSite';
 
-// Écran Réception du chargé d'opération (Phase 6, 13/10/2026), /interne/reception.
-// Chantiers de Planning Chantiers en 🚧 en cours ou ✅ réalisé : PV, photos, 🧾 Réserves et sous-tâches « 🔧 Réserve : … ».
+// Réception en deux temps (Phase 6, décision Matthieu du 13/10/2026, page « Qui fait quoi ») :
+// - le technicien poseur collecte sur place (/interne/reception) : PV signé, photos, réserves déclarées, puis « envoyer » ;
+// - le chargé d'opération / chef de chantier valide (/interne/validation) : contrôle, qualifie les réserves, « terminer ».
 // Mêmes règles que le passage au Parc (src/app/api/chantiers/reception/route.ts), qui reste seul juge : l'écran met le
 // statut, l'automatisation existante contrôle, refuse ou déplace au Parc.
-// GET : liste des chantiers à réceptionner.
+// GET ?role=poseur (🚧 en cours et ✅ réalisé) | ?role=charge (✅ réalisé seulement).
 // POST JSON { taskId, action } :
 //   - 'reserves' + optionId : règle 🧾 Réserves ;
-//   - 'reserve_ajout' + libelle + echeance (AAAA-MM-JJ) : sous-tâche « 🔧 Réserve : … », responsable = personne connectée ;
-//   - 'realise' : statut ✅ réalisé ;
-//   - 'terminer' : statut 🏁 terminé si tout est en règle (sinon refus avec la liste).
+//   - 'reserve_ajout' + libelle + echeance (AAAA-MM-JJ) : sous-tâche « 🔧 Réserve : … », responsable = 👷 Technicien du
+//     chantier (c'est en général lui qui revient la lever), à défaut la personne connectée ;
+//   - 'envoyer' (poseur) : refusé s'il manque quelque chose ; sinon statut ✅ réalisé et alerte au chargé d'opération
+//     (📣 Alerte site, relais @charge-doperation) ;
+//   - 'terminer' (chargé d'opération) : statut 🏁 terminé si tout est en règle (sinon refus avec la liste).
 // POST multipart { taskId, cible: 'pv' | 'photos', fichier } : fichier déposé dans 📂 PV Réception ou 📸 Photos Chantier
 //   (API v3 des pièces jointes de champ, puis rattachement au champ). Un fichier par envoi (limite Vercel 4,5 Mo).
+// Un seul compte ClickUp pour l'instant : les deux écrans sont ouverts à toute personne connectée.
 // Preview : écriture uniquement sur les fiches dont le nom commence par « Test ».
 
 const WORKSPACE_ID = process.env.CLICKUP_TEAM_ID?.trim() || '90151325642';
@@ -20,6 +25,7 @@ const PLANNING_CHANTIERS_ID = '901520038258';
 const CHAMP_RESERVES = '1463a905-0b11-4693-b9d9-e8cca4f79eeb';
 const CHAMP_PV = 'ea4cf46a-c8bc-41ad-a46e-c7d313099f1b';
 const CHAMP_PHOTOS = 'e907f3f8-c702-47bd-b523-017e684e78c1';
+const CHAMP_TECHNICIEN = 'b400c953-ae06-4336-b471-405296f9ff1c';
 const PAGES_MAX = 10;
 
 export const dynamic = 'force-dynamic';
@@ -70,6 +76,10 @@ function niveauReserves(t: any, options: Option[]): { option: Option | null; niv
 }
 
 const estReserve = (s: any) => normal(s?.name).includes('reserve');
+const techniciens = (t: any): { id: number; nom: string }[] => {
+  const v = champ(t, CHAMP_TECHNICIEN)?.value;
+  return (Array.isArray(v) ? v : []).filter((u: any) => u?.id).map((u: any) => ({ id: Number(u.id), nom: String(u.username || u.email || '') }));
+};
 const ecritureAutorisee = (t: any) => process.env.VERCEL_ENV === 'production' || normal(t?.name).trim().startsWith('test');
 
 function decrire(t: any, sousTaches: any[], options: Option[]) {
@@ -99,12 +109,15 @@ function decrire(t: any, sousTaches: any[], options: Option[]) {
     url: String(t.url || `https://app.clickup.com/t/${t.id}`),
     pv,
     photos,
+    techniciens: techniciens(t).map((u) => u.nom).filter(Boolean),
     reservesOptionId: r.option?.id ?? null,
     niveau: r.niveau,
     reserves,
     motifs,
     avertissements: photos.length ? [] : ['📸 Pas de photos chantier : utiles pour le SAV'],
     ecritureAutorisee: ecritureAutorisee(t),
+    // Envoyé au chargé d'opération : ✅ réalisé et complet
+    envoye: normal(t?.status?.status).includes('realise') && motifs.length === 0,
   };
 }
 
@@ -113,12 +126,13 @@ async function lireChantier(token: string, id: string) {
   return res.ok ? res.json() : null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const token = process.env.CLICKUP_API_KEY;
   if (!token) return NextResponse.json({ error: 'Configuration serveur incomplète' }, { status: 500 });
   try {
     const l = await lireListe(token);
-    const ids = new Set([l.enCours?.id, l.realise?.id].filter(Boolean).map(String));
+    const role = new URL(request.url).searchParams.get('role') === 'charge' ? 'charge' : 'poseur';
+    const ids = new Set((role === 'charge' ? [l.realise?.id] : [l.enCours?.id, l.realise?.id]).filter(Boolean).map(String));
     const toutes: any[] = [];
     for (let page = 0; page < PAGES_MAX; page++) {
       const res = await api(token, `/list/${PLANNING_CHANTIERS_ID}/task?archived=false&include_closed=false&subtasks=true&page=${page}`);
@@ -189,7 +203,7 @@ export async function POST(request: Request) {
       const corps = await request.json().catch(() => ({}));
       const taskId = String(corps?.taskId || '');
       const action = String(corps?.action || '');
-      if (!taskId || !['reserves', 'reserve_ajout', 'realise', 'terminer'].includes(action)) {
+      if (!taskId || !['reserves', 'reserve_ajout', 'envoyer', 'terminer'].includes(action)) {
         return NextResponse.json({ error: 'Demande incomplète' }, { status: 400 });
       }
       const c = await chantierEcrivable(token, taskId);
@@ -206,20 +220,33 @@ export async function POST(request: Request) {
         const libelle = String(corps?.libelle || '').trim().slice(0, 200);
         const m = String(corps?.echeance || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (!libelle || !m) return NextResponse.json({ error: 'Il faut un libellé et une échéance' }, { status: 400 });
-        const session = await sessionDeRequete(request);
-        if (!session?.id) return NextResponse.json({ error: 'Session expirée : reconnecte-toi' }, { status: 401 });
+        let responsables = techniciens(c.tache).map((u) => u.id);
+        if (!responsables.length) {
+          const session = await sessionDeRequete(request);
+          if (!session?.id) return NextResponse.json({ error: 'Session expirée : reconnecte-toi' }, { status: 401 });
+          responsables = [session.id];
+        }
         const res = await api(token, `/list/${PLANNING_CHANTIERS_ID}/task`, 'POST', {
           name: `🔧 Réserve : ${libelle}`,
           parent: id,
-          assignees: [session.id],
+          assignees: responsables,
           due_date: Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 10),
           due_date_time: false,
         });
         if (!res.ok) return NextResponse.json({ error: `La réserve n'a pas pu être créée (${res.status})` }, { status: 502 });
-      } else if (action === 'realise') {
+      } else if (action === 'envoyer') {
+        const sousTaches = Array.isArray(c.tache.subtasks) ? c.tache.subtasks : [];
+        const avant = decrire(c.tache, sousTaches, l.optionsReserves);
+        if (avant.motifs.length) return NextResponse.json({ error: `Pas encore envoyable : ${avant.motifs.join(' ; ')}`, chantier: avant }, { status: 409 });
         if (!l.realise) return NextResponse.json({ error: 'Statut ✅ réalisé introuvable dans le planning' }, { status: 500 });
-        const res = await api(token, `/task/${id}`, 'PUT', { status: l.realise.status });
-        if (!res.ok) return NextResponse.json({ error: `Changement de statut refusé (${res.status})` }, { status: 502 });
+        if (String(c.tache?.status?.id) !== String(l.realise.id)) {
+          const res = await api(token, `/task/${id}`, 'PUT', { status: l.realise.status });
+          if (!res.ok) return NextResponse.json({ error: `Changement de statut refusé (${res.status})` }, { status: 502 });
+        }
+        const session = await sessionDeRequete(request);
+        const par = avant.techniciens.join(', ') || session?.nom || 'le poseur';
+        const reserves = avant.niveau === 'mineure' ? `${avant.reserves.length} réserve${avant.reserves.length > 1 ? 's' : ''} mineure${avant.reserves.length > 1 ? 's' : ''}` : 'aucune réserve';
+        await alerter(token, id, `📋 Réception à valider : PV et ${avant.photos.length} photo${avant.photos.length > 1 ? 's' : ''} déposés par ${par}, ${reserves}. Contrôle et valide dans l'appli (Valider les réceptions).`);
       } else {
         const sousTaches = Array.isArray(c.tache.subtasks) ? c.tache.subtasks : [];
         const avant = decrire(c.tache, sousTaches, l.optionsReserves);
