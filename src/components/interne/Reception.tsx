@@ -1,6 +1,8 @@
 "use client";
 
 // Réception chantier en deux temps (Phase 6, décision Matthieu du 13/10/2026, page « Qui fait quoi ») :
+// Envoi : toujours possible quand tout est complet (un chantier peut déjà être en ✅ réalisé sans avoir été envoyé ;
+// renvoyer ne fait que reprévenir le chargé d'opération, test du 13/10).
 // - role « poseur » (/interne/reception) : sur place, le technicien poseur fait signer le PV, dépose PV et photos, déclare
 //   les réserves (sous-tâche « 🔧 Réserve : … », responsable = 👷 Technicien du chantier), puis envoie au chargé d'opération ;
 // - role « charge » (/interne/validation) : le chargé d'opération / chef de chantier contrôle, qualifie les réserves et
@@ -238,11 +240,11 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
 
         {poseur ? (
           <BoutonPrincipal
-            inactif={c.motifs.length > 0 || bloque || c.envoye}
-            disabled={occupe || c.motifs.length > 0 || bloque || c.envoye}
+            inactif={c.motifs.length > 0 || bloque}
+            disabled={occupe || c.motifs.length > 0 || bloque}
             onClick={() => envoyer(c, { action: 'envoyer' }, `${c.id}:envoyer`, '📋 Envoyé au chargé d\'opération pour validation.')}
           >
-            {enCours === `${c.id}:envoyer` ? 'Envoi...' : c.envoye ? 'En attente de validation' : c.motifs.length ? `Il manque ${c.motifs.length} élément${c.motifs.length > 1 ? 's' : ''}` : 'Envoyer au chargé d\'opération'}
+            {enCours === `${c.id}:envoyer` ? 'Envoi...' : c.motifs.length ? `Il manque ${c.motifs.length} élément${c.motifs.length > 1 ? 's' : ''}` : 'Envoyer au chargé d\'opération'}
           </BoutonPrincipal>
         ) : (
           <BoutonPrincipal
