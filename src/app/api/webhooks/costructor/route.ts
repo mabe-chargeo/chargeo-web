@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClickUp';
+import { normaliserIdentifiant, rechercherEntreprise, rechercherCopro, type IdentiteEntreprise, type IdentiteCopro } from '@/lib/identiteClient';
 
 // Webhook ClickUp -> Costructor (lot 3.4, 11/10/2026). Appelé par une automatisation ClickUp : POST ?taskId=...
 // Décisions : point 5 (échec propre, sans doublon, alerte au commercial), point 15 (client payeur,
@@ -7,7 +8,7 @@ import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClick
 // 0. Une sous-tâche (scénario, emplacement) n'est jamais un client : elle est ignorée. L'automatisation de la liste
 //    se déclenche aussi sur les sous-tâches quand elles passent en « devis à faire ».
 // 1. « Lien Costructor » rempli et contact existant : rien n'est créé.
-// 2. Sinon recherche du client dans Costructor : SIRET d'abord, puis email ou téléphone.
+// 2. Sinon recherche du client dans Costructor : SIRET (ou N° RNIC) d'abord, puis email ou téléphone.
 //    Pour une société, l'email ou le téléphone ne suffit pas : le nom doit correspondre aussi
 //    (un gestionnaire de syndic porte le même email sur plusieurs copros). Sinon on crée, avec un avertissement.
 //    Un seul résultat : on le relie. Plusieurs : rien n'est créé, un commentaire demande de choisir.
@@ -18,6 +19,14 @@ import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClick
 //    sur la fiche liste qui rattacher à la main, ⭐ = principal (Gestionnaire d'abord).
 //    Après création, on relit le client pour vérifier que l'email et le téléphone sont bien enregistrés.
 // 4. Le lien n'est écrit que s'il est vide ou mort. Chaque écriture est vérifiée ; un échec pose un commentaire d'alerte.
+// Lot 3.5 (13/10/2026) : identité officielle du client payeur (src/lib/identiteClient.ts).
+// - Le champ « SIRET / N° RNIC » accepte un SIRET, un SIREN ou un N° d'immatriculation de copropriété (AA1234567).
+//   Avant, les lettres du RNIC étaient retirées (AE0812248 devenait 0812248) : corrigé.
+// - SIRET / SIREN : raison sociale officielle, adresse du siège, SIRET et TVA (si l'annuaire en connaît une).
+// - RNIC : « SDC » + nom du registre, adresse de référence, RNIC en identifiant ; syndic et places notés.
+// - Rien trouvé : nom de la fiche et adresse de la fiche, comme avant, avec un avertissement dans le commentaire.
+// - Aucun numéro sur une fiche société ou copro : même repli, et le commentaire prévient le commercial
+//   (le numéro est saisi par le commercial dans la fiche ClickUp, décision Matthieu 13/10).
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (vrai passage, fiches TEST uniquement).
 // La simulation est aussi acceptée sur une vraie fiche Qualification (lecture seule, décision Matthieu 11/10),
 // pour vérifier la lecture du Gestionnaire et du Contact sur place, impossibles à ajouter à la liste TEST.
@@ -43,6 +52,7 @@ const URL_CONTACT = (id: string) => `https://app.costructor.co/contacts/${id}`;
 
 const nettoyer = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
 const chiffres = (s: any) => String(s || '').replace(/\D/g, '');
+const compact = (s: any) => String(s || '').toUpperCase().replace(/[\s.\-_/]/g, '');
 const emailNormal = (s: any) => String(s || '').trim().toLowerCase();
 function telNormal(s: any): string {
   let t = String(s || '').replace(/[\s.()-]/g, '');
@@ -262,10 +272,14 @@ async function traiter(taskId: string, simulation: boolean) {
   const email = emailNormal(lireChamp(tache, CHAMPS.email));
   const telephone = telNormal(lireChamp(tache, CHAMPS.telephone));
   const typeClient = String(lireChamp(tache, CHAMPS.typeClient) || '');
-  const siret = chiffres(lireChamp(tache, CHAMPS.siret));
+  // Identifiant : SIRET / SIREN (chiffres) ou N° RNIC (AA1234567). Saisie non reconnue : chiffres seuls, comme avant.
+  const identifiantBrut = String(lireChamp(tache, CHAMPS.siret) || '').trim();
+  const identifiant = normaliserIdentifiant(identifiantBrut);
+  const rnic = identifiant?.type === 'rnic' ? identifiant.valeur : '';
+  const siret = identifiant && identifiant.type !== 'rnic' ? identifiant.valeur : (rnic ? '' : chiffres(identifiantBrut));
   const adresse = texteAdresse(lireChamp(tache, CHAMPS.adresse));
   const t = typeClient.toLowerCase();
-  const estSociete = !!siret || ['pro', 'b2b', 'professionnel', 'syndic', 'sdc', 'copro'].some((m) => t.includes(m));
+  const estSociete = !!siret || !!rnic || ['pro', 'b2b', 'professionnel', 'syndic', 'sdc', 'copro'].some((m) => t.includes(m));
 
   // Lecture de Costructor : sans elle, on ne crée rien (sinon risque de doublon)
   const contacts = await listerContacts(costructorToken);
@@ -280,12 +294,15 @@ async function traiter(taskId: string, simulation: boolean) {
   }
   const lienMort = !!lienId;
 
-  // 2. Recherche : SIRET, puis email ou téléphone (clients et prospects seulement)
+  // 2. Recherche : SIRET ou N° RNIC, puis email ou téléphone (clients et prospects seulement)
   const clients = contacts.filter((c) => ['client', 'lead'].includes(String(c?.type || 'client')));
   let raison = '';
   let candidats: any[] = [];
   let homonymes: any[] = []; // même email ou téléphone mais autre nom (sociétés seulement)
-  if (siret.length >= 9) {
+  if (rnic) {
+    candidats = clients.filter((c) => compact(c.taxId) === rnic);
+    raison = 'N° RNIC';
+  } else if (siret.length >= 9) {
     const exacts = clients.filter((c) => chiffres(c.taxId) === siret);
     const memeSiren = clients.filter((c) => chiffres(c.taxId).slice(0, 9) === siret.slice(0, 9));
     candidats = exacts.length > 0 ? exacts : memeSiren;
@@ -329,6 +346,13 @@ async function traiter(taskId: string, simulation: boolean) {
   }
 
   // 3. Création du client payeur
+  // Lot 3.5 : identité officielle (annuaire des entreprises ou registre des copropriétés), sinon données de la fiche
+  const entreprise: IdentiteEntreprise | null = estSociete && siret.length >= 9 ? await rechercherEntreprise(siret) : null;
+  const copro: IdentiteCopro | null = estSociete && rnic ? await rechercherCopro(rnic) : null;
+  const identiteIntrouvable = !!(siret.length >= 9 || rnic) && !entreprise && !copro;
+  // Société ou copro sans numéro : le commercial est prévenu (c'est lui qui le saisit dans la fiche)
+  const identifiantManquant = estSociete && !identifiantBrut;
+
   const personnes: Personne[] = estSociete ? await personnesLiees(tache, clickUpToken) : [];
   if (estSociete && personnes.length === 0 && (email || telephone)) {
     // Pas de relation remplie : on garde l'email et le téléphone de la fiche, sans inventer de nom
@@ -338,22 +362,38 @@ async function traiter(taskId: string, simulation: boolean) {
   // Email et téléphone du client : ceux du contact principal, complétés par les autres contacts, puis par la fiche
   const emailClient = estSociete ? (principal?.email || personnes.find((p) => p.email)?.email || email) : email;
   const telClient = estSociete ? (principal?.phone || personnes.find((p) => p.phone)?.phone || telephone) : telephone;
-  const notes = estSociete && personnes.length > 0
-    ? ['Interlocuteurs (depuis ClickUp) :', ...personnes.map(ligneNote)].join('\n')
-    : undefined;
-  const adresseObj = objetAdresse(adresse);
+  const lignesIdentite: string[] = [];
+  if (entreprise) lignesIdentite.push(`Identité vérifiée dans l'annuaire des entreprises (SIRET ${entreprise.siret})${entreprise.fermee ? ' : ⚠️ établissement fermé' : ''}`);
+  if (copro) {
+    lignesIdentite.push(`Identité vérifiée dans le registre des copropriétés (N° ${copro.rnic})`);
+    if (copro.syndic) lignesIdentite.push(`Syndic au registre : ${copro.syndic}${copro.siretSyndic ? ` (SIRET ${copro.siretSyndic})` : ''}`);
+    if (copro.lotsStationnement !== undefined) lignesIdentite.push(`Lots de stationnement au registre : ${copro.lotsStationnement}`);
+  }
+  const lignesNotes = [
+    ...lignesIdentite,
+    ...(estSociete && personnes.length > 0 ? ['Interlocuteurs (depuis ClickUp) :', ...personnes.map(ligneNote)] : []),
+  ];
+  const notes = lignesNotes.length > 0 ? lignesNotes.join('\n') : undefined;
+  const adresseObj = entreprise?.adresse || copro?.adresse || objetAdresse(adresse);
+  const nomSociete = entreprise?.raisonSociale || (copro?.nom ? `SDC ${copro.nom}` : '') || nomFiche;
   const nom = decouperNom(nomFiche);
   const payload: any = {
     type: 'client',
     legalStatus: estSociete ? 'company' : 'individual',
-    companyName: estSociete ? nomFiche : undefined,
+    companyName: estSociete ? nomSociete : undefined,
     firstName: estSociete ? (principal?.lastName ? principal.firstName : undefined) : nom.firstName,
     lastName: estSociete ? (principal?.lastName || undefined) : nom.lastName,
-    taxId: estSociete && siret ? siret : undefined,
+    taxId: estSociete ? (entreprise?.siret || siret || rnic || undefined) : undefined,
+    vatId: estSociete && entreprise?.tva ? entreprise.tva : undefined,
     emails: emailClient ? [{ email: emailClient, primary: true }] : undefined,
     phones: telClient ? [{ phone: telClient, primary: true }] : undefined,
     notes,
     addresses: adresseObj ? [{ address: adresseObj, primary: true }] : [],
+  };
+  const identite = {
+    saisi: identifiantBrut || undefined,
+    type: identifiant?.type,
+    source: entreprise ? 'annuaire des entreprises' : copro ? 'registre des copropriétés' : identiteIntrouvable ? 'introuvable' : identifiantManquant ? 'absent' : undefined,
   };
 
   // Interlocuteurs : seulement les personnes nommées (Costructor exige un nom). Retrouvées ou à créer.
@@ -373,7 +413,7 @@ async function traiter(taskId: string, simulation: boolean) {
       action: existant ? 'reutiliserait' : 'creerait',
       url: existant ? URL_CONTACT(existant.id) : undefined,
     }));
-    return { status: 200, body: { success: true, action: 'creerait', lienMort, payload, interlocuteurs, homonymes: resumeHomonymes, simulation } };
+    return { status: 200, body: { success: true, action: 'creerait', lienMort, identite, payload, interlocuteurs, homonymes: resumeHomonymes, simulation } };
   }
 
   const creeId = await creerContact(costructorToken, payload);
@@ -418,6 +458,11 @@ async function traiter(taskId: string, simulation: boolean) {
 
   // Commentaire sur la fiche : client créé, interlocuteurs à rattacher, doublons possibles
   const lignes = [`✅ Costructor : client créé : ${url}`];
+  if (entreprise) lignes.push(`Raison sociale, adresse et SIRET repris de l'annuaire des entreprises : ${entreprise.raisonSociale}${entreprise.tva ? `, TVA ${entreprise.tva}` : ''}.`);
+  if (copro) lignes.push(`Nom et adresse repris du registre des copropriétés : SDC ${copro.nom}${copro.syndic ? `, syndic ${copro.syndic}` : ''}.`);
+  if (identiteIntrouvable) lignes.push(`⚠️ « ${identifiantBrut} » introuvable dans les registres officiels : nom et adresse de la fiche utilisés. Vérifiez le numéro.`);
+  if (identifiantManquant) lignes.push('⚠️ Pas de SIRET / N° RNIC sur la fiche : nom et adresse de la fiche utilisés. Renseignez « 🏛️ SIRET / N° RNIC » et corrigez le client dans Costructor.');
+  if (entreprise?.fermee) lignes.push('⚠️ L\'annuaire indique un établissement fermé : vérifiez le SIRET.');
   if (interlocuteurs.length > 0) {
     lignes.push('', 'À rattacher comme interlocuteurs (Modifier → Interlocuteurs, ⭐ = principal) :');
     interlocuteurs.forEach((i, n) => {
@@ -432,7 +477,7 @@ async function traiter(taskId: string, simulation: boolean) {
   }
   await commenter(id, clickUpToken, lignes.join('\n'));
 
-  return { status: 200, body: { success: true, action: 'cree', client: { id: creeId, url }, verif, interlocuteurs, homonymes: resumeHomonymes, lienMort } };
+  return { status: 200, body: { success: true, action: 'cree', client: { id: creeId, url }, identite, verif, interlocuteurs, homonymes: resumeHomonymes, lienMort } };
 }
 
 export async function POST(request: Request) {
