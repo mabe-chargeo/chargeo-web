@@ -4,7 +4,7 @@ import { CHAMP_AVIS, CHAMP_TECHNICIEN, creerRappelAvis, poseurs } from '@/lib/av
 import { devisIdDe, traiterContrat } from '@/lib/contratMaintenance';
 import { creerSolde } from '@/lib/factureSolde';
 import { alerter } from '@/lib/alerteSite';
-import { estScenarioOuRetenu } from '@/lib/scenarioRetenu';
+import { estScenarioOuRetenu, sousTachesArchivees } from '@/lib/scenarioRetenu';
 
 // Réception, réserves et passage au Parc (Phase 4, bloc 2 validé par Matthieu le 11/10/2026).
 // Appelé par les automatisations de Planning Chantiers : POST ?taskId=...&evenement=realise | termine
@@ -137,9 +137,14 @@ async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean;
   // Un même statut peut porter une réserve et un scénario : le tri se fait après le déplacement, sous-tâche par sous-tâche.
   const actuel = statutSource(source, tache.status);
   if (!actuel) return { ok: false, detail: 'statut actuel introuvable' };
-  // Tous les statuts de la liste de départ (14/10) : y compris ceux des sous-fiches archivées, absentes de la lecture
-  const utilises: any[] = [actuel, ...source.filter((x: any) => x.id !== actuel.id)];
+  // Statuts utilisés : la fiche, ses sous-tâches, et ses sous-fiches archivées (scénarios, absents de la lecture, 14/10)
+  const utilises: any[] = [actuel];
   const sousTaches: any[] = Array.isArray(tache?.subtasks) ? tache.subtasks : [];
+  const archivees = await sousTachesArchivees(token, PLANNING_CHANTIERS_ID, String(tache.id));
+  for (const st of [...sousTaches, ...archivees]) {
+    const s = statutSource(source, st.status);
+    if (s && !utilises.some((u) => u.id === s.id)) utilises.push(s);
+  }
 
   // Format validé le 11/10 : source_status_id / destination_status_id sur les statuts utilisés (essai « utilises_id »).
   // Les autres formats restent en secours.
