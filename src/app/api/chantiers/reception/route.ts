@@ -4,6 +4,7 @@ import { CHAMP_AVIS, CHAMP_TECHNICIEN, creerRappelAvis, poseurs } from '@/lib/av
 import { devisIdDe, traiterContrat } from '@/lib/contratMaintenance';
 import { creerSolde } from '@/lib/factureSolde';
 import { alerter } from '@/lib/alerteSite';
+import { estScenarioOuRetenu } from '@/lib/scenarioRetenu';
 
 // Réception, réserves et passage au Parc (Phase 4, bloc 2 validé par Matthieu le 11/10/2026).
 // Appelé par les automatisations de Planning Chantiers : POST ?taskId=...&evenement=realise | termine
@@ -13,7 +14,8 @@ import { alerter } from '@/lib/alerteSite';
 //   sous-tâche « 🔧 Réserve : … » complète (responsable + échéance). Refus : retour en ✅ réalisé + motif.
 //   Sinon le site déplace la même tâche au Parc installé en 🟢 en service, avec ses sous-tâches. Seules les
 //   sous-tâches « 🔧 Réserve » encore ouvertes passent en ⚠️ sous surveillance ; les autres (scénarios de relevé…)
-//   passent en 🟢 en service (décision Matthieu du 12/10, test TEST · Scénarios). Le site note la demande d'avis
+//   passent en 🟢 en service (décision Matthieu du 12/10, test TEST · Scénarios). Depuis le 14/10, les sous-fiches
+//   scénario (« ✅ Retenu · » compris) sont archivées juste avant : un scénario n'est pas un équipement du Parc. Le site note la demande d'avis
 //   faite sur place (QR code) et crée la sous-tâche ⭐ de relance par email à J+7 pour le poseur.
 //   Les règlements et aides ne conditionnent pas ce passage.
 //   📊 Rapport de mesures (contrôleur d'installation, décision Matthieu du 13/10) : obligatoire, il fait partie de la
@@ -135,12 +137,9 @@ async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean;
   // Un même statut peut porter une réserve et un scénario : le tri se fait après le déplacement, sous-tâche par sous-tâche.
   const actuel = statutSource(source, tache.status);
   if (!actuel) return { ok: false, detail: 'statut actuel introuvable' };
-  const utilises: any[] = [actuel];
+  // Tous les statuts de la liste de départ (14/10) : y compris ceux des sous-fiches archivées, absentes de la lecture
+  const utilises: any[] = [actuel, ...source.filter((x: any) => x.id !== actuel.id)];
   const sousTaches: any[] = Array.isArray(tache?.subtasks) ? tache.subtasks : [];
-  for (const st of sousTaches) {
-    const s = statutSource(source, st.status);
-    if (s && !utilises.some((u) => u.id === s.id)) utilises.push(s);
-  }
 
   // Format validé le 11/10 : source_status_id / destination_status_id sur les statuts utilisés (essai « utilises_id »).
   // Les autres formats restent en secours.
@@ -259,6 +258,12 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
     return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, contrat, solde, alerteBackOffice: solde.alerteBackOffice ?? null, alerte: null, simulation } };
   }
 
+  // Scénarios (retenu compris) archivés avant le départ : ils suivent le projet sans arriver au Parc comme matériel
+  for (const sc of (Array.isArray(tache?.subtasks) ? tache.subtasks : []).filter((s: any) => estScenarioOuRetenu(s?.name) && !s?.archived)) {
+    const r = await api(token, `/task/${sc.id}`, 'PUT', { archived: true });
+    if (!r.ok) console.error(`Scénario ${sc.id} : archivage refusé (${r.status})`);
+  }
+  tache.subtasks = (Array.isArray(tache?.subtasks) ? tache.subtasks : []).filter((s: any) => !estScenarioOuRetenu(s?.name));
   const d = await deplacerAuParc(tache, token);
   if (!d.ok) {
     await commenter(id, token, `⚠️ Passage au Parc : la tâche n'a pas pu être déplacée. Déplace-la à la main vers Parc installé.`, true);
