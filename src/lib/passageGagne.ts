@@ -1,6 +1,6 @@
 import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClickUp';
 import { alerter } from '@/lib/alerteSite';
-import { scenariosActifs } from '@/lib/scenarioRetenu';
+import { scenariosActifs, sousTachesArchivees } from '@/lib/scenarioRetenu';
 
 // Passage en 🏆 gagné : reprise par le site des automatisations ClickUp #3, #5 et #6 de Qualification
 // (décision Matthieu du 12/10/2026 : la bascule passe par les webhooks du site).
@@ -15,8 +15,8 @@ import { scenariosActifs } from '@/lib/scenarioRetenu';
 // 3. #6 : si 🏷️ Segment ≠ RES (vide compris), dossier dans Dossiers ADVENIR (même nom, à réserver, première étape
 //    « vérifier l'éligibilité »), lié à la fiche. Jamais en double.
 // Scénarios (14/10/2026) : le scénario retenu est désigné juste avant (src/lib/scenarioRetenu.ts), les autres sont
-// archivés. S'il reste des scénarios à trancher, rien ne part. Le déplacement fait correspondre TOUS les statuts de la
-// liste de départ : les sous-fiches archivées suivent la fiche sans figurer dans sa lecture.
+// archivés. S'il reste des scénarios à trancher, rien ne part. Le déplacement fait aussi correspondre les statuts des
+// sous-fiches archivées : elles suivent la fiche sans figurer dans sa lecture.
 // Garde : fiche principale de Qualification, encore en gagné. En preview : vrai passage sur la liste TEST ou une fiche
 // « Test… », simulation partout.
 
@@ -117,8 +117,13 @@ async function deplacerVersPlanning(fiche: any, token: string): Promise<{ ok: bo
   const trouver = (s: any) => source.find((x: any) => x.id === s?.id) || source.find((x: any) => normal(x.status) === normal(s?.status));
   const actuel = trouver(fiche.status);
   if (!actuel) return { ok: false, detail: 'statut actuel introuvable' };
-  // Tous les statuts de la liste de départ (14/10) : y compris ceux des sous-fiches archivées, absentes de la lecture
-  const utilises: any[] = [actuel, ...source.filter((x: any) => x.id !== actuel.id)];
+  // Statuts utilisés : la fiche, ses sous-tâches, et ses sous-fiches archivées (absentes de la lecture, 14/10)
+  const utilises: any[] = [actuel];
+  const archivees = await sousTachesArchivees(token, String(fiche.list.id), String(fiche.id));
+  for (const st of [...(Array.isArray(fiche?.subtasks) ? fiche.subtasks : []), ...archivees]) {
+    const s = trouver(st.status);
+    if (s && !utilises.some((u) => u.id === s.id)) utilises.push(s);
+  }
   // Pas de move_custom_fields : les champs propres à Qualification ne sont pas ajoutés à Planning Chantiers.
   // Les champs communs (même champ dans les deux listes) gardent leur valeur ; c'est vérifié à la relecture.
   const essais: { nom: string; corps: any }[] = [

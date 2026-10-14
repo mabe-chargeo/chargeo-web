@@ -46,6 +46,22 @@ export const estScenarioOuRetenu = (nom: string) => estScenario(nom) || String(n
 export const scenariosActifs = (fiche: any): any[] =>
   (Array.isArray(fiche?.subtasks) ? fiche.subtasks : []).filter((s: any) => estScenario(s?.name) && !s?.archived);
 
+// Sous-tâches archivées d'une fiche (les non retenus) : absentes de include_subtasks, mais elles suivent la fiche lors
+// d'un déplacement. Leurs statuts doivent figurer dans la correspondance, sinon elles gardent un statut inconnu de la
+// liste d'arrivée (test du 14/10 : une correspondance de tous les statuts de la liste est refusée par ClickUp).
+export async function sousTachesArchivees(token: string, listeId: string, parentId: string): Promise<any[]> {
+  const trouvees: any[] = [];
+  for (let page = 0; page < 20; page++) {
+    const res = await api(token, `/list/${listeId}/task?archived=true&subtasks=true&include_closed=true&page=${page}`);
+    if (!res.ok) break;
+    const json = await res.json().catch(() => ({}));
+    const lot: any[] = Array.isArray(json?.tasks) ? json.tasks : [];
+    trouvees.push(...lot.filter((t) => String(t?.parent || '') === String(parentId)));
+    if (json?.last_page !== false || !lot.length) break;
+  }
+  return trouvees;
+}
+
 async function api(token: string, chemin: string, methode = 'GET', corps?: any): Promise<Response> {
   return fetch(`https://api.clickup.com/api/v2${chemin}`, {
     method: methode,
