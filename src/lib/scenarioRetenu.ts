@@ -13,6 +13,10 @@ import { alerter } from '@/lib/alerteSite';
 //   dans les vues ni l'appli, on les retrouve avec « afficher les archivées » ; test du 14/10 : un archivé suit bien
 //   les déplacements Qualification → Planning → Parc ;
 // - aucun devis signé, ou plusieurs : rien n'est choisi, alerte au commercial, la suite du gagné est bloquée.
+// - autre payeur (décision Matthieu du 14/10) : si le retenu est en COP, un non retenu en PAR (borne partagée, payée
+//   par le syndicat plus tard) n'est pas archivé : il devient un projet séparé dans Qualification (même passeport, son
+//   relevé et son devis, lié au projet infra), passé en 📩 devis envoyé pour lancer relances et montant. La sous-fiche
+//   d'origine est renommée « Projet séparé · » et archivée.
 // Les sous-fiches « Emplacement … » (bornes d'un même devis) ne sont pas concernées.
 // Preview : fiche de la liste TEST ou fiche « Test… » ; forcerSigne=<id de sous-fiche> traite son devis comme signé.
 
@@ -20,6 +24,9 @@ const COSTRUCTOR = 'https://api.costructor.co/external/v1';
 const CHAMP_LIEN_DEVIS = 'ae80f202-2ef3-4302-b778-f36075ee398f';
 export const PREFIXE_RETENU = '✅ Retenu · ';
 export const PREFIXE_NON_RETENU = 'Non retenu · ';
+export const PREFIXE_SEPARE = 'Projet séparé · ';
+const CHAMP_SEGMENT = 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2';
+const CHAMP_ALERTE = '42019c42-0af8-49de-a33d-8af0ddde3357';
 const SIGNES = ['accepted', 'done'];
 const EXCLUS = ['revised', 'draft', 'cancelled', 'refused'];
 const LIBELLES_STATUT: Record<string, string> = {
@@ -116,6 +123,66 @@ function derniereVersion(devis: any[], d: any): any {
 
 const champs = (t: any): any[] => (Array.isArray(t?.custom_fields) ? t.custom_fields : []);
 const lienDevisDe = (t: any) => String((champs(t).find((c) => c.id === CHAMP_LIEN_DEVIS) || champs(t).find((c) => normal(c.name).includes('lien devis')))?.value || '').trim();
+function segmentDe(t: any): string {
+  const f = champs(t).find((c) => c.id === CHAMP_SEGMENT);
+  if (!f || f.value === undefined || f.value === null || f.value === '') return '';
+  const o = (f.type_config?.options || []).find((x: any) => x.orderindex === Number(f.value) || x.id === f.value);
+  return normal(String(o?.name || '')).trim();
+}
+
+// Passeport du client (téléphone, email, type client, adresse, lien Costructor), relu sur le projet
+function passeport(fiche: any): { id: string; nom: string; v: any }[] {
+  const sortie: { id: string; nom: string; v: any }[] = [];
+  for (const f of champs(fiche)) {
+    if (!NON_COPIES.has(f.id) || f.id === CHAMP_ALERTE) continue;
+    const v = f.value;
+    if (v === undefined || v === null || v === '') continue;
+    if (f.type === 'location') {
+      const loc = v?.location || {};
+      if (v?.formatted_address) sortie.push({ id: f.id, nom: String(f.name), v: { location: { lat: loc.lat, lng: loc.lng }, formatted_address: v.formatted_address } });
+    } else if (f.type === 'drop_down') {
+      const o = (f.type_config?.options || []).find((x: any) => x.orderindex === Number(v) || x.id === v);
+      if (o) sortie.push({ id: f.id, nom: String(f.name), v: String(o.id) });
+    } else sortie.push({ id: f.id, nom: String(f.name), v: String(v) });
+  }
+  return sortie;
+}
+
+async function statutNomme(token: string, listeId: string, mot: string): Promise<string | null> {
+  const res = await api(token, `/list/${listeId}`);
+  if (!res.ok) return null;
+  const json = await res.json().catch(() => ({}));
+  const s = (Array.isArray(json?.statuses) ? json.statuses : []).find((x: any) => normal(x.status).includes(mot));
+  return s ? String(s.status) : null;
+}
+
+// Autre payeur : le scénario devient un projet à part (voir en tête). null = création impossible
+async function separer(token: string, fiche: any, a: any): Promise<{ id: string; url: string; statut: boolean; nonCopies: string[] } | null> {
+  const listeId = String(fiche?.list?.id || '');
+  const nomScenario = a.nom.replace(/^\s*Sc[ée]nario\s*[A-Z0-9]*\s*:?\s*/i, '').trim() || a.nom;
+  const nom = `${String(fiche.name || '').trim()} · ${nomScenario}`;
+  const res = await api(token, `/list/${listeId}/task`, 'POST', {
+    name: nom,
+    description: `Projet séparé issu du ${a.nom} de ${String(fiche.name || '').trim()} (autre payeur, devis à part). Projet infra : https://app.clickup.com/t/${fiche.id}`,
+  });
+  if (!res.ok) return null;
+  const t = await res.json();
+  const nonCopies: string[] = [];
+  for (const { id, nom: n, v } of passeport(fiche)) {
+    if (!(await api(token, `/task/${t.id}/field/${id}`, 'POST', { value: v })).ok) nonCopies.push(n);
+  }
+  for (const f of champs(a.tache)) {
+    const v = valeurACopier(f);
+    if (v === undefined) continue;
+    if (!(await api(token, `/task/${t.id}/field/${f.id}`, 'POST', { value: v })).ok) nonCopies.push(String(f.name));
+  }
+  await api(token, `/task/${t.id}/link/${fiche.id}`, 'POST');
+  // En dernier : le passage en devis envoyé lance la relance J+3 et le montant à partir du 🔗 Lien devis recopié
+  const envoye = await statutNomme(token, listeId, 'devis envoy');
+  const statut = envoye ? (await api(token, `/task/${t.id}`, 'PUT', { status: envoye })).ok : false;
+  return { id: String(t.id), url: String(t.url || `https://app.clickup.com/t/${t.id}`), statut, nonCopies };
+}
+
 const quoteId = (lien: string) => (lien.match(/quote_[a-z0-9]+/i) || [])[0] || '';
 
 // Garde (même règle que src/lib/passageGagne.ts) : null = autorisé
@@ -206,9 +273,12 @@ export async function traiterScenarios(taskId: string, simulation: boolean, forc
     retenu = signes[0];
   }
   const autres = analyse.filter((a) => a.id !== retenu.id);
+  // Autre payeur : retenu COP, non retenu PAR (décision du 14/10)
+  const aSeparer = segmentDe(retenu.tache) === 'cop' ? autres.filter((a) => segmentDe(a.tache) === 'par') : [];
+  const aArchiver = autres.filter((a) => !aSeparer.includes(a));
   const aCopier = champs(retenu.tache).map((f) => ({ f, v: valeurACopier(f) })).filter((x) => x.v !== undefined);
   if (simulation) {
-    return { success: true, action: 'retiendrait', via, retenu: retenu.nom, nonRetenus: autres.map((a) => a.nom), champs: aCopier.map((x) => x.f.name), scenarios: resume, simulation };
+    return { success: true, action: 'retiendrait', via, retenu: retenu.nom, nonRetenus: aArchiver.map((a) => a.nom), projetsSepares: aSeparer.map((a) => a.nom), champs: aCopier.map((x) => x.f.name), scenarios: resume, simulation };
   }
 
   // 1. Champs du scénario retenu recopiés sur le projet
@@ -221,7 +291,15 @@ export async function traiterScenarios(taskId: string, simulation: boolean, forc
   const renomme = await api(token, `/task/${retenu.id}`, 'PUT', { name: `${PREFIXE_RETENU}${retenu.nom}` });
   const archives: string[] = [];
   const nonArchives: string[] = [];
-  for (const a of autres) {
+  const separes: any[] = [];
+  for (const a of aSeparer) {
+    const p = await separer(token, fiche, a);
+    if (!p) { nonArchives.push(`${a.nom} (projet séparé non créé)`); continue; }
+    separes.push({ nom: a.nom, ...p });
+    const r = await api(token, `/task/${a.id}`, 'PUT', { name: `${PREFIXE_SEPARE}${a.nom}`, archived: true });
+    if (!r.ok) nonArchives.push(a.nom);
+  }
+  for (const a of aArchiver) {
     const r = await api(token, `/task/${a.id}`, 'PUT', { name: `${PREFIXE_NON_RETENU}${a.nom}`, archived: true });
     const j = r.ok ? await r.json().catch(() => ({})) : {};
     if (r.ok && j?.archived !== false) archives.push(a.nom); else nonArchives.push(a.nom);
@@ -232,14 +310,15 @@ export async function traiterScenarios(taskId: string, simulation: boolean, forc
   const lignes = [
     `🎯 Scénario retenu : ${ligne(retenu)}${via === 'lien_fiche' ? ', désigné par le 🔗 Lien devis de la fiche' : ', devis signé'}. Son relevé et son devis sont recopiés sur la fiche.`,
   ];
-  if (autres.length) lignes.push(`Non retenus, archivés dans le projet (« afficher les archivées » pour les revoir) : ${autres.map(ligne).join(' ; ')}.`);
+  if (aArchiver.length) lignes.push(`Non retenus, archivés dans le projet (« afficher les archivées » pour les revoir) : ${aArchiver.map(ligne).join(' ; ')}.`);
+  for (const p of separes) lignes.push(`🔀 Autre payeur : ${p.nom} devient un projet séparé, en 📩 devis envoyé${p.statut ? '' : ' (statut à poser à la main)'} : ${p.url}${p.nonCopies.length ? ` ⚠️ Champs à reprendre : ${p.nonCopies.join(', ')}.` : ''}`);
   if (nonCopies.length) lignes.push(`⚠️ Champs non recopiés, à reprendre à la main depuis le scénario : ${nonCopies.join(', ')}.`);
   if (!renomme.ok) lignes.push('⚠️ Le scénario retenu n\'a pas pu être renommé « ✅ Retenu ».');
   if (nonArchives.length) lignes.push(`⚠️ Non archivés (à archiver à la main) : ${nonArchives.join(', ')}.`);
   await commenter(token, id, lignes.join('\n'));
-  const enAttente = autres.filter((a) => a.enAttente && a.numero);
+  const enAttente = aArchiver.filter((a) => a.enAttente && a.numero);
   if (enAttente.length) {
     await alerter(token, id, `📝 Scénario retenu : ${retenu.nom}. Pense à passer en « refusé » dans Costructor ${enAttente.length > 1 ? 'les devis non retenus' : 'le devis non retenu'} ${enAttente.map((a) => a.numero).join(', ')}, sinon ${enAttente.length > 1 ? 'ils restent' : 'il reste'} « En attente ».`);
   }
-  return { success: !nonCopies.length && renomme.ok && !nonArchives.length, action: 'retenu', via, retenu: retenu.nom, archives, nonArchives, nonCopies, champsCopies: aCopier.length, scenarios: resume };
+  return { success: !nonCopies.length && renomme.ok && !nonArchives.length, action: 'retenu', via, retenu: retenu.nom, archives, nonArchives, nonCopies, separes, champsCopies: aCopier.length, scenarios: resume };
 }
