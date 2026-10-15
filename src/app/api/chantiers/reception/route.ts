@@ -5,6 +5,7 @@ import { devisIdDe, traiterContrat } from '@/lib/contratMaintenance';
 import { creerSolde } from '@/lib/factureSolde';
 import { alerter } from '@/lib/alerteSite';
 import { estScenarioOuRetenu, sousTachesArchivees } from '@/lib/scenarioRetenu';
+import { poserType } from '@/lib/typesTaches';
 
 // Réception, réserves et passage au Parc (Phase 4, bloc 2 validé par Matthieu le 11/10/2026).
 // Appelé par les automatisations de Planning Chantiers : POST ?taskId=...&evenement=realise | termine
@@ -25,6 +26,8 @@ import { estScenarioOuRetenu, sousTachesArchivees } from '@/lib/scenarioRetenu';
 //   src/lib/contratMaintenance.ts). Aucune visite n'est créée ici.
 //   Facture de solde (décision Matthieu du 12/10/2026) : « Solde · client · n° devis » créée dans Factures Clients,
 //   📄 à émettre, rappel J+1 ouvré, sans doublon (voir src/lib/factureSolde.ts).
+//   Étape 2 (15/10/2026) : arrivée au Parc, la fiche passe en type Installation. Les éléments du scénario retenu
+//   seront gardés à l'étape 7 (aujourd'hui, les scénarios sont encore archivés avant le départ).
 // Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
 //   Le refus garde en plus son commentaire du site : c'est lui qui évite le ⚠️ « réalisé incomplet » juste après le retour.
 //   Passage au Parc : contrat de maintenance et facture de solde = back-office (décision Matthieu du 13/10) : une seule
@@ -260,7 +263,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
       ? '⚠️ Contrat de maintenance : lecture du devis impossible (configuration). Remplis 📜 Type de Contrat à la main.'
       : contrat?.notifier ? String(contrat.commentaire || '') : '';
     const solde = await creerSolde(token, tache, true, pourBackOffice);
-    return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, contrat, solde, alerteBackOffice: solde.alerteBackOffice ?? null, alerte: null, simulation } };
+    return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, contrat, solde, alerteBackOffice: solde.alerteBackOffice ?? null, alerte: null, typeArrivee: 'Installation', simulation } };
   }
 
   // Scénarios (retenu compris) archivés avant le départ : ils suivent le projet sans arriver au Parc comme matériel
@@ -274,6 +277,8 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
     await commenter(id, token, `⚠️ Passage au Parc : la tâche n'a pas pu être déplacée. Déplace-la à la main vers Parc installé.`, true);
     return { status: 502, body: { success: false, error: 'Déplacement impossible', detail: d.detail, ...etat } };
   }
+  // Étape 2 : la fiche devient une Installation (sans blocage si le type est introuvable)
+  const installation = await poserType(token, id, 'installation');
   const rappel = await creerRappelAvis(tache, token, PARC_ID, pose, true);
   if (!rappel.ok) texte = texte.replace(avis, ' ⚠️ La sous-tâche ⭐ avis Google n\'a pas pu être créée : note la relance à J+7 à la main.');
   else if (rappel.deja) texte = texte.replace(avis, ' ⭐ Sous-tâche d\'avis Google déjà présente.');
@@ -304,7 +309,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
 
   const alerte = aFaire.length ? regrouperAlertes(aFaire) : null;
   if (alerte) await alerter(token, id, alerte);
-  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, reservesSurveillance: d.surveillance, avis: rappel, contrat, solde, alerte, ...etat, commentaire: texte } };
+  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, reservesSurveillance: d.surveillance, typeInstallation: installation, avis: rappel, contrat, solde, alerte, ...etat, commentaire: texte } };
 }
 
 // Preview : contrat de maintenance seul (lecture partout, écriture sur la fiche « Test » du Parc)
