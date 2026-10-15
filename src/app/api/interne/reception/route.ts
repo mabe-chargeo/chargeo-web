@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sessionDeRequete } from '@/lib/session';
 import { alerter } from '@/lib/alerteSite';
+import { champType } from '@/lib/typesTaches';
 
 // Réception en deux temps (Phase 6, décision Matthieu du 13/10/2026, page « Qui fait quoi ») :
 // - le technicien poseur collecte sur place (/interne/reception) : PV signé, photos, réserves déclarées, puis « envoyer » ;
@@ -20,6 +21,7 @@ import { alerter } from '@/lib/alerteSite';
 //   (API v3 des pièces jointes de champ, puis rattachement au champ). Un fichier par envoi (limite Vercel 4,5 Mo).
 // Un seul compte ClickUp pour l'instant : les deux écrans sont ouverts à toute personne connectée.
 // Preview : écriture uniquement sur les fiches dont le nom commence par « Test ».
+// Étape 2 (15/10/2026) : la réserve naît en type Réserve. Le nom « 🔧 Réserve : … » est gardé (anciennes réserves).
 
 const WORKSPACE_ID = process.env.CLICKUP_TEAM_ID?.trim() || '90151325642';
 const PLANNING_CHANTIERS_ID = '901520038258';
@@ -245,6 +247,7 @@ export async function POST(request: Request) {
           assignees: responsables,
           due_date: Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 10),
           due_date_time: false,
+          ...(await champType(token, 'reserve')),
         });
         if (!res.ok) return NextResponse.json({ error: `La réserve n'a pas pu être créée (${res.status})` }, { status: 502 });
       } else if (action === 'envoyer') {
