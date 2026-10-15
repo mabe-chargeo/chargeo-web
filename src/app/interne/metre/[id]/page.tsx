@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { MetreForm } from '@/components/ui/MetreForm';
 import { Scenarios } from '@/components/ui/Scenarios';
+import { ElementsScenario, ScenariosArchives } from '@/components/ui/Elements';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere } from '@/components/charte/Appli';
 import { lireTacheQualification } from '@/lib/listesClickUp';
 import { trierScenarios, typeDesSousReleves, typeSousReleve, type ScenarioResume } from '@/lib/scenarios';
@@ -14,6 +15,9 @@ import { lireSiteRecu } from '@/lib/releveSite';
 // - scénario : relevé complet, retour vers les scénarios ;
 // - fiche avec emplacements (point 21) : liste des emplacements + relevé commun du site sur la fiche ;
 // - emplacement : relevé réduit à la borne (matériel, support, cheminement, percements, photo), segment du site.
+// Étape 3 (15/10/2026, PR #51) : sur un scénario, bloc « Éléments du scénario » (création par défaut, ajout, renommage,
+// duplication, archivage) et gestion du scénario ; sur la fiche, scénarios archivés à restaurer. Seules les sous-tâches
+// directes de la fiche sont des sous-relevés (les éléments sont des sous-tâches des scénarios).
 const SEGMENT_OPTIONS: Record<number, string> = { 0: 'RES', 1: 'DAP', 2: 'COP', 3: 'PAR', 4: 'FLT', 5: 'TER' };
 const SEGMENT_ID = 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2';
 
@@ -32,11 +36,13 @@ async function lireFiche(taskId: string) {
     if (!lecture.ok) return null;
     const data = lecture.tache;
 
-    const sousReleves: ScenarioResume[] = trierScenarios((Array.isArray(data.subtasks) ? data.subtasks : []).map((s: any) => ({
-      id: String(s.id),
-      nom: String(s.name || ''),
-      statut: String(s.status?.status || ''),
-    })));
+    const sousReleves: ScenarioResume[] = trierScenarios((Array.isArray(data.subtasks) ? data.subtasks : [])
+      .filter((s: any) => !s?.parent || String(s.parent) === String(taskId))
+      .map((s: any) => ({
+        id: String(s.id),
+        nom: String(s.name || ''),
+        statut: String(s.status?.status || ''),
+      })));
     const type = typeDesSousReleves(sousReleves);
     const siteRecu = type === 'emplacement' ? await lireSiteRecu(taskId, token) : false;
 
@@ -73,7 +79,7 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
     notFound();
   }
 
-  // Sous-relevé : emplacement (relevé réduit) ou scénario (relevé complet)
+  // Sous-relevé : emplacement (relevé réduit) ou scénario (éléments + relevé complet)
   if (fiche.parent) {
     const estEmplacement = typeSousReleve(fiche.name) === 'emplacement';
     const retourListe = {
@@ -87,7 +93,14 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
           titre={fiche.name}
           retour={{ href: retourListe.href, libelle: estEmplacement ? 'Emplacements' : 'Scénarios' }}
         />
-        <ContenuAppli>
+        <ContenuAppli className="space-y-5">
+          {!estEmplacement && (
+            <>
+              <ElementsScenario scenarioId={taskId} segmentInitial={fiche.segment || fiche.parent.segment} />
+              <div className="h-1" />
+              <Repere>Relevé du scénario</Repere>
+            </>
+          )}
           <MetreForm
             taskId={taskId}
             taskName={fiche.name}
@@ -120,13 +133,14 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  // Fiche avec scénarios : écran Scénarios
+  // Fiche avec scénarios : écran Scénarios, puis scénarios archivés à restaurer
   if (fiche.type === 'scenario') {
     return (
       <PageAppli>
         <EnTeteAppli surtitre="Visite technique" titre={fiche.name} retour={{ href: '/interne', libelle: 'Planning' }} />
-        <ContenuAppli>
+        <ContenuAppli className="space-y-5">
           <Scenarios affaireId={taskId} scenarios={fiche.sousReleves} mode="liste" type="scenario" statutFiche={fiche.statut} />
+          <ScenariosArchives affaireId={taskId} />
         </ContenuAppli>
       </PageAppli>
     );
@@ -138,6 +152,7 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
       <EnTeteAppli surtitre="Visite technique" titre={fiche.name} retour={{ href: '/interne', libelle: 'Planning' }} />
       <ContenuAppli className="space-y-5">
         <Scenarios affaireId={taskId} scenarios={[]} mode="proposition" statutFiche={fiche.statut} />
+        <ScenariosArchives affaireId={taskId} />
         <MetreForm taskId={taskId} taskName={fiche.name} initialSegment={fiche.segment} />
       </ContenuAppli>
     </PageAppli>
