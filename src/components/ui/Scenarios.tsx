@@ -5,10 +5,12 @@
 // - Scenarios (mode "proposition") : fiche sans sous-relevé, création directe d'un scénario.
 // Étape 4 (15/10/2026, PR #51) : plus de bouton « Plusieurs bornes ». Plusieurs bornes = plusieurs branches d'un même
 // scénario (« Dupliquer la branche »). Les fiches à emplacements existantes restent affichées jusqu'à leur conversion.
+// 15/10, 16 h 31 (retour de Matthieu) : au retour sur la fiche par le geste « précédent », Safari ressortait la page
+// gardée en mémoire (scénario encore « Relevé à faire » alors qu'il est prêt). La page est maintenant relue.
 // Les sous-relevés se créent avec du réseau, avant de descendre au sous-sol.
 // Scénarios triés A, B, C ; emplacements 1, 2, 3. Pas de mélange sur une fiche (décision du 11/10/2026).
 // Fiche qui n'est plus « à visiter » : elle garde son statut, un avertissement est affiché (décision du 11/10/2026).
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle, ChevronRight, ClipboardList, GitBranch, Info, Plus, Zap } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, Repere, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE, GRIS, LABEL, CYAN_PALE } from '@/components/charte/couleurs';
@@ -127,6 +129,14 @@ export function Scenarios({
   siteRecu?: boolean;
 }) {
   const ficheAvancee = !!statutFiche && !estAVisiter(statutFiche);
+
+  // Retour sur la fiche par « précédent » : Safari ressort la page gardée en mémoire, on la relit (statuts à jour).
+  // Hors réseau, le service worker sert la dernière version gardée : rien n'est perdu.
+  useEffect(() => {
+    const auRetour = (e: PageTransitionEvent) => { if (e.persisted) window.location.reload(); };
+    window.addEventListener('pageshow', auRetour);
+    return () => window.removeEventListener('pageshow', auRetour);
+  }, []);
 
   // Fiche sans sous-relevé : création directe d'un scénario
   if (mode === 'proposition') {
