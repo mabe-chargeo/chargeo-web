@@ -4,6 +4,8 @@
 // 15/10, 12 h 36 (demande de Matthieu) : dans le nom d'un cheminement, le raccordement s'écrit « Raccordement » tout court.
 // 15/10, 14 h 26 (décision de Matthieu) : forfait RIC = 5 m de tube apparent boîte → coffret (section de l'artère)
 // + 5 m de tube apparent coffret → borne (section selon la puissance). Le poseur ne saisit que le dépassement.
+// 15/10, 15 h 01 (décision de Matthieu) : une liaison data s'appelle « Liaison data · départ → arrivée », pour ne pas
+// la confondre avec le cheminement d'alimentation entre les mêmes équipements.
 import { CHAMPS, OPTIONS, LIBELLE_NATURE, type Nature, type Segment } from '@/lib/champsClickUp';
 
 export type Materiel = 'borne' | 'prise';
@@ -72,8 +74,14 @@ const bout = (nom: string | null) => (nom && nom.startsWith('Raccordement · ') 
 export const nomCheminement = (depart: string | null, arrivee: string | null, artere = false) =>
   `Cheminement · ${bout(depart) || '…'} → ${bout(arrivee) || (artere ? "fin d'artère" : '…')}`;
 
-// Un nom de cheminement est recalculé tant qu'il commence par « Cheminement · » (un nom saisi à la main n'est plus touché)
-export const estNomCheminementAuto = (nom: string) => nom.startsWith('Cheminement · ');
+// Nom selon le type de cheminement : « Liaison data · Raccordement → Coffret 1 » pour une liaison data
+export const nomLien = (depart: string | null, arrivee: string | null, type: string | null | undefined) =>
+  type === 'liaisonData'
+    ? `Liaison data · ${bout(depart) || '…'} → ${bout(arrivee) || '…'}`
+    : nomCheminement(depart, arrivee, type === 'artere');
+
+// Un nom est recalculé tant qu'il commence par « Cheminement · » ou « Liaison data · » (un nom saisi à la main n'est plus touché)
+export const estNomCheminementAuto = (nom: string) => nom.startsWith('Cheminement · ') || nom.startsWith('Liaison data · ');
 
 // COP : une boîte de dérivation par tranche de 4 places, arrondi au-dessus
 export const boitesPourPlaces = (places: number) => (places > 0 ? Math.ceil(places / 4) : 0);
@@ -116,7 +124,7 @@ export function specsParDefaut(segment: Segment, materiel: Materiel = 'borne', p
     specs.push(
       { cle: 'CH1', nature: 'cheminement', nom: nomCheminement('Raccordement', 'TD IRVE'), valeurs: typeCh('alimentation'), depart: 'R', arrivee: 'TD' },
       { cle: 'CH2', nature: 'cheminement', nom: nomCheminement('TD IRVE', null, true), valeurs: typeCh('artere'), depart: 'TD' },
-      { cle: 'CH3', nature: 'cheminement', nom: nomCheminement('Communication', 'TD IRVE'), valeurs: typeCh('liaisonData'), depart: 'COM', arrivee: 'TD' },
+      { cle: 'CH3', nature: 'cheminement', nom: nomLien('Communication', 'TD IRVE', 'liaisonData'), valeurs: typeCh('liaisonData'), depart: 'COM', arrivee: 'TD' },
     );
     return specs;
   }
