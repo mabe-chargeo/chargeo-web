@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
 import { MetreForm } from '@/components/ui/MetreForm';
 import { Scenarios } from '@/components/ui/Scenarios';
-import { BlocContact, ElementsScenario, ScenariosArchives } from '@/components/ui/Elements';
+import { ElementsScenario, ScenariosArchives } from '@/components/ui/Elements';
+import { BlocContact } from '@/components/ui/BlocContact';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Alerte } from '@/components/charte/Appli';
 import { lireTacheQualification } from '@/lib/listesClickUp';
 import { trierScenarios, typeDesSousReleves, typeSousReleve, type ScenarioResume } from '@/lib/scenarios';
@@ -16,9 +17,9 @@ import { lireSiteRecu } from '@/lib/releveSite';
 // - fiche avec emplacements (point 21, ancien modèle) : liste des emplacements + relevé commun du site ;
 // - emplacement (ancien modèle) : relevé réduit à la borne.
 // Étape 3 (15/10/2026, PR #51) : éléments du scénario, scénarios archivés à restaurer.
-// Étape 4 (15/10/2026, PR #51) : bloc 📇 Contact en tête de chaque page ; ancien relevé masqué dès que le scénario a des
-// éléments (ses valeurs restent sur la fiche, recopiées dans les éléments à la conversion) ; bandeau « ancien modèle »
-// sur les fiches à emplacements (chaque emplacement deviendra une branche d'un seul scénario).
+// Étape 4 (15/10/2026, PR #51) : bloc 📇 Contact en tête de chaque page (src/components/ui/BlocContact.tsx) ; ancien
+// relevé masqué dès que le scénario a des éléments (ses valeurs restent sur la fiche, recopiées dans les éléments à la
+// conversion) ; bandeau « ancien modèle » sur les fiches à emplacements (chaque emplacement deviendra une branche).
 // Seules les sous-tâches directes de la fiche sont des sous-relevés (les éléments sont des sous-tâches des scénarios).
 const SEGMENT_OPTIONS: Record<number, string> = { 0: 'RES', 1: 'DAP', 2: 'COP', 3: 'PAR', 4: 'FLT', 5: 'TER', 6: 'RIC' };
 const SEGMENT_ID = 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2';
