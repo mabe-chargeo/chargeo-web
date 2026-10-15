@@ -1,6 +1,7 @@
 import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClickUp';
 import { alerter } from '@/lib/alerteSite';
 import { scenariosActifs, sousTachesArchivees } from '@/lib/scenarioRetenu';
+import { champType, poserType, type CleType } from '@/lib/typesTaches';
 
 // Passage en 🏆 gagné : reprise par le site des automatisations ClickUp #3, #5 et #6 de Qualification
 // (décision Matthieu du 12/10/2026 : la bascule passe par les webhooks du site).
@@ -17,6 +18,8 @@ import { scenariosActifs, sousTachesArchivees } from '@/lib/scenarioRetenu';
 // Scénarios (14/10/2026) : le scénario retenu est désigné juste avant (src/lib/scenarioRetenu.ts), les autres sont
 // archivés. S'il reste des scénarios à trancher, rien ne part. Le déplacement fait aussi correspondre les statuts des
 // sous-fiches archivées : elles suivent la fiche sans figurer dans sa lecture.
+// Étape 2 (15/10/2026) : la commande naît en type Commande, le dossier ADVENIR en type Dossier aide ; arrivée dans
+// Planning, la fiche passe en type Projet si elle ne l'est pas déjà (anciennes fiches Prospect ou Tâche).
 // Garde : fiche principale de Qualification, encore en gagné. En preview : vrai passage sur la liste TEST ou une fiche
 // « Test… », simulation partout.
 
@@ -144,11 +147,13 @@ async function deplacerVersPlanning(fiche: any, token: string): Promise<{ ok: bo
   return { ok: false, detail: erreurs.join(' | ') };
 }
 
-// Création d'une tâche liée à la fiche (commande ou dossier ADVENIR)
-async function creerLiee(token: string, fiche: any, listeId: string, motStatut: string, description: string) {
+// Création d'une tâche liée à la fiche (commande ou dossier ADVENIR), avec son type
+async function creerLiee(token: string, fiche: any, listeId: string, motStatut: string, description: string, cle: CleType) {
   const statut = await statutNomme(listeId, token, motStatut);
   const nom = String(fiche.name || '').trim();
-  const res = await api(token, `/list/${listeId}/task`, 'POST', { name: nom, description, ...(statut ? { status: statut } : {}) });
+  const res = await api(token, `/list/${listeId}/task`, 'POST', {
+    name: nom, description, ...(statut ? { status: statut } : {}), ...(await champType(token, cle)),
+  });
   if (!res.ok) {
     console.error(`Création refusée dans ${listeId} (${res.status})`, await res.text().catch(() => ''));
     return null;
@@ -199,6 +204,8 @@ export async function traiterGagne(taskId: string, simulation: boolean) {
     if (perdus.length) {
       await alerter(token, id, `⚠️ Passage en gagné : fiche arrivée dans Planning Chantiers, mais ${perdus.join(', ')} ${perdus.length > 1 ? 'sont vides' : 'est vide'} après le déplacement. Recopie la valeur depuis l'historique de la fiche.`);
     }
+    // Étape 2 : la fiche est un Projet (sans effet si elle l'est déjà, sans blocage si le type est introuvable)
+    await poserType(token, id, 'projet');
   }
 
   // 2. #5 Commandes Matériel
@@ -206,7 +213,7 @@ export async function traiterGagne(taskId: string, simulation: boolean) {
   if (commandeExistante) commande = { action: 'deja_creee', url: commandeExistante.url };
   else {
     const c = await creerLiee(token, fiche, COMMANDES_ID, 'a commander',
-      `Matériel pour ${nom}. Vérifier d'abord le stock et les commandes en cours, puis commander seulement ce qui manque.`);
+      `Matériel pour ${nom}. Vérifier d'abord le stock et les commandes en cours, puis commander seulement ce qui manque.`, 'commande');
     if (!c) commande = { action: 'erreur_creation' };
     else {
       const relation = d.ok
@@ -222,7 +229,7 @@ export async function traiterGagne(taskId: string, simulation: boolean) {
   else if (dossierExistant) advenir = { action: 'deja_cree', url: dossierExistant.url };
   else {
     const a = await creerLiee(token, fiche, ADVENIR_ID, 'reserver',
-      `Dossier ADVENIR pour ${nom}. Première étape : vérifier l'éligibilité (date de dépôt du permis, date du vote d'AG, barème applicable) avant toute réservation.`);
+      `Dossier ADVENIR pour ${nom}. Première étape : vérifier l'éligibilité (date de dépôt du permis, date du vote d'AG, barème applicable) avant toute réservation.`, 'dossierAide');
     advenir = a ? { action: 'cree', ...a } : { action: 'erreur_creation' };
   }
 
