@@ -4,12 +4,14 @@
 // Données lues par /api/interne/fiche-contact : passeport de la fiche, 📍 Contact sur place, 👔 Gestionnaire, adresse,
 // et l'email CHARGéO de la personne connectée (« moi »).
 // 15/10, demandes de Matthieu :
-// - 15 h 19 : bouton « Google Voice » ; Google Maps vise l'adresse écrite, Waze garde les coordonnées ;
+// - 15 h 19 : bouton « Google Voice » ; Google Maps vise l'adresse écrite ;
 // - 15 h 23 : Google Voice s'ouvre sur le compte CHARGéO (authuser = email de la personne connectée). Sur iPhone, le
 //   lien voice.google.com ouvre l'application Google Voice (validé par Matthieu à 15 h 29). L'email passe par Gmail ;
-// - 15 h 29 : sur iPhone et iPad, le lien web de Gmail ouvrait la boîte de réception. Le bouton ouvre maintenant
-//   l'application Gmail sur un nouveau message (googlegmail://co?to=…), avec le compte actif de l'application.
-//   Sur ordinateur, il garde Gmail web sur le compte CHARGéO.
+// - 15 h 29 : sur iPhone et iPad, le bouton Gmail ouvre l'application Gmail sur un nouveau message
+//   (googlegmail://co?to=…), avec le compte actif de l'application ; sur ordinateur, Gmail web sur le compte CHARGéO.
+//   Validé par Matthieu à 15 h 34, avec Google Voice et Google Maps ;
+// - 15 h 34 : Waze n'amenait que sur la route (le point GPS de ClickUp est celui de la rue, pas du numéro). Waze cherche
+//   maintenant l'adresse écrite autour de ce point (q + ll, format officiel des liens Waze), donc le numéro est respecté.
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Headphones, Mail, MapPin, MessageSquare, Navigation, Phone, Users } from 'lucide-react';
 import { Carte, TitreCarte } from '@/components/charte/Appli';
@@ -40,6 +42,9 @@ const lienGmail = (dest: string, moi: string, ios: boolean) =>
   ios
     ? `googlegmail://co?to=${encodeURIComponent(dest)}`
     : `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(dest)}${compte(moi)}`;
+// Waze : adresse écrite, cherchée autour du point GPS quand il existe
+const lienWaze = (texte: string, lat: number | null, lng: number | null) =>
+  `https://waze.com/ul?q=${encodeURIComponent(texte)}${lat !== null && lng !== null ? `&ll=${lat},${lng}` : ''}&navigate=yes`;
 
 // iPhone, iPad (y compris iPadOS qui se présente comme un Mac tactile)
 function estIOS(): boolean {
@@ -82,10 +87,7 @@ export function BlocContact({ affaireId }: { affaireId: string }) {
   if (!c) return null;
   const moi = c.moi || '';
   const a = c.adresse;
-  const avecPoint = !!a && a.lat !== null && a.lng !== null;
-  const waze = a
-    ? (avecPoint ? `https://waze.com/ul?ll=${a.lat},${a.lng}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent(a.texte)}&navigate=yes`)
-    : '';
+  const waze = a ? lienWaze(a.texte, a.lat, a.lng) : '';
   const maps = a ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(a.texte)}` : '';
 
   const personne = (titre: string, p: Personne, sms: boolean) => (
