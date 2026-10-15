@@ -1,7 +1,7 @@
-// Éléments d'un scénario côté serveur (étape 3 du plan du 15/10/2026, PR #51).
+// Éléments d'un scénario côté serveur (étapes 3 et 4 du plan du 15/10/2026, PR #51).
 // Un élément est une sous-tâche du scénario (sous-tâches imbriquées), de type Élément, avec sa 🧩 Nature.
 // Les cheminements portent 🔌 Départ et 🏁 Arrivée (champs relation vers des éléments du même scénario).
-// Règles (synthèse finale du 14/10, sections 3, 5 et 9) :
+// Règles (synthèse finale du 14/10, sections 3, 4, 5 et 9) :
 // - éléments par défaut selon le segment (src/lib/elementsModele.ts) ;
 // - noms : nature + numéro ; un cheminement s'appelle « Cheminement · départ → arrivée » et suit les renommages tant que
 //   son nom commence par « Cheminement · » ;
@@ -9,12 +9,19 @@
 //   Restaurer remet l'ensemble ;
 // - garde-fou devis : avertissement si 🔗 Lien devis rempli, blocage dès 📩 devis envoyé (et en négociation, gagné) ;
 // - dupliquer : matériel recopié, valeurs mesurées vidées (distances, percements, terre, section forcée, notes, photos).
+// Étape 4 : relevé élément par élément (src/lib/releveElements.ts), avec les automatismes de la synthèse :
+// - borne : coffret présélectionné selon la puissance (s'il est vide), -MOD si le coffret mesure en Modbus ;
+// - coffret : Modbus → variante -MOD ; mesure de puissance → Liaison data Raccordement → Coffret créée d'office ;
+//   mesure retirée → l'écran propose d'archiver cette liaison ;
+// - communication : modem déporté ou câble requis → Liaison data Communication → TD IRVE / coffret créée d'office ;
+// - « Prêt à chiffrer » : contrôle de complétude, puis scénario en 📝 devis à faire (et la fiche quand tous sont prêts).
 // Les menus sont écrits avec l'identifiant de l'option, retrouvé dans les champs de la liste. Un champ absent de la liste
 // (prod avant l'ajout des champs) est ignoré sans bloquer la création.
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Nature, type Segment } from '@/lib/champsClickUp';
 import { chargerTypes, champType, estDuType, estScenario, type CarteTypes } from '@/lib/typesTaches';
 import { sousTachesArchivees } from '@/lib/scenarioRetenu';
 import { estNomCheminementAuto, nomCheminement, prochainNom, specsParDefaut, type Materiel, type SpecElement } from '@/lib/elementsModele';
+import { SAISIES, SAISIES_NATURE, coffretSuggere, contexteReleve, manquants, type Saisie, type Valeurs } from '@/lib/releveElements';
 
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 export const PREFIXES_GAGNE = ['✅ Retenu · ', 'Non retenu · ', 'Projet séparé · ', 'Tarif type · '];
@@ -36,9 +43,19 @@ export type ElementVue = {
   depart: string | null;
   arrivee: string | null;
   typeCheminement: string | null;
+  valeurs: Valeurs;
+  photos: number;
 };
 
-export type Resultat = { ok: boolean; erreur?: string; crees: string[]; erreurs: string[]; id?: string };
+export type Resultat = {
+  ok: boolean;
+  erreur?: string;
+  crees: string[];
+  erreurs: string[];
+  id?: string;
+  messages?: string[];
+  propositions?: { id: string; nom: string; raison: string }[];
+};
 
 type DefChamp = { type: string; options: Map<number, string> };
 
@@ -54,6 +71,8 @@ export type Contexte = {
 
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const champs = (t: any): any[] => (Array.isArray(t?.custom_fields) ? t.custom_fields : []);
+const idChamp = (cle: string): string | undefined => (CHAMPS as Record<string, string>)[cle];
+const menuOptions = (cle: string): Record<string, number> | undefined => (OPTIONS as unknown as Record<string, Record<string, number>>)[cle];
 
 async function api(token: string, chemin: string, methode = 'GET', corps?: any): Promise<Response> {
   return fetch(`https://api.clickup.com/api/v2${chemin}`, {
@@ -127,6 +146,25 @@ function valeursDe(t: any, ids: string[]): Record<string, number> {
   return sortie;
 }
 
+// Valeurs du relevé d'un élément, par clé de saisie (option pour un menu, nombre, texte), null si vide
+function valeursActuelles(t: any): Valeurs {
+  const v: Valeurs = {};
+  for (const [cle, s] of Object.entries(SAISIES)) {
+    const id = idChamp(cle);
+    const f = id ? champs(t).find((c) => c?.id === id) : null;
+    if (!id || !f || f.value === undefined || f.value === null || f.value === '') { v[cle] = null; continue; }
+    if (s.type === 'menu') {
+      const options = menuOptions(cle);
+      v[cle] = options ? ((cleOption(options, indexMenu(t, id)) as string | null) ?? null) : null;
+    } else if (s.type === 'nombre') {
+      v[cle] = Number.isFinite(Number(f.value)) ? Number(f.value) : null;
+    } else {
+      v[cle] = String(f.value);
+    }
+  }
+  return v;
+}
+
 export function vue(t: any): ElementVue {
   return {
     id: String(t.id),
@@ -136,6 +174,8 @@ export function vue(t: any): ElementVue {
     depart: relation(t, CHAMPS.depart),
     arrivee: relation(t, CHAMPS.arrivee),
     typeCheminement: (cleOption(OPTIONS.typeCheminement, indexMenu(t, CHAMPS.typeCheminement)) as string | null) ?? null,
+    valeurs: valeursActuelles(t),
+    photos: Array.isArray(t?.attachments) ? t.attachments.length : 0,
   };
 }
 
@@ -376,6 +416,188 @@ async function dupliquer(ctx: Contexte, sourceId: string, mode: 'branche' | 'bor
 
 export const dupliquerBranche = (ctx: Contexte, coffretId: string) => dupliquer(ctx, coffretId, 'branche');
 export const dupliquerBorne = (ctx: Contexte, borneId: string) => dupliquer(ctx, borneId, 'borne');
+
+// ---- Relevé d'un élément (étape 4) ----
+
+// Saisie rendue dans le format stocké. undefined = valeur invalide
+function normaliserSaisie(s: Saisie, brut: unknown): string | number | null | undefined {
+  if (brut === null || brut === undefined || String(brut).trim() === '') return null;
+  if (s.type === 'menu') {
+    const cle = String(brut);
+    return s.options?.some((o) => o.cle === cle) ? cle : undefined;
+  }
+  if (s.type === 'nombre') {
+    const n = Number(String(brut).replace(',', '.'));
+    return Number.isFinite(n) && n >= 0 ? n : undefined;
+  }
+  return String(brut).slice(0, 2000);
+}
+
+async function ecrireValeur(ctx: Contexte, taskId: string, cle: string, valeur: string | number | null): Promise<boolean> {
+  const s = SAISIES[cle];
+  const champId = idChamp(cle);
+  if (!s || !champId || !ctx.defs.has(champId)) return false;
+  if (valeur === null) return (await api(ctx.token, `/task/${taskId}/field/${champId}`, 'DELETE')).ok;
+  let w: any;
+  if (s.type === 'menu') {
+    const index = menuOptions(cle)?.[String(valeur)];
+    if (index === undefined) return false;
+    w = ecrite(ctx.defs, champId, index);
+  } else if (s.type === 'nombre') {
+    w = Number(valeur);
+  } else {
+    w = String(valeur);
+  }
+  if (w === undefined) return false;
+  const res = await api(ctx.token, `/task/${taskId}/field/${champId}`, 'POST', { value: w });
+  if (!res.ok) console.error(`Champ ${cle} refusé (${res.status}) sur ${taskId}`);
+  return res.ok;
+}
+
+// Enregistre le relevé d'un élément (seules les valeurs qui changent sont écrites), puis les automatismes
+export async function enregistrerReleve(
+  ctx: Contexte, id: string, saisies: Record<string, unknown>, liens?: { depart?: string | null; arrivee?: string | null },
+): Promise<Resultat> {
+  const t = ctx.actifs.find((x) => String(x.id) === id);
+  if (!t) return { ok: false, erreur: 'Élément introuvable dans ce scénario', crees: [], erreurs: [] };
+  const v = vue(t);
+  if (!v.nature) return { ok: false, erreur: 'Cet élément n’a pas de nature', crees: [], erreurs: [] };
+  const permis = new Set(SAISIES_NATURE[v.nature]);
+  const entree: Record<string, unknown> = { ...(saisies || {}) };
+  if (v.nature === 'priseRenforcee') entree.puissanceVisee = '3.7'; // prise renforcée : 3,7 kW verrouillé
+
+  const nouvelles: Valeurs = { ...v.valeurs };
+  const changees = new Set<string>();
+  const faits: string[] = [];
+  const erreurs: string[] = [];
+  const messages: string[] = [];
+  const propositions: { id: string; nom: string; raison: string }[] = [];
+
+  for (const [cle, brut] of Object.entries(entree)) {
+    if (!permis.has(cle)) continue;
+    const s = SAISIES[cle];
+    const val = normaliserSaisie(s, brut);
+    if (val === undefined) { erreurs.push(s.libelle); continue; }
+    if (val === (v.valeurs[cle] ?? null)) continue;
+    if (await ecrireValeur(ctx, id, cle, val)) { nouvelles[cle] = val; changees.add(cle); faits.push(s.libelle); } else erreurs.push(s.libelle);
+  }
+
+  const tous = ctx.actifs.map(vue);
+  const segment = segmentDe(ctx.scenario);
+
+  // Cheminement : départ et arrivée (équipements du même scénario), nom recalculé s'il est automatique
+  if (v.nature === 'cheminement') {
+    const equipements = tous.filter((e) => e.nature !== 'cheminement' && e.id !== id);
+    let depart = v.depart;
+    let arrivee = v.arrivee;
+    for (const [cle, champ] of [['depart', CHAMPS.depart], ['arrivee', CHAMPS.arrivee]] as const) {
+      if (!liens || !(cle in liens)) continue;
+      const cible = liens[cle] || null;
+      const ancien = cle === 'depart' ? v.depart : v.arrivee;
+      if (cible === ancien) continue;
+      if (cible && !equipements.some((e) => e.id === cible)) { erreurs.push(cle === 'depart' ? 'départ' : 'arrivée'); continue; }
+      const res = await api(ctx.token, `/task/${id}/field/${champ}`, 'POST', { value: { add: cible ? [cible] : [], rem: ancien ? [ancien] : [] } });
+      if (res.ok) {
+        if (cle === 'depart') depart = cible; else arrivee = cible;
+        changees.add(cle);
+        faits.push(cle === 'depart' ? 'départ' : 'arrivée');
+      } else erreurs.push(cle === 'depart' ? 'départ' : 'arrivée');
+    }
+    if ((changees.has('depart') || changees.has('arrivee') || changees.has('typeCheminement')) && estNomCheminementAuto(v.nom)) {
+      const nomDe = (x: string | null) => (x ? tous.find((e) => e.id === x)?.nom ?? null : null);
+      const n = nomCheminement(nomDe(depart), nomDe(arrivee), nouvelles.typeCheminement === 'artere');
+      if (n !== v.nom && (await modifier(ctx.token, id, { name: n }))) messages.push(`Renommé en « ${n} »`);
+    }
+  }
+
+  // Borne ou prise : coffret présélectionné selon la puissance, s'il est encore vide (hors COP)
+  if ((v.nature === 'borne' || v.nature === 'priseRenforcee') && nouvelles.puissanceVisee && segment !== 'COP') {
+    for (const ch of tous.filter((c) => c.nature === 'cheminement' && c.arrivee === id)) {
+      const coffret = tous.find((e) => e.id === ch.depart && e.nature === 'tdIrveCoffret');
+      if (!coffret || coffret.valeurs.coffretIrve) continue;
+      const ref = coffretSuggere(nouvelles.puissanceVisee, coffret.valeurs.mesurePuissance);
+      if (ref && (await ecrireValeur(ctx, coffret.id, 'coffretIrve', ref))) messages.push(`${coffret.nom} : ${ref} présélectionné`);
+    }
+  }
+
+  // Coffret ou TD IRVE : variante -MOD en Modbus, liaison data de la mesure de puissance
+  if (v.nature === 'tdIrveCoffret') {
+    const mesure = nouvelles.gestionCharge && nouvelles.gestionCharge !== 'aucune' ? nouvelles.mesurePuissance : null;
+    const ref = typeof nouvelles.coffretIrve === 'string' ? nouvelles.coffretIrve : '';
+    if (mesure === 'compteurModbus' && ref && !ref.endsWith('-MOD') && ref !== 'COFF-MONO-3K' && !changees.has('coffretIrve')) {
+      if (await ecrireValeur(ctx, id, 'coffretIrve', `${ref}-MOD`)) messages.push(`Coffret passé en ${ref}-MOD (compteur Modbus)`);
+    }
+    const raccordement = tous.find((e) => e.nature === 'raccordement');
+    const liaison = tous.find((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.arrivee === id
+      && (!raccordement || c.depart === raccordement.id));
+    if (mesure && !liaison && raccordement) {
+      const r = await ajouterElement(ctx, 'cheminement', raccordement.id, id, 'liaisonData');
+      if (r.crees.length) messages.push(`Liaison data créée d'office : ${r.crees.join(', ')}`);
+      erreurs.push(...r.erreurs);
+    }
+    if (!mesure && liaison) propositions.push({ id: liaison.id, nom: liaison.nom, raison: 'la mesure de puissance est retirée' });
+  }
+
+  // Communication : modem déporté ou câble requis → liaison data vers le TD IRVE ou le coffret
+  if (v.nature === 'communication' && (nouvelles.connectivite === 'modemDeporte' || nouvelles.reseau === 'cableRequis')) {
+    const td = tous.find((e) => e.nature === 'tdIrveCoffret');
+    const existe = tous.some((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.depart === id);
+    if (td && !existe) {
+      const r = await ajouterElement(ctx, 'cheminement', id, td.id, 'liaisonData');
+      if (r.crees.length) messages.push(`Liaison data créée d'office : ${r.crees.join(', ')}`);
+      erreurs.push(...r.erreurs);
+    }
+  }
+
+  return { ok: erreurs.length === 0, crees: faits, erreurs, messages, propositions };
+}
+
+async function statutNomme(token: string, listeId: string, mot: string): Promise<string | null> {
+  const res = await api(token, `/list/${listeId}`);
+  if (!res.ok) return null;
+  const json = await res.json().catch(() => ({}));
+  const s = (Array.isArray(json?.statuses) ? json.statuses : []).find((x: any) => normal(x.status).includes(mot));
+  return s ? String(s.status) : null;
+}
+
+// « Prêt à chiffrer » : contrôle de complétude, scénario en 📝 devis à faire, fiche aussi quand tous ses scénarios sont prêts.
+// Le brief de chiffrage (étape 5) sera posté ici.
+export async function pretAChiffrer(ctx: Contexte): Promise<Resultat & { manquants?: { nom: string; quoi: string[] }[] }> {
+  const elements = ctx.actifs.map(vue);
+  if (!elements.length) return { ok: false, erreur: "Crée d'abord les éléments du scénario", crees: [], erreurs: [] };
+  const cr = contexteReleve(segmentDe(ctx.scenario), elements);
+  const manque = elements.map((e) => ({ nom: e.nom, quoi: manquants(e, cr) })).filter((x) => x.quoi.length);
+  if (manque.length) {
+    return {
+      ok: false,
+      erreur: `Il manque encore : ${manque.map((x) => `${x.nom} (${x.quoi.join(', ')})`).join(' ; ')}`,
+      crees: [], erreurs: [], manquants: manque,
+    };
+  }
+  const messages: string[] = [];
+  const erreurs: string[] = [];
+  const aFaire = await statutNomme(ctx.token, ctx.listId, 'devis a faire');
+  const statutScenario = normal(ctx.scenario?.status?.status);
+  if (!aFaire) erreurs.push('statut « devis à faire » introuvable');
+  else if (statutScenario.includes('visiter')) {
+    if (await modifier(ctx.token, String(ctx.scenario.id), { status: aFaire })) messages.push(`Scénario passé en ${aFaire}`);
+    else erreurs.push('statut du scénario');
+  } else messages.push(`Scénario déjà en ${String(ctx.scenario?.status?.status || '')}`);
+
+  // La fiche avance quand tous ses scénarios ont quitté « à visiter »
+  const projetId = String(ctx.scenario?.parent || '');
+  const projet = projetId ? await lireTache(ctx.token, projetId, true) : null;
+  if (projet && aFaire) {
+    const freres = (Array.isArray(projet.subtasks) ? projet.subtasks : []).filter((s: any) => !s?.parent || String(s.parent) === projetId);
+    const tousPrets = freres.every((s: any) => String(s.id) === String(ctx.scenario.id) || !normal(s?.status?.status).includes('visiter'));
+    if (tousPrets && normal(projet?.status?.status).includes('visiter')) {
+      if (await modifier(ctx.token, projetId, { status: aFaire })) messages.push(`Fiche passée en ${aFaire}`);
+      else erreurs.push('statut de la fiche');
+    }
+  }
+  messages.push('Le brief de chiffrage sera posté automatiquement à partir de l’étape 5.');
+  return { ok: erreurs.length === 0, crees: [], erreurs, messages };
+}
 
 // ---- Scénarios ----
 
