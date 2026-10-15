@@ -1,5 +1,6 @@
 import { aujourdhuiParis, ajouterJoursOuvres, echeanceClickUp, libelleJour } from '@/lib/joursOuvres';
 import { alerter } from '@/lib/alerteSite';
+import { champType } from '@/lib/typesTaches';
 
 // Facture de solde (décision Matthieu du 12/10/2026) : au passage au Parc (réception confirmée, PV présent), le site
 // crée « Solde · client · n° devis » dans Factures Clients (📄 à émettre, Type de pièce Solde, Réf. devis signé, Lien
@@ -13,6 +14,7 @@ import { alerter } from '@/lib/alerteSite';
 // Seul cas qui reste au chantier : création impossible (erreur ClickUp), il n'y a alors aucune tâche où écrire.
 // aussi : autre chose à faire par le back-office au même passage au Parc (contrat de maintenance à remplir à la main),
 //   ajouté à la même alerte (deux alertes coup sur coup : la première est perdue, test du 12/10).
+// Étape 2 (15/10/2026) : la tâche naît en type Facture.
 
 const FACTURES_ID = process.env.CLICKUP_FACTURES_LIST_ID || '1200630000003863';
 const FACTURE = {
@@ -122,6 +124,7 @@ export async function creerSolde(token: string, chantier: any, simulation: boole
 
   const res = await api(token, `/list/${FACTURES_ID}/task`, 'POST', {
     name: nom, description, due_date: echeanceClickUp(rappel), due_date_time: false, custom_fields: champs,
+    ...(await champType(token, 'facture')),
   });
   if (!res.ok) {
     console.error(`Création du solde refusée (${res.status})`, await res.text().catch(() => ''));
