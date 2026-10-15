@@ -2,6 +2,8 @@
 // Source : synthèse finale du 14/10/2026 dans la tâche Phase 6, sections 3 (natures et noms) et 5 (éléments par défaut).
 // Fichier neutre : utilisé par le serveur (src/lib/elements.ts) et par l'écran (src/components/ui/Elements.tsx).
 // 15/10, 12 h 36 (demande de Matthieu) : dans le nom d'un cheminement, le raccordement s'écrit « Raccordement » tout court.
+// 15/10, 14 h 26 (décision de Matthieu) : forfait RIC = 5 m de tube apparent boîte → coffret (section de l'artère)
+// + 5 m de tube apparent coffret → borne (section selon la puissance). Le poseur ne saisit que le dépassement.
 import { CHAMPS, OPTIONS, LIBELLE_NATURE, type Nature, type Segment } from '@/lib/champsClickUp';
 
 export type Materiel = 'borne' | 'prise';
@@ -57,6 +59,9 @@ const NOM_SOURCE: Record<CleSource, string> = {
   pdlDedie: 'PDL dédié',
   infraCollective: 'Infra collective',
 };
+
+// Forfait RIC : mètres de tube apparent préremplis sur chacun des deux cheminements
+export const FORFAIT_RIC_TUBE_APPARENT = 5;
 
 export const nomRaccordement = (source?: CleSource | null) => (source ? `Raccordement · ${NOM_SOURCE[source]}` : 'Raccordement');
 
@@ -141,12 +146,14 @@ export function specsParDefaut(segment: Segment, materiel: Materiel = 'borne', p
     : ['RES', 'DAP', 'PAR'].includes(segment)
       ? { [CHAMPS.connectivite]: OPTIONS.connectivite.simIntegree }
       : {};
+  // RIC : forfait de 5 m de tube apparent sur chaque cheminement
+  const forfait: Record<string, number> = segment === 'RIC' ? { [CHAMPS.distTubeApparent]: FORFAIT_RIC_TUBE_APPARENT } : {};
   return [
     raccordement,
     { cle: 'C1', nature: 'tdIrveCoffret', nom: 'Coffret 1', valeurs: {} },
     { cle: 'B1', nature: 'borne', nom: 'Borne 1', valeurs: {} },
     { cle: 'COM', nature: 'communication', nom: 'Communication', valeurs: communication },
-    { cle: 'CH1', nature: 'cheminement', nom: nomCheminement(raccordement.nom, 'Coffret 1'), valeurs: typeCh('alimentation'), depart: 'R', arrivee: 'C1' },
-    { cle: 'CH2', nature: 'cheminement', nom: nomCheminement('Coffret 1', 'Borne 1'), valeurs: typeCh('alimentation'), depart: 'C1', arrivee: 'B1' },
+    { cle: 'CH1', nature: 'cheminement', nom: nomCheminement(raccordement.nom, 'Coffret 1'), valeurs: { ...typeCh('alimentation'), ...forfait }, depart: 'R', arrivee: 'C1' },
+    { cle: 'CH2', nature: 'cheminement', nom: nomCheminement('Coffret 1', 'Borne 1'), valeurs: { ...typeCh('alimentation'), ...forfait }, depart: 'C1', arrivee: 'B1' },
   ];
 }
