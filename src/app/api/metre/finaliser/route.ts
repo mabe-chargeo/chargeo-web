@@ -10,6 +10,8 @@ import { lireSiteRecu, marquerSiteRecu } from '@/lib/releveSite';
 // - Scénarios : la fiche principale avance quand TOUS ses scénarios sont reçus.
 // - Emplacements (point 21) : la fiche principale avance quand son relevé du site ET tous ses emplacements
 //   sont reçus. Le relevé du site est marqué par un commentaire sur la fiche (src/lib/releveSite.ts).
+// Étape 3 (15/10/2026) : seules les sous-tâches directes de la fiche comptent (les éléments, sous-tâches des
+// scénarios, ne bloquent jamais le passage de la fiche).
 const STATUT_DEVIS_A_FAIRE = '📝 devis à faire';
 
 async function passerEnDevisAFaire(taskId: string, token: string): Promise<boolean> {
@@ -34,7 +36,8 @@ export async function POST(request: Request) {
     }
     const tache = verif.tache;
     const parentId = tache?.parent ? String(tache.parent) : '';
-    const sousTaches: any[] = Array.isArray(tache?.subtasks) ? tache.subtasks : [];
+    const sousTaches: any[] = (Array.isArray(tache?.subtasks) ? tache.subtasks : [])
+      .filter((s: any) => !s?.parent || String(s.parent) === taskId);
 
     // A. Relevé du site d'une fiche à emplacements : on marque le site reçu, la fiche n'avance
     //    que si tous les emplacements sont déjà reçus
@@ -70,7 +73,8 @@ export async function POST(request: Request) {
     if (parentId) {
       const p = await lireTacheQualification(parentId, token, { sousTaches: true });
       if (p.ok) {
-        const freres: any[] = Array.isArray(p.tache?.subtasks) ? p.tache.subtasks : [];
+        const freres: any[] = (Array.isArray(p.tache?.subtasks) ? p.tache.subtasks : [])
+          .filter((s: any) => !s?.parent || String(s.parent) === parentId);
         // Le sous-relevé courant compte comme reçu, même si ClickUp renvoie encore son ancien statut
         let tousRecus = freres.length > 0 && freres.every((s) => String(s.id) === taskId || !estAVisiter(String(s?.status?.status || '')));
         // Emplacement : il faut aussi le relevé du site
