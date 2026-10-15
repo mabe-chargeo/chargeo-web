@@ -1,25 +1,26 @@
 "use client";
 
-// Éléments d'un scénario et gestion du scénario dans l'outil terrain (étape 3 du plan du 15/10/2026, PR #51).
-// Synthèse du 14/10, sections 3, 5 et 9 : éléments créés d'office selon le segment, noms automatiques (les cheminements
-// suivent leur départ et leur arrivée), archiver et restaurer en cascade, dupliquer (branche, borne seule, scénario),
-// droits par rôle contrôlés côté serveur. Le relevé élément par élément arrive à l'étape 4.
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Archive, Copy, GitBranch, Layers, Pencil, Plus, RotateCcw } from 'lucide-react';
+// Éléments d'un scénario dans l'outil terrain (étapes 3 et 4 du plan du 15/10/2026, PR #51).
+// Étape 3 : éléments créés d'office selon le segment, noms automatiques, archiver et restaurer en cascade, dupliquer
+// (branche, borne seule, scénario), droits par rôle contrôlés côté serveur.
+// Étape 4 : relevé élément par élément (matrice src/lib/releveElements.ts), photos par élément, brouillon gardé sur le
+// téléphone (hors ligne), alerte orange au-delà de 3 m, coffret suggéré, bouton « Prêt à chiffrer », bloc 📇 Contact,
+// confirmations et renommages dans la page (plus de fenêtres du navigateur, plus sûr sur téléphone).
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  AlertTriangle, Archive, Camera, ChevronDown, ChevronUp, Copy, GitBranch, Layers, Mail, MapPin, MessageSquare, Navigation,
+  Pencil, Phone, Plus, RotateCcw, Send, Users, X,
+} from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, Repere, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
-import { LABEL } from '@/components/charte/couleurs';
+import { CYAN, LABEL, NAVY } from '@/components/charte/couleurs';
 import { LIBELLE_NATURE_LONG, LIBELLE_SEGMENT, ORDRE_NATURE, SEGMENTS_BORNE, specsParDefaut, type Materiel } from '@/lib/elementsModele';
+import {
+  DISTANCES, PERCEMENTS, SAISIES, alerteTroisMetres, champsVisibles, coffretSuggere, contexteReleve, longueurTotale, manquants,
+  type ContexteReleve, type ElementReleve,
+} from '@/lib/releveElements';
 import type { Nature, Segment } from '@/lib/champsClickUp';
 
-type El = {
-  id: string;
-  nom: string;
-  nature: Nature | null;
-  archive: boolean;
-  depart: string | null;
-  arrivee: string | null;
-  typeCheminement: string | null;
-};
+type El = ElementReleve & { archive: boolean; photos: number };
 
 type Donnees = {
   scenario: { id: string; nom: string; statut: string; segment: Segment | null; lienDevis: boolean; projetId: string };
@@ -27,6 +28,10 @@ type Donnees = {
   archives: El[];
   droits: { scenarios: boolean; elements: boolean };
 };
+
+type Demande = { texte: string; libelle: string; action: () => Promise<void> };
+type Renommage = { id: string; valeur: string; type: 'element' | 'scenario' };
+type Photo = { id: string; data: string };
 
 const URL_ELEMENTS = '/api/interne/elements';
 const URL_SCENARIO = '/api/interne/scenario';
@@ -41,6 +46,68 @@ const TYPES_CHEMINEMENT: { cle: string; libelle: string }[] = [
 const libelleType = (cle: string | null) => TYPES_CHEMINEMENT.find((t) => t.cle === cle)?.libelle || '';
 const libelleScenario = (nom: string) => nom.replace(/^.*?Sc[ée]nario\s+[A-Za-z0-9]+\s*:\s*/, '').trim();
 
+// ---- Photos d'un élément : gardées sur le téléphone (même base que le relevé actuel) jusqu'à leur envoi ----
+const nouvelId = (): string =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+function ouvrirBase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const r = indexedDB.open('MetrePhotosDB', 1);
+    r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('photos')) r.result.createObjectStore('photos'); };
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
+async function lirePhotos(id: string): Promise<Photo[]> {
+  try {
+    const db = await ouvrirBase();
+    return await new Promise((resolve) => {
+      const req = db.transaction('photos', 'readonly').objectStore('photos').get(`${id}_element`);
+      req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+      req.onerror = () => resolve([]);
+    });
+  } catch { return []; }
+}
+async function ecrirePhotos(id: string, liste: Photo[]) {
+  try {
+    const db = await ouvrirBase();
+    db.transaction('photos', 'readwrite').objectStore('photos').put(liste, `${id}_element`);
+  } catch { /* sans gravité */ }
+}
+function compresser(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.src = ev.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width;
+        let h = img.height;
+        if (w > 2500) { h = Math.round((h * 2500) / w); w = 2500; }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.9));
+      };
+    };
+  });
+}
+function versBlob(dataurl: string): Blob {
+  const [entete, corps] = dataurl.split(',');
+  const mime = entete.match(/:(.*?);/)?.[1] || 'image/jpeg';
+  const bin = atob(corps);
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new Blob([u8], { type: mime });
+}
+const cleEnvoyees = (id: string) => `elementPhotosEnvoyees_${id}`;
+function lireEnvoyees(id: string): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(cleEnvoyees(id)) || '[]')); } catch { return new Set(); }
+}
+
+// ---- Briques ----
 function PetitBouton({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: ReactNode }) {
   return (
     <button
@@ -52,6 +119,21 @@ function PetitBouton({ onClick, disabled, children }: { onClick: () => void; dis
     >
       {children}
     </button>
+  );
+}
+
+function Lien({ href, children }: { href: string; children: ReactNode }) {
+  const externe = href.startsWith('http');
+  return (
+    <a
+      href={href}
+      target={externe ? '_blank' : undefined}
+      rel={externe ? 'noopener noreferrer' : undefined}
+      className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[13px] font-semibold ring-[1.5px] ring-[#dfe3e8]"
+      style={{ color: LABEL }}
+    >
+      {children}
+    </a>
   );
 }
 
@@ -68,12 +150,13 @@ function Choix({ actif, onClick, children }: { actif: boolean; onClick: () => vo
   );
 }
 
-function Ligne({ titre, sousTitre, children }: { titre: string; sousTitre: string; children?: ReactNode }) {
+function Ligne({ titre, sousTitre, children, apres }: { titre: string; sousTitre: ReactNode; children?: ReactNode; apres?: ReactNode }) {
   return (
     <div className="rounded-[18px] bg-white p-4 ring-[1.5px] ring-[#eceef1]">
       <p className="text-[16px] font-bold leading-tight">{titre}</p>
-      <p className="mt-1 text-[13px]">{sousTitre}</p>
+      <div className="mt-1 text-[13px]">{sousTitre}</div>
       {children && <div className="mt-3 flex flex-wrap gap-2">{children}</div>}
+      {apres}
     </div>
   );
 }
@@ -84,15 +167,242 @@ async function poster(url: string, corps: any): Promise<{ ok: boolean; j: any }>
     const j = await res.json().catch(() => ({}));
     return { ok: res.ok && !!j?.success, j };
   } catch {
-    return { ok: false, j: { error: "Pas de réseau : rien n'a été modifié." } };
+    return { ok: false, j: { error: "Pas de réseau : rien n'a été modifié" } };
   }
 }
 
+// ---- Relevé d'un élément ----
+function FormulaireElement({
+  e, elements, ctx, peut, onEnregistre,
+}: { e: El; elements: El[]; ctx: ContexteReleve; peut: boolean; onEnregistre: (j: any) => Promise<void> }) {
+  const cleBrouillon = `elementReleve_${e.id}`;
+  const depuisServeur = (): Record<string, string> => {
+    const v: Record<string, string> = {};
+    for (const [k, val] of Object.entries(e.valeurs)) v[k] = val === null || val === undefined ? '' : String(val);
+    return v;
+  };
+  const brouillonLu = (): any => {
+    try { return JSON.parse(localStorage.getItem(cleBrouillon) || 'null'); } catch { return null; }
+  };
+  const [v, setV] = useState<Record<string, string>>(() => ({ ...depuisServeur(), ...(brouillonLu()?.v || {}) }));
+  const [dep, setDep] = useState<string>(() => brouillonLu()?.depart ?? (e.depart || ''));
+  const [arr, setArr] = useState<string>(() => brouillonLu()?.arrivee ?? (e.arrivee || ''));
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [envoi, setEnvoi] = useState(false);
+  const [erreur, setErreur] = useState('');
+
+  useEffect(() => { lirePhotos(e.id).then(setPhotos); }, [e.id]);
+
+  const garder = (nv: Record<string, string>, nd: string, na: string) => {
+    try { localStorage.setItem(cleBrouillon, JSON.stringify({ v: nv, depart: nd, arrivee: na })); } catch { /* sans gravité */ }
+  };
+  const changer = (k: string, val: string) => {
+    const n = { ...v, [k]: val };
+    setV(n);
+    garder(n, dep, arr);
+  };
+
+  const visibles = champsVisibles(e.nature, v, ctx);
+  const distances = visibles.filter((k) => DISTANCES.includes(k));
+  const percements = visibles.filter((k) => PERCEMENTS.includes(k));
+  const autres = visibles.filter((k) => !DISTANCES.includes(k) && !PERCEMENTS.includes(k) && k !== 'notesCheminement');
+  const equipements = elements.filter((x) => x.nature !== 'cheminement' && x.id !== e.id);
+  const troisMetres = alerteTroisMetres(e, elements, ctx.segment, v, dep || null, arr || null);
+  const borneDuCoffret = e.nature === 'tdIrveCoffret'
+    ? elements.find((b) => (b.nature === 'borne' || b.nature === 'priseRenforcee')
+      && elements.some((c) => c.nature === 'cheminement' && c.depart === e.id && c.arrivee === b.id))
+    : undefined;
+  const suggestion = e.nature === 'tdIrveCoffret' && ctx.segment !== 'COP' && !v.coffretIrve
+    ? coffretSuggere(borneDuCoffret?.valeurs.puissanceVisee, v.mesurePuissance)
+    : null;
+
+  const champ = (k: string) => {
+    const s = SAISIES[k];
+    if (!s) return null;
+    const id = `${k}-${e.id}`;
+    if (s.type === 'menu') {
+      return (
+        <div key={k} className="space-y-2">
+          <label className={ETIQUETTE} htmlFor={id}>{s.libelle}</label>
+          <select id={id} className={CHAMP} value={v[k] || ''} onChange={(ev) => changer(k, ev.target.value)} disabled={!peut}>
+            <option value="">À préciser</option>
+            {(s.options || []).map((o) => <option key={o.cle} value={o.cle}>{o.libelle}</option>)}
+          </select>
+        </div>
+      );
+    }
+    if (s.type === 'nombre') {
+      return (
+        <div key={k} className="space-y-2">
+          <label className={ETIQUETTE} htmlFor={id}>{s.libelle}</label>
+          <input id={id} type="number" inputMode="decimal" step="0.1" min={0} className={CHAMP} value={v[k] || ''} placeholder="–" onChange={(ev) => changer(k, ev.target.value)} disabled={!peut} />
+        </div>
+      );
+    }
+    return (
+      <div key={k} className="space-y-2">
+        <label className={ETIQUETTE} htmlFor={id}>{s.libelle}</label>
+        <textarea id={id} rows={3} className={`${CHAMP} resize-none`} value={v[k] || ''} onChange={(ev) => changer(k, ev.target.value)} disabled={!peut} />
+      </div>
+    );
+  };
+
+  const ajouterPhotos = async (ev: React.ChangeEvent<HTMLInputElement>) => {
+    const fichiers = Array.from(ev.target.files || []);
+    ev.target.value = '';
+    if (!fichiers.length) return;
+    const nouvelles: Photo[] = [];
+    for (const f of fichiers) nouvelles.push({ id: nouvelId(), data: await compresser(f) });
+    const liste = [...photos, ...nouvelles];
+    setPhotos(liste);
+    await ecrirePhotos(e.id, liste);
+  };
+  const retirerPhoto = async (i: number) => {
+    const liste = photos.filter((_, n) => n !== i);
+    setPhotos(liste);
+    await ecrirePhotos(e.id, liste);
+  };
+
+  const enregistrer = async () => {
+    setEnvoi(true);
+    setErreur('');
+    const valeurs: Record<string, string> = {};
+    for (const k of visibles) valeurs[k] = v[k] ?? '';
+    const corps: any = { action: 'releve', id: e.id, valeurs };
+    if (e.nature === 'cheminement') corps.liens = { depart: dep || null, arrivee: arr || null };
+    const { ok, j } = await poster(URL_ELEMENTS, corps);
+    if (!ok) {
+      setErreur(j?.error ? `${j.error}. Ta saisie est gardée sur le téléphone.` : "Relevé non enregistré. Ta saisie est gardée sur le téléphone, réessaie avec du réseau.");
+      setEnvoi(false);
+      return;
+    }
+    // Photos pas encore reçues, une par une
+    const envoyees = lireEnvoyees(e.id);
+    let echecs = 0;
+    for (const ph of photos) {
+      if (envoyees.has(ph.id)) continue;
+      const fd = new FormData();
+      fd.append('taskId', e.id);
+      fd.append('photo', versBlob(ph.data), `${e.nom.replace(/[^\w-]+/g, '_')}_${ph.id.slice(0, 8)}.jpg`);
+      try {
+        const r = await fetch('/api/metre/photo', { method: 'POST', body: fd });
+        if (r.ok) { envoyees.add(ph.id); localStorage.setItem(cleEnvoyees(e.id), JSON.stringify(Array.from(envoyees))); } else echecs++;
+      } catch { echecs++; }
+    }
+    if (echecs) {
+      setErreur(`Relevé enregistré, mais ${echecs} photo${echecs > 1 ? 's' : ''} non envoyée${echecs > 1 ? 's' : ''}. Réessaie avec du réseau : seules les photos manquantes partiront.`);
+    } else {
+      try { localStorage.removeItem(cleBrouillon); localStorage.removeItem(cleEnvoyees(e.id)); } catch { /* sans gravité */ }
+      await ecrirePhotos(e.id, []);
+      setPhotos([]);
+    }
+    setEnvoi(false);
+    await onEnregistre(j);
+  };
+
+  return (
+    <div className="mt-4 space-y-4 border-t-[1.5px] border-[#eceef1] pt-4">
+      {e.nature === 'cheminement' && (
+        <div className="grid grid-cols-1 gap-4">
+          <div className="space-y-2">
+            <label className={ETIQUETTE} htmlFor={`dep-${e.id}`}>🔌 Départ</label>
+            <select id={`dep-${e.id}`} className={CHAMP} value={dep} disabled={!peut} onChange={(ev) => { setDep(ev.target.value); garder(v, ev.target.value, arr); }}>
+              <option value="">À choisir</option>
+              {equipements.map((x) => <option key={x.id} value={x.id}>{x.nom}</option>)}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className={ETIQUETTE} htmlFor={`arr-${e.id}`}>🏁 Arrivée</label>
+            <select id={`arr-${e.id}`} className={CHAMP} value={arr} disabled={!peut} onChange={(ev) => { setArr(ev.target.value); garder(v, dep, ev.target.value); }}>
+              <option value="">{v.typeCheminement === 'artere' ? "Fin d'artère" : 'À choisir'}</option>
+              {equipements.filter((x) => x.id !== dep).map((x) => <option key={x.id} value={x.id}>{x.nom}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {e.nature === 'priseRenforcee' && <p className="text-[14px]"><strong>Puissance :</strong> 3,7 kW (verrouillée pour une prise renforcée).</p>}
+
+      {autres.map(champ)}
+
+      {suggestion && peut && (
+        <div className="flex flex-wrap items-center gap-2 text-[14px]">
+          <span>Suggéré d'après {borneDuCoffret?.nom} : <strong>{suggestion}</strong></span>
+          <PetitBouton onClick={() => changer('coffretIrve', suggestion)}>Mettre {suggestion}</PetitBouton>
+        </div>
+      )}
+
+      {distances.length > 0 && (
+        <div className="space-y-3">
+          <p className={ETIQUETTE}>Distances (total : {longueurTotale(v).toLocaleString('fr-FR')} m)</p>
+          {ctx.segment === 'RIC' && (
+            <p className="ml-1 text-[13px] leading-relaxed">Forfait RIC : 5 m de tube apparent préremplis. Si c’est plus long, mets la longueur réelle.</p>
+          )}
+          <p className="ml-1 text-[13px] leading-relaxed">Laisse vide si non mesuré. Saisis 0 pour « aucun ».</p>
+          <div className="grid grid-cols-2 gap-4">{distances.map(champ)}</div>
+        </div>
+      )}
+
+      {troisMetres && (
+        <div className="flex gap-3 rounded-[14px] bg-white p-4 text-[14px] font-semibold leading-relaxed ring-[1.5px] ring-[#FF6B00]">
+          <AlertTriangle size={20} className="mt-0.5 shrink-0" color="#FF6B00" />
+          <p>Plus de 3 m entre le raccordement et le coffret : protection en tête à prévoir. Rapproche le coffret si tu peux.</p>
+        </div>
+      )}
+
+      {percements.length > 0 && (
+        <div className="space-y-3">
+          <p className={ETIQUETTE}>Percements</p>
+          <div className="grid grid-cols-2 gap-4">{percements.map(champ)}</div>
+        </div>
+      )}
+
+      {visibles.includes('notesCheminement') && champ('notesCheminement')}
+
+      <div className="space-y-3">
+        <p className={ETIQUETTE}>Photos {e.photos > 0 ? `(${e.photos} déjà sur la fiche)` : ''}</p>
+        {photos.length > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            {photos.map((p, i) => (
+              <div key={p.id} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.data} alt={`Photo ${i + 1}`} className="h-24 w-full rounded-[10px] object-cover" />
+                <button type="button" onClick={() => retirerPhoto(i)} aria-label="Retirer la photo" className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full text-white" style={{ backgroundColor: NAVY }}>
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {peut && (
+          <div className="relative w-full overflow-hidden rounded-full bg-white p-3 text-center ring-[1.5px] ring-[#dfe3e8]">
+            <span className="flex items-center justify-center gap-2 text-[14px] font-semibold" style={{ color: LABEL }}>
+              <Camera size={18} /> Prendre une photo
+            </span>
+            <input type="file" accept="image/*" capture="environment" multiple className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={ajouterPhotos} />
+          </div>
+        )}
+      </div>
+
+      {erreur && <Alerte>{erreur}</Alerte>}
+      {peut && (
+        <BoutonPrincipal type="button" onClick={enregistrer} disabled={envoi} inactif={envoi}>
+          <Send size={20} /> {envoi ? 'Envoi…' : 'Enregistrer cet élément'}
+        </BoutonPrincipal>
+      )}
+    </div>
+  );
+}
+
+// ---- Écran des éléments d'un scénario ----
 export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenarioId: string; segmentInitial?: string }) {
   const [d, setD] = useState<Donnees | null>(null);
   const [erreur, setErreur] = useState('');
   const [message, setMessage] = useState('');
   const [occupe, setOccupe] = useState(false);
+  const [demande, setDemande] = useState<Demande | null>(null);
+  const [renommage, setRenommage] = useState<Renommage | null>(null);
+  const [ouvert, setOuvert] = useState<string | null>(null);
   // Création des éléments par défaut
   const [segment, setSegment] = useState('');
   const [materiel, setMateriel] = useState<Materiel>('borne');
@@ -103,6 +413,7 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
   const [arrivee, setArrivee] = useState('');
   const [typeCh, setTypeCh] = useState('alimentation');
   const [voirArchives, setVoirArchives] = useState(false);
+  const refDemande = useRef<HTMLDivElement>(null);
 
   const charger = useCallback(async () => {
     try {
@@ -116,6 +427,7 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
   }, [scenarioId]);
 
   useEffect(() => { charger(); }, [charger]);
+  useEffect(() => { if (demande) refDemande.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [demande]);
 
   // Action sur le serveur, puis relecture. Renvoie la réponse (ou null en cas d'échec).
   const agir = async (url: string, corps: any, recharger = true): Promise<any | null> => {
@@ -131,15 +443,24 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     return j;
   };
 
-  // Archivage avec confirmation, puis avertissement devis si le serveur le demande
-  const archiverAvecGarde = async (url: string, corps: any, texte: string, recharger = true): Promise<any | null> => {
-    if (!window.confirm(texte)) return null;
-    const j = await agir(url, corps, recharger);
-    if (j?.aConfirmer) {
-      if (!window.confirm(String(j.avertissement || 'Continuer ?'))) return null;
-      return agir(url, { ...corps, confirme: true }, recharger);
-    }
-    return j;
+  // Confirmation dans la page, puis avertissement devis si le serveur le demande
+  const archiverAvecGarde = (url: string, corps: any, texte: string, apres: (j: any) => void, recharger = true) => {
+    setDemande({
+      texte,
+      libelle: 'Archiver',
+      action: async () => {
+        const j = await agir(url, corps, recharger);
+        if (j?.aConfirmer) {
+          setDemande({
+            texte: String(j.avertissement || 'Continuer ?'),
+            libelle: 'Archiver quand même',
+            action: async () => { const k = await agir(url, { ...corps, confirme: true }, recharger); if (k?.success) apres(k); },
+          });
+          return;
+        }
+        if (j?.success) apres(j);
+      },
+    });
   };
 
   if (!d) {
@@ -153,6 +474,7 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
 
   const peut = d.droits.elements;
   const cop = d.scenario.segment === 'COP';
+  const ctx = contexteReleve(d.scenario.segment, d.elements);
   const nomDe = (id: string | null) => (id ? d.elements.find((e) => e.id === id)?.nom || 'archivé' : '');
   const ordre = (n: Nature | null) => ORDRE_NATURE[n ?? 'autre'];
   const equipements = d.elements
@@ -162,22 +484,31 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     .filter((e) => e.nature === 'cheminement')
     .sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { numeric: true }));
   const liesA = (id: string) => cheminements.filter((c) => c.depart === id || c.arrivee === id).length;
+  const incomplets = d.elements.map((e) => ({ e, m: manquants(e, ctx) })).filter((x) => x.m.length);
 
   const segmentChoisi: Segment = estSegment(segment) ? segment : d.scenario.segment || (estSegment(segmentInitial) ? segmentInitial : 'RES');
   const nbPlaces = Math.max(0, parseInt(places, 10) || 0);
   const apercu = specsParDefaut(segmentChoisi, materiel, nbPlaces).map((s) => s.nom);
 
-  const renommer = async (e: El) => {
-    const nom = window.prompt('Nouveau nom', e.nom);
-    if (!nom || !nom.trim() || nom.trim() === e.nom) return;
-    const j = await agir(URL_ELEMENTS, { action: 'renommer', id: e.id, nom: nom.trim() });
-    if (j) setMessage(`Renommé en « ${nom.trim()} ».`);
+  const validerRenommage = async () => {
+    if (!renommage) return;
+    const nom = renommage.valeur.trim();
+    const r = renommage;
+    setRenommage(null);
+    if (!nom) return;
+    if (r.type === 'scenario') {
+      const j = await agir(URL_SCENARIO, { action: 'renommer', id: scenarioId, nom }, false);
+      if (j?.success) window.location.reload();
+      return;
+    }
+    const j = await agir(URL_ELEMENTS, { action: 'renommer', id: r.id, nom });
+    if (j) setMessage(`Renommé en « ${nom} ».`);
   };
-  const archiver = async (e: El) => {
+  const archiver = (e: El) => {
     const n = e.nature === 'cheminement' ? 0 : liesA(e.id);
     const suite = n === 0 ? '' : n === 1 ? ' Le cheminement relié sera archivé aussi.' : ` Les ${n} cheminements reliés seront archivés aussi.`;
-    const j = await archiverAvecGarde(URL_ELEMENTS, { action: 'archiver', id: e.id }, `Archiver ${e.nom} ?${suite} Restaurable.`);
-    if (j?.success) setMessage(`Archivé : ${(j.crees || []).join(', ')}.`);
+    archiverAvecGarde(URL_ELEMENTS, { action: 'archiver', id: e.id }, `Archiver ${e.nom} ?${suite} Restaurable.`,
+      (j) => setMessage(`Archivé : ${(j.crees || []).join(', ')}.`));
   };
   const restaurer = async (e: El) => {
     const j = await agir(URL_ELEMENTS, { action: 'restaurer', id: e.id });
@@ -197,30 +528,111 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     const j = await agir(URL_ELEMENTS, corps);
     if (j?.success) { setMessage(`Ajouté : ${(j.crees || []).join(', ')}.`); setDepart(''); setArrivee(''); }
   };
+  // Après le relevé d'un élément : messages des automatismes, propositions d'archivage, relecture
+  const apresReleve = async (j: any) => {
+    const msgs = [...(j?.crees?.length ? [`Enregistré : ${j.crees.join(', ')}`] : ['Rien de nouveau à enregistrer']), ...(j?.messages || [])];
+    setMessage(`${msgs.join('. ')}.`);
+    if (Array.isArray(j?.erreurs) && j.erreurs.length) setErreur(`Non enregistré : ${j.erreurs.join(', ')}.`);
+    const p = Array.isArray(j?.propositions) ? j.propositions[0] : null;
+    if (p) {
+      setDemande({
+        texte: `Archiver ${p.nom} ? (${p.raison})`,
+        libelle: 'Archiver la liaison',
+        action: async () => { const k = await agir(URL_ELEMENTS, { action: 'archiver', id: p.id, confirme: true }); if (k?.success) setMessage(`Archivé : ${p.nom}.`); },
+      });
+    }
+    await charger();
+  };
+  const pret = async () => {
+    const j = await agir(URL_ELEMENTS, { action: 'pret', scenarioId });
+    if (j?.success) setMessage(`${(j.messages || ['Prêt à chiffrer']).join('. ')}.`);
+  };
 
   // Scénario
-  const renommerScenario = async () => {
-    const actuel = libelleScenario(d.scenario.nom);
-    const nom = window.prompt('Nouveau nom du scénario (la lettre est gardée)', actuel);
-    if (!nom || !nom.trim() || nom.trim() === actuel) return;
-    const j = await agir(URL_SCENARIO, { action: 'renommer', id: scenarioId, nom: nom.trim() }, false);
-    if (j?.success) window.location.reload();
+  const dupliquerScenario = () => {
+    setDemande({
+      texte: `Dupliquer ce scénario avec ses ${d.elements.length} éléments ? Matériel recopié, mesures à refaire.`,
+      libelle: 'Dupliquer',
+      action: async () => {
+        const j = await agir(URL_SCENARIO, { action: 'dupliquer', id: scenarioId }, false);
+        if (j?.success && j.id) window.location.href = `/interne/metre/${j.id}`;
+      },
+    });
   };
-  const dupliquerScenario = async () => {
-    if (!window.confirm(`Dupliquer ce scénario avec ses ${d.elements.length} éléments ? Matériel recopié, mesures à refaire.`)) return;
-    const j = await agir(URL_SCENARIO, { action: 'dupliquer', id: scenarioId }, false);
-    if (j?.success && j.id) window.location.href = `/interne/metre/${j.id}`;
-  };
-  const archiverScenario = async () => {
+  const archiverScenario = () => {
     const n = d.elements.length;
     const texte = `Archiver ${d.scenario.nom}${n ? ` et ses ${n} élément${n > 1 ? 's' : ''}` : ''} ? Restaurable depuis la fiche.`;
-    const j = await archiverAvecGarde(URL_SCENARIO, { action: 'archiver', id: scenarioId }, texte, false);
-    if (j?.success) window.location.href = `/interne/metre/${d.scenario.projetId}`;
+    archiverAvecGarde(URL_SCENARIO, { action: 'archiver', id: scenarioId }, texte,
+      () => { window.location.href = `/interne/metre/${d.scenario.projetId}`; }, false);
   };
+
+  const champRenommage = (id: string) => renommage && renommage.id === id && (
+    <div className="mt-3 space-y-2">
+      <input className={CHAMP} value={renommage.valeur} maxLength={80} autoFocus onChange={(ev) => setRenommage({ ...renommage, valeur: ev.target.value })} />
+      <div className="flex flex-wrap gap-2">
+        <PetitBouton onClick={validerRenommage} disabled={occupe}>Enregistrer le nom</PetitBouton>
+        <PetitBouton onClick={() => setRenommage(null)}>Annuler</PetitBouton>
+      </div>
+    </div>
+  );
+
+  const etat = (e: El) => {
+    const m = manquants(e, ctx);
+    const base = e.nature === 'cheminement'
+      ? [libelleType(e.typeCheminement), `${nomDe(e.depart) || 'départ ?'} → ${nomDe(e.arrivee) || (e.typeCheminement === 'artere' ? "fin d'artère" : 'arrivée ?')}`].filter(Boolean).join(' · ')
+      : (e.nature ? LIBELLE_NATURE_LONG[e.nature] : 'Nature à renseigner');
+    return (
+      <>
+        <span>{base}</span>
+        <span className="ml-1 font-semibold" style={{ color: m.length ? '#FF6B00' : CYAN }}>
+          {m.length ? ` · à compléter : ${m.join(', ')}` : ' · complet'}
+        </span>
+      </>
+    );
+  };
+
+  const ligneElement = (e: El) => (
+    <Ligne
+      key={e.id}
+      titre={e.nom}
+      sousTitre={etat(e)}
+      apres={(
+        <>
+          {champRenommage(e.id)}
+          {ouvert === e.id && <FormulaireElement e={e} elements={d.elements} ctx={ctx} peut={peut} onEnregistre={apresReleve} />}
+        </>
+      )}
+    >
+      <PetitBouton onClick={() => setOuvert(ouvert === e.id ? null : e.id)}>
+        {ouvert === e.id ? <><ChevronUp size={14} /> Fermer</> : <><ChevronDown size={14} /> Relever</>}
+      </PetitBouton>
+      {peut && (
+        <>
+          <PetitBouton onClick={() => setRenommage({ id: e.id, valeur: e.nom, type: 'element' })} disabled={occupe}><Pencil size={14} /> Renommer</PetitBouton>
+          {e.nature === 'tdIrveCoffret' && !cop && (
+            <PetitBouton onClick={() => dupliquer(e, 'dupliquerBranche')} disabled={occupe}><Copy size={14} /> Dupliquer la branche</PetitBouton>
+          )}
+          {(e.nature === 'borne' || e.nature === 'priseRenforcee') && (
+            <PetitBouton onClick={() => dupliquer(e, 'dupliquerBorne')} disabled={occupe}><Copy size={14} /> Dupliquer la borne seule</PetitBouton>
+          )}
+          <PetitBouton onClick={() => archiver(e)} disabled={occupe}><Archive size={14} /> Archiver</PetitBouton>
+        </>
+      )}
+    </Ligne>
+  );
 
   return (
     <div className="space-y-4">
       <Repere>Éléments du scénario</Repere>
+      {demande && (
+        <div ref={refDemande} className="rounded-[18px] bg-white p-4 ring-2 ring-[#FF6B00]">
+          <p className="text-[15px] font-semibold leading-relaxed">{demande.texte}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <PetitBouton onClick={async () => { const a = demande.action; setDemande(null); await a(); }} disabled={occupe}>{demande.libelle}</PetitBouton>
+            <PetitBouton onClick={() => setDemande(null)}>Annuler</PetitBouton>
+          </div>
+        </div>
+      )}
       {message && <p className="px-1 text-[14px] font-semibold leading-relaxed" style={{ color: LABEL }}>{message}</p>}
       {erreur && <Alerte>{erreur}</Alerte>}
 
@@ -259,42 +671,13 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
         <>
           <Carte className="space-y-3">
             <TitreCarte icon={Layers} extra={<span className="text-[13px] font-bold">{equipements.length}</span>}>Équipements</TitreCarte>
-            {equipements.map((e) => (
-              <Ligne key={e.id} titre={e.nom} sousTitre={e.nature ? LIBELLE_NATURE_LONG[e.nature] : 'Nature à renseigner'}>
-                {peut && (
-                  <>
-                    <PetitBouton onClick={() => renommer(e)} disabled={occupe}><Pencil size={14} /> Renommer</PetitBouton>
-                    {e.nature === 'tdIrveCoffret' && !cop && (
-                      <PetitBouton onClick={() => dupliquer(e, 'dupliquerBranche')} disabled={occupe}><Copy size={14} /> Dupliquer la branche</PetitBouton>
-                    )}
-                    {(e.nature === 'borne' || e.nature === 'priseRenforcee') && (
-                      <PetitBouton onClick={() => dupliquer(e, 'dupliquerBorne')} disabled={occupe}><Copy size={14} /> Dupliquer la borne seule</PetitBouton>
-                    )}
-                    <PetitBouton onClick={() => archiver(e)} disabled={occupe}><Archive size={14} /> Archiver</PetitBouton>
-                  </>
-                )}
-              </Ligne>
-            ))}
+            {equipements.map(ligneElement)}
           </Carte>
 
           <Carte className="space-y-3">
             <TitreCarte icon={GitBranch} extra={<span className="text-[13px] font-bold">{cheminements.length}</span>}>Cheminements</TitreCarte>
             {cheminements.length === 0 && <p className="text-[14px]">Aucun cheminement.</p>}
-            {cheminements.map((c) => (
-              <Ligne
-                key={c.id}
-                titre={c.nom}
-                sousTitre={[libelleType(c.typeCheminement), !c.depart ? 'départ à choisir' : '', !c.arrivee && c.typeCheminement !== 'artere' ? 'arrivée à choisir' : '']
-                  .filter(Boolean).join(' · ') || `${nomDe(c.depart)} → ${nomDe(c.arrivee)}`}
-              >
-                {peut && (
-                  <>
-                    <PetitBouton onClick={() => renommer(c)} disabled={occupe}><Pencil size={14} /> Renommer</PetitBouton>
-                    <PetitBouton onClick={() => archiver(c)} disabled={occupe}><Archive size={14} /> Archiver</PetitBouton>
-                  </>
-                )}
-              </Ligne>
-            ))}
+            {cheminements.map(ligneElement)}
           </Carte>
 
           {peut && (
@@ -335,6 +718,23 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
               </BoutonPrincipal>
             </Carte>
           )}
+
+          <Carte accent className="space-y-3">
+            <TitreCarte icon={Send}>Prêt à chiffrer</TitreCarte>
+            <p className="text-[14px] leading-relaxed">
+              Vérifie qu&apos;il ne manque rien, puis passe le scénario en « devis à faire ». Statut actuel : <strong>{d.scenario.statut || '–'}</strong>.
+            </p>
+            {incomplets.length > 0 && (
+              <p className="text-[14px] leading-relaxed" style={{ color: '#FF6B00' }}>
+                Encore à compléter : {incomplets.map((x) => `${x.e.nom} (${x.m.join(', ')})`).join(' ; ')}.
+              </p>
+            )}
+            {peut && (
+              <BoutonPrincipal type="button" onClick={pret} disabled={occupe || incomplets.length > 0} inactif={occupe || incomplets.length > 0}>
+                <Send size={20} /> {incomplets.length > 0 ? 'Relevé incomplet' : 'Prêt à chiffrer'}
+              </BoutonPrincipal>
+            )}
+          </Carte>
         </>
       )}
 
@@ -360,13 +760,83 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
             Renommer garde la lettre. Dupliquer crée le scénario suivant avec les mêmes éléments, matériel recopié et mesures à refaire.
           </p>
           <div className="flex flex-wrap gap-2">
-            <PetitBouton onClick={renommerScenario} disabled={occupe}><Pencil size={14} /> Renommer</PetitBouton>
+            <PetitBouton onClick={() => setRenommage({ id: scenarioId, valeur: libelleScenario(d.scenario.nom), type: 'scenario' })} disabled={occupe}><Pencil size={14} /> Renommer</PetitBouton>
             <PetitBouton onClick={dupliquerScenario} disabled={occupe}><Copy size={14} /> Dupliquer le scénario</PetitBouton>
             <PetitBouton onClick={archiverScenario} disabled={occupe}><Archive size={14} /> Archiver le scénario</PetitBouton>
           </div>
+          {champRenommage(scenarioId)}
         </Carte>
       )}
     </div>
+  );
+}
+
+// ---- Bloc 📇 Contact (repliable, en haut du relevé) ----
+type Personne = { nom: string; tel: string; email: string };
+type FicheContact = {
+  fiche: { id: string; nom: string };
+  client: { tel: string; email: string };
+  adresse: { texte: string; lat: number | null; lng: number | null } | null;
+  contactSurPlace: Personne[];
+  gestionnaire: Personne[];
+};
+const telLien = (t: string) => t.replace(/[^\d+]/g, '');
+
+export function BlocContact({ affaireId }: { affaireId: string }) {
+  const [c, setC] = useState<FicheContact | null>(null);
+  const [ouvert, setOuvert] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`/api/interne/fiche-contact?affaireId=${encodeURIComponent(affaireId)}`, { cache: 'no-store' });
+        const j = await res.json().catch(() => ({}));
+        if (res.ok && j?.success) setC(j as FicheContact);
+      } catch { /* hors ligne : bloc masqué */ }
+    })();
+  }, [affaireId]);
+
+  if (!c) return null;
+  const a = c.adresse;
+  const cible = a ? (a.lat !== null && a.lng !== null ? `${a.lat},${a.lng}` : a.texte) : '';
+  const waze = a ? (a.lat !== null && a.lng !== null ? `https://waze.com/ul?ll=${a.lat},${a.lng}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent(a.texte)}&navigate=yes`) : '';
+  const maps = a ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(cible)}` : '';
+
+  const personne = (titre: string, p: Personne, sms: boolean) => (
+    <div key={`${titre}-${p.nom}`} className="space-y-2">
+      <p className="text-[14px]"><strong>{titre} :</strong> {p.nom || '–'}</p>
+      <div className="flex flex-wrap gap-2">
+        {p.tel && <Lien href={`tel:${telLien(p.tel)}`}><Phone size={14} /> Appeler</Lien>}
+        {p.tel && sms && <Lien href={`sms:${telLien(p.tel)}`}><MessageSquare size={14} /> SMS</Lien>}
+        {p.email && <Lien href={`mailto:${p.email}`}><Mail size={14} /> Email</Lien>}
+      </div>
+    </div>
+  );
+
+  return (
+    <Carte className="space-y-3">
+      <button type="button" onClick={() => setOuvert(!ouvert)} className="w-full text-left">
+        <TitreCarte icon={Users} extra={ouvert ? <ChevronUp size={20} /> : <ChevronDown size={20} />}>📇 Contact</TitreCarte>
+      </button>
+      {ouvert && (
+        <div className="space-y-4">
+          {personne('Client', { nom: c.fiche.nom, tel: c.client.tel, email: c.client.email }, true)}
+          {c.contactSurPlace.map((p) => personne('Contact sur place', p, true))}
+          {c.gestionnaire.map((p) => personne('Gestionnaire', p, false))}
+          {a ? (
+            <div className="space-y-2">
+              <p className="flex items-start gap-2 text-[14px]"><MapPin size={16} className="mt-0.5 shrink-0" /> {a.texte}</p>
+              <div className="flex flex-wrap gap-2">
+                <Lien href={waze}><Navigation size={14} /> Waze</Lien>
+                <Lien href={maps}><MapPin size={14} /> Google Maps</Lien>
+              </div>
+            </div>
+          ) : (
+            <p className="text-[14px]">Pas d&apos;adresse sur la fiche.</p>
+          )}
+        </div>
+      )}
+    </Carte>
   );
 }
 
