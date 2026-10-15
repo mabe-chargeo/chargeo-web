@@ -1,5 +1,6 @@
 import { type Jour, aujourdhuiParis, ajouterJours, comparer, echeanceClickUp, libelleJour } from '@/lib/joursOuvres';
 import { alerter } from '@/lib/alerteSite';
+import { champType } from '@/lib/typesTaches';
 
 // Maintenance programmée (Phase 5, 13/10/2026). Appelé chaque matin par le contrôle quotidien, sans Super Agent.
 // Lit le Parc installé (bornes hors ⚫ hors service) et la liste Maintenance 🛠️.
@@ -16,6 +17,7 @@ import { alerter } from '@/lib/alerteSite';
 // reproposer un contrat, après vérification qu'aucun n'a été signé entre-temps et que le client accepte d'être sollicité.
 // Aucun email client, aucun rendez-vous fixé, aucun statut du Parc changé. Simulation : rien n'est écrit.
 // Pas encore géré : fin de contrat / renouvellement (aucun champ de date de fin dans le Parc).
+// Étape 2 (15/10/2026) : la visite naît en type Intervention (déplacement sur site, ancien type Visite renommé).
 
 const PARC_ID = '901520038290';
 const MAINTENANCE_ID = process.env.CLICKUP_MAINTENANCE_LIST_ID || '1200630000008492';
@@ -180,6 +182,7 @@ export async function controlerMaintenance(simulation: boolean) {
             { id: M.echeance, value: echeanceClickUp(c.echeance), value_options: { time: false } },
             ...(c.pdc ? [{ id: M.pdc, value: OPTIONS_PDC[c.pdc] }] : []),
           ],
+          ...(await champType(token, 'intervention')),
         });
         const visite = res.ok ? await res.json().catch(() => null) : null;
         if (!visite?.id) {
