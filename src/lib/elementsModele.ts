@@ -1,6 +1,7 @@
 // Modèle des éléments d'un scénario (étape 3 du plan du 15/10/2026, PR #51).
 // Source : synthèse finale du 14/10/2026 dans la tâche Phase 6, sections 3 (natures et noms) et 5 (éléments par défaut).
 // Fichier neutre : utilisé par le serveur (src/lib/elements.ts) et par l'écran (src/components/ui/Elements.tsx).
+// 15/10, 12 h 36 (demande de Matthieu) : dans le nom d'un cheminement, le raccordement s'écrit « Raccordement » tout court.
 import { CHAMPS, OPTIONS, LIBELLE_NATURE, type Nature, type Segment } from '@/lib/champsClickUp';
 
 export type Materiel = 'borne' | 'prise';
@@ -59,9 +60,12 @@ const NOM_SOURCE: Record<CleSource, string> = {
 
 export const nomRaccordement = (source?: CleSource | null) => (source ? `Raccordement · ${NOM_SOURCE[source]}` : 'Raccordement');
 
+// Nom d'un bout de cheminement : « Raccordement · Tableau individuel » devient « Raccordement »
+const bout = (nom: string | null) => (nom && nom.startsWith('Raccordement · ') ? 'Raccordement' : nom);
+
 // « Cheminement · Coffret 1 → Borne 1 » ; artère sans arrivée : « … → fin d'artère »
 export const nomCheminement = (depart: string | null, arrivee: string | null, artere = false) =>
-  `Cheminement · ${depart || '…'} → ${arrivee || (artere ? "fin d'artère" : '…')}`;
+  `Cheminement · ${bout(depart) || '…'} → ${bout(arrivee) || (artere ? "fin d'artère" : '…')}`;
 
 // Un nom de cheminement est recalculé tant qu'il commence par « Cheminement · » (un nom saisi à la main n'est plus touché)
 export const estNomCheminementAuto = (nom: string) => nom.startsWith('Cheminement · ');
