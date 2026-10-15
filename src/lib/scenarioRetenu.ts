@@ -1,5 +1,6 @@
 import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClickUp';
 import { alerter } from '@/lib/alerteSite';
+import { champType } from '@/lib/typesTaches';
 
 // Scénario retenu au passage en 🏆 gagné (décisions Matthieu des 13 et 14/10/2026).
 // La fiche principale est le projet : elle va de la visite au Parc. Ses sous-fiches « Scénario … » sont les options de
@@ -19,6 +20,7 @@ import { alerter } from '@/lib/alerteSite';
 //   d'origine est renommée « Projet séparé · » et archivée.
 // Les sous-fiches « Emplacement … » (bornes d'un même devis) ne sont pas concernées.
 // Preview : fiche de la liste TEST ou fiche « Test… » ; forcerSigne=<id de sous-fiche> traite son devis comme signé.
+// Étape 2 (15/10/2026) : le projet séparé naît en type Projet. La détection des scénarios par type arrive à l'étape 6.
 
 const COSTRUCTOR = 'https://api.costructor.co/external/v1';
 const CHAMP_LIEN_DEVIS = 'ae80f202-2ef3-4302-b778-f36075ee398f';
@@ -164,6 +166,7 @@ async function separer(token: string, fiche: any, a: any): Promise<{ id: string;
   const res = await api(token, `/list/${listeId}/task`, 'POST', {
     name: nom,
     description: `Projet séparé issu du ${a.nom} de ${String(fiche.name || '').trim()} (autre payeur, devis à part). Projet infra : https://app.clickup.com/t/${fiche.id}`,
+    ...(await champType(token, 'projet')),
   });
   if (!res.ok) return null;
   const t = await res.json();
