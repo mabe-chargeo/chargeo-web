@@ -7,6 +7,8 @@ import { CHAMPS } from '@/lib/champsClickUp';
 // GET ?affaireId=… (la fiche, ou un scénario : on remonte à la fiche) : adresse, téléphone et email du passeport,
 // 📍 Contact sur place et 👔 Gestionnaire (fiches de la liste Contacts 👥 reliées à la fiche). Rien à ressaisir.
 // Les deux champs relation existent sur Qualification ; sur 🧪 TEST ils sont absents, le bloc montre alors le passeport.
+// 15/10, 15 h 23 : renvoie aussi l'email de la personne connectée (« moi »), pour ouvrir Google Voice et Gmail sur le
+// compte CHARGéO (et pas sur le premier compte Google du navigateur ni sur Apple Mail).
 export const dynamic = 'force-dynamic';
 
 const CONTACT_SUR_PLACE = '7d20a03c-f9b5-4395-9114-362e194a9a85';
@@ -59,6 +61,7 @@ export async function GET(request: Request) {
     const adresse: any = valeur(fiche, CHAMPS.adresse);
     return json({
       success: true,
+      moi: texte(session.email),
       fiche: { id: String(fiche?.id || ''), nom: texte(fiche?.name) },
       client: { tel: texte(valeur(fiche, CHAMPS.telephone)), email: texte(valeur(fiche, CHAMPS.email)) },
       adresse: adresse?.formatted_address
