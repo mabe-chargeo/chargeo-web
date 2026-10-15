@@ -2,6 +2,8 @@
 // Matrice des champs par nature : synthèse finale du 14/10, section 4. Fichier neutre (serveur et écran).
 // Les clés sont celles de CHAMPS (identifiant du champ) et de OPTIONS (options des menus) dans src/lib/champsClickUp.ts.
 // Notes : un seul champ ClickUp « 📝 Notes Cheminement », utilisé comme notes de tout élément.
+// 15/10, 16 h 31 (retour de Matthieu) : scénario à prise renforcée seule (aucune borne), le coffret ne demande plus la
+// gestion de charge ni la mesure de puissance, et « Prêt à chiffrer » ne les exige plus.
 import type { Nature, Segment } from '@/lib/champsClickUp';
 
 export type TypeSaisie = 'menu' | 'nombre' | 'texte';
@@ -16,7 +18,8 @@ export type ElementReleve = {
   typeCheminement: string | null;
   valeurs: Valeurs;
 };
-export type ContexteReleve = { segment: Segment | null; grappe: boolean };
+// prise : le scénario n'a que des prises renforcées (aucune borne), donc pas de gestion de charge au coffret
+export type ContexteReleve = { segment: Segment | null; grappe: boolean; prise?: boolean };
 
 const menu = (cle: string, libelle: string, options: [string, string][]): Saisie =>
   ({ cle, libelle, type: 'menu', options: options.map(([c, l]) => ({ cle: c, libelle: l })) });
@@ -93,7 +96,11 @@ export const SAISIES_NATURE: Record<Nature, string[]> = {
 const texte = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 
 export function contexteReleve(segment: Segment | null, elements: ElementReleve[]): ContexteReleve {
-  return { segment, grappe: elements.some((e) => e.nature === 'tdIrveCoffret' && e.valeurs.gestionCharge === 'gestionnaireGrappe') };
+  return {
+    segment,
+    grappe: elements.some((e) => e.nature === 'tdIrveCoffret' && e.valeurs.gestionCharge === 'gestionnaireGrappe'),
+    prise: elements.some((e) => e.nature === 'priseRenforcee') && !elements.some((e) => e.nature === 'borne'),
+  };
 }
 
 // Champs affichés selon la nature et les valeurs déjà saisies (matrice de la synthèse, section 4)
@@ -114,6 +121,8 @@ export function champsVisibles(nature: Nature | null, v: Valeurs, ctx: ContexteR
       return ['typeCheminement', ...DISTANCES, ...PERCEMENTS, 'sectionForcee', 'notesCheminement'];
     case 'tdIrveCoffret': {
       const gestion = texte(v.gestionCharge);
+      // Prise renforcée seule : pas de gestion de charge, donc pas de mesure de puissance
+      if (ctx.prise) return [...(cop ? [] : ['coffretIrve']), ...(cop ? ['emplacement'] : []), 'notesCheminement'];
       return [
         ...(cop ? [] : ['coffretIrve']),
         'gestionCharge',
@@ -175,7 +184,7 @@ export function manquants(e: ElementReleve, ctx: ContexteReleve): string[] {
       break;
     case 'tdIrveCoffret':
       if (ctx.segment !== 'COP' && !v.coffretIrve) m.push('référence du coffret');
-      if (!v.gestionCharge) m.push('gestion de charge');
+      if (!ctx.prise && !v.gestionCharge) m.push('gestion de charge');
       break;
     case 'borne':
       if (!v.puissanceVisee) m.push('puissance visée');
