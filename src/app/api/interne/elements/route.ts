@@ -6,12 +6,13 @@ import { rolesDe, droitsDe } from '@/lib/roles';
 import { OPTIONS, type Nature, type Segment } from '@/lib/champsClickUp';
 import {
   aUnLienDevis, ajouterElement, archiverElement, contexteScenario, creerParDefaut, dupliquerBorne, dupliquerBranche,
-  gardeDevis, renommerElement, restaurerElement, segmentDe, vue, type Resultat,
+  enregistrerReleve, gardeDevis, pretAChiffrer, renommerElement, restaurerElement, segmentDe, vue, type Resultat,
 } from '@/lib/elements';
 
-// Éléments d'un scénario dans l'application (étape 3 du plan du 15/10/2026, PR #51).
-// GET ?scenarioId=… : éléments actifs et archivés, segment, droits de la personne connectée.
-// POST { action, … } : defaut, ajouter, renommer, archiver, restaurer, dupliquerBranche, dupliquerBorne.
+// Éléments d'un scénario dans l'application (étapes 3 et 4 du plan du 15/10/2026, PR #51).
+// GET ?scenarioId=… : éléments actifs (avec leur relevé) et archivés, segment, droits de la personne connectée.
+// POST { action, … } : defaut, ajouter, renommer, archiver, restaurer, dupliquerBranche, dupliquerBorne,
+// releve (relevé d'un élément), pret (« Prêt à chiffrer »).
 // Droits contrôlés ici (src/lib/roles.ts) : commercial, chargé d'opération et direction. Scénario de la liste
 // Qualification autorisée uniquement (TEST en preview).
 export const dynamic = 'force-dynamic';
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
 
     // Scénario concerné : donné directement, ou parent de l'élément visé
     let scenarioId = String(corps?.scenarioId || '');
-    if (action !== 'defaut' && action !== 'ajouter') {
+    if (action !== 'defaut' && action !== 'ajouter' && action !== 'pret') {
       const l = await lireTacheQualification(id, token);
       if (!l.ok) return json({ success: false, error: l.erreur }, l.status);
       scenarioId = String(l.tache?.parent || '');
@@ -129,6 +130,23 @@ export async function POST(request: Request) {
       case 'dupliquerBorne':
         r = await dupliquerBorne(ctx, id);
         break;
+      case 'releve': {
+        const valeurs = corps?.valeurs && typeof corps.valeurs === 'object' ? corps.valeurs : {};
+        const liens = corps?.liens && typeof corps.liens === 'object'
+          ? {
+            ...('depart' in corps.liens ? { depart: corps.liens.depart ? String(corps.liens.depart) : null } : {}),
+            ...('arrivee' in corps.liens ? { arrivee: corps.liens.arrivee ? String(corps.liens.arrivee) : null } : {}),
+          }
+          : undefined;
+        r = await enregistrerReleve(ctx, id, valeurs, liens);
+        break;
+      }
+      case 'pret': {
+        const p = await pretAChiffrer(ctx);
+        if (!p.ok && p.erreur) return json({ success: false, error: p.erreur, manquants: p.manquants || [] }, 400);
+        r = p;
+        break;
+      }
       default:
         return json({ success: false, error: 'Action inconnue' }, 400);
     }
