@@ -11,6 +11,7 @@ import { champType } from '@/lib/typesTaches';
 // La sous-tâche naît avec le statut par défaut de la liste (« 📍 à visiter »).
 // Étape 2 (15/10/2026) : un scénario naît en type Scénario. L'emplacement reste en Tâche (ancien modèle, remplacé
 // par les éléments à l'étape 4). Le nom « Scénario A : … » est gardé jusqu'au nouveau relevé (étape 4).
+// Étape 3 (15/10/2026) : seules les sous-tâches directes de la fiche comptent (pas les éléments des scénarios).
 // À vérifier avant la mise en production : les automatisations de Qualification déclenchées par une création.
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -55,7 +56,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Un scénario ou un emplacement ne peut pas avoir de sous-relevé" }, { status: 400 });
     }
 
-    const sousTaches: any[] = Array.isArray(verif.tache?.subtasks) ? verif.tache.subtasks : [];
+    const sousTaches: any[] = (Array.isArray(verif.tache?.subtasks) ? verif.tache.subtasks : [])
+      .filter((s: any) => !s?.parent || String(s.parent) === affaireId);
     const existant = typeDesSousReleves(sousTaches.map((s) => ({ nom: String(s?.name || '') })));
     if (existant && existant !== type) {
       return NextResponse.json({
