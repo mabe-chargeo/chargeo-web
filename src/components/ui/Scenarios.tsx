@@ -1,8 +1,10 @@
 "use client";
 
 // Écran des sous-relevés d'une fiche (lot 3.3 et point 21) :
-// - Scenarios (mode "liste") : scénarios de raccordement OU emplacements des bornes, avec ajout ;
-// - Scenarios (mode "proposition") : fiche sans sous-relevé, carte qui propose plusieurs bornes ou plusieurs raccordements.
+// - Scenarios (mode "liste") : scénarios de raccordement OU emplacements des bornes (ancien modèle), avec ajout ;
+// - Scenarios (mode "proposition") : fiche sans sous-relevé, création directe d'un scénario.
+// Étape 4 (15/10/2026, PR #51) : plus de bouton « Plusieurs bornes ». Plusieurs bornes = plusieurs branches d'un même
+// scénario (« Dupliquer la branche »). Les fiches à emplacements existantes restent affichées jusqu'à leur conversion.
 // Les sous-relevés se créent avec du réseau, avant de descendre au sous-sol.
 // Scénarios triés A, B, C ; emplacements 1, 2, 3. Pas de mélange sur une fiche (décision du 11/10/2026).
 // Fiche qui n'est plus « à visiter » : elle garde son statut, un avertissement est affiché (décision du 11/10/2026).
@@ -21,9 +23,9 @@ const TEXTES: Record<TypeSousReleve, {
     repere: 'Scénarios de raccordement',
     ajouter: 'Ajouter un scénario',
     placeholder: 'Ex : services généraux',
-    bouton: 'Ajouter le scénario',
+    bouton: 'Créer le scénario',
     vide: 'Donne un nom au scénario (ex : services généraux).',
-    regle: 'La fiche passe en « devis à faire » quand tous les scénarios sont reçus.',
+    regle: 'La fiche passe en « devis à faire » quand tous les scénarios sont prêts à chiffrer.',
     reseau: 'Pas de réseau : crée les scénarios avant de descendre au sous-sol.',
     echec: "Le scénario n'a pas été créé. Vérifie le réseau et réessaie.",
   },
@@ -54,7 +56,7 @@ function Avertissement({ statutFiche, type }: { statutFiche: string; type: TypeS
 }
 
 // Saisie du nom et création (rechargement complet ensuite : la page à jour est aussi gardée pour le hors-ligne)
-function FormulaireAjout({ affaireId, type }: { affaireId: string; type: TypeSousReleve }) {
+function FormulaireAjout({ affaireId, type, versScenario = false }: { affaireId: string; type: TypeSousReleve; versScenario?: boolean }) {
   const t = TEXTES[type];
   const [nom, setNom] = useState('');
   const [envoi, setEnvoi] = useState(false);
@@ -76,6 +78,8 @@ function FormulaireAjout({ affaireId, type }: { affaireId: string; type: TypeSou
         setEnvoi(false);
         return;
       }
+      // Premier scénario : on ouvre directement sa page pour créer ses éléments
+      if (versScenario) { window.location.href = `/interne/metre/${d.id}`; return; }
       window.location.reload();
     } catch {
       setErreur(t.reseau);
@@ -122,56 +126,24 @@ export function Scenarios({
   type?: TypeSousReleve;
   siteRecu?: boolean;
 }) {
-  const [choix, setChoix] = useState<TypeSousReleve | null>(null);
   const ficheAvancee = !!statutFiche && !estAVisiter(statutFiche);
 
-  // Fiche sans sous-relevé : proposition
+  // Fiche sans sous-relevé : création directe d'un scénario
   if (mode === 'proposition') {
     return (
       <Carte accent className="space-y-4">
-        <TitreCarte icon={GitBranch}>Plusieurs bornes ou plusieurs raccordements ?</TitreCarte>
-        {!choix ? (
-          <>
-            <p className="text-[14px] leading-relaxed">
-              <strong>Plusieurs bornes sur le site</strong> (ex : auvent et parking) : un emplacement par borne, dans un seul devis.
-            </p>
-            <p className="text-[14px] leading-relaxed">
-              <strong>Plusieurs façons de raccorder</strong> (ex : services généraux ou compteur de l'appartement) : un scénario chacune, un devis chacun.
-            </p>
-            <p className="text-[13px] leading-relaxed">Pour un simple choix de matériel, coche plutôt « Matériels à chiffrer » dans le relevé.</p>
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => setChoix('emplacement')}
-                className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-[15px] font-semibold ring-[1.5px] ring-[#dfe3e8]"
-                style={{ color: LABEL }}
-              >
-                <Zap size={18} /> Plusieurs bornes
-              </button>
-              <button
-                type="button"
-                onClick={() => setChoix('scenario')}
-                className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-[15px] font-semibold ring-[1.5px] ring-[#dfe3e8]"
-                style={{ color: LABEL }}
-              >
-                <GitBranch size={18} /> Plusieurs raccordements
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            {ficheAvancee && <Avertissement statutFiche={statutFiche} type={choix} />}
-            <FormulaireAjout affaireId={affaireId} type={choix} />
-            <p className="text-[13px] leading-relaxed">
-              {choix === 'emplacement'
-                ? "Le relevé de cette page devient alors le relevé commun du site, et chaque borne aura le sien. Crée-les avec du réseau, avant de descendre."
-                : 'Le relevé de cette page sera alors remplacé par un relevé par scénario. Crée-les avec du réseau, avant de descendre.'}
-            </p>
-            <button type="button" onClick={() => setChoix(null)} className="text-[14px] font-semibold underline underline-offset-4" style={{ color: LABEL }}>
-              Changer de choix
-            </button>
-          </>
-        )}
+        <TitreCarte icon={GitBranch}>Créer un scénario</TitreCarte>
+        <p className="text-[14px] leading-relaxed">
+          <strong>Un scénario = une façon de raccorder = un devis</strong> (ex : services généraux ou compteur de l'appartement).
+        </p>
+        <p className="text-[14px] leading-relaxed">
+          <strong>Plusieurs bornes sur le site</strong> (ex : auvent et parking) : un seul scénario, puis « Dupliquer la branche » pour chaque borne.
+        </p>
+        {ficheAvancee && <Avertissement statutFiche={statutFiche} type="scenario" />}
+        <FormulaireAjout affaireId={affaireId} type="scenario" versScenario />
+        <p className="text-[13px] leading-relaxed">
+          Le relevé de cette page sera remplacé par les éléments du scénario. Crée-le avec du réseau, avant de descendre.
+        </p>
       </Carte>
     );
   }
@@ -188,7 +160,7 @@ export function Scenarios({
       <p className="px-1 text-[14px] leading-relaxed">
         {type === 'emplacement'
           ? <>{recus}/{tries.length} emplacement{pluriel} reçu{pluriel} · relevé du site <strong>{siteRecu ? 'reçu' : 'à faire'}</strong>.</>
-          : <>{recus}/{tries.length} relevé{pluriel} reçu{pluriel}.</>}
+          : <>{recus}/{tries.length} scénario{pluriel} prêt{pluriel} à chiffrer.</>}
         {!ficheAvancee && ` ${t.regle}`}
       </p>
       {ficheAvancee && <Avertissement statutFiche={statutFiche} type={type} />}
@@ -207,7 +179,7 @@ export function Scenarios({
             </div>
             <div className="min-w-0 grow">
               <p className="text-[17px] font-bold leading-tight">{s.nom}</p>
-              <p className="mt-1.5 text-[13px]">{fait ? 'Relevé reçu' : 'Relevé à faire'}</p>
+              <p className="mt-1.5 text-[13px]">{fait ? (type === 'emplacement' ? 'Relevé reçu' : 'Prêt à chiffrer') : 'Relevé à faire'}</p>
             </div>
             <ChevronRight size={22} className="shrink-0" color={fait ? CYAN : ORANGE} />
           </button>
