@@ -8,11 +8,14 @@ import {
   aUnLienDevis, ajouterElement, archiverElement, contexteScenario, creerParDefaut, dupliquerBorne, dupliquerBranche,
   enregistrerReleve, gardeDevis, pretAChiffrer, renommerElement, restaurerElement, segmentDe, vue, type Resultat,
 } from '@/lib/elements';
+import { posterBrief } from '@/lib/briefChiffrage';
 
-// Éléments d'un scénario dans l'application (étapes 3 et 4 du plan du 15/10/2026, PR #51).
+// Éléments d'un scénario dans l'application (étapes 3, 4 et 5 du plan du 15/10/2026, PR #51).
 // GET ?scenarioId=… : éléments actifs (avec leur relevé) et archivés, segment, droits de la personne connectée.
 // POST { action, … } : defaut, ajouter, renommer, archiver, restaurer, dupliquerBranche, dupliquerBorne,
 // releve (relevé d'un élément), pret (« Prêt à chiffrer »).
+// Étape 5 (15/10/2026) : « Prêt à chiffrer » poste aussi le commentaire « 📋 Brief de chiffrage » sur le scénario
+// (src/lib/briefChiffrage.ts), à chaque clic : le dernier brief posté est celui qui compte.
 // Droits contrôlés ici (src/lib/roles.ts) : commercial, chargé d'opération et direction. Scénario de la liste
 // Qualification autorisée uniquement (TEST en preview).
 export const dynamic = 'force-dynamic';
@@ -144,7 +147,13 @@ export async function POST(request: Request) {
       case 'pret': {
         const p = await pretAChiffrer(ctx);
         if (!p.ok && p.erreur) return json({ success: false, error: p.erreur, manquants: p.manquants || [] }, 400);
-        r = p;
+        // Étape 5 : brief de chiffrage calculé et posté sur le scénario (l'ancienne phrase d'attente est retirée)
+        const messages = (p.messages || []).filter((m) => !m.includes('étape 5'));
+        const brief = await posterBrief(token, s.scenario, ctx.actifs.map(vue));
+        if (brief.ok) {
+          messages.push(`📋 Brief de chiffrage posté sur le scénario${brief.alertes ? ` (${brief.alertes} alerte${brief.alertes > 1 ? 's' : ''} à lire)` : ''}`);
+        }
+        r = { ...p, messages, erreurs: [...(p.erreurs || []), ...(brief.ok ? [] : ['brief de chiffrage non posté'])] };
         break;
       }
       default:
