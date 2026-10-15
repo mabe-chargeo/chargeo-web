@@ -26,13 +26,14 @@ async function lire(token: string, id: string): Promise<any | null> {
 }
 
 async function personnes(token: string, fiche: any, champId: string) {
-  const liens: any[] = Array.isArray(valeur(fiche, champId)) ? valeur(fiche, champId) : [];
+  const brut = valeur(fiche, champId);
+  const liens: any[] = Array.isArray(brut) ? brut : [];
   const sortie: { nom: string; tel: string; email: string }[] = [];
-  for (const l of liens.slice(0, 5)) {
-    if (!l?.id) continue;
-    const c = await lire(token, String(l.id));
+  for (const lien of liens.slice(0, 5)) {
+    if (!lien?.id) continue;
+    const c = await lire(token, String(lien.id));
     sortie.push({
-      nom: texte(c?.name || l?.name),
+      nom: texte(c?.name || lien?.name),
       tel: texte(valeur(c, TEL_CONTACT)),
       email: texte(valeur(c, EMAIL_CONTACT)),
     });
@@ -46,20 +47,19 @@ export async function GET(request: Request) {
     if (!session) return json({ success: false, error: 'Connexion requise : reconnecte-toi.' }, 401);
     const token = process.env.CLICKUP_API_KEY as string;
     const id = new URL(request.url).searchParams.get('affaireId') || '';
-    let l = await lireTacheQualification(id, token);
-    if (!l.ok) return json({ success: false, error: l.erreur }, l.status);
+    const lecture = await lireTacheQualification(id, token);
+    if (!lecture.ok) return json({ success: false, error: lecture.erreur }, lecture.status);
     // Scénario ou élément : on remonte jusqu'à la fiche (deux niveaux au plus)
-    for (let i = 0; i < 2 && l.ok && l.tache?.parent; i++) {
-      const p = await lireTacheQualification(String(l.tache.parent), token);
+    let fiche: any = lecture.tache;
+    for (let i = 0; i < 2 && fiche?.parent; i++) {
+      const p = await lireTacheQualification(String(fiche.parent), token);
       if (!p.ok) break;
-      l = p;
+      fiche = p.tache;
     }
-    if (!l.ok) return json({ success: false, error: l.erreur }, l.status);
-    const fiche = l.tache;
-    const adresse = valeur(fiche, CHAMPS.adresse);
+    const adresse: any = valeur(fiche, CHAMPS.adresse);
     return json({
       success: true,
-      fiche: { id: String(fiche.id), nom: texte(fiche.name) },
+      fiche: { id: String(fiche?.id || ''), nom: texte(fiche?.name) },
       client: { tel: texte(valeur(fiche, CHAMPS.telephone)), email: texte(valeur(fiche, CHAMPS.email)) },
       adresse: adresse?.formatted_address
         ? { texte: String(adresse.formatted_address), lat: adresse?.location?.lat ?? null, lng: adresse?.location?.lng ?? null }
