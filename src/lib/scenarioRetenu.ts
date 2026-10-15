@@ -1,6 +1,6 @@
 import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClickUp';
 import { alerter } from '@/lib/alerteSite';
-import { champType } from '@/lib/typesTaches';
+import { champType, chargerTypes, estScenario as estScenarioType } from '@/lib/typesTaches';
 
 // Scénario retenu au passage en 🏆 gagné (décisions Matthieu des 13 et 14/10/2026).
 // La fiche principale est le projet : elle va de la visite au Parc. Ses sous-fiches « Scénario … » sont les options de
@@ -16,17 +16,28 @@ import { champType } from '@/lib/typesTaches';
 // - aucun devis signé, ou plusieurs : rien n'est choisi, alerte au commercial, la suite du gagné est bloquée.
 // - autre payeur (décision Matthieu du 14/10) : si le retenu est en COP, un non retenu en PAR (borne partagée, payée
 //   par le syndicat plus tard) n'est pas archivé : il devient un projet séparé dans Qualification (même passeport, son
-//   relevé et son devis, lié au projet infra), passé en 📩 devis envoyé pour lancer relances et montant. La sous-fiche
-//   d'origine est renommée « Projet séparé · » et archivée.
+//   relevé et son devis, lié au projet infra), passé en 📩 devis envoyé pour lancer relances et montant.
 // Les sous-fiches « Emplacement … » (bornes d'un même devis) ne sont pas concernées.
 // Preview : fiche de la liste TEST ou fiche « Test… » ; forcerSigne=<id de sous-fiche> traite son devis comme signé.
-// Étape 2 (15/10/2026) : le projet séparé naît en type Projet. La détection des scénarios par type arrive à l'étape 6.
+// Étape 2 (15/10/2026) : le projet séparé naît en type Projet.
+// Étape 6 (15/10/2026, PR #51, synthèse du 14/10 section 7) :
+// - scénarios reconnus par leur type (Scénario), repli sur le nom pour les anciennes fiches ; seules les sous-tâches
+//   directes de la fiche comptent (les éléments sont sous les scénarios) ;
+// - autre payeur étendu : retenu en COP, chaque non retenu PAR, RES ou DAP devient un projet séparé. Le scénario y est
+//   DÉPLACÉ avec ses éléments, ses photos et son brief (rien n'est recopié à la main). Si le déplacement est refusé,
+//   repli sur l'ancien fonctionnement : sous-fiche renommée « Projet séparé · » et archivée ;
+// - Tarif type : retenu en COP, les scénarios RIC non retenus sont renommés « Tarif type · » et archivés avec leurs
+//   éléments : ils servent de modèles aux résidents qui demanderont une borne plus tard (étape 8) ;
+// - un scénario archivé (non retenu, Tarif type) emporte ses éléments, comme l'archivage depuis l'application.
 
 const COSTRUCTOR = 'https://api.costructor.co/external/v1';
 const CHAMP_LIEN_DEVIS = 'ae80f202-2ef3-4302-b778-f36075ee398f';
 export const PREFIXE_RETENU = '✅ Retenu · ';
 export const PREFIXE_NON_RETENU = 'Non retenu · ';
 export const PREFIXE_SEPARE = 'Projet séparé · ';
+export const PREFIXE_TARIF = 'Tarif type · ';
+const PREFIXES = [PREFIXE_RETENU, PREFIXE_NON_RETENU, PREFIXE_SEPARE, PREFIXE_TARIF];
+const SEGMENTS_AUTRE_PAYEUR = ['par', 'res', 'dap'];
 const CHAMP_SEGMENT = 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2';
 const CHAMP_ALERTE = '42019c42-0af8-49de-a33d-8af0ddde3357';
 const SIGNES = ['accepted', 'done'];
@@ -48,7 +59,7 @@ const TYPES_COPIES = ['drop_down', 'labels', 'number', 'currency', 'emoji', 'sho
 
 const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-// Sous-fiche scénario encore à trancher (ni retenue, ni écartée)
+// Sous-fiche scénario encore à trancher (ni retenue, ni écartée), par le nom (anciennes fiches et appelants existants)
 export const estScenario = (nom: string) => /^\s*Sc[ée]nario\b/i.test(String(nom || ''));
 // Sous-fiche scénario, tranchée ou non (pour la ranger au passage au Parc)
 export const estScenarioOuRetenu = (nom: string) => estScenario(nom) || String(nom || '').startsWith(PREFIXE_RETENU);
@@ -88,6 +99,19 @@ async function lireTache(token: string, id: string, sousTaches = false): Promise
 async function commenter(token: string, id: string, texte: string) {
   const res = await api(token, `/task/${id}/comment`, 'POST', { comment_text: texte, notify_all: false });
   if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${id}`);
+}
+
+// Renomme et archive un scénario avec ses éléments (sous-tâches directes). true si le scénario est bien archivé
+async function archiverAvecElements(token: string, id: string, nom: string): Promise<boolean> {
+  const s = await lireTache(token, id, true);
+  const elements = (Array.isArray(s?.subtasks) ? s.subtasks : []).filter((e: any) => String(e?.parent || '') === id && !e?.archived);
+  for (const e of elements) {
+    const r = await api(token, `/task/${e.id}`, 'PUT', { archived: true });
+    if (!r.ok) console.error(`Élément ${e.id} non archivé (${r.status})`);
+  }
+  const r = await api(token, `/task/${id}`, 'PUT', { name: nom, archived: true });
+  const j = r.ok ? await r.json().catch(() => ({})) : {};
+  return r.ok && j?.archived !== false;
 }
 
 async function costructor(token: string, chemin: string): Promise<Response> {
@@ -159,7 +183,7 @@ async function statutNomme(token: string, listeId: string, mot: string): Promise
 }
 
 // Autre payeur : le scénario devient un projet à part (voir en tête). null = création impossible
-async function separer(token: string, fiche: any, a: any): Promise<{ id: string; url: string; statut: boolean; nonCopies: string[] } | null> {
+async function separer(token: string, fiche: any, a: any): Promise<{ id: string; url: string; statut: boolean; deplace: boolean; nonCopies: string[] } | null> {
   const listeId = String(fiche?.list?.id || '');
   const nomScenario = a.nom.replace(/^\s*Sc[ée]nario\s*[A-Z0-9]*\s*:?\s*/i, '').trim() || a.nom;
   const nom = `${String(fiche.name || '').trim()} · ${nomScenario}`;
@@ -174,16 +198,19 @@ async function separer(token: string, fiche: any, a: any): Promise<{ id: string;
   for (const { id, nom: n, v } of passeport(fiche)) {
     if (!(await api(token, `/task/${t.id}/field/${id}`, 'POST', { value: v })).ok) nonCopies.push(n);
   }
+  // Champs du scénario (segment, 🔗 Lien devis…) recopiés sur le projet : la relance et le montant les lisent sur la fiche
   for (const f of champs(a.tache)) {
     const v = valeurACopier(f);
     if (v === undefined) continue;
     if (!(await api(token, `/task/${t.id}/field/${f.id}`, 'POST', { value: v })).ok) nonCopies.push(String(f.name));
   }
   await api(token, `/task/${t.id}/link/${fiche.id}`, 'POST');
+  // Étape 6 : le scénario passe sous le nouveau projet, avec ses éléments, ses photos et son brief
+  const deplace = (await api(token, `/task/${a.id}`, 'PUT', { parent: String(t.id) })).ok;
   // En dernier : le passage en devis envoyé lance la relance J+3 et le montant à partir du 🔗 Lien devis recopié
   const envoye = await statutNomme(token, listeId, 'devis envoy');
   const statut = envoye ? (await api(token, `/task/${t.id}`, 'PUT', { status: envoye })).ok : false;
-  return { id: String(t.id), url: String(t.url || `https://app.clickup.com/t/${t.id}`), statut, nonCopies };
+  return { id: String(t.id), url: String(t.url || `https://app.clickup.com/t/${t.id}`), statut, deplace, nonCopies };
 }
 
 const quoteId = (lien: string) => (lien.match(/quote_[a-z0-9]+/i) || [])[0] || '';
@@ -225,8 +252,10 @@ export async function traiterScenarios(taskId: string, simulation: boolean, forc
   if (!normal(fiche?.status?.status).includes('gagn')) return { success: true, action: 'ignore_plus_gagne', simulation };
 
   const id = String(fiche.id);
-  const sous: any[] = Array.isArray(fiche?.subtasks) ? fiche.subtasks : [];
-  const aTrancher = scenariosActifs(fiche);
+  // Étape 6 : sous-tâches directes seulement, scénarios reconnus par leur type (repli sur le nom)
+  const { carte } = await chargerTypes(token);
+  const sous: any[] = (Array.isArray(fiche?.subtasks) ? fiche.subtasks : []).filter((s: any) => !s?.parent || String(s.parent) === id);
+  const aTrancher = sous.filter((s) => !s?.archived && estScenarioType(s, carte) && !PREFIXES.some((p) => String(s?.name || '').startsWith(p)));
   if (!aTrancher.length) {
     return { success: true, action: sous.some((s) => String(s?.name || '').startsWith(PREFIXE_RETENU)) ? 'deja_fait' : 'sans_scenario', simulation };
   }
@@ -254,6 +283,7 @@ export async function traiterScenarios(taskId: string, simulation: boolean, forc
       tache: t, id: String(s.id), nom: String(s.name || ''), lien: lien || null, devisId: d ? String(d.id) : (qid || null),
       numero: d ? String(d.number || '') : '', statut: d ? String(LIBELLES_STATUT[statutDe(d)] || d.status || '') : (lien ? 'introuvable' : 'pas de lien'),
       signe: force || (!!d && SIGNES.includes(statutDe(d))), force, enAttente: !!d && statutDe(d) === 'open',
+      segment: segmentDe(t),
     });
   }
   const resume = analyse.map(({ tache, ...a }) => a);
@@ -276,12 +306,17 @@ export async function traiterScenarios(taskId: string, simulation: boolean, forc
     retenu = signes[0];
   }
   const autres = analyse.filter((a) => a.id !== retenu.id);
-  // Autre payeur : retenu COP, non retenu PAR (décision du 14/10)
-  const aSeparer = segmentDe(retenu.tache) === 'cop' ? autres.filter((a) => segmentDe(a.tache) === 'par') : [];
-  const aArchiver = autres.filter((a) => !aSeparer.includes(a));
+  // Retenu en COP : autre payeur (PAR, RES, DAP) → projet séparé ; RIC → Tarif type (synthèse du 14/10, section 7)
+  const copRetenu = retenu.segment === 'cop';
+  const aSeparer = copRetenu ? autres.filter((a) => SEGMENTS_AUTRE_PAYEUR.includes(a.segment)) : [];
+  const enTarif = copRetenu ? autres.filter((a) => a.segment === 'ric') : [];
+  const aArchiver = autres.filter((a) => !aSeparer.includes(a) && !enTarif.includes(a));
   const aCopier = champs(retenu.tache).map((f) => ({ f, v: valeurACopier(f) })).filter((x) => x.v !== undefined);
   if (simulation) {
-    return { success: true, action: 'retiendrait', via, retenu: retenu.nom, nonRetenus: aArchiver.map((a) => a.nom), projetsSepares: aSeparer.map((a) => a.nom), champs: aCopier.map((x) => x.f.name), scenarios: resume, simulation };
+    return {
+      success: true, action: 'retiendrait', via, retenu: retenu.nom, nonRetenus: aArchiver.map((a) => a.nom),
+      projetsSepares: aSeparer.map((a) => a.nom), tarifsTypes: enTarif.map((a) => a.nom), champs: aCopier.map((x) => x.f.name), scenarios: resume, simulation,
+    };
   }
 
   // 1. Champs du scénario retenu recopiés sur le projet
@@ -290,22 +325,24 @@ export async function traiterScenarios(taskId: string, simulation: boolean, forc
     const r = await api(token, `/task/${id}/field/${f.id}`, 'POST', { value: v });
     if (!r.ok) nonCopies.push(String(f.name));
   }
-  // 2. Retenu renommé, autres renommés et archivés
+  // 2. Retenu renommé ; autres payeurs séparés ; RIC en Tarif type ; non retenus renommés et archivés
   const renomme = await api(token, `/task/${retenu.id}`, 'PUT', { name: `${PREFIXE_RETENU}${retenu.nom}` });
   const archives: string[] = [];
   const nonArchives: string[] = [];
   const separes: any[] = [];
+  const tarifs: string[] = [];
   for (const a of aSeparer) {
     const p = await separer(token, fiche, a);
     if (!p) { nonArchives.push(`${a.nom} (projet séparé non créé)`); continue; }
     separes.push({ nom: a.nom, ...p });
-    const r = await api(token, `/task/${a.id}`, 'PUT', { name: `${PREFIXE_SEPARE}${a.nom}`, archived: true });
-    if (!r.ok) nonArchives.push(a.nom);
+    // Repli : déplacement refusé, la sous-fiche reste dans le projet infra, renommée et archivée
+    if (!p.deplace && !(await archiverAvecElements(token, a.id, `${PREFIXE_SEPARE}${a.nom}`))) nonArchives.push(a.nom);
+  }
+  for (const a of enTarif) {
+    if (await archiverAvecElements(token, a.id, `${PREFIXE_TARIF}${a.nom}`)) tarifs.push(a.nom); else nonArchives.push(a.nom);
   }
   for (const a of aArchiver) {
-    const r = await api(token, `/task/${a.id}`, 'PUT', { name: `${PREFIXE_NON_RETENU}${a.nom}`, archived: true });
-    const j = r.ok ? await r.json().catch(() => ({})) : {};
-    if (r.ok && j?.archived !== false) archives.push(a.nom); else nonArchives.push(a.nom);
+    if (await archiverAvecElements(token, a.id, `${PREFIXE_NON_RETENU}${a.nom}`)) archives.push(a.nom); else nonArchives.push(a.nom);
   }
 
   // 3. Synthèse sur le projet, et rappel au commercial pour les devis restés « En attente »
@@ -313,15 +350,18 @@ export async function traiterScenarios(taskId: string, simulation: boolean, forc
   const lignes = [
     `🎯 Scénario retenu : ${ligne(retenu)}${via === 'lien_fiche' ? ', désigné par le 🔗 Lien devis de la fiche' : ', devis signé'}. Son relevé et son devis sont recopiés sur la fiche.`,
   ];
-  if (aArchiver.length) lignes.push(`Non retenus, archivés dans le projet (« afficher les archivées » pour les revoir) : ${aArchiver.map(ligne).join(' ; ')}.`);
-  for (const p of separes) lignes.push(`🔀 Autre payeur : ${p.nom} devient un projet séparé, en 📩 devis envoyé${p.statut ? '' : ' (statut à poser à la main)'} : ${p.url}${p.nonCopies.length ? ` ⚠️ Champs à reprendre : ${p.nonCopies.join(', ')}.` : ''}`);
+  if (aArchiver.length) lignes.push(`Non retenus, archivés dans le projet avec leurs éléments (« afficher les archivées » pour les revoir) : ${aArchiver.map(ligne).join(' ; ')}.`);
+  for (const p of separes) {
+    lignes.push(`🔀 Autre payeur : ${p.nom} devient un projet séparé, en 📩 devis envoyé${p.statut ? '' : ' (statut à poser à la main)'}${p.deplace ? ', le scénario y est déplacé avec ses éléments' : ', le scénario est resté ici (archivé, « Projet séparé · »)'} : ${p.url}${p.nonCopies.length ? ` ⚠️ Champs à reprendre : ${p.nonCopies.join(', ')}.` : ''}`);
+  }
+  if (tarifs.length) lignes.push(`🧩 Tarifs types RIC, archivés avec leurs éléments, modèles pour les résidents qui demanderont une borne : ${tarifs.join(' ; ')}.`);
   if (nonCopies.length) lignes.push(`⚠️ Champs non recopiés, à reprendre à la main depuis le scénario : ${nonCopies.join(', ')}.`);
   if (!renomme.ok) lignes.push('⚠️ Le scénario retenu n\'a pas pu être renommé « ✅ Retenu ».');
   if (nonArchives.length) lignes.push(`⚠️ Non archivés (à archiver à la main) : ${nonArchives.join(', ')}.`);
   await commenter(token, id, lignes.join('\n'));
-  const enAttente = aArchiver.filter((a) => a.enAttente && a.numero);
+  const enAttente = [...aArchiver, ...enTarif].filter((a) => a.enAttente && a.numero);
   if (enAttente.length) {
     await alerter(token, id, `📝 Scénario retenu : ${retenu.nom}. Pense à passer en « refusé » dans Costructor ${enAttente.length > 1 ? 'les devis non retenus' : 'le devis non retenu'} ${enAttente.map((a) => a.numero).join(', ')}, sinon ${enAttente.length > 1 ? 'ils restent' : 'il reste'} « En attente ».`);
   }
-  return { success: !nonCopies.length && renomme.ok && !nonArchives.length, action: 'retenu', via, retenu: retenu.nom, archives, nonArchives, nonCopies, separes, champsCopies: aCopier.length, scenarios: resume };
+  return { success: !nonCopies.length && renomme.ok && !nonArchives.length, action: 'retenu', via, retenu: retenu.nom, archives, nonArchives, nonCopies, separes, tarifs, champsCopies: aCopier.length, scenarios: resume };
 }
