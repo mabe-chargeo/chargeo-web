@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { lireTacheQualification } from '@/lib/listesClickUp';
 import { typeDesSousReleves, type TypeSousReleve } from '@/lib/scenarios';
+import { champType } from '@/lib/typesTaches';
 
 // Création d'un sous-relevé depuis l'outil terrain : scénario (point 12 règle 2) ou emplacement (point 21).
 // - Scénario : autre façon de raccorder, « Scénario A : nom » (lettre suivant la plus haute déjà utilisée,
@@ -8,6 +9,8 @@ import { typeDesSousReleves, type TypeSousReleve } from '@/lib/scenarios';
 // - Emplacement : une borne physique du site, « Emplacement 1 : nom » (numéro suivant le plus haut).
 // - Pas de mélange sur une même fiche (décision du 11/10/2026).
 // La sous-tâche naît avec le statut par défaut de la liste (« 📍 à visiter »).
+// Étape 2 (15/10/2026) : un scénario naît en type Scénario. L'emplacement reste en Tâche (ancien modèle, remplacé
+// par les éléments à l'étape 4). Le nom « Scénario A : … » est gardé jusqu'au nouveau relevé (étape 4).
 // À vérifier avant la mise en production : les automatisations de Qualification déclenchées par une création.
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -70,11 +73,12 @@ export async function POST(request: Request) {
       ? "Emplacement créé depuis l'outil terrain : une borne physique du site (une borne double compte pour une). Il porte son matériel, son support, son cheminement et ses photos. Les données du site sont sur la fiche principale."
       : "Scénario de relevé créé depuis l'outil terrain. Il porte ses propres mesures, son segment et sa source de raccordement.";
     const listId = String(verif.tache.list.id);
+    const typeTache = type === 'scenario' ? await champType(token, 'scenario') : {};
 
     const res = await fetch(`https://api.clickup.com/api/v2/list/${listId}/task`, {
       method: 'POST',
       headers: { 'Authorization': token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: nomComplet, parent: affaireId, description }),
+      body: JSON.stringify({ name: nomComplet, parent: affaireId, description, ...typeTache }),
     });
     if (!res.ok) {
       console.error(`Création du sous-relevé refusée (${res.status})`, await res.text().catch(() => ''));
