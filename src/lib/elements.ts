@@ -3,8 +3,8 @@
 // Les cheminements portent 🔌 Départ et 🏁 Arrivée (champs relation vers des éléments du même scénario).
 // Règles (synthèse finale du 14/10, sections 3, 4, 5 et 9) :
 // - éléments par défaut selon le segment (src/lib/elementsModele.ts) ;
-// - noms : nature + numéro ; un cheminement s'appelle « Cheminement · départ → arrivée » et suit les renommages tant que
-//   son nom commence par « Cheminement · » ;
+// - noms : nature + numéro ; un cheminement s'appelle « Cheminement · départ → arrivée » (« Liaison data · départ → arrivée »
+//   pour une liaison data, décision du 15/10, 15 h 01) et suit les renommages tant que son nom est automatique ;
 // - archiver, jamais supprimer : un scénario emporte ses éléments, un élément emporte les cheminements qui le relient ;
 //   Restaurer remet l'ensemble ;
 // - garde-fou devis : avertissement si 🔗 Lien devis rempli, blocage dès 📩 devis envoyé (et en négociation, gagné) ;
@@ -20,7 +20,7 @@
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Nature, type Segment } from '@/lib/champsClickUp';
 import { chargerTypes, champType, estDuType, estScenario, type CarteTypes } from '@/lib/typesTaches';
 import { sousTachesArchivees } from '@/lib/scenarioRetenu';
-import { estNomCheminementAuto, nomCheminement, prochainNom, specsParDefaut, type Materiel, type SpecElement } from '@/lib/elementsModele';
+import { estNomCheminementAuto, nomLien, prochainNom, specsParDefaut, type Materiel, type SpecElement } from '@/lib/elementsModele';
 import { SAISIES, SAISIES_NATURE, coffretSuggere, contexteReleve, manquants, type Saisie, type Valeurs } from '@/lib/releveElements';
 
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -299,7 +299,7 @@ export async function ajouterElement(
   const arr = arrivee ? actifs.find((e) => e.id === arrivee && e.nature !== 'cheminement') : undefined;
   if ((depart && !dep) || (arrivee && !arr)) return { ok: false, erreur: 'Départ ou arrivée hors de ce scénario', crees: [], erreurs: [] };
   if (dep && arr && dep.id === arr.id) return { ok: false, erreur: 'Le départ et l’arrivée doivent être différents', crees: [], erreurs: [] };
-  const nom = nomCheminement(dep?.nom ?? null, arr?.nom ?? null, typeCh === 'artere');
+  const nom = nomLien(dep?.nom ?? null, arr?.nom ?? null, typeCh ?? null);
   const valeurs: Record<string, number> = typeCh ? { [CHAMPS.typeCheminement]: OPTIONS.typeCheminement[typeCh] } : {};
   const id = await creer(ctx, nom, 'cheminement', valeurs, description);
   if (!id) return { ok: false, erreur: "Le cheminement n'a pas pu être créé", crees: [], erreurs: [] };
@@ -320,7 +320,7 @@ export async function renommerElement(ctx: Contexte, id: string, nom: string): P
     noms.set(id, nom);
     const lies = ctx.actifs.map(vue).filter((c) => c.nature === 'cheminement' && (c.depart === id || c.arrivee === id) && estNomCheminementAuto(c.nom));
     for (const c of lies) {
-      const n = nomCheminement(c.depart ? noms.get(c.depart) ?? null : null, c.arrivee ? noms.get(c.arrivee) ?? null : null, c.typeCheminement === 'artere');
+      const n = nomLien(c.depart ? noms.get(c.depart) ?? null : null, c.arrivee ? noms.get(c.arrivee) ?? null : null, c.typeCheminement);
       if (n !== c.nom && !(await modifier(ctx.token, c.id, { name: n }))) erreurs.push(c.nom);
     }
   }
@@ -384,7 +384,7 @@ async function dupliquer(ctx: Contexte, sourceId: string, mode: 'branche' | 'bor
     return id;
   };
   const copierCheminement = async (ch: ElementVue, dep: string | null, arr: string | null) => {
-    const nom = nomCheminement(dep ? nomsParId.get(dep) ?? null : null, arr ? nomsParId.get(arr) ?? null : null, ch.typeCheminement === 'artere');
+    const nom = nomLien(dep ? nomsParId.get(dep) ?? null : null, arr ? nomsParId.get(arr) ?? null : null, ch.typeCheminement);
     const id = await creer(ctx, nom, 'cheminement', valeursDe(parId.get(ch.id), COPIES), descriptionCopie(parId.get(ch.id)));
     if (!id) { erreurs.push(nom); return; }
     crees.push(nom);
@@ -505,7 +505,8 @@ export async function enregistrerReleve(
     }
     if ((changees.has('depart') || changees.has('arrivee') || changees.has('typeCheminement')) && estNomCheminementAuto(v.nom)) {
       const nomDe = (x: string | null) => (x ? tous.find((e) => e.id === x)?.nom ?? null : null);
-      const n = nomCheminement(nomDe(depart), nomDe(arrivee), nouvelles.typeCheminement === 'artere');
+      const type = typeof nouvelles.typeCheminement === 'string' ? nouvelles.typeCheminement : null;
+      const n = nomLien(nomDe(depart), nomDe(arrivee), type);
       if (n !== v.nom && (await modifier(ctx.token, id, { name: n }))) messages.push(`Renommé en « ${n} »`);
     }
   }
