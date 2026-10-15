@@ -5,10 +5,11 @@
 // et l'email CHARGéO de la personne connectée (« moi »).
 // 15/10, demandes de Matthieu :
 // - 15 h 19 : bouton « Google Voice » ; Google Maps vise l'adresse écrite, Waze garde les coordonnées ;
-// - 15 h 23 : Google Voice s'ouvre sur le compte CHARGéO (authuser = email de la personne connectée, plus de page de
-//   connexion). Sur iPhone, le lien voice.google.com ouvre l'application Google Voice si elle est installée (lien
-//   universel). Sur Mac, il n'existe pas d'application native : le lien s'ouvre dans l'application web installée depuis
-//   Chrome si elle l'est, sinon dans un onglet. L'email passe par Gmail (compte CHARGéO), plus par Apple Mail.
+// - 15 h 23 : Google Voice s'ouvre sur le compte CHARGéO (authuser = email de la personne connectée). Sur iPhone, le
+//   lien voice.google.com ouvre l'application Google Voice (validé par Matthieu à 15 h 29). L'email passe par Gmail ;
+// - 15 h 29 : sur iPhone et iPad, le lien web de Gmail ouvrait la boîte de réception. Le bouton ouvre maintenant
+//   l'application Gmail sur un nouveau message (googlegmail://co?to=…), avec le compte actif de l'application.
+//   Sur ordinateur, il garde Gmail web sur le compte CHARGéO.
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Headphones, Mail, MapPin, MessageSquare, Navigation, Phone, Users } from 'lucide-react';
 import { Carte, TitreCarte } from '@/components/charte/Appli';
@@ -35,8 +36,17 @@ function international(t: string): string {
 const compte = (moi?: string) => (moi ? `&authuser=${encodeURIComponent(moi)}` : '');
 const lienVoice = (t: string, moi?: string) =>
   `https://voice.google.com/calls?a=nc,${encodeURIComponent(international(t))}${compte(moi)}`;
-const lienGmail = (dest: string, moi?: string) =>
-  `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(dest)}${compte(moi)}`;
+const lienGmail = (dest: string, moi: string, ios: boolean) =>
+  ios
+    ? `googlegmail://co?to=${encodeURIComponent(dest)}`
+    : `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(dest)}${compte(moi)}`;
+
+// iPhone, iPad (y compris iPadOS qui se présente comme un Mac tactile)
+function estIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && (navigator as any).maxTouchPoints > 1);
+}
 
 function Lien({ href, children }: { href: string; children: ReactNode }) {
   const externe = href.startsWith('http');
@@ -56,8 +66,10 @@ function Lien({ href, children }: { href: string; children: ReactNode }) {
 export function BlocContact({ affaireId }: { affaireId: string }) {
   const [c, setC] = useState<FicheContact | null>(null);
   const [ouvert, setOuvert] = useState(false);
+  const [ios, setIos] = useState(false);
 
   useEffect(() => {
+    setIos(estIOS());
     (async () => {
       try {
         const res = await fetch(`/api/interne/fiche-contact?affaireId=${encodeURIComponent(affaireId)}`, { cache: 'no-store' });
@@ -83,7 +95,7 @@ export function BlocContact({ affaireId }: { affaireId: string }) {
         {p.tel && <Lien href={`tel:${international(p.tel)}`}><Phone size={14} /> Appeler</Lien>}
         {p.tel && <Lien href={lienVoice(p.tel, moi)}><Headphones size={14} /> Google Voice</Lien>}
         {p.tel && sms && <Lien href={`sms:${international(p.tel)}`}><MessageSquare size={14} /> SMS</Lien>}
-        {p.email && <Lien href={lienGmail(p.email, moi)}><Mail size={14} /> Gmail</Lien>}
+        {p.email && <Lien href={lienGmail(p.email, moi, ios)}><Mail size={14} /> Gmail</Lien>}
       </div>
     </div>
   );
