@@ -45,7 +45,7 @@ const MENUS = OPTIONS as unknown as Record<string, Record<string, number>>;
 const LIBELLES: Record<string, string> = {
   nature: 'Nature', segment: 'Segment', zoneDeplacement: 'Zone', nbPlacesParking: 'Places', sourceRaccordement: 'Source',
   typeRaccordement: 'Mono / tri', puissanceDispo: 'Puissance dispo (kVA)', etatTableau: 'État du tableau',
-  raccordementCible: 'Raccordement cible', terre: 'Terre', coffretIrve: 'Coffret', gestionCharge: 'Gestion de charge',
+  raccordementCible: 'Raccordement cible', terre: 'Terre (ohms)', coffretIrve: 'Coffret', gestionCharge: 'Gestion de charge',
   puissanceVisee: 'Puissance visée (kW)', marqueBorne: 'Marque', supportBorne: 'Support', reseau: 'Réseau',
   tailleHub: 'Taille HUB', connectivite: 'Connectivité', typeCheminement: 'Type de cheminement',
   distTubeApparent: 'Tube apparent (m)', distGoulotte: 'Goulotte (m)', distEncastre: 'Encastré (m)',
@@ -98,12 +98,12 @@ function texte(t: any, id: string): string | null {
   return s.length > 200 ? `${s.slice(0, 200)}…` : s;
 }
 
-// Valeur lisible d'une valeur de spec (clé d'option pour un menu)
+// Valeur lisible d'une valeur de spec (clé d'option pour un menu). La terre est un nombre (ohms)
 function lisible(id: string, v: number): string {
   const cle = CLE_DE.get(id) || '';
   const menu = MENUS[cle];
   if (menu) return String(cleOption(menu, v) ?? `option ${v}`);
-  if (cle === 'terre' || cle === 'besoinDelesteur') return v ? 'oui' : 'non';
+  if (cle === 'besoinDelesteur') return v ? 'oui' : 'non';
   return String(v);
 }
 
