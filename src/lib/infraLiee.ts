@@ -9,6 +9,8 @@
 // - Tarif type : le scénario RIC archivé « Tarif type · » de l'infra (étape 6) est recopié en nouveau scénario de la
 //   fiche, segment RIC, avec ses éléments reliés. Matériel ET forfait (distances) recopiés : c'est un modèle, pas le
 //   relevé d'un autre site. État du tableau, terre, percements, notes et photos ne sont jamais recopiés.
+// - Zone de déplacement (retouche du 16/10, 13 h 32, demandée par Matthieu) : même adresse = même zone. Si la fiche
+//   n'a pas de zone, celle de l'infra y est écrite ; le scénario recopié prend celle du Tarif type, sinon celle de l'infra.
 // - Commentaires sur la fiche et sur l'infra. Preview : hors liste TEST, seules les fiches « Test… » sont proposées.
 import { CHAMPS, OPTIONS, indexMenu, type Nature } from '@/lib/champsClickUp';
 import { getQualificationListId } from '@/lib/listesClickUp';
@@ -174,9 +176,10 @@ export async function chercherInfras(token: string, fiche: any): Promise<Candida
     .slice(0, 5);
 }
 
-// Recopie d'un Tarif type en nouveau scénario RIC de la fiche (éléments reliés comme dans le modèle)
+// Recopie d'un Tarif type en nouveau scénario RIC de la fiche (éléments reliés comme dans le modèle).
+// zoneInfra : zone de déplacement de l'infra, utilisée si le Tarif type n'en a pas.
 async function recopierTarif(
-  token: string, tarifId: string, fiche: any, defs: Map<string, Def>, carte: CarteTypes,
+  token: string, tarifId: string, fiche: any, defs: Map<string, Def>, carte: CarteTypes, zoneInfra: Record<string, number>,
 ): Promise<{ id: string; nom: string; crees: string[]; erreurs: string[] } | null> {
   const tarif = await lireTache(token, tarifId, true);
   if (!tarif) return null;
@@ -198,7 +201,7 @@ async function recopierTarif(
     parent: ficheId,
     description: `Recopié du « ${String(tarif?.name || '')} » de l'infra (modèle RIC) : matériel et forfait recopiés, à vérifier sur place.`,
     ...(await champType(token, 'scenario')),
-    custom_fields: versChamps(defs, { ...valeursDe(tarif, [CHAMPS.zoneDeplacement]), [CHAMPS.segment]: OPTIONS.segment.RIC }),
+    custom_fields: versChamps(defs, { ...zoneInfra, ...valeursDe(tarif, [CHAMPS.zoneDeplacement]), [CHAMPS.segment]: OPTIONS.segment.RIC }),
   });
   if (!res.ok) {
     console.error(`Recopie du Tarif type refusée (${res.status})`, await res.text().catch(() => ''));
@@ -258,6 +261,8 @@ export async function rattacher(token: string, fiche: any, infraId: string, tari
   const { carte } = await chargerTypes(token);
   const ficheId = String(fiche.id);
   const defs = await defsDe(token, String(fiche?.list?.id || ''));
+  const infra = await lireTache(token, infraId);
+  const zoneInfra = valeursDe(infra, [CHAMPS.zoneDeplacement]);
   const messages: string[] = [];
   const erreurs: string[] = [];
 
@@ -265,6 +270,14 @@ export async function rattacher(token: string, fiche: any, infraId: string, tari
   const seg = ecrite(defs, CHAMPS.segment, OPTIONS.segment.RIC);
   if (seg !== undefined && (await api(token, `/task/${ficheId}/field/${CHAMPS.segment}`, 'POST', { value: seg })).ok) messages.push('segment RIC posé');
   else erreurs.push('segment RIC');
+
+  // 1 bis. Zone de déplacement de l'infra, si la fiche n'en a pas (même adresse = même zone)
+  const zone = zoneInfra[CHAMPS.zoneDeplacement];
+  if (zone !== undefined && valeursDe(fiche, [CHAMPS.zoneDeplacement])[CHAMPS.zoneDeplacement] === undefined) {
+    const w = ecrite(defs, CHAMPS.zoneDeplacement, zone);
+    if (w !== undefined && (await api(token, `/task/${ficheId}/field/${CHAMPS.zoneDeplacement}`, 'POST', { value: w })).ok) messages.push("zone de déplacement reprise de l'infra");
+    else erreurs.push('zone de déplacement');
+  }
 
   // 2. 🔗 Infrastructure liée, et liaison de tâches (seul lien sur la liste TEST)
   if (defs.has(CHAMP_INFRA_LIEE)) {
@@ -280,7 +293,7 @@ export async function rattacher(token: string, fiche: any, infraId: string, tari
   // 3. Tarif type recopié en scénario RIC
   let scenarioId: string | undefined;
   if (tarifId) {
-    const r = await recopierTarif(token, tarifId, fiche, defs, carte);
+    const r = await recopierTarif(token, tarifId, fiche, defs, carte, zoneInfra);
     if (r) {
       scenarioId = r.id;
       messages.push(`${r.nom} recopié du Tarif type (${r.crees.length} élément${r.crees.length > 1 ? 's' : ''})`);
