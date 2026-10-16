@@ -10,8 +10,11 @@ import { rolesDe, type Role } from '@/lib/roles';
 // personne connectée (src/lib/roles.ts). Direction : toutes les cartes (filtres par rôle dans l'écran). Autres rôles :
 // seulement leurs cartes, filtrées ici côté serveur.
 // Cartes (mêmes règles que les routes existantes) :
-// - Relevés du jour (chargé d'opération) : fiches principales « à visiter » dont la 📅 Date Visite Technique est
-//   aujourd'hui (comme /api/chantiers) ;
+// - Relevés (chargé d'opération) : fiches principales « à visiter » (comme /api/chantiers). Une carte par relevé du
+//   jour ou en retard (📅 Date Visite Technique passée, relevé pas encore envoyé), puis une carte « Relevés à venir »
+//   (7 prochains jours). Retour de Matthieu du 16/10 (23 h 14, « ils sont où les relevés ? ») : seuls ceux du jour
+//   s'affichaient ;
+// - Visites à caler (commercial) : fiches « à visiter » sans date de visite (vue ClickUp « 📞 Visites à caler ») ;
 // - Relances devis échues (commercial) : fiches « 📩 devis envoyé » dont l'échéance (relance J+3 ouvrés posée par
 //   /api/relances/devis-envoye) est aujourd'hui ou passée ;
 // - Devis à chiffrer (commercial) : fiches « 📝 devis à faire » ;
@@ -46,6 +49,7 @@ const PREREQUIS = [
 ];
 const PAGES_MAX = 10;
 const JOURS_CONTRAT = 30;
+const JOURS_A_VENIR = 7;
 const EXEMPLES_MAX = 3;
 
 type Exemple = { nom: string; url: string };
@@ -63,7 +67,7 @@ type CarteJournee = {
   exemples: Exemple[];
   erreur?: string;
 };
-type Releve = { id: string; nom: string; quand: string; typeClient: string; adresse: string; lien: string };
+type Releve = { id: string; nom: string; quand: string; retard: boolean; typeClient: string; adresse: string; lien: string };
 
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const champ = (t: any, id: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => c?.id === id);
@@ -103,6 +107,10 @@ function heureDe(ms: number): string {
   const m = parts.find((p) => p.type === 'minute')?.value || '00';
   return m === '00' && (h === '00' || h === '04') ? 'heure à caler' : `${h}h${m}`;
 }
+
+// « jeu. 15/10 » à Paris
+const jourCourt = (ms: number) =>
+  new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: '2-digit', month: '2-digit' }).format(new Date(ms));
 
 // Fiches principales ouvertes d'une liste, toutes pages
 async function lister(token: string, listId: string): Promise<any[]> {
@@ -149,34 +157,55 @@ export async function GET(request: Request) {
 
     const aujourdhui = aujourdhuiParis();
     const limiteContrat = ajouterJours(aujourdhui, JOURS_CONTRAT);
+    const limiteAVenir = ajouterJours(aujourdhui, JOURS_A_VENIR);
     const echu = (ms: unknown) => { const j = jourDe(ms); return !!j && comparer(j, aujourdhui) <= 0; };
     const statut = (t: any) => normal(t?.status?.status);
 
-    // Relevés du jour : une carte par fiche, triées par heure
-    const relevesDuJour = (qualif.taches || [])
+    // Relevés « à visiter », avec leur date de visite
+    const aVisiter = (qualif.taches || [])
       .filter((t) => estAVisiter(t?.status?.status))
-      .map((t) => ({ t, ms: Number(champ(t, DATE_VISITE_ID)?.value) }))
-      .filter(({ ms }) => { const j = jourDe(ms); return !!j && comparer(j, aujourdhui) === 0; })
+      .map((t) => ({ t, ms: Number(champ(t, DATE_VISITE_ID)?.value), jour: jourDe(champ(t, DATE_VISITE_ID)?.value) }));
+    // Du jour ou en retard : une carte par relevé, les plus anciens d'abord
+    const duJour = aVisiter
+      .filter(({ jour }) => !!jour && comparer(jour, aujourdhui) <= 0)
       .sort((a, b) => a.ms - b.ms);
     const releves: Releve[] = visible('chargeOperation')
-      ? relevesDuJour.map(({ t, ms }) => ({
-        id: String(t.id),
-        nom: String(t.name || ''),
-        quand: heureDe(ms),
-        typeClient: sansEmoji(nomOption(t, TYPE_CLIENT_ID)),
-        adresse: adresseDe(t),
-        lien: `/interne/metre/${t.id}`,
-      }))
+      ? duJour.map(({ t, ms, jour }) => {
+        const retard = !!jour && comparer(jour, aujourdhui) < 0;
+        return {
+          id: String(t.id),
+          nom: String(t.name || ''),
+          quand: retard ? `Prévu ${jourCourt(ms)}, pas encore envoyé` : heureDe(ms),
+          retard,
+          typeClient: sansEmoji(nomOption(t, TYPE_CLIENT_ID)),
+          adresse: adresseDe(t),
+          lien: `/interne/metre/${t.id}`,
+        };
+      })
       : [];
 
     const cartes: CarteJournee[] = [];
-    const ajouter = (c: Omit<CarteJournee, 'n' | 'exemples' | 'erreur'>, source: { taches: any[] | null; erreur?: string }, filtre: (t: any) => boolean) => {
+    const ajouter = (c: Omit<CarteJournee, 'n' | 'exemples' | 'erreur'>, source: { taches: any[] | null; erreur?: string }, filtre: (t: any) => boolean, tri?: (a: any, b: any) => number) => {
       if (!visible(c.role)) return;
       const liste = source.taches ? source.taches.filter(filtre) : null;
+      if (liste && tri) liste.sort(tri);
       cartes.push({ ...c, n: liste ? liste.length : null, exemples: liste ? exemples(liste) : [], ...(source.erreur ? { erreur: source.erreur } : {}) });
     };
+    const dateVisite = (t: any) => Number(champ(t, DATE_VISITE_ID)?.value) || 0;
 
     const lienQualif = qualifId ? urlListe(qualifId) : 'https://app.clickup.com';
+    ajouter({
+      cle: 'aVenir', role: 'chargeOperation', section: 'aFaire', surtitre: "Relevés · Chargé d'opération", titre: 'Relevés à venir',
+      detail: `Visites calées dans les ${JOURS_A_VENIR} prochains jours`, urgent: false, lien: '/interne', externe: false,
+    }, qualif, (t) => {
+      if (!estAVisiter(t?.status?.status)) return false;
+      const j = jourDe(champ(t, DATE_VISITE_ID)?.value);
+      return !!j && comparer(j, aujourdhui) > 0 && comparer(j, limiteAVenir) <= 0;
+    }, (a, b) => dateVisite(a) - dateVisite(b));
+    ajouter({
+      cle: 'aCaler', role: 'commercial', section: 'aFaire', surtitre: 'Commercial', titre: 'Visites à caler',
+      detail: 'Relevés sans date de visite : appeler le client', urgent: false, lien: '/interne', externe: false,
+    }, qualif, (t) => estAVisiter(t?.status?.status) && !jourDe(champ(t, DATE_VISITE_ID)?.value));
     ajouter({
       cle: 'relances', role: 'commercial', section: 'aFaire', surtitre: 'Commercial', titre: 'Relances devis échues',
       detail: 'Appeler ou relancer, la prochaine date se recalcule', urgent: true, lien: lienQualif, externe: true,
@@ -214,7 +243,7 @@ export async function GET(request: Request) {
     });
 
     const avertissements: string[] = [];
-    if (qualif.erreur && visible('chargeOperation')) avertissements.push(`Relevés du jour : ${qualif.erreur}`);
+    if (qualif.erreur && visible('chargeOperation')) avertissements.push(`Relevés : ${qualif.erreur}`);
     if (!roles.length) avertissements.push("Aucun rôle trouvé pour ton compte : demande à Matthieu de t'ajouter au bon groupe ClickUp.");
 
     return NextResponse.json({
