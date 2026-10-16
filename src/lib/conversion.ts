@@ -10,11 +10,14 @@
 //   COP : Dist. TGBT → TD IRVE = tube apparent du cheminement Raccordement → TD IRVE ; longueur d'artère = chemin de câbles
 //   de l'artère, avec les anciennes distances et percements ; Dist. routeur → TD IRVE = tube apparent de la liaison data ;
 // - les notes, les photos et les anciens champs restent sur l'ancienne tâche (rien n'est effacé).
+// 16/10, 18 h 49 (décision de Matthieu) : coffret vide sur l'ancien relevé → présélectionné selon la puissance de la borne,
+// même règle que le relevé (coffretSuggere, src/lib/releveElements.ts), signalé dans les alertes, modifiable au relevé.
 // simulation : rien n'est écrit, la réponse montre ce qui serait créé. Une tâche qui a déjà des éléments est refusée.
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Segment } from '@/lib/champsClickUp';
 import { champType, chargerTypes, estScenario } from '@/lib/typesTaches';
 import { contexteScenario, lettreSuivante, lireTache, segmentDe, type Contexte } from '@/lib/elements';
 import { nomRaccordement, specsParDefaut, type CleSource, type SpecElement } from '@/lib/elementsModele';
+import { coffretSuggere } from '@/lib/releveElements';
 
 export type Ligne = { champ: string; valeur: string };
 export type ElementPrevu = { nom: string; nature: string; depart?: string; arrivee?: string; valeurs: Ligne[] };
@@ -213,6 +216,16 @@ export async function preparer(token: string, tache: any, segmentForce: Segment 
       if (c1) { c1.valeurs[CHAMPS.gestionCharge] = OPTIONS.gestionCharge.delesteur; utilises.add(CHAMPS.besoinDelesteur); }
     }
     prendre('B1', BORNE);
+    // Coffret vide : présélectionné selon la puissance de la borne (règle du relevé, décision du 16/10, 18 h 49)
+    const coffret = parCle.get('C1');
+    const puissance = parCle.get('B1')?.valeurs[CHAMPS.puissanceVisee];
+    if (coffret && coffret.valeurs[CHAMPS.coffretIrve] === undefined && puissance !== undefined) {
+      const ref = coffretSuggere(cleOption(OPTIONS.puissanceVisee, puissance), null);
+      if (ref && ref in OPTIONS.coffretIrve) {
+        coffret.valeurs[CHAMPS.coffretIrve] = OPTIONS.coffretIrve[ref as keyof typeof OPTIONS.coffretIrve];
+        alertes.push(`Coffret 1 présélectionné en ${ref} (borne ${lisible(CHAMPS.puissanceVisee, puissance)} kW) : à confirmer au relevé.`);
+      }
+    }
     const forfait = parCle.get('CH2')?.valeurs[CHAMPS.distTubeApparent];
     prendre('CH2', [...DISTANCES, ...PERCEMENTS]);
     if (segment === 'RIC' && utilises.has(CHAMPS.distTubeApparent)) {
