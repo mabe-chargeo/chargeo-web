@@ -27,6 +27,8 @@
 // - circuit spécialisé (722.314.101), DDR 30 mA individuel par point de charge (722.411), type A ou F en mono, B en tri,
 //   ou A/F + détection 6 mA DC (IEC 62955).
 // Choix CHARGéO (pas une valeur de norme) : budget de 3 % pour l'artère COP, pour laisser 2 % aux dérivations RIC.
+// 16/10 : l'alimentation du TD IRVE et l'artère COP affichent « 63 A, protection du TD » (ce n'est pas un courant
+// assigné de borne, c'est le calibre de protection du TD).
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Segment } from '@/lib/champsClickUp';
 import { LIBELLE_SEGMENT, ORDRE_NATURE, FORFAIT_RIC_TUBE_APPARENT } from '@/lib/elementsModele';
 import { DISTANCES, PERCEMENTS, SAISIES, alerteTroisMetres, longueurTotale, type ElementReleve } from '@/lib/releveElements';
@@ -330,7 +332,12 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
     else if (k.section !== null) {
       const du = chute(k.ci.tri, long, k.ci.courant, k.section);
       const auto = type === 'artere' ? '' : k.forcee ? ` (forcée)` : k.section > k.ci.sectionMin ? ` (minimum ${fr(k.ci.sectionMin)} mm², augmentée pour la chute)` : '';
-      section = `${fr(k.section)} mm²${auto}, ${k.ci.tri ? 'tri' : 'mono'} ${fr(k.ci.courant)} A assignés, protection ${k.ci.calibre} A, chute ${fr(du, 2)} %`;
+      // Alimentation du TD IRVE et artère COP : 63 A = calibre de protection du TD, pas un courant assigné de borne
+      const td = k.ci.courant === 63 && k.ci.calibre === 63;
+      const circuitTexte = td
+        ? `${k.ci.tri ? 'tri' : 'mono'} 63 A, protection du TD`
+        : `${k.ci.tri ? 'tri' : 'mono'} ${fr(k.ci.courant)} A assignés, protection ${k.ci.calibre} A`;
+      section = `${fr(k.section)} mm²${auto}, ${circuitTexte}, chute ${fr(du, 2)} %`;
       if (type === 'artere') {
         if (k.forcee) section += ` (section forcée)`;
         if (du > BUDGET_ARTERE) alertes.push(`${c.nom} : chute de ${fr(du, 2)} % en ${fr(k.section)} mm², au-dessus du budget artère de ${BUDGET_ARTERE} %`);
