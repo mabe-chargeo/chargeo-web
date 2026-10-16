@@ -12,7 +12,7 @@ import { lireSiteRecu } from '@/lib/releveSite';
 // Page de relevé (lots 3.2, 3.3 et point 21). La fiche doit appartenir à la liste autorisée
 // (vraie Qualification en production, TEST en preview), sinon page introuvable.
 // Cinq cas :
-// - fiche sans sous-relevé : création d'un scénario proposée, relevé complet en dessous ;
+// - fiche sans sous-relevé : création d'un scénario proposée (plus d'ancien formulaire depuis le 16/10) ;
 // - fiche avec scénarios : écran Scénarios, triés A, B, C ;
 // - scénario : éléments du scénario ; l'ancien relevé n'apparaît que tant qu'il n'y a pas d'éléments ;
 // - fiche avec emplacements (point 21, ancien modèle) : liste des emplacements + relevé commun du site ;
@@ -24,6 +24,9 @@ import { lireSiteRecu } from '@/lib/releveSite';
 // Seules les sous-tâches directes de la fiche sont des sous-relevés (les éléments sont des sous-tâches des scénarios).
 // Étape 8 (16/10/2026, PR #51) : carte « Infra CHARGéO à cette adresse » sous le Contact de la fiche
 // (src/components/ui/InfraLiee.tsx) : rattacher un résident en RIC et recopier le Tarif type de l'infra.
+// 16/10, 15 h 44 (Matthieu) : sur une fiche sans scénario, l'ancien formulaire de relevé est retiré. Le relevé se fait
+// dans le scénario, élément par élément. Les valeurs déjà saisies restent dans les champs ClickUp de la fiche. L'ancien
+// relevé reste sur les scénarios sans éléments (décision du 15/10) et sur les fiches à emplacements, jusqu'à la conversion.
 const SEGMENT_OPTIONS: Record<number, string> = { 0: 'RES', 1: 'DAP', 2: 'COP', 3: 'PAR', 4: 'FLT', 5: 'TER', 6: 'RIC' };
 const SEGMENT_ID = 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2';
 const BANDEAU_ANCIEN = 'Ancien modèle (emplacements) : cette fiche sera convertie en scénario avec éléments. Chaque emplacement deviendra une branche du scénario.';
@@ -170,7 +173,7 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  // Fiche sans sous-relevé : création d'un scénario proposée, relevé complet en dessous
+  // Fiche sans sous-relevé : création d'un scénario proposée (le relevé se fait ensuite dans le scénario)
   return (
     <PageAppli>
       <EnTeteAppli surtitre="Visite technique" titre={fiche.name} retour={{ href: '/interne', libelle: 'Planning' }} />
@@ -179,7 +182,6 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
         <InfraLiee affaireId={taskId} />
         <Scenarios affaireId={taskId} scenarios={[]} mode="proposition" statutFiche={fiche.statut} />
         <ScenariosArchives affaireId={taskId} />
-        <MetreForm taskId={taskId} taskName={fiche.name} initialSegment={fiche.segment} />
       </ContenuAppli>
     </PageAppli>
   );
