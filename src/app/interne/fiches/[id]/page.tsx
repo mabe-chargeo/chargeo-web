@@ -3,11 +3,11 @@
 // Fiche détaillée de l'application équipe (structure validée par Matthieu le 16/10/2026). LECTURE SEULE pour l'instant
 // (les actions viennent au lot 3) : statut, client, relevé (bouton Ouvrir le relevé), scénarios avec leurs éléments,
 // devis. Retour vers la vue d'où l'on vient (historique du navigateur), sinon vers Fiches.
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ElementType, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, CalendarClock, ClipboardList, ExternalLink, FileText, GitBranch, Mail, MapPin, Phone, RefreshCw, User } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte, BoutonPrincipal } from '@/components/charte/Appli';
-import { CYAN, GRIS } from '@/components/charte/couleurs';
+import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte } from '@/components/charte/Appli';
+import { CYAN } from '@/components/charte/couleurs';
 
 type Scenario = { id: string; nom: string; statut: string; couleurStatut: string; segment: string; elements: number; natures: { nature: string; n: number }[] };
 type Fiche = {
@@ -65,7 +65,7 @@ export default function FichePage() {
     </button>
   );
 
-  const ligne = (Icon: React.ElementType, contenu: React.ReactNode) => (
+  const ligne = (Icon: ElementType, contenu: ReactNode) => (
     <p className="flex items-center gap-2 text-[15px]">
       <Icon size={16} className="shrink-0" color={CYAN} />
       <span className="min-w-0 truncate">{contenu}</span>
@@ -111,8 +111,11 @@ export default function FichePage() {
             <Carte className="space-y-3">
               <TitreCarte icon={ClipboardList}>Relevé</TitreCarte>
               {ligne(CalendarClock, fiche.releve.visite ? `Visite ${fiche.releve.visite}` : 'Visite pas encore calée')}
-              <a href={fiche.releve.lien}>
-                <BoutonPrincipal type="button">Ouvrir le relevé</BoutonPrincipal>
+              <a
+                href={fiche.releve.lien}
+                className="flex w-full items-center justify-center gap-3 rounded-full bg-[#FF6B00] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95"
+              >
+                Ouvrir le relevé
               </a>
             </Carte>
 
