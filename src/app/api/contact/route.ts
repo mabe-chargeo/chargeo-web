@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getQualificationListId } from '@/lib/listesClickUp';
+import { champType } from '@/lib/typesTaches';
 
 // Liste Qualification choisie selon l'environnement (src/lib/listesClickUp.ts) :
 // production = vraie liste, preview = liste TEST uniquement, sinon refus.
+// Étape 2 (15/10/2026) : le lead naît en type Projet (repli sur Tâche si le type est introuvable).
 export async function POST(request: Request) {
   try {
     const data = await request.json();
@@ -34,6 +36,8 @@ export async function POST(request: Request) {
         if (data.typeClient === "Entreprise") typeClientIndex = 1; 
         if (data.typeClient === "Copropriété") typeClientIndex = 2;
 
+    const type = await champType(CLICKUP_API_KEY, 'projet');
+
     // Envoi des données vers ClickUp
     const response = await fetch(`https://api.clickup.com/api/v2/list/${LIST_ID}/task`, {
       method: 'POST',
@@ -44,6 +48,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         name: `Lead Site Web : ${data.nom}`, 
         description: `Résultat du simulateur : ${data.simulation || "Aucune simulation"}\n\nMessage envoyé par le client :\n\n"${data.message}"`,
+        ...type,
         
         custom_fields: [
           {

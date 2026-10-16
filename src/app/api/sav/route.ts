@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { ESPACE_CLIENT_COOKIE, getClickUpTask, tokenAllowsDossier } from '@/lib/espace-client';
 import { alerter } from '@/lib/alerteSite';
+import { champType } from '@/lib/typesTaches';
 
 // Ticket SAV envoyé depuis le suivi de dossier (lot 3.4, 12/10/2026).
 // - Le dossier doit être ouvert dans l'Espace client (cookie signé) : impossible de créer un ticket pour le dossier d'un autre.
@@ -10,6 +11,7 @@ import { alerter } from '@/lib/alerteSite';
 //   (le client a bien signalé sa panne) et une alerte prévient l'équipe avec le lien du dossier, pour le relier à la main
 //   (écrite dans 📣 Alerte site, relayée par ClickBot à @charge-doperation, src/lib/alerteSite.ts).
 // - Preview : dossiers « Test » uniquement.
+// - Étape 2 (15/10/2026) : le ticket naît en type Ticket SAV.
 const CHAMP_INSTALLATION = '3804df6e-a2e1-4058-913c-447189c73d35';
 const CHAMP_SEVERITE = 'c2ae4e08-6903-4698-af96-a40082c11b39';
 const CHAMP_PANNE = 'cb7bb1fe-6e64-4e1f-ab85-05860871d854';
@@ -61,6 +63,7 @@ export async function POST(request: Request) {
       name: `SAV - ${nom}`,
       description: `Message du client :\n\n"${message}"\n\nDossier : ${dossier.url || dossier.id}`,
       custom_fields: champs,
+      ...(await champType(token, 'ticketSav')),
     });
     if (!res.ok) {
       console.error('Création du ticket SAV refusée', res.status, await res.text().catch(() => ''));

@@ -1,6 +1,7 @@
 import { getQualificationListId } from '@/lib/listesClickUp';
 import { aujourdhuiParis, ajouterJours, ajouterJoursOuvres, prochainOuvre, echeanceClickUp, libelleJour, type Jour } from '@/lib/joursOuvres';
 import { alerter } from '@/lib/alerteSite';
+import { poserType } from '@/lib/typesTaches';
 
 // Prospection (Chasse) : relances internes et passage en Qualification (Phase 2, tache voyageuse, 13/10/2026).
 // Appelé par l'aiguillage (src/lib/aiguillage.ts) pour la liste Prospection, selon le wiki de la liste :
@@ -13,6 +14,7 @@ import { alerter } from '@/lib/alerteSite';
 //   Source et 🔗 Profil LinkedIn partent avec elle (champs propres à Prospection, ajoutés à Qualification par le
 //   déplacement). Le Passeport (téléphone, email, adresse, type client, budget) est commun aux deux listes : il est relu
 //   après le déplacement, un champ vidé est signalé.
+//   Étape 2 (15/10/2026) : arrivée en Qualification, la fiche passe du type Prospect au type Projet.
 // Rien n'est envoyé au prospect : ce sont des rappels internes au commercial.
 // Preview : vrai passage sur une fiche « Test… » uniquement (vers la liste Qualification TEST), simulation partout.
 
@@ -186,7 +188,7 @@ export async function traiterProspection(taskId: string, declencheur: Declencheu
 
   // 📅 rdv fixé : passage en Qualification
   if (simulation) {
-    return { success: true, ...base, action: 'bascule', destination: getQualificationListId() || 'introuvable', statutArrivee: '📍 à visiter', champsDeplaces: ['Source', '🔗 Profil LinkedIn'] };
+    return { success: true, ...base, action: 'bascule', destination: getQualificationListId() || 'introuvable', statutArrivee: '📍 à visiter', champsDeplaces: ['Source', '🔗 Profil LinkedIn'], typeArrivee: 'Projet' };
   }
   await ecrireEcheance(token, id, null);
   const d = await basculer(fiche, token);
@@ -194,11 +196,13 @@ export async function traiterProspection(taskId: string, declencheur: Declencheu
     await alerter(token, id, "⚠️ RDV fixé : la fiche n'a pas pu passer en Qualification. Déplace-la à la main (statut 📍 à visiter), en gardant les champs Source et Profil LinkedIn.");
     return { success: false, ...base, action: 'bascule_echec', detail: d.detail };
   }
+  // Étape 2 : la fiche devient un Projet (sans blocage si le type est introuvable)
+  const typee = await poserType(token, id, 'projet');
   const perdus = A_CONTROLER.filter((c) => rempli(fiche, c.id) && !rempli(d.relue, c.id)).map((c) => c.nom);
   const source = option(fiche, CHAMP_SOURCE);
   await commenter(token, id, `📅 RDV fixé : fiche passée de Prospection en Qualification (${d.detail || '📍 à visiter'}), avec son historique.${source ? ` Source : ${source}.` : ' ⚠️ Source non renseignée.'} Renseigne 📅 Date Visite Technique.`);
   if (perdus.length) {
     await alerter(token, id, `⚠️ RDV fixé : fiche arrivée en Qualification, mais ${perdus.join(', ')} ${perdus.length > 1 ? 'sont vides' : 'est vide'} après le déplacement. Recopie la valeur depuis l'historique de la fiche.`);
   }
-  return { success: !perdus.length, ...base, action: 'bascule', statutArrivee: d.detail, essai: d.essai, champsVides: perdus };
+  return { success: !perdus.length, ...base, action: 'bascule', statutArrivee: d.detail, essai: d.essai, champsVides: perdus, typeProjet: typee };
 }

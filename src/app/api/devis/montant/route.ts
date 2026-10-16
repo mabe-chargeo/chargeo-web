@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClickUp';
 import { aujourdhuiParis, ajouterJoursOuvres, echeanceClickUp, libelleJour } from '@/lib/joursOuvres';
 import { alerter } from '@/lib/alerteSite';
+import { champType } from '@/lib/typesTaches';
 
 // Remontée du devis Costructor dans la fiche (Phase 4, validé par Matthieu le 11/10/2026).
 // Appelé par les automatisations de Qualification : POST ?taskId=...&evenement=envoye | gagne
@@ -19,6 +20,7 @@ import { alerter } from '@/lib/alerteSite';
 //   Client, Réf. devis signé, Lien Costructor, 🔗 Affaire), échéance = rappel à J+1 ouvré pour émettre l'acompte dans
 //   Costructor. Montant laissé vide : il dépend des conditions de chaque devis (décision Matthieu du 11/10). Jamais en
 //   double : une tâche acompte déjà présente pour ce n° de devis est réutilisée.
+//   Étape 2 (15/10/2026) : la tâche d'acompte naît en type Facture.
 // Montants : l'API externe renvoie des centimes (Bacchus D202600007 : 1959994 = 19 599,94 € HT, vérifié le 11/10).
 // Statuts : l'API externe renvoie le code (open, accepted...), traduit ici comme dans Costructor (open = « En attente »).
 // Champs lus par identifiant puis par nom (ils peuvent être renommés sans « signé »).
@@ -224,6 +226,7 @@ async function creerAcompte(cu: string, tache: any, devis: any, lienClient: stri
 
   const res = await clickup(cu, `/list/${FACTURES_ID}/task`, 'POST', {
     name: nom, description, due_date: echeanceClickUp(rappel), due_date_time: false, custom_fields: champs,
+    ...(await champType(cu, 'facture')),
   });
   if (!res.ok) {
     console.error(`Création de l'acompte refusée (${res.status})`, await res.text().catch(() => ''));
