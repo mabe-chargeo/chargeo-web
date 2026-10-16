@@ -4,14 +4,14 @@
 // écran de /interne, 4 onglets. Chacun ne voit que les onglets de ses rôles (lus sur /api/interne/moi) ; sans réponse
 // (hors ligne, session expirée), tous les onglets restent affichés : l'affichage ne donne aucun droit.
 // Masquée dans le relevé (/interne/metre/...), qui a ses propres boutons en bas d'écran.
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ElementType } from 'react';
 import { usePathname } from 'next/navigation';
 import { FolderOpen, HardHat, Menu, Sun } from 'lucide-react';
 import { CYAN, NAVY } from '@/components/charte/couleurs';
 
 type Role = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
-const ONGLETS: { href: string; libelle: string; icon: React.ElementType; roles: Role[] | null; actif: (p: string) => boolean }[] = [
+const ONGLETS: { href: string; libelle: string; icon: ElementType; roles: Role[] | null; actif: (p: string) => boolean }[] = [
   { href: '/interne/journee', libelle: 'Ma journée', icon: Sun, roles: null, actif: (p) => p.startsWith('/interne/journee') },
   {
     href: '/interne/fiches', libelle: 'Fiches', icon: FolderOpen, roles: ['direction', 'commercial', 'chargeOperation', 'backOffice'],
