@@ -12,6 +12,7 @@
 // - les notes, les photos et les anciens champs restent sur l'ancienne tâche (rien n'est effacé).
 // 16/10, 18 h 49 (décision de Matthieu) : coffret vide sur l'ancien relevé → présélectionné selon la puissance de la borne,
 // même règle que le relevé (coffretSuggere, src/lib/releveElements.ts), signalé dans les alertes, modifiable au relevé.
+// 16/10, 19 h 00 (décision de Matthieu) : alerte si la borne est à 11 ou 22 kW sur un raccordement mono (aucune valeur changée).
 // simulation : rien n'est écrit, la réponse montre ce qui serait créé. Une tâche qui a déjà des éléments est refusée.
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Segment } from '@/lib/champsClickUp';
 import { champType, chargerTypes, estScenario } from '@/lib/typesTaches';
@@ -225,6 +226,12 @@ export async function preparer(token: string, tache: any, segmentForce: Segment 
         coffret.valeurs[CHAMPS.coffretIrve] = OPTIONS.coffretIrve[ref as keyof typeof OPTIONS.coffretIrve];
         alertes.push(`Coffret 1 présélectionné en ${ref} (borne ${lisible(CHAMPS.puissanceVisee, puissance)} kW) : à confirmer au relevé.`);
       }
+    }
+    // Cohérence mono / tri (décision du 16/10, 19 h 00) : borne 11 ou 22 kW sur un raccordement mono, rien n'est changé
+    const mono = parCle.get('R')?.valeurs[CHAMPS.typeRaccordement] === OPTIONS.typeRaccordement.mono;
+    const kw = puissance !== undefined ? cleOption(OPTIONS.puissanceVisee, puissance) : null;
+    if (mono && (kw === '11' || kw === '22')) {
+      alertes.push(`Borne ${kw} kW sur un raccordement mono : vérifier le mono / tri (ou la puissance visée).`);
     }
     const forfait = parCle.get('CH2')?.valeurs[CHAMPS.distTubeApparent];
     prendre('CH2', [...DISTANCES, ...PERCEMENTS]);
