@@ -7,6 +7,7 @@
 // scénario (« Dupliquer la branche »). Les fiches à emplacements existantes restent affichées jusqu'à leur conversion.
 // 15/10, 16 h 31 (retour de Matthieu) : au retour sur la fiche par le geste « précédent », Safari ressortait la page
 // gardée en mémoire (scénario encore « Relevé à faire » alors qu'il est prêt). La page est maintenant relue.
+// 16/10, 15 h 44 : l'ancien relevé n'est plus affiché sous la carte « Créer un scénario », le texte le dit.
 // Les sous-relevés se créent avec du réseau, avant de descendre au sous-sol.
 // Scénarios triés A, B, C ; emplacements 1, 2, 3. Pas de mélange sur une fiche (décision du 11/10/2026).
 // Fiche qui n'est plus « à visiter » : elle garde son statut, un avertissement est affiché (décision du 11/10/2026).
@@ -152,7 +153,7 @@ export function Scenarios({
         {ficheAvancee && <Avertissement statutFiche={statutFiche} type="scenario" />}
         <FormulaireAjout affaireId={affaireId} type="scenario" versScenario />
         <p className="text-[13px] leading-relaxed">
-          Le relevé de cette page sera remplacé par les éléments du scénario. Crée-le avec du réseau, avant de descendre.
+          Le relevé se fait ensuite dans le scénario, élément par élément. Crée-le avec du réseau, avant de descendre.
         </p>
       </Carte>
     );
