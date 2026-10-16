@@ -1,32 +1,20 @@
 import { NextResponse } from 'next/server';
-import { getQualificationListId, estAVisiter } from '@/lib/listesClickUp';
-import { aujourdhuiParis, ajouterJours, comparer, libelleJour, type Jour } from '@/lib/joursOuvres';
+import { getQualificationListId } from '@/lib/listesClickUp';
+import { aujourdhuiParis, ajouterJours, comparer, libelleJour } from '@/lib/joursOuvres';
 import { sessionDeRequete } from '@/lib/session';
 import { rolesDe, type Role } from '@/lib/roles';
+import { CHAMPS } from '@/lib/champsClickUp';
+import { adresseDe, champ, dateVisiteDe, jourDe, libelleDate, nomOption, normal, sansEmoji, trier, vueDe, type CleVue } from '@/lib/vuesFiches';
 
-// Accueil « Ma journée » de l'application équipe (Phase 6, maquette du 13/10/2026, demande de Matthieu du 16/10 :
-// « voir du concret »). LECTURE SEULE : rien n'est écrit dans ClickUp.
-// GET : ce qui est à faire aujourd'hui et à débloquer, avec des compteurs réels lus dans ClickUp, selon les rôles de la
-// personne connectée (src/lib/roles.ts). Direction : toutes les cartes (filtres par rôle dans l'écran). Autres rôles :
-// seulement leurs cartes, filtrées ici côté serveur.
-// Cartes (mêmes règles que les routes existantes) :
-// - Relevés (chargé d'opération) : fiches principales « à visiter » (comme /api/chantiers). Une carte par relevé du
-//   jour ou en retard (📅 Date Visite Technique passée, relevé pas encore envoyé), puis une carte « Relevés à venir »
-//   (7 prochains jours). Retour de Matthieu du 16/10 (23 h 14, « ils sont où les relevés ? ») : seuls ceux du jour
-//   s'affichaient ;
-// - Visites à caler (commercial) : fiches « à visiter » sans date de visite (vue ClickUp « 📞 Visites à caler ») ;
-// - Relances devis échues (commercial) : fiches « 📩 devis envoyé » dont l'échéance (relance J+3 ouvrés posée par
-//   /api/relances/devis-envoye) est aujourd'hui ou passée ;
-// - Devis à chiffrer (commercial) : fiches « 📝 devis à faire » ;
-// - Feu vert à donner (chargé d'opération) : chantiers du Planning dont les 5 prérequis sont confirmés ou non
-//   applicables, sans 🟢 Feu vert (le blocage borne résident est revérifié par l'écran Feu vert) ;
-// - Réceptions à valider (chargé d'opération) : chantiers en « ✅ réalisé » (comme /api/interne/reception?role=charge) ;
-// - Factures en retard (back-office) : factures émises ou partiellement payées dont le rappel (échéance de la tâche
-//   posée par /api/factures/relances) est aujourd'hui ou passé ; litiges exclus ;
-// - Contrats à renouveler (back-office) : Parc, 🔄 Echéance annuelle dans les 30 jours ou dépassée, hors « hors service ».
-// Le poseur n'a pas encore de carte : son écran « Mes interventions » est un lot à part.
-// Preview : relevés, relances et devis sont lus dans 🧪 Qualification TEST (getQualificationListId), le reste dans les
-// listes réelles, en lecture seule.
+// Accueil « Ma journée » de l'application équipe (Phase 6, maquette du 13/10/2026). LECTURE SEULE.
+// GET : ce qui est à faire aujourd'hui et à débloquer, avec des compteurs réels, selon les rôles de la personne
+// connectée (src/lib/roles.ts). Direction : toutes les cartes. Autres rôles : seulement les leurs, filtrées ici.
+// 16/10/2026, 23 h 22 (structure validée par Matthieu) : les cartes des fiches ouvrent la vue correspondante de l'écran
+// Fiches (/interne/fiches?vue=…), plus ClickUp ; elles comptent avec les règles de src/lib/vuesFiches.ts (mêmes
+// chiffres que le sous-menu des vues). Relevés du jour et en retard : une carte chacun, qui ouvre la fiche détaillée.
+// Chantiers : feu vert à donner (5 prérequis OK, pas de feu vert) et réceptions à valider (réalisé), vers leurs écrans.
+// Back-office : factures en retard et contrats à renouveler, encore vers ClickUp (écrans du lot back-office à venir).
+// Preview : fiches lues dans 🧪 Qualification TEST, le reste dans les listes réelles, en lecture seule.
 
 export const dynamic = 'force-dynamic';
 
@@ -34,10 +22,6 @@ const EQUIPE = process.env.CLICKUP_TEAM_ID?.trim() || '90151325642';
 const PLANNING_CHANTIERS_ID = '901520038258';
 const PARC_ID = '901520038290';
 const FACTURES_ID = process.env.CLICKUP_FACTURES_LIST_ID || '1200630000003863';
-const DATE_VISITE_ID = '3e633a82-89e3-4895-80d6-04ad25bbccd4';
-const LIEU_CHANTIER_ID = '5b9cbfd6-535c-4416-b530-776f949ce432';
-const ADRESSE_ID = '990a7f3b-989f-416d-9a80-eba5654b228d';
-const TYPE_CLIENT_ID = 'f6b45107-9ba0-406b-8fd7-d678e6ad11dc';
 const CHAMP_FEU_VERT = 'c27f8084-e2f2-4eaf-83bd-d75e082e0d0a';
 // Les 5 prérequis du feu vert (mêmes identifiants que src/app/api/interne/feu-vert/route.ts)
 const PREREQUIS = [
@@ -49,7 +33,6 @@ const PREREQUIS = [
 ];
 const PAGES_MAX = 10;
 const JOURS_CONTRAT = 30;
-const JOURS_A_VENIR = 7;
 const EXEMPLES_MAX = 3;
 
 type Exemple = { nom: string; url: string };
@@ -69,36 +52,9 @@ type CarteJournee = {
 };
 type Releve = { id: string; nom: string; quand: string; retard: boolean; typeClient: string; adresse: string; lien: string };
 
-const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-const champ = (t: any, id: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => c?.id === id);
 const champNomme = (t: any, mot: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => normal(c?.name).includes(mot));
 const urlTache = (t: any) => String(t?.url || `https://app.clickup.com/t/${t?.id}`);
 const urlListe = (id: string) => `https://app.clickup.com/${EQUIPE}/v/li/${id}`;
-const jourDe = (ms: unknown): Jour | null => {
-  const n = Number(ms);
-  return Number.isFinite(n) && n > 0 ? aujourdhuiParis(new Date(n)) : null;
-};
-const exemples = (taches: any[]): Exemple[] => taches.slice(0, EXEMPLES_MAX).map((t) => ({ nom: String(t?.name || ''), url: urlTache(t) }));
-
-function nomOption(t: any, id: string): string {
-  const f = champ(t, id);
-  const v = f?.value;
-  if (v === undefined || v === null || v === '') return '';
-  const o = (f?.type_config?.options || []).find((x: any) => x.orderindex === Number(v) || x.id === v);
-  return String(o?.name || '');
-}
-
-// Option sans son emoji de tête (« 🏢 Syndic » → « syndic »)
-const sansEmoji = (s: string) => s.replace(/^[^A-Za-z\u00C0-\u017F]+/, '').trim().toLowerCase();
-
-function adresseDe(t: any): string {
-  for (const id of [LIEU_CHANTIER_ID, ADRESSE_ID]) {
-    const v = champ(t, id)?.value;
-    const a = v?.formatted_address || (typeof v === 'string' ? v : '');
-    if (a) return String(a);
-  }
-  return '';
-}
 
 // « 14h30 » à Paris. Date sans heure dans ClickUp (enregistrée à 0 h ou 4 h) : heure non précisée
 function heureDe(ms: number): string {
@@ -107,10 +63,6 @@ function heureDe(ms: number): string {
   const m = parts.find((p) => p.type === 'minute')?.value || '00';
   return m === '00' && (h === '00' || h === '04') ? 'heure à caler' : `${h}h${m}`;
 }
-
-// « jeu. 15/10 » à Paris
-const jourCourt = (ms: number) =>
-  new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: '2-digit', month: '2-digit' }).format(new Date(ms));
 
 // Fiches principales ouvertes d'une liste, toutes pages
 async function lister(token: string, listId: string): Promise<any[]> {
@@ -157,65 +109,60 @@ export async function GET(request: Request) {
 
     const aujourdhui = aujourdhuiParis();
     const limiteContrat = ajouterJours(aujourdhui, JOURS_CONTRAT);
-    const limiteAVenir = ajouterJours(aujourdhui, JOURS_A_VENIR);
     const echu = (ms: unknown) => { const j = jourDe(ms); return !!j && comparer(j, aujourdhui) <= 0; };
     const statut = (t: any) => normal(t?.status?.status);
 
-    // Relevés « à visiter », avec leur date de visite
-    const aVisiter = (qualif.taches || [])
-      .filter((t) => estAVisiter(t?.status?.status))
-      .map((t) => ({ t, ms: Number(champ(t, DATE_VISITE_ID)?.value), jour: jourDe(champ(t, DATE_VISITE_ID)?.value) }));
-    // Du jour ou en retard : une carte par relevé, les plus anciens d'abord
-    const duJour = aVisiter
-      .filter(({ jour }) => !!jour && comparer(jour, aujourdhui) <= 0)
-      .sort((a, b) => a.ms - b.ms);
+    // Relevés du jour et en retard : une carte par fiche, les plus anciens d'abord
+    const planifies = vueDe('planifies');
+    const enRetard = vueDe('en-retard');
+    const duJour = (qualif.taches || []).filter((t) => {
+      const j = jourDe(dateVisiteDe(t));
+      return !!j && comparer(j, aujourdhui) === 0 && !!planifies?.filtre(t, aujourdhui);
+    });
+    const retards = (qualif.taches || []).filter((t) => !!enRetard?.filtre(t, aujourdhui));
     const releves: Releve[] = visible('chargeOperation')
-      ? duJour.map(({ t, ms, jour }) => {
-        const retard = !!jour && comparer(jour, aujourdhui) < 0;
+      ? trier([...retards, ...duJour], 'dateVisite').map((t) => {
+        const ms = dateVisiteDe(t) || 0;
+        const retard = retards.includes(t);
         return {
           id: String(t.id),
           nom: String(t.name || ''),
-          quand: retard ? `Prévu ${jourCourt(ms)}, pas encore envoyé` : heureDe(ms),
+          quand: retard ? `Prévu ${libelleDate(ms, false)}, pas encore envoyé` : heureDe(ms),
           retard,
-          typeClient: sansEmoji(nomOption(t, TYPE_CLIENT_ID)),
+          typeClient: sansEmoji(nomOption(t, CHAMPS.typeClient)).toLowerCase(),
           adresse: adresseDe(t),
-          lien: `/interne/metre/${t.id}`,
+          lien: `/interne/fiches/${t.id}`,
         };
       })
       : [];
 
     const cartes: CarteJournee[] = [];
-    const ajouter = (c: Omit<CarteJournee, 'n' | 'exemples' | 'erreur'>, source: { taches: any[] | null; erreur?: string }, filtre: (t: any) => boolean, tri?: (a: any, b: any) => number) => {
+    const ajouter = (c: Omit<CarteJournee, 'n' | 'exemples' | 'erreur'>, source: { taches: any[] | null; erreur?: string }, filtre: (t: any) => boolean) => {
       if (!visible(c.role)) return;
       const liste = source.taches ? source.taches.filter(filtre) : null;
-      if (liste && tri) liste.sort(tri);
-      cartes.push({ ...c, n: liste ? liste.length : null, exemples: liste ? exemples(liste) : [], ...(source.erreur ? { erreur: source.erreur } : {}) });
+      cartes.push({ ...c, n: liste ? liste.length : null, exemples: liste ? liste.slice(0, EXEMPLES_MAX).map((t) => ({ nom: String(t?.name || ''), url: urlTache(t) })) : [], ...(source.erreur ? { erreur: source.erreur } : {}) });
     };
-    const dateVisite = (t: any) => Number(champ(t, DATE_VISITE_ID)?.value) || 0;
+    // Carte d'une vue de l'écran Fiches : même filtre, même tri, ouvre la vue
+    const carteVue = (cle: CleVue, role: Role, surtitre: string, urgent: boolean) => {
+      const v = vueDe(cle);
+      if (!v || !visible(role)) return;
+      const liste = qualif.taches ? trier(qualif.taches.filter((t) => v.filtre(t, aujourdhui)), v.tri) : null;
+      cartes.push({
+        cle, role, section: 'aFaire', surtitre, titre: v.libelle, detail: v.description, urgent,
+        lien: `/interne/fiches?vue=${cle}`, externe: false,
+        n: liste ? liste.length : null,
+        exemples: liste ? liste.slice(0, EXEMPLES_MAX).map((t) => ({ nom: String(t?.name || ''), url: `/interne/fiches/${t.id}` })) : [],
+        ...(qualif.erreur ? { erreur: qualif.erreur } : {}),
+      });
+    };
 
-    const lienQualif = qualifId ? urlListe(qualifId) : 'https://app.clickup.com';
+    carteVue('planifies', 'chargeOperation', "Relevés · Chargé d'opération", false);
+    carteVue('a-caler', 'commercial', 'Commercial', false);
+    carteVue('relances-echues', 'commercial', 'Commercial', true);
+    carteVue('devis-a-chiffrer', 'commercial', 'Commercial', false);
+
     ajouter({
-      cle: 'aVenir', role: 'chargeOperation', section: 'aFaire', surtitre: "Relevés · Chargé d'opération", titre: 'Relevés à venir',
-      detail: `Visites calées dans les ${JOURS_A_VENIR} prochains jours`, urgent: false, lien: '/interne', externe: false,
-    }, qualif, (t) => {
-      if (!estAVisiter(t?.status?.status)) return false;
-      const j = jourDe(champ(t, DATE_VISITE_ID)?.value);
-      return !!j && comparer(j, aujourdhui) > 0 && comparer(j, limiteAVenir) <= 0;
-    }, (a, b) => dateVisite(a) - dateVisite(b));
-    ajouter({
-      cle: 'aCaler', role: 'commercial', section: 'aFaire', surtitre: 'Commercial', titre: 'Visites à caler',
-      detail: 'Relevés sans date de visite : appeler le client', urgent: false, lien: '/interne', externe: false,
-    }, qualif, (t) => estAVisiter(t?.status?.status) && !jourDe(champ(t, DATE_VISITE_ID)?.value));
-    ajouter({
-      cle: 'relances', role: 'commercial', section: 'aFaire', surtitre: 'Commercial', titre: 'Relances devis échues',
-      detail: 'Appeler ou relancer, la prochaine date se recalcule', urgent: true, lien: lienQualif, externe: true,
-    }, qualif, (t) => statut(t).includes('devis envoy') && echu(t?.due_date));
-    ajouter({
-      cle: 'devis', role: 'commercial', section: 'aFaire', surtitre: 'Commercial', titre: 'Devis à chiffrer',
-      detail: 'Fiches en 📝 devis à faire, relevé et brief prêts', urgent: false, lien: lienQualif, externe: true,
-    }, qualif, (t) => statut(t).includes('devis a faire'));
-    ajouter({
-      cle: 'feuVert', role: 'chargeOperation', section: 'aDebloquer', surtitre: "Chargé d'opération", titre: 'Feu vert à donner',
+      cle: 'feuVert', role: 'chargeOperation', section: 'aDebloquer', surtitre: "Chantiers · Chargé d'opération", titre: 'Feu vert à donner',
       detail: 'Chantiers dont les 5 prérequis sont OK', urgent: false, lien: '/interne/feu-vert', externe: false,
     }, planning, (t) => {
       const coche = champ(t, CHAMP_FEU_VERT)?.value;
@@ -223,7 +170,7 @@ export async function GET(request: Request) {
       return PREREQUIS.every((id) => { const n = normal(nomOption(t, id)); return n.includes('confirme') || n.includes('non applicable'); });
     });
     ajouter({
-      cle: 'receptions', role: 'chargeOperation', section: 'aDebloquer', surtitre: "Chargé d'opération", titre: 'Réceptions à valider',
+      cle: 'receptions', role: 'chargeOperation', section: 'aDebloquer', surtitre: "Chantiers · Chargé d'opération", titre: 'Réceptions à valider',
       detail: 'PV, rapport de mesures et photos déposés par le poseur', urgent: true, lien: '/interne/validation', externe: false,
     }, planning, (t) => statut(t).includes('realise'));
     ajouter({
