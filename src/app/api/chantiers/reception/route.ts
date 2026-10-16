@@ -38,6 +38,8 @@ import { chargerTypes, estReserve as estReserveType, estScenario as estScenarioT
 //   alerte sur la tâche de solde de Factures Clients (relais @back-office), voir src/lib/factureSolde.ts. Deux alertes
 //   écrites coup sur coup écrasent le champ avant le relais : la première était perdue (test du 12/10).
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
+//   &forcerTermine=1 (preview seulement) : traite la fiche comme 🏁 terminé sans changer son statut. Depuis la bascule
+//   du 13/10, passer une fiche en terminé déclenche la sonnette de production, qui ferait le passage avec l'ancien code.
 //   GET ?taskId=...&evenement=contrat&devis=quote_...&simulation=1|executer=1 : lecture du contrat seule, sur une fiche
 //   du Parc ou de Planning (exécution : fiche « Test » du Parc uniquement). Sans &devis, le 🔗 Lien devis de la fiche.
 
@@ -277,7 +279,7 @@ function resumeElements(via: string, gardes: Garde[], nbScenarios: number): { te
   return { texte, alerte };
 }
 
-async function traiter(taskId: string, evenement: Evenement, simulation: boolean) {
+async function traiter(taskId: string, evenement: Evenement, simulation: boolean, forcerTermine = false) {
   const token = process.env.CLICKUP_API_KEY;
   if (!token) return { status: 500, body: { success: false, error: 'Configuration serveur incomplète' } };
   const co = process.env.COSTRUCTOR_API_KEY || '';
@@ -322,8 +324,8 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
     return { status: 200, body: { success: true, action: 'realise_incomplet', ...etat, commentaire: texte } };
   }
 
-  // evenement termine
-  if (String(tache?.status?.type || '') !== 'closed') {
+  // evenement termine (forcerTermine : preview seulement, voir en tête)
+  if (String(tache?.status?.type || '') !== 'closed' && !forcerTermine) {
     return { status: 200, body: { success: true, action: 'ignore_pas_termine', statut: tache?.status?.status, simulation } };
   }
   const motifs: string[] = [];
@@ -366,7 +368,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
       body: {
         success: true, action: 'parc_deplacement', ...etat, commentaire: texte,
         elements: { via: sc.via, gardes, scenariosArchives: sc.tous.map((s: any) => String(s.name || '')) },
-        alerteElements: el.alerte || null, contrat, solde, alerteBackOffice: solde.alerteBackOffice ?? null, alerte: null, typeArrivee: 'Installation', simulation,
+        alerteElements: el.alerte || null, contrat, solde, alerteBackOffice: solde.alerteBackOffice ?? null, alerte: null, typeArrivee: 'Installation', forcerTermine, simulation,
       },
     };
   }
@@ -472,7 +474,7 @@ export async function POST(request: Request) {
   }
 }
 
-// Preview uniquement : ?taskId=...&evenement=...&simulation=1 ou &executer=1
+// Preview uniquement : ?taskId=...&evenement=...&simulation=1 ou &executer=1 (+ &forcerTermine=1)
 export async function GET(request: Request) {
   if (process.env.VERCEL_ENV === 'production') {
     return NextResponse.json({ error: 'Non disponible' }, { status: 404 });
@@ -482,6 +484,7 @@ export async function GET(request: Request) {
     const taskId = p.get('taskId');
     const executer = p.get('executer') === '1';
     const simulation = p.get('simulation') === '1';
+    const forcerTermine = p.get('forcerTermine') === '1';
     if (taskId && p.get('evenement') === 'contrat' && (executer || simulation)) {
       const r = await testerContrat(taskId, p.get('devis') || '', !executer);
       return NextResponse.json(r.body, { status: r.status });
@@ -490,7 +493,7 @@ export async function GET(request: Request) {
     if (!taskId || !evenement || (!executer && !simulation)) {
       return NextResponse.json({ error: 'Ajoute ?taskId=...&evenement=realise|termine|contrat&simulation=1 ou &executer=1' }, { status: 400 });
     }
-    const r = await traiter(taskId, evenement, !executer);
+    const r = await traiter(taskId, evenement, !executer, forcerTermine);
     return NextResponse.json(r.body, { status: r.status });
   } catch (error) {
     console.error('Erreur réception chantier (preview) :', error);
