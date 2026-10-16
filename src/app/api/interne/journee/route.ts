@@ -84,6 +84,9 @@ function nomOption(t: any, id: string): string {
   return String(o?.name || '');
 }
 
+// Option sans son emoji de tête (« 🏢 Syndic » → « syndic »)
+const sansEmoji = (s: string) => s.replace(/^[^A-Za-z\u00C0-\u017F]+/, '').trim().toLowerCase();
+
 function adresseDe(t: any): string {
   for (const id of [LIEU_CHANTIER_ID, ADRESSE_ID]) {
     const v = champ(t, id)?.value;
@@ -160,7 +163,7 @@ export async function GET(request: Request) {
         id: String(t.id),
         nom: String(t.name || ''),
         quand: heureDe(ms),
-        typeClient: nomOption(t, TYPE_CLIENT_ID).replace(/^[^\p{L}]+/u, '').trim().toLowerCase(),
+        typeClient: sansEmoji(nomOption(t, TYPE_CLIENT_ID)),
         adresse: adresseDe(t),
         lien: `/interne/metre/${t.id}`,
       }))
