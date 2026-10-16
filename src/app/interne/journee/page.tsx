@@ -6,6 +6,7 @@
 // Chaque carte ouvre l'écran de l'appli quand il existe (relevé, feu vert, validation des réceptions), sinon la liste
 // ClickUp correspondante, en attendant les écrans dédiés des lots commercial et back-office.
 // La date du titre est calculée sur le téléphone après chargement (la page est pré-générée au build).
+// 16/10 (retour de Matthieu) : relevés du jour et en retard (orange), puis relevés à venir et visites à caler.
 import { useEffect, useState } from 'react';
 import { CalendarClock, Camera, ChevronRight, ClipboardCheck, ClipboardList, ExternalLink, MapPin, RefreshCw, TrafficCone } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
@@ -27,7 +28,7 @@ type CarteJournee = {
   exemples: Exemple[];
   erreur?: string;
 };
-type Releve = { id: string; nom: string; quand: string; typeClient: string; adresse: string; lien: string };
+type Releve = { id: string; nom: string; quand: string; retard: boolean; typeClient: string; adresse: string; lien: string };
 type Journee = {
   date: string;
   personne: string | null;
@@ -160,28 +161,38 @@ export default function JourneePage() {
     </a>
   );
 
-  const carteReleve = (r: Releve) => (
-    <a key={r.id} href={r.lien} className="block rounded-[20px] p-5 transition-transform active:scale-[0.98]" style={{ backgroundColor: GRIS }}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Relevé · Chargé d'opération</p>
-          <p className="mt-1 text-[17px] font-bold leading-tight">{r.nom}</p>
-          <p className="mt-1.5 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: CYAN }}>
-            <CalendarClock size={15} className="shrink-0" color={CYAN} />
-            {r.quand}{r.typeClient ? ` · ${r.typeClient}` : ''}
-          </p>
-          {r.adresse && (
-            <p className="mt-1 flex items-center gap-1.5 text-[13px]">
-              <MapPin size={14} className="shrink-0" color={CYAN} />
-              <span className="truncate">{r.adresse}</span>
+  const carteReleve = (r: Releve) => {
+    const couleur = r.retard ? ORANGE : CYAN;
+    return (
+      <a
+        key={r.id}
+        href={r.lien}
+        className="block rounded-[20px] p-5 transition-transform active:scale-[0.98]"
+        style={r.retard ? { backgroundColor: GRIS, boxShadow: `inset 5px 0 0 ${ORANGE}` } : { backgroundColor: GRIS }}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-slate-500">
+              {r.retard ? "Relevé en retard · Chargé d'opération" : "Relevé du jour · Chargé d'opération"}
             </p>
-          )}
-          <p className="mt-1 text-[14px]">Ouvrir le relevé (garder hors ligne)</p>
+            <p className="mt-1 text-[17px] font-bold leading-tight">{r.nom}</p>
+            <p className="mt-1.5 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: couleur }}>
+              <CalendarClock size={15} className="shrink-0" color={couleur} />
+              {r.quand}{r.typeClient ? ` · ${r.typeClient}` : ''}
+            </p>
+            {r.adresse && (
+              <p className="mt-1 flex items-center gap-1.5 text-[13px]">
+                <MapPin size={14} className="shrink-0" color={CYAN} />
+                <span className="truncate">{r.adresse}</span>
+              </p>
+            )}
+            <p className="mt-1 text-[14px]">{r.retard ? 'Terminer et envoyer le relevé' : 'Ouvrir le relevé (garder hors ligne)'}</p>
+          </div>
+          <ChevronRight size={22} className="shrink-0" color={couleur} />
         </div>
-        <ChevronRight size={22} className="shrink-0" color={CYAN} />
-      </div>
-    </a>
-  );
+      </a>
+    );
+  };
 
   const vide = (texte: string) => (
     <Carte className="text-center">
