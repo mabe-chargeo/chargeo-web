@@ -3,6 +3,7 @@ import { MetreForm } from '@/components/ui/MetreForm';
 import { Scenarios } from '@/components/ui/Scenarios';
 import { ElementsScenario, ScenariosArchives } from '@/components/ui/Elements';
 import { BlocContact } from '@/components/ui/BlocContact';
+import { InfraLiee } from '@/components/ui/InfraLiee';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Alerte } from '@/components/charte/Appli';
 import { lireTacheQualification } from '@/lib/listesClickUp';
 import { trierScenarios, typeDesSousReleves, typeSousReleve, type ScenarioResume } from '@/lib/scenarios';
@@ -21,6 +22,8 @@ import { lireSiteRecu } from '@/lib/releveSite';
 // relevé masqué dès que le scénario a des éléments (ses valeurs restent sur la fiche, recopiées dans les éléments à la
 // conversion) ; bandeau « ancien modèle » sur les fiches à emplacements (chaque emplacement deviendra une branche).
 // Seules les sous-tâches directes de la fiche sont des sous-relevés (les éléments sont des sous-tâches des scénarios).
+// Étape 8 (16/10/2026, PR #51) : carte « Infra CHARGéO à cette adresse » sous le Contact de la fiche
+// (src/components/ui/InfraLiee.tsx) : rattacher un résident en RIC et recopier le Tarif type de l'infra.
 const SEGMENT_OPTIONS: Record<number, string> = { 0: 'RES', 1: 'DAP', 2: 'COP', 3: 'PAR', 4: 'FLT', 5: 'TER', 6: 'RIC' };
 const SEGMENT_ID = 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2';
 const BANDEAU_ANCIEN = 'Ancien modèle (emplacements) : cette fiche sera convertie en scénario avec éléments. Chaque emplacement deviendra une branche du scénario.';
@@ -159,6 +162,7 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
         <EnTeteAppli surtitre="Visite technique" titre={fiche.name} retour={{ href: '/interne', libelle: 'Planning' }} />
         <ContenuAppli className="space-y-5">
           <BlocContact affaireId={taskId} />
+          <InfraLiee affaireId={taskId} />
           <Scenarios affaireId={taskId} scenarios={fiche.sousReleves} mode="liste" type="scenario" statutFiche={fiche.statut} />
           <ScenariosArchives affaireId={taskId} />
         </ContenuAppli>
@@ -172,6 +176,7 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
       <EnTeteAppli surtitre="Visite technique" titre={fiche.name} retour={{ href: '/interne', libelle: 'Planning' }} />
       <ContenuAppli className="space-y-5">
         <BlocContact affaireId={taskId} />
+        <InfraLiee affaireId={taskId} />
         <Scenarios affaireId={taskId} scenarios={[]} mode="proposition" statutFiche={fiche.statut} />
         <ScenariosArchives affaireId={taskId} />
         <MetreForm taskId={taskId} taskName={fiche.name} initialSegment={fiche.segment} />
