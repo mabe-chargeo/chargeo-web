@@ -4,8 +4,8 @@ import { CHAMP_AVIS, CHAMP_TECHNICIEN, creerRappelAvis, poseurs } from '@/lib/av
 import { devisIdDe, traiterContrat } from '@/lib/contratMaintenance';
 import { creerSolde } from '@/lib/factureSolde';
 import { alerter } from '@/lib/alerteSite';
-import { estScenarioOuRetenu, sousTachesArchivees } from '@/lib/scenarioRetenu';
-import { poserType } from '@/lib/typesTaches';
+import { PREFIXE_NON_RETENU, PREFIXE_RETENU, PREFIXE_SEPARE, PREFIXE_TARIF } from '@/lib/scenarioRetenu';
+import { chargerTypes, estReserve as estReserveType, estScenario as estScenarioType, poserType, type CarteTypes } from '@/lib/typesTaches';
 
 // Réception, réserves et passage au Parc (Phase 4, bloc 2 validé par Matthieu le 11/10/2026).
 // Appelé par les automatisations de Planning Chantiers : POST ?taskId=...&evenement=realise | termine
@@ -14,11 +14,9 @@ import { poserType } from '@/lib/typesTaches';
 // - termine (statut → 🏁 terminé) : refusé si Réserves vide ou 🔴 Bloquante, PV manquant, ou réserve mineure sans
 //   sous-tâche « 🔧 Réserve : … » complète (responsable + échéance). Refus : retour en ✅ réalisé + motif.
 //   Sinon le site déplace la même tâche au Parc installé en 🟢 en service, avec ses sous-tâches. Seules les
-//   sous-tâches « 🔧 Réserve » encore ouvertes passent en ⚠️ sous surveillance ; les autres (scénarios de relevé…)
-//   passent en 🟢 en service (décision Matthieu du 12/10, test TEST · Scénarios). Depuis le 14/10, les sous-fiches
-//   scénario (« ✅ Retenu · » compris) sont archivées juste avant : un scénario n'est pas un équipement du Parc. Le site note la demande d'avis
-//   faite sur place (QR code) et crée la sous-tâche ⭐ de relance par email à J+7 pour le poseur.
-//   Les règlements et aides ne conditionnent pas ce passage.
+//   sous-tâches Réserve encore ouvertes passent en ⚠️ sous surveillance ; les autres (éléments…) passent en
+//   🟢 en service (décision Matthieu du 12/10). Le site note la demande d'avis faite sur place (QR code) et crée la
+//   sous-tâche ⭐ de relance par email à J+7 pour le poseur. Les règlements et aides ne conditionnent pas ce passage.
 //   📊 Rapport de mesures (contrôleur d'installation, décision Matthieu du 13/10) : obligatoire, il fait partie de la
 //   procédure de mise en service (qualification). Refus du passage au Parc s'il manque ; le champ suit la fiche au Parc.
 //   Prestations vendues (12/10/2026) : le contrat de maintenance du devis signé (🔗 Lien devis, lu avant le déplacement)
@@ -26,8 +24,14 @@ import { poserType } from '@/lib/typesTaches';
 //   src/lib/contratMaintenance.ts). Aucune visite n'est créée ici.
 //   Facture de solde (décision Matthieu du 12/10/2026) : « Solde · client · n° devis » créée dans Factures Clients,
 //   📄 à émettre, rappel J+1 ouvré, sans doublon (voir src/lib/factureSolde.ts).
-//   Étape 2 (15/10/2026) : arrivée au Parc, la fiche passe en type Installation. Les éléments du scénario retenu
-//   seront gardés à l'étape 7 (aujourd'hui, les scénarios sont encore archivés avant le départ).
+//   Étape 2 (15/10/2026) : arrivée au Parc, la fiche passe en type Installation.
+//   Étape 7 (16/10/2026, PR #51, synthèse du 14/10 section 1) : un scénario n'est pas un équipement du Parc, mais ses
+//   éléments si. Avant le départ, les éléments du ou des scénarios « ✅ Retenu · » (ou du seul scénario de la fiche)
+//   remontent sous la fiche (parent = fiche), puis les scénarios sont archivés. Les éléments arrivent au Parc sous
+//   l'Installation, en 🟢 en service, avec leur nature (champs éléments à ajouter au Parc avant la fusion). Un scénario
+//   dont un élément n'a pas pu remonter n'est pas archivé (rien n'est perdu) et le chargé d'opération est prévenu.
+//   Scénarios et réserves reconnus par leur type (repli sur le nom pour les anciennes fiches). 🆔 Numéro de Série
+//   (champ du Parc) : le commentaire de réception liste les bornes et prises où le saisir.
 // Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
 //   Le refus garde en plus son commentaire du site : c'est lui qui évite le ⚠️ « réalisé incomplet » juste après le retour.
 //   Passage au Parc : contrat de maintenance et facture de solde = back-office (décision Matthieu du 13/10) : une seule
@@ -46,6 +50,7 @@ const CHAMP_PHOTOS = 'e907f3f8-c702-47bd-b523-017e684e78c1';
 const CHAMP_RAPPORT = '463edfd0-faf9-40e6-b37a-9ee126c2b449';
 const CHAMPS_A_GARDER = [CHAMP_PV, CHAMP_PHOTOS, CHAMP_RAPPORT, CHAMP_RESERVES, CHAMP_TECHNICIEN, CHAMP_AVIS];
 const PREFIXE_REFUS = '🔴 Passage au Parc refusé';
+const PREFIXES_ECARTES = [PREFIXE_NON_RETENU, PREFIXE_SEPARE, PREFIXE_TARIF];
 const EVENEMENTS = ['realise', 'termine'] as const;
 type Evenement = (typeof EVENEMENTS)[number];
 
@@ -108,12 +113,81 @@ function reserves(t: any): 'aucune' | 'mineure' | 'bloquante' | '' {
   return '';
 }
 
-// Sous-tâches « 🔧 Réserve : … » et celles qui n'ont pas de responsable ou d'échéance
-const estReserve = (s: any) => normal(s?.name).includes('reserve');
-function sousTachesReserve(t: any) {
-  const st = (Array.isArray(t?.subtasks) ? t.subtasks : []).filter(estReserve);
-  const incompletes = st.filter((s: any) => !(Array.isArray(s?.assignees) && s.assignees.length) || !s?.due_date).map((s: any) => s.name);
+// Sous-tâches directes de la fiche : include_subtasks renvoie aussi les éléments, rangés sous leur scénario
+const sousTaches = (t: any): any[] => (Array.isArray(t?.subtasks) ? t.subtasks : []);
+const directes = (t: any): any[] => sousTaches(t).filter((s: any) => !s?.parent || String(s.parent) === String(t?.id));
+
+// Sous-tâches Réserve (type Réserve, ou « 🔧 Réserve : … » sur les anciennes fiches) et celles sans responsable ou échéance
+function sousTachesReserve(t: any, carte: CarteTypes) {
+  const st = directes(t).filter((s: any) => !s?.archived && estReserveType(s, carte));
+  const incompletes = st.filter((s: any) => !(Array.isArray(s?.assignees) && s.assignees.length) || !s?.due_date).map((s: any) => String(s.name));
   return { total: st.length, incompletes };
+}
+
+// Étape 7 : scénarios de la fiche et retenus dont on garde les éléments
+function scenariosDe(t: any, carte: CarteTypes): { tous: any[]; retenus: any[]; via: string } {
+  const tous = directes(t).filter((s: any) => !s?.archived && estScenarioType(s, carte));
+  const actifs = tous.filter((s: any) => !PREFIXES_ECARTES.some((p) => String(s?.name || '').startsWith(p)));
+  let retenus = actifs.filter((s: any) => String(s?.name || '').startsWith(PREFIXE_RETENU));
+  let via = 'retenu';
+  if (!retenus.length && actifs.length === 1) { retenus = actifs; via = 'seul_scenario'; }
+  if (!retenus.length) via = actifs.length ? 'aucun_retenu' : 'sans_scenario';
+  return { tous, retenus, via };
+}
+
+// Éléments (sous-tâches directes non archivées) d'un scénario, relus sur le scénario
+async function elementsDe(token: string, scenarioId: string): Promise<any[]> {
+  const s = await lireTache(scenarioId, token);
+  return sousTaches(s).filter((e: any) => String(e?.parent || '') === scenarioId && !e?.archived);
+}
+
+// Bornes et prises : les équipements dont le 🆔 Numéro de Série se saisit au Parc
+const aNumeroSerie = (nom: string) => /^(borne|prise)/.test(normal(nom).trim());
+
+type Garde = { scenarioId: string; scenario: string; elements: string[]; nonRemontes: string[] };
+
+// Remonte les éléments de chaque scénario retenu sous la fiche (simulation : liste seulement)
+async function garderElements(token: string, ficheId: string, retenus: any[], simulation: boolean): Promise<Garde[]> {
+  const sortie: Garde[] = [];
+  for (const sc of retenus) {
+    const scId = String(sc.id);
+    const elements = await elementsDe(token, scId);
+    const g: Garde = { scenarioId: scId, scenario: String(sc.name || ''), elements: [], nonRemontes: [] };
+    for (const e of elements) {
+      if (simulation) { g.elements.push(String(e.name || '')); continue; }
+      const r = await api(token, `/task/${e.id}`, 'PUT', { parent: ficheId });
+      if (r.ok) g.elements.push(String(e.name || ''));
+      else { g.nonRemontes.push(String(e.name || '')); console.error(`Élément ${e.id} : remontée refusée (${r.status})`); }
+    }
+    sortie.push(g);
+  }
+  return sortie;
+}
+
+// Sous-tâches archivées à toute profondeur (scénarios archivés et leurs éléments, éléments archivés d'un scénario) :
+// absentes de include_subtasks, mais elles suivent la fiche au déplacement. Leurs statuts doivent figurer dans la
+// correspondance (test du 14/10 : une correspondance de tous les statuts de la liste est refusée par ClickUp).
+async function archiveesDescendantes(token: string, listeId: string, fiche: any): Promise<any[]> {
+  const toutes: any[] = [];
+  for (let page = 0; page < 20; page++) {
+    const res = await api(token, `/list/${listeId}/task?archived=true&subtasks=true&include_closed=true&page=${page}`);
+    if (!res.ok) break;
+    const json = await res.json().catch(() => ({}));
+    const lot: any[] = Array.isArray(json?.tasks) ? json.tasks : [];
+    toutes.push(...lot);
+    if (json?.last_page !== false || !lot.length) break;
+  }
+  const ids = new Set<string>([String(fiche.id), ...sousTaches(fiche).map((s: any) => String(s.id))]);
+  const sortie: any[] = [];
+  let ajout = true;
+  while (ajout) {
+    ajout = false;
+    for (const t of toutes) {
+      const tid = String(t?.id || '');
+      if (!ids.has(tid) && ids.has(String(t?.parent || ''))) { ids.add(tid); sortie.push(t); ajout = true; }
+    }
+  }
+  return sortie;
 }
 
 // Un refus récent (moins de 3 min) parmi les derniers commentaires : celui du site ou son relais par ClickBot
@@ -130,21 +204,19 @@ function statutSource(source: any[], s: any): any | undefined {
   return source.find((x: any) => x.id === s?.id) || source.find((x: any) => normal(x.status) === normal(s?.status));
 }
 
-async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean; detail?: string; essai?: string; surveillance?: number }> {
+async function deplacerAuParc(tache: any, token: string, carte: CarteTypes): Promise<{ ok: boolean; detail?: string; essai?: string; surveillance?: number }> {
   const [source, dest] = await Promise.all([statutsListe(PLANNING_CHANTIERS_ID, token), statutsListe(PARC_ID, token)]);
   const enService = dest.find((s: any) => normal(s.status).includes('en service'));
   const surveillance = dest.find((s: any) => normal(s.status).includes('surveillance'));
   if (!enService || !source.length) return { ok: false, detail: 'statuts introuvables' };
 
-  // Statuts réellement utilisés : la tâche principale puis ses sous-tâches (sans doublon), tous vers 🟢 en service.
-  // Un même statut peut porter une réserve et un scénario : le tri se fait après le déplacement, sous-tâche par sous-tâche.
+  // Statuts réellement utilisés : la fiche, ses sous-tâches (éléments remontés compris) et ses sous-tâches archivées à
+  // toute profondeur, sans doublon, tous vers 🟢 en service. Le tri des réserves se fait après le déplacement.
   const actuel = statutSource(source, tache.status);
   if (!actuel) return { ok: false, detail: 'statut actuel introuvable' };
-  // Statuts utilisés : la fiche, ses sous-tâches, et ses sous-fiches archivées (scénarios, absents de la lecture, 14/10)
   const utilises: any[] = [actuel];
-  const sousTaches: any[] = Array.isArray(tache?.subtasks) ? tache.subtasks : [];
-  const archivees = await sousTachesArchivees(token, PLANNING_CHANTIERS_ID, String(tache.id));
-  for (const st of [...sousTaches, ...archivees]) {
+  const archivees = await archiveesDescendantes(token, PLANNING_CHANTIERS_ID, tache);
+  for (const st of [...sousTaches(tache), ...archivees]) {
     const s = statutSource(source, st.status);
     if (s && !utilises.some((u) => u.id === s.id)) utilises.push(s);
   }
@@ -167,7 +239,7 @@ async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean;
     );
     if (res.ok) {
       // Réserves encore ouvertes (ni done ni closed) : ⚠️ sous surveillance. Les autres sous-tâches restent en service.
-      const ouvertes = sousTaches.filter((st) => estReserve(st) && !['done', 'closed'].includes(String(st?.status?.type || '')));
+      const ouvertes = directes(tache).filter((st: any) => !st?.archived && estReserveType(st, carte) && !['done', 'closed'].includes(String(st?.status?.type || '')));
       let enSurveillance = 0;
       if (surveillance) {
         for (const st of ouvertes) {
@@ -183,6 +255,26 @@ async function deplacerAuParc(tache: any, token: string): Promise<{ ok: boolean;
     if (res.status !== 400) break;
   }
   return { ok: false, detail: erreurs.join(' | ') };
+}
+
+// Phrase du commentaire de réception sur les éléments gardés, et alerte éventuelle au chargé d'opération
+function resumeElements(via: string, gardes: Garde[], nbScenarios: number): { texte: string; alerte: string } {
+  const elements = gardes.flatMap((g) => g.elements);
+  const nonRemontes = gardes.flatMap((g) => g.nonRemontes);
+  const serie = elements.filter(aNumeroSerie);
+  let texte = '';
+  let alerte = '';
+  if (elements.length) {
+    texte += ` 📦 ${elements.length} élément${elements.length > 1 ? 's' : ''} gardé${elements.length > 1 ? 's' : ''} sous l'installation (${gardes.map((g) => g.scenario).join(', ')}) : ${elements.join(', ')}.`;
+  }
+  if (serie.length) texte += ` 🆔 Numéro de Série à saisir sur : ${serie.join(', ')}.`;
+  if (nbScenarios) texte += ` Scénario${nbScenarios > 1 ? 's' : ''} archivé${nbScenarios > 1 ? 's' : ''} (« afficher les archivées » pour ${nbScenarios > 1 ? 'les' : 'le'} revoir).`;
+  if (via === 'aucun_retenu') {
+    alerte = '⚠️ Passage au Parc : aucun scénario « ✅ Retenu · » sur la fiche, aucun élément n\'a été gardé. Les scénarios sont archivés avec leurs éléments : remonte à la main ceux du scénario réalisé sous l\'installation.';
+  } else if (nonRemontes.length) {
+    alerte = `⚠️ Passage au Parc : ${nonRemontes.length} élément${nonRemontes.length > 1 ? 's' : ''} n'${nonRemontes.length > 1 ? 'ont' : 'a'} pas pu remonter sous l'installation (${nonRemontes.join(', ')}). Leur scénario est resté en place : remonte-les à la main puis archive le scénario.`;
+  }
+  return { texte, alerte };
 }
 
 async function traiter(taskId: string, evenement: Evenement, simulation: boolean) {
@@ -201,11 +293,12 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   }
 
   const id = String(tache.id);
+  const { carte } = await chargerTypes(token);
   const pv = aFichier(tache, CHAMP_PV);
   const photos = aFichier(tache, CHAMP_PHOTOS);
   const rapport = aFichier(tache, CHAMP_RAPPORT);
   const res = reserves(tache);
-  const st = sousTachesReserve(tache);
+  const st = sousTachesReserve(tache, carte);
   const pose = poseurs(tache);
   const aujourdhui = aujourdhuiParis();
   const jour = libelleJour(aujourdhui);
@@ -255,27 +348,49 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   const mineures = res === 'mineure' ? ` ${st.total} réserve${st.total > 1 ? 's' : ''} mineure${st.total > 1 ? 's' : ''} suivie${st.total > 1 ? 's' : ''} en sous-tâche.` : '';
   const sansPhotos = photos ? '' : ' ⚠️ Pas de 📸 Photos Chantier : à ajouter pour le SAV.';
   const avis = ` ⭐ Avis Google demandé sur place${pose.noms.length ? ` par ${pose.noms.join(', ')}` : ''} ; sans avis, relance par email le ${libelleJour(ajouterJours(aujourdhui, 7))}.`;
-  let texte = `🏁 Réception confirmée le ${jour} : chantier passé au Parc installé.${mineures}${sansPhotos}${avis}`;
+
+  // Étape 7 : éléments du ou des scénarios retenus gardés sous la fiche, scénarios archivés ensuite
+  const sc = scenariosDe(tache, carte);
   if (simulation) {
+    const gardes = await garderElements(token, id, sc.retenus, true);
+    const el = resumeElements(sc.via, gardes, sc.tous.length);
+    const texte = `🏁 Réception confirmée le ${jour} : chantier passé au Parc installé.${mineures}${el.texte}${sansPhotos}${avis}`;
     const contrat: any = co ? await traiterContrat(token, co, id, devisId, aujourdhui, true) : { action: 'cle_costructor_absente' };
     // Contrat et solde : alerte au back-office (sur la tâche de solde), pas au chantier
     const pourBackOffice = !co
       ? '⚠️ Contrat de maintenance : lecture du devis impossible (configuration). Remplis 📜 Type de Contrat à la main.'
       : contrat?.notifier ? String(contrat.commentaire || '') : '';
     const solde = await creerSolde(token, tache, true, pourBackOffice);
-    return { status: 200, body: { success: true, action: 'parc_deplacement', ...etat, commentaire: texte, contrat, solde, alerteBackOffice: solde.alerteBackOffice ?? null, alerte: null, typeArrivee: 'Installation', simulation } };
+    return {
+      status: 200,
+      body: {
+        success: true, action: 'parc_deplacement', ...etat, commentaire: texte,
+        elements: { via: sc.via, gardes, scenariosArchives: sc.tous.map((s: any) => String(s.name || '')) },
+        alerteElements: el.alerte || null, contrat, solde, alerteBackOffice: solde.alerteBackOffice ?? null, alerte: null, typeArrivee: 'Installation', simulation,
+      },
+    };
   }
 
-  // Scénarios (retenu compris) archivés avant le départ : ils suivent le projet sans arriver au Parc comme matériel
-  for (const sc of (Array.isArray(tache?.subtasks) ? tache.subtasks : []).filter((s: any) => estScenarioOuRetenu(s?.name) && !s?.archived)) {
-    const r = await api(token, `/task/${sc.id}`, 'PUT', { archived: true });
-    if (!r.ok) console.error(`Scénario ${sc.id} : archivage refusé (${r.status})`);
+  const gardes = await garderElements(token, id, sc.retenus, false);
+  const bloques = new Set(gardes.filter((g) => g.nonRemontes.length).map((g) => g.scenarioId));
+  const archivesSc: string[] = [];
+  for (const s of sc.tous) {
+    if (bloques.has(String(s.id))) continue;
+    const r = await api(token, `/task/${s.id}`, 'PUT', { archived: true });
+    if (r.ok) archivesSc.push(String(s.name || ''));
+    else console.error(`Scénario ${s.id} : archivage refusé (${r.status})`);
   }
-  tache.subtasks = (Array.isArray(tache?.subtasks) ? tache.subtasks : []).filter((s: any) => !estScenarioOuRetenu(s?.name));
-  const d = await deplacerAuParc(tache, token);
+  // Sous-tâches relues après la remontée (éléments maintenant directs), scénarios archivés retirés
+  const idsArchives = new Set(sc.tous.filter((s: any) => !bloques.has(String(s.id))).map((s: any) => String(s.id)));
+  const relue = await lireTache(id, token);
+  tache.subtasks = sousTaches(relue || tache).filter((s: any) => !s?.archived && !idsArchives.has(String(s.id)) && !idsArchives.has(String(s?.parent || '')));
+  const el = resumeElements(sc.via, gardes, archivesSc.length);
+  let texte = `🏁 Réception confirmée le ${jour} : chantier passé au Parc installé.${mineures}${el.texte}${sansPhotos}${avis}`;
+
+  const d = await deplacerAuParc(tache, token, carte);
   if (!d.ok) {
     await commenter(id, token, `⚠️ Passage au Parc : la tâche n'a pas pu être déplacée. Déplace-la à la main vers Parc installé.`, true);
-    return { status: 502, body: { success: false, error: 'Déplacement impossible', detail: d.detail, ...etat } };
+    return { status: 502, body: { success: false, error: 'Déplacement impossible', detail: d.detail, elements: { via: sc.via, gardes, scenariosArchives: archivesSc }, ...etat } };
   }
   // Étape 2 : la fiche devient une Installation (sans blocage si le type est introuvable)
   const installation = await poserType(token, id, 'installation');
@@ -288,6 +403,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   // Les deux points partent en UNE alerte sur la tâche de solde de Factures Clients (espace BACK OFFICE, relais
   // @back-office). Seul repli sur le chantier (chargé d'opération) : la tâche de solde n'a pas pu être créée.
   const aFaire: string[] = [];
+  if (el.alerte) aFaire.push(el.alerte);
   let contrat: any = { action: 'cle_costructor_absente' };
   let pourBackOffice = '';
   if (co) {
@@ -309,7 +425,13 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
 
   const alerte = aFaire.length ? regrouperAlertes(aFaire) : null;
   if (alerte) await alerter(token, id, alerte);
-  return { status: 200, body: { success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, reservesSurveillance: d.surveillance, typeInstallation: installation, avis: rappel, contrat, solde, alerte, ...etat, commentaire: texte } };
+  return {
+    status: 200,
+    body: {
+      success: true, action: 'parc_deplace', statutParc: d.detail, essai: d.essai, reservesSurveillance: d.surveillance, typeInstallation: installation,
+      elements: { via: sc.via, gardes, scenariosArchives: archivesSc }, avis: rappel, contrat, solde, alerte, ...etat, commentaire: texte,
+    },
+  };
 }
 
 // Preview : contrat de maintenance seul (lecture partout, écriture sur la fiche « Test » du Parc)
