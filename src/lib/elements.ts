@@ -562,7 +562,7 @@ async function statutNomme(token: string, listeId: string, mot: string): Promise
 }
 
 // « Prêt à chiffrer » : contrôle de complétude, scénario en 📝 devis à faire, fiche aussi quand tous ses scénarios sont prêts.
-// Le brief de chiffrage (étape 5) sera posté ici.
+// Le brief de chiffrage est ensuite posté par la route /api/interne/elements (src/lib/briefChiffrage.ts).
 export async function pretAChiffrer(ctx: Contexte): Promise<Resultat & { manquants?: { nom: string; quoi: string[] }[] }> {
   const elements = ctx.actifs.map(vue);
   if (!elements.length) return { ok: false, erreur: "Crée d'abord les éléments du scénario", crees: [], erreurs: [] };
@@ -596,7 +596,6 @@ export async function pretAChiffrer(ctx: Contexte): Promise<Resultat & { manquan
       else erreurs.push('statut de la fiche');
     }
   }
-  messages.push('Le brief de chiffrage sera posté automatiquement à partir de l’étape 5.');
   return { ok: erreurs.length === 0, crees: [], erreurs, messages };
 }
 
