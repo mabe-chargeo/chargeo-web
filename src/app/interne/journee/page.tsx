@@ -3,12 +3,12 @@
 // Accueil « Ma journée » de l'application équipe (Phase 6, maquette du 13/10/2026 jointe à la tâche Phase 6).
 // Lecture seule : les compteurs viennent de /api/interne/journee (rôles contrôlés côté serveur).
 // Direction : toutes les cartes, avec les filtres par rôle en haut. Autres rôles : seulement leurs cartes.
-// Chaque carte ouvre l'écran de l'appli quand il existe (relevé, feu vert, validation des réceptions), sinon la liste
-// ClickUp correspondante, en attendant les écrans dédiés des lots commercial et back-office.
+// 16/10/2026, 23 h 22 (structure validée par Matthieu) : les cartes ouvrent les vues de l'écran Fiches ou les écrans
+// Chantiers ; les relevés du jour et en retard ouvrent leur fiche. Navigation par la barre du bas (src/components/charte/
+// NavAppli.tsx), qui remplace les raccourcis et le lien de déconnexion (onglet Plus).
 // La date du titre est calculée sur le téléphone après chargement (la page est pré-générée au build).
-// 16/10 (retour de Matthieu) : relevés du jour et en retard (orange), puis relevés à venir et visites à caler.
 import { useEffect, useState } from 'react';
-import { CalendarClock, Camera, ChevronRight, ClipboardCheck, ClipboardList, ExternalLink, MapPin, RefreshCw, TrafficCone } from 'lucide-react';
+import { CalendarClock, ChevronRight, ExternalLink, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 
@@ -55,12 +55,6 @@ const LIBELLE_ROLE: Record<Role, string> = {
   backOffice: 'Back-office',
   poseur: 'Poseur',
 };
-const RACCOURCIS = [
-  { href: '/interne', libelle: 'Mon planning', icon: ClipboardList },
-  { href: '/interne/feu-vert', libelle: 'Feu vert', icon: TrafficCone },
-  { href: '/interne/reception', libelle: 'Réception', icon: Camera },
-  { href: '/interne/validation', libelle: 'Validation', icon: ClipboardCheck },
-];
 
 // « ven. 16/10 »
 const jourCourt = () =>
@@ -155,7 +149,7 @@ export default function JourneePage() {
       )}
       {c.externe && (
         <p className="mt-2 flex items-center gap-1.5 text-[12px] font-semibold text-slate-500">
-          <ExternalLink size={12} /> Ouvrir dans ClickUp
+          <ExternalLink size={12} /> Ouvre ClickUp en attendant l'écran back-office
         </p>
       )}
     </a>
@@ -186,7 +180,7 @@ export default function JourneePage() {
                 <span className="truncate">{r.adresse}</span>
               </p>
             )}
-            <p className="mt-1 text-[14px]">{r.retard ? 'Terminer et envoyer le relevé' : 'Ouvrir le relevé (garder hors ligne)'}</p>
+            <p className="mt-1 text-[14px]">{r.retard ? 'Ouvrir la fiche pour terminer le relevé' : 'Ouvrir la fiche et le relevé'}</p>
           </div>
           <ChevronRight size={22} className="shrink-0" color={couleur} />
         </div>
@@ -206,7 +200,7 @@ export default function JourneePage() {
 
       <ContenuAppli className="space-y-4">
         {donnees?.preview && (
-          <Alerte>Prévisualisation : relevés, relances et devis lus dans 🧪 Qualification TEST. Rien n'est modifié.</Alerte>
+          <Alerte>Prévisualisation : fiches lues dans 🧪 Qualification TEST. Rien n'est modifié.</Alerte>
         )}
         {(donnees?.avertissements || []).map((a) => <Alerte key={a}>{a}</Alerte>)}
 
@@ -244,29 +238,8 @@ export default function JourneePage() {
             <Repere>À débloquer</Repere>
             {aDebloquer.map(carteCompteur)}
             {!aDebloquer.length && vide('Rien à débloquer.')}
-
-            <div className="h-2" />
-            <Repere>Raccourcis</Repere>
-            <div className="grid grid-cols-2 gap-3">
-              {RACCOURCIS.map(({ href, libelle, icon: Icon }) => (
-                <a
-                  key={href}
-                  href={href}
-                  className="flex items-center gap-3 rounded-[16px] bg-white p-4 text-[15px] font-bold ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
-                >
-                  <span className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px]" style={{ backgroundColor: CYAN }}>
-                    <Icon size={18} color="#ffffff" strokeWidth={1.8} />
-                  </span>
-                  {libelle}
-                </a>
-              ))}
-            </div>
           </>
         )}
-
-        <div className="pt-6 text-center">
-          <a href="/api/auth/deconnexion" className="text-[13px] font-semibold underline" style={{ color: CYAN }}>Se déconnecter</a>
-        </div>
       </ContenuAppli>
     </PageAppli>
   );
