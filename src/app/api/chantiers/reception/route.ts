@@ -32,6 +32,8 @@ import { chargerTypes, estReserve as estReserveType, estScenario as estScenarioT
 //   dont un élément n'a pas pu remonter n'est pas archivé (rien n'est perdu) et le chargé d'opération est prévenu.
 //   Scénarios et réserves reconnus par leur type (repli sur le nom pour les anciennes fiches). 🆔 Numéro de Série
 //   (champ du Parc) : le commentaire de réception liste les bornes et prises où le saisir.
+//   Étape 8 (16/10/2026) : 🔗 Infrastructure liée suit la fiche au Parc. L'Installation d'un résident RIC reste ainsi
+//   reliée à l'Installation de l'infra (Q15 : un ticket SAV sur l'artère retrouve les bornes branchées dessus).
 // Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
 //   Le refus garde en plus son commentaire du site : c'est lui qui évite le ⚠️ « réalisé incomplet » juste après le retour.
 //   Passage au Parc : contrat de maintenance et facture de solde = back-office (décision Matthieu du 13/10) : une seule
@@ -50,7 +52,8 @@ const CHAMP_RESERVES = '1463a905-0b11-4693-b9d9-e8cca4f79eeb';
 const CHAMP_PV = 'ea4cf46a-c8bc-41ad-a46e-c7d313099f1b';
 const CHAMP_PHOTOS = 'e907f3f8-c702-47bd-b523-017e684e78c1';
 const CHAMP_RAPPORT = '463edfd0-faf9-40e6-b37a-9ee126c2b449';
-const CHAMPS_A_GARDER = [CHAMP_PV, CHAMP_PHOTOS, CHAMP_RAPPORT, CHAMP_RESERVES, CHAMP_TECHNICIEN, CHAMP_AVIS];
+const CHAMP_INFRA_LIEE = 'f9b02e8a-b3ec-4fb6-b4fe-6be11e3b63ad'; // 🔗 Infrastructure liée (étape 8, src/lib/infraLiee.ts)
+const CHAMPS_A_GARDER = [CHAMP_PV, CHAMP_PHOTOS, CHAMP_RAPPORT, CHAMP_RESERVES, CHAMP_TECHNICIEN, CHAMP_AVIS, CHAMP_INFRA_LIEE];
 const PREFIXE_REFUS = '🔴 Passage au Parc refusé';
 const PREFIXES_ECARTES = [PREFIXE_NON_RETENU, PREFIXE_SEPARE, PREFIXE_TARIF];
 const EVENEMENTS = ['realise', 'termine'] as const;
