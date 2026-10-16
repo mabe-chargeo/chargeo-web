@@ -10,8 +10,9 @@
 // 13/10/2026 (Phase 6) : accès à l'écran Feu vert chantiers du chargé d'opération (/interne/feu-vert), et lien de
 // déconnexion (connexion avec le compte ClickUp, src/proxy.ts). Réception en deux temps : le poseur collecte
 // (/interne/reception), le chargé d'opération valide (/interne/validation).
+// 16/10/2026 (Phase 6) : accès à l'accueil « Ma journée » (/interne/journee), en tête de page.
 import { useEffect, useState } from 'react';
-import { CalendarClock, Camera, ChevronRight, ClipboardCheck, ClipboardList, GitBranch, History, MapPin, RefreshCw, TrafficCone, Zap } from 'lucide-react';
+import { CalendarClock, Camera, ChevronRight, ClipboardCheck, ClipboardList, GitBranch, History, MapPin, RefreshCw, Sun, TrafficCone, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { relevesATerminer } from '@/lib/releveLocal';
@@ -134,6 +135,20 @@ export default function InternePage() {
       <EnTeteAppli surtitre="Espace technique" titre="Mon planning" action={boutonActualiser} />
 
       <ContenuAppli className="space-y-4">
+        <a
+          href="/interne/journee"
+          className="flex w-full items-center gap-4 rounded-[20px] bg-white p-5 text-left ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
+          style={{ boxShadow: `inset 5px 0 0 ${ORANGE}` }}
+        >
+          <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: ORANGE }}>
+            <Sun size={22} color="#ffffff" strokeWidth={1.8} />
+          </div>
+          <div className="min-w-0 grow">
+            <p className="text-[17px] font-bold leading-tight">Ma journée</p>
+            <p className="mt-1.5 text-[13px]">À faire aujourd'hui et à débloquer, par rôle</p>
+          </div>
+          <ChevronRight size={22} className="shrink-0" color={ORANGE} />
+        </a>
         <a
           href="/interne/feu-vert"
           className="flex w-full items-center gap-4 rounded-[20px] bg-white p-5 text-left ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
