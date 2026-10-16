@@ -5,6 +5,7 @@
 // Direction : toutes les cartes, avec les filtres par rôle en haut. Autres rôles : seulement leurs cartes.
 // Chaque carte ouvre l'écran de l'appli quand il existe (relevé, feu vert, validation des réceptions), sinon la liste
 // ClickUp correspondante, en attendant les écrans dédiés des lots commercial et back-office.
+// La date du titre est calculée sur le téléphone après chargement (la page est pré-générée au build).
 import { useEffect, useState } from 'react';
 import { CalendarClock, Camera, ChevronRight, ClipboardCheck, ClipboardList, ExternalLink, MapPin, RefreshCw, TrafficCone } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
@@ -69,10 +70,12 @@ export default function JourneePage() {
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [filtre, setFiltre] = useState<Filtre>('tout');
+  const [jour, setJour] = useState('');
 
   const charger = async () => {
     setLoading(true);
     setErreur(null);
+    setJour(jourCourt());
     try {
       const res = await fetch('/api/interne/journee', { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
@@ -188,7 +191,7 @@ export default function JourneePage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre={surtitre} titre={`Ma journée · ${jourCourt()}`} action={boutonActualiser} />
+      <EnTeteAppli surtitre={surtitre} titre={jour ? `Ma journée · ${jour}` : 'Ma journée'} action={boutonActualiser} />
 
       <ContenuAppli className="space-y-4">
         {donnees?.preview && (
