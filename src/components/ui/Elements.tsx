@@ -4,12 +4,13 @@
 // Étape 3 : éléments créés d'office selon le segment, noms automatiques, archiver et restaurer en cascade, dupliquer
 // (branche, borne seule, scénario), droits par rôle contrôlés côté serveur.
 // Étape 4 : relevé élément par élément (matrice src/lib/releveElements.ts), photos par élément, brouillon gardé sur le
-// téléphone (hors ligne), alerte orange au-delà de 3 m, coffret suggéré, bouton « Prêt à chiffrer », bloc 📇 Contact,
+// téléphone (hors ligne), alerte orange au-delà de 3 m, coffret suggéré, bouton « Prêt à chiffrer »,
 // confirmations et renommages dans la page (plus de fenêtres du navigateur, plus sûr sur téléphone).
+// Le bloc 📇 Contact est dans src/components/ui/BlocContact.tsx (l'ancienne version de ce fichier a été retirée le 16/10).
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  AlertTriangle, Archive, Camera, ChevronDown, ChevronUp, Copy, GitBranch, Layers, Mail, MapPin, MessageSquare, Navigation,
-  Pencil, Phone, Plus, RotateCcw, Send, Users, X,
+  AlertTriangle, Archive, Camera, ChevronDown, ChevronUp, Copy, GitBranch, Layers,
+  Pencil, Plus, RotateCcw, Send, X,
 } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, Repere, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, LABEL, NAVY } from '@/components/charte/couleurs';
@@ -119,21 +120,6 @@ function PetitBouton({ onClick, disabled, children }: { onClick: () => void; dis
     >
       {children}
     </button>
-  );
-}
-
-function Lien({ href, children }: { href: string; children: ReactNode }) {
-  const externe = href.startsWith('http');
-  return (
-    <a
-      href={href}
-      target={externe ? '_blank' : undefined}
-      rel={externe ? 'noopener noreferrer' : undefined}
-      className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[13px] font-semibold ring-[1.5px] ring-[#dfe3e8]"
-      style={{ color: LABEL }}
-    >
-      {children}
-    </a>
   );
 }
 
@@ -768,75 +754,6 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
         </Carte>
       )}
     </div>
-  );
-}
-
-// ---- Bloc 📇 Contact (repliable, en haut du relevé) ----
-type Personne = { nom: string; tel: string; email: string };
-type FicheContact = {
-  fiche: { id: string; nom: string };
-  client: { tel: string; email: string };
-  adresse: { texte: string; lat: number | null; lng: number | null } | null;
-  contactSurPlace: Personne[];
-  gestionnaire: Personne[];
-};
-const telLien = (t: string) => t.replace(/[^\d+]/g, '');
-
-export function BlocContact({ affaireId }: { affaireId: string }) {
-  const [c, setC] = useState<FicheContact | null>(null);
-  const [ouvert, setOuvert] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`/api/interne/fiche-contact?affaireId=${encodeURIComponent(affaireId)}`, { cache: 'no-store' });
-        const j = await res.json().catch(() => ({}));
-        if (res.ok && j?.success) setC(j as FicheContact);
-      } catch { /* hors ligne : bloc masqué */ }
-    })();
-  }, [affaireId]);
-
-  if (!c) return null;
-  const a = c.adresse;
-  const cible = a ? (a.lat !== null && a.lng !== null ? `${a.lat},${a.lng}` : a.texte) : '';
-  const waze = a ? (a.lat !== null && a.lng !== null ? `https://waze.com/ul?ll=${a.lat},${a.lng}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent(a.texte)}&navigate=yes`) : '';
-  const maps = a ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(cible)}` : '';
-
-  const personne = (titre: string, p: Personne, sms: boolean) => (
-    <div key={`${titre}-${p.nom}`} className="space-y-2">
-      <p className="text-[14px]"><strong>{titre} :</strong> {p.nom || '–'}</p>
-      <div className="flex flex-wrap gap-2">
-        {p.tel && <Lien href={`tel:${telLien(p.tel)}`}><Phone size={14} /> Appeler</Lien>}
-        {p.tel && sms && <Lien href={`sms:${telLien(p.tel)}`}><MessageSquare size={14} /> SMS</Lien>}
-        {p.email && <Lien href={`mailto:${p.email}`}><Mail size={14} /> Email</Lien>}
-      </div>
-    </div>
-  );
-
-  return (
-    <Carte className="space-y-3">
-      <button type="button" onClick={() => setOuvert(!ouvert)} className="w-full text-left">
-        <TitreCarte icon={Users} extra={ouvert ? <ChevronUp size={20} /> : <ChevronDown size={20} />}>📇 Contact</TitreCarte>
-      </button>
-      {ouvert && (
-        <div className="space-y-4">
-          {personne('Client', { nom: c.fiche.nom, tel: c.client.tel, email: c.client.email }, true)}
-          {c.contactSurPlace.map((p) => personne('Contact sur place', p, true))}
-          {c.gestionnaire.map((p) => personne('Gestionnaire', p, false))}
-          {a ? (
-            <div className="space-y-2">
-              <p className="flex items-start gap-2 text-[14px]"><MapPin size={16} className="mt-0.5 shrink-0" /> {a.texte}</p>
-              <div className="flex flex-wrap gap-2">
-                <Lien href={waze}><Navigation size={14} /> Waze</Lien>
-                <Lien href={maps}><MapPin size={14} /> Google Maps</Lien>
-              </div>
-            </div>
-          ) : (
-            <p className="text-[14px]">Pas d&apos;adresse sur la fiche.</p>
-          )}
-        </div>
-      )}
-    </Carte>
   );
 }
 
