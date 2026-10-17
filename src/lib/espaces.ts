@@ -19,6 +19,10 @@
 // et Agenda des visites ajouté au commercial (/interne/agenda, compteur = relevés planifiés).
 // 17/10, 15 h 22 : Décomptes construit depuis le Parc, sans nouvelle liste (/interne/decomptes, src/lib/decomptes.ts) ;
 // compteur = bornes suivies en relevé.
+// 17/10, 16 h 11 (Matthieu : « en mode direction, je ne veux pas avoir des boutons ou des raccourcis espace commercial,
+// espace chef de chantier etc., je veux voir directement leurs écrans dans l'ordre du workflow ») : l'espace Direction
+// contient les écrans de tous les rôles, rangés par étape du parcours (Vente, Chantier, Facturation et aides, Parc et
+// après-vente, Équipe et pilotage). Les compteurs « moi » de l'installateur sont remplacés par ceux de l'équipe.
 // Clé de vue : « cle » dans la source de la vue, ou « source:cle » pour additionner une autre liste.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit.
 import type { Jour } from '@/lib/joursOuvres';
@@ -46,6 +50,8 @@ export type VueEspace = {
   externe?: boolean;
   // Écran pas encore construit (pas de compteur)
   aConstruire?: boolean;
+  // Étape du parcours (intitulé de rangée, espace Direction)
+  etape?: string;
 };
 
 export type Espace = { titre: string; creer?: { libelle: string; href: string }; vues: VueEspace[] };
@@ -85,6 +91,13 @@ const ecran = (source: string, vue: string) => `/interne/liste/${source}?vue=${v
 // Contacts : la liste Contacts + les fiches clients, de la Prospection au Parc (même périmètre que /api/interne/contacts)
 const VUES_CONTACTS = ['tous', 'prospection:chasse', 'qualification:toutes', 'planning:tous', 'parc:tous'];
 const CONTACTS_DESCRIPTION = 'Clients, syndics, conseils syndicaux, gestionnaires';
+
+// Étapes du parcours, dans l'ordre (espace Direction)
+const VENTE = 'Vente';
+const CHANTIER = 'Chantier';
+const FACTURATION = 'Facturation et aides';
+const APRES_VENTE = 'Parc et après-vente';
+const PILOTAGE = 'Équipe et pilotage';
 
 export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur' | 'backOffice' | 'direction', Espace>> = {
   commercial: {
@@ -136,20 +149,51 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { cle: 'rh', emoji: '👔', libelle: 'RH et recrutement', description: 'Compteur : demandes RH nouvelles ou en examen', href: ecran('rh', 'demandes'), source: 'rh', vues: ['demandes'] },
     ],
   },
+  // Direction (16 h 11) : les écrans de tous les rôles, dans l'ordre du parcours, sans raccourci vers les espaces
   direction: {
     titre: 'Espace direction',
+    creer: { libelle: 'Nouveau projet', href: '/interne/projet/nouveau' },
     vues: [
-      { cle: 'toutes', emoji: '💰', libelle: 'Pipeline vente', description: 'Toutes les affaires, rangées par étape', href: '/interne/fiches?vue=toutes', source: 'qualification', vues: ['toutes'] },
-      { cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux : à planifier, préparation, planifié, en cours', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
-      { cle: 'codir', emoji: '🗣️', libelle: 'Réunions CODIR', description: 'Réunions planifiées ou en rédaction', href: ecran('codir', 'a-venir'), source: 'codir', vues: ['a-venir'] },
-      { cle: 'okr', emoji: '🎯', libelle: 'Stratégie et OKR', description: 'Objectifs à définir ou en cours', href: ecran('okr', 'en-cours'), source: 'okr', vues: ['en-cours'] },
-      { cle: 'kaizen', emoji: '💡', libelle: 'Kaizen', description: 'Idées proposées ou en étude, à trier', href: ecran('kaizen', 'a-trier'), source: 'kaizen', vues: ['a-trier'] },
-      { cle: 'todo', emoji: '📝', libelle: 'To-Do', description: 'Tâches à faire ou en cours ; compteur orange s’il y a du retard', href: ecran('todo', 'en-retard'), source: 'todo', vues: ['en-retard'], urgent: true },
+      // Vente : prospection, visites, relevé, devis, négociation
+      { etape: VENTE, cle: 'a-appeler', emoji: '📞', libelle: "À appeler aujourd'hui", description: 'Prospects dont la date de rappel est aujourd’hui ou passée', href: '/interne/prospection?vue=a-appeler', source: 'prospection', vues: ['a-appeler'], urgent: true },
+      { etape: VENTE, cle: 'chasse', emoji: '🚀', libelle: 'Pipeline chasse', description: 'Tous les prospects par étape, filtre LinkedIn', href: '/interne/prospection?vue=chasse', source: 'prospection', vues: ['chasse'] },
+      { etape: VENTE, cle: 'a-caler', emoji: '📅', libelle: 'Visites à caler', description: 'Le commercial fixe la date du relevé technique', href: '/interne/fiches?vue=a-caler', source: 'qualification', vues: ['a-caler'], urgent: true },
+      { etape: VENTE, cle: 'agenda', emoji: '🗓️', libelle: 'Agenda des visites', description: 'Relevés calés : jour, semaine, carte et itinéraire', href: '/interne/agenda', source: 'qualification', vues: ['planifies'] },
+      { etape: VENTE, cle: 'releves', emoji: '📋', libelle: 'Relevés à faire', description: 'Visites du chef de chantier : du jour, en retard et à venir', href: '/interne', source: 'qualification', vues: ['planifies', 'en-retard'], urgent: true },
+      { etape: VENTE, cle: 'devis-a-chiffrer', emoji: '📝', libelle: 'Devis à chiffrer', description: 'Relevé finalisé, devis à faire dans Costructor', href: '/interne/fiches?vue=devis-a-chiffrer', source: 'qualification', vues: ['devis-a-chiffrer'] },
+      { etape: VENTE, cle: 'relances-echues', emoji: '📩', libelle: 'Relances devis', description: 'Relance du jour ou en retard', href: '/interne/fiches?vue=relances-echues', source: 'qualification', vues: ['relances-echues'], urgent: true },
+      { etape: VENTE, cle: 'en-negociation', emoji: '🔥', libelle: 'En négociation', description: 'Devis discutés avec le client', href: '/interne/fiches?vue=en-negociation', source: 'qualification', vues: ['en-negociation'] },
+      { etape: VENTE, cle: 'toutes', emoji: '💰', libelle: 'Pipeline vente', description: 'Toutes les affaires, rangées par étape', href: '/interne/fiches?vue=toutes', source: 'qualification', vues: ['toutes'] },
+      // Chantier : feu vert, matériel, planning, pose, réception
+      { etape: CHANTIER, cle: 'feu-vert', emoji: '🚦', libelle: 'Feu vert à donner', description: 'Chantiers dont les 5 prérequis sont OK', href: '/interne/feu-vert', source: 'planning', vues: ['feu-vert'] },
+      { etape: CHANTIER, cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: 'Commandes en « à commander »', href: ecran('commandes', 'a-commander'), source: 'commandes', vues: ['a-commander'] },
+      { etape: CHANTIER, cle: 'achats', emoji: '🚚', libelle: 'Achats et livraisons', description: 'Compteur : commandés dont la livraison prévue est dépassée', href: ecran('achats', 'livraisons-retard'), source: 'achats', vues: ['livraisons-retard'], urgent: true },
+      { etape: CHANTIER, cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Poses, dépannages et visites par jour et par technicien', href: '/interne/planning', source: 'planning', vues: ['en-cours'] },
+      { etape: CHANTIER, cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux : à planifier, préparation, planifié, en cours', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
+      { etape: CHANTIER, cle: 'interventions', emoji: '📱', libelle: 'Interventions de l’équipe', description: 'Poses et visites de maintenance des installateurs, par jour, avec l’itinéraire', href: '/interne/interventions', source: 'planning', vues: ['interventions-equipe', 'maintenance:visites-equipe'] },
+      { etape: CHANTIER, cle: 'reception', emoji: '📸', libelle: 'Réception sur place', description: 'Chantiers en cours : PV signé, rapport de mesures, photos et réserves du poseur', href: '/interne/reception', source: 'planning', vues: ['en-chantier'] },
+      { etape: CHANTIER, cle: 'receptions', emoji: '✅', libelle: 'Réceptions à valider', description: 'PV, rapport de mesures et photos déposés par le poseur', href: '/interne/validation', source: 'planning', vues: ['receptions'], urgent: true },
+      // Facturation et aides
+      { etape: FACTURATION, cle: 'factures-retard', emoji: '⏰', libelle: 'Factures en retard', description: 'Émises ou partiellement payées, échéance passée (relances J+3, J+10, J+15)', href: ecran('factures', 'retard'), source: 'factures', vues: ['retard'], urgent: true },
+      { etape: FACTURATION, cle: 'factures', emoji: '💰', libelle: 'Suivi des factures', description: 'À émettre, émises, partiellement payées, en litige (Costructor fait référence)', href: ecran('factures', 'ouvertes'), source: 'factures', vues: ['ouvertes'] },
+      { etape: FACTURATION, cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: 'Compteur : dossiers en cours dont la date limite tombe dans les 30 jours', href: ecran('advenir', 'alertes'), source: 'advenir', vues: ['alertes'], urgent: true },
+      // Parc et après-vente
+      { etape: APRES_VENTE, cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: 'Échéance annuelle dans les 30 jours ou dépassée', href: ecran('parc', 'contrats'), source: 'parc', vues: ['contrats'] },
+      { etape: APRES_VENTE, cle: 'sav', emoji: '🚨', libelle: 'SAV urgences et tri', description: 'Tickets pas encore résolus', href: ecran('sav', 'a-traiter'), source: 'sav', vues: ['a-traiter'], urgent: true },
+      { etape: APRES_VENTE, cle: 'maintenance', emoji: '🔧', libelle: 'Visites de maintenance (J-30)', description: 'À planifier, échéance dans les 30 jours ou dépassée', href: ecran('maintenance', 'j-30'), source: 'maintenance', vues: ['j-30'] },
+      { etape: APRES_VENTE, cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Bornes en relevé : à préparer, à valider, envoyés (compteur : bornes suivies)', href: '/interne/decomptes', source: 'parc', vues: ['releve'] },
+      // Équipe et pilotage
+      { etape: PILOTAGE, cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: CONTACTS_DESCRIPTION, href: '/interne/contacts', source: 'contacts', vues: VUES_CONTACTS },
+      { etape: PILOTAGE, cle: 'rh', emoji: '👔', libelle: 'RH et recrutement', description: 'Compteur : demandes RH nouvelles ou en examen', href: ecran('rh', 'demandes'), source: 'rh', vues: ['demandes'] },
+      { etape: PILOTAGE, cle: 'codir', emoji: '🗣️', libelle: 'Réunions CODIR', description: 'Réunions planifiées ou en rédaction', href: ecran('codir', 'a-venir'), source: 'codir', vues: ['a-venir'] },
+      { etape: PILOTAGE, cle: 'okr', emoji: '🎯', libelle: 'Stratégie et OKR', description: 'Objectifs à définir ou en cours', href: ecran('okr', 'en-cours'), source: 'okr', vues: ['en-cours'] },
+      { etape: PILOTAGE, cle: 'kaizen', emoji: '💡', libelle: 'Kaizen', description: 'Idées proposées ou en étude, à trier', href: ecran('kaizen', 'a-trier'), source: 'kaizen', vues: ['a-trier'] },
+      { etape: PILOTAGE, cle: 'todo', emoji: '📝', libelle: 'To-Do', description: 'Tâches à faire ou en cours ; compteur orange s’il y a du retard', href: ecran('todo', 'en-retard'), source: 'todo', vues: ['en-retard'], urgent: true },
     ],
   },
 };
 
-// Espaces que la direction ouvre depuis Plus (dans cet ordre)
+// Espaces des autres rôles (lien ?role=, plus affiché en raccourci depuis le 17/10, 16 h 11)
 export const ESPACES_DES_ROLES = ['commercial', 'chargeOperation', 'poseur', 'backOffice'] as const;
 
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -190,12 +234,10 @@ export const etapePlanning = (s: string): number => {
 };
 const enTravaux = (t: any) => etapePlanning(String(t?.status?.status || '')) <= 3;
 // Intervention de l'installateur : chantier en préparation, planifié ou en cours ; visite à planifier ou RDV confirmé
-export const chantierAMoi = (t: any, moi: number) => {
-  const e = etapePlanning(String(t?.status?.status || ''));
-  return e >= 1 && e <= 3 && estAMoi(t, CHAMPS_INTERVENTION.technicienChantier, moi);
-};
-export const visiteAMoi = (t: any, moi: number) =>
-  (statut(t).includes('a planifier') || statut(t).includes('rdv confirme')) && estAMoi(t, CHAMPS_INTERVENTION.technicienVisite, moi);
+const interventionOuverte = (t: any) => { const e = etapePlanning(String(t?.status?.status || '')); return e >= 1 && e <= 3; };
+const visiteOuverte = (t: any) => statut(t).includes('a planifier') || statut(t).includes('rdv confirme');
+export const chantierAMoi = (t: any, moi: number) => interventionOuverte(t) && estAMoi(t, CHAMPS_INTERVENTION.technicienChantier, moi);
+export const visiteAMoi = (t: any, moi: number) => visiteOuverte(t) && estAMoi(t, CHAMPS_INTERVENTION.technicienVisite, moi);
 export const ticketAMoi = (t: any, moi: number) =>
   !statut(t).includes('resolu') && !statut(t).includes('archive') && estAMoi(t, null, moi);
 
@@ -230,6 +272,9 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
     receptions: (t) => statut(t).includes('realise'),
     'mes-interventions': (t, _a, moi) => chantierAMoi(t, moi),
     'mes-receptions': (t, _a, moi) => statut(t).includes('en cours') && estAMoi(t, CHAMPS_INTERVENTION.technicienChantier, moi),
+    // Direction : les mêmes vues pour toute l'équipe
+    'interventions-equipe': (t) => interventionOuverte(t),
+    'en-chantier': (t) => statut(t).includes('en cours'),
   },
   commandes: { 'a-commander': (t) => statut(t).includes('a commander') },
   sav: {
@@ -239,6 +284,7 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
   maintenance: {
     'j-30': (t, a) => statut(t).includes('a planifier') && avant(champNomme(t, 'echeance')?.value, ajouterJours(a, 30)),
     'mes-visites': (t, _a, moi) => visiteAMoi(t, moi),
+    'visites-equipe': (t) => visiteOuverte(t),
   },
   // Factures Clients : mêmes règles que la carte « Factures en retard » de Ma journée
   factures: {

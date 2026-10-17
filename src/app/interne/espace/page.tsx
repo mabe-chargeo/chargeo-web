@@ -5,19 +5,19 @@
 // la fiche avec le bloc 📇 Contact. Espaces définis dans src/lib/espaces.ts (Commercial validé le 17/10 à 10 h 44,
 // Chef de chantier à 11 h 06, Installateur à 11 h 18, Back-office à 11 h 28, Direction à 11 h 37). Une vue sans écran
 // ouvre ClickUp (mention « ClickUp ») ou l'écran « à construire ».
-// ?role=<rôle> : la direction ouvre l'espace d'un autre rôle (depuis Plus ou le bas de son espace). La route vérifie
-// les droits : seul la direction peut voir un espace qui n'est pas le sien.
+// ?role=<rôle> : la direction peut encore ouvrir l'espace d'un autre rôle par l'adresse. La route vérifie les droits.
+// 17/10, 16 h 11 (Matthieu) : plus de raccourcis « Espaces des rôles » ; l'espace Direction montre directement les
+// écrans de tous les rôles, rangés par étape du parcours (intitulé de rangée = etape de la vue).
 import { useEffect, useState } from 'react';
 import { ChevronRight, ExternalLink, Plus, RefreshCw } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte } from '@/components/charte/Appli';
+import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
 import { CYAN, GRIS, NAVY, ORANGE } from '@/components/charte/couleurs';
 import { LIBELLE_ROLE, type RoleAppli } from '@/lib/menusAppli';
-import { ESPACES_DES_ROLES } from '@/lib/espaces';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 
 type Vue = {
   cle: string; emoji: string; libelle: string; description: string; href: string;
-  urgent?: boolean; externe?: boolean; aConstruire?: boolean; n: number | null;
+  urgent?: boolean; externe?: boolean; aConstruire?: boolean; etape?: string; n: number | null;
 };
 type Reponse = { espace: { titre: string; creer: { libelle: string; href: string } | null } | null; vues: Vue[]; preview: boolean };
 
@@ -82,6 +82,8 @@ export default function EspacePage() {
     );
   };
 
+  const vues = donnees?.vues || [];
+
   return (
     <PageAppli>
       <EnTeteAppli surtitre={roleVu ? LIBELLE_ROLE[roleVu] : 'Application équipe'} titre={donnees?.espace?.titre || 'Mon espace'} action={boutonActualiser} />
@@ -112,43 +114,31 @@ export default function EspacePage() {
           </a>
         )}
 
-        {donnees?.vues.map((v) => (
-          <a
-            key={v.cle}
-            href={v.href}
-            target={v.externe ? '_blank' : undefined}
-            rel={v.externe ? 'noopener noreferrer' : undefined}
-            className={`flex items-center gap-3 rounded-[20px] p-5 transition-transform active:scale-[0.98] ${v.n === 0 ? 'opacity-60' : ''}`}
-            style={{ backgroundColor: GRIS }}
-          >
-            <span className="shrink-0 text-[24px] leading-none" aria-hidden>{v.emoji}</span>
-            <div className="min-w-0 grow">
-              <p className="text-[17px] font-bold leading-tight">{v.libelle}</p>
-              <p className="mt-1 text-[13px]">{v.description}</p>
-            </div>
-            {pastille(v)}
-            {v.externe ? <ExternalLink size={18} className="shrink-0" color={CYAN} /> : <ChevronRight size={20} className="shrink-0" color={CYAN} />}
-          </a>
-        ))}
-
-        {/* Direction : l'espace de chaque rôle */}
-        {role === 'direction' && !autreEspace && donnees?.espace && (
-          <div className="pt-3">
-            <p className="mb-2 text-[13px] font-bold uppercase tracking-wide" style={{ color: NAVY }}>Espaces des rôles</p>
-            <div className="space-y-2">
-              {ESPACES_DES_ROLES.map((r) => (
-                <a
-                  key={r}
-                  href={`/interne/espace?role=${r}`}
-                  className="flex items-center justify-between rounded-[20px] bg-white p-4 text-[16px] font-semibold transition-transform active:scale-[0.98]"
-                >
-                  {LIBELLE_ROLE[r]}
-                  <ChevronRight size={20} color={CYAN} />
-                </a>
-              ))}
-            </div>
+        {vues.map((v, i) => (
+          <div key={v.cle}>
+            {/* Intitulé d'étape du parcours (espace Direction) */}
+            {v.etape && v.etape !== vues[i - 1]?.etape && (
+              <div className={`mb-3 ${i > 0 ? 'pt-4' : 'pt-1'}`}>
+                <Repere>{v.etape}</Repere>
+              </div>
+            )}
+            <a
+              href={v.href}
+              target={v.externe ? '_blank' : undefined}
+              rel={v.externe ? 'noopener noreferrer' : undefined}
+              className={`flex items-center gap-3 rounded-[20px] p-5 transition-transform active:scale-[0.98] ${v.n === 0 ? 'opacity-60' : ''}`}
+              style={{ backgroundColor: GRIS }}
+            >
+              <span className="shrink-0 text-[24px] leading-none" aria-hidden>{v.emoji}</span>
+              <div className="min-w-0 grow">
+                <p className="text-[17px] font-bold leading-tight">{v.libelle}</p>
+                <p className="mt-1 text-[13px]">{v.description}</p>
+              </div>
+              {pastille(v)}
+              {v.externe ? <ExternalLink size={18} className="shrink-0" color={CYAN} /> : <ChevronRight size={20} className="shrink-0" color={CYAN} />}
+            </a>
           </div>
-        )}
+        ))}
       </ContenuAppli>
     </PageAppli>
   );

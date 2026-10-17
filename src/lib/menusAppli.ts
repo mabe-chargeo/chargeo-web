@@ -33,6 +33,8 @@
 // interventions et depuis la fiche d'une visite.
 // 17/10/2026, 15 h 22 : Décomptes construit depuis le Parc, sans nouvelle liste (/interne/decomptes) : à préparer,
 // à valider, envoyés, fiches à compléter.
+// 17/10/2026, 16 h 11 (Matthieu) : en direction, plus de raccourcis vers les espaces des rôles (ni dans Plus, ni dans
+// Mon espace) : Mon espace montre directement tous les écrans dans l'ordre du parcours.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -76,7 +78,7 @@ const fiches = (vue: string) => `/interne/fiches?vue=${vue}`;
 const liste = (source: string, vue?: string) => `/interne/liste/${source}${vue ? `?vue=${vue}` : ''}`;
 const decomptes = (vue: string) => `/interne/decomptes?vue=${vue}`;
 
-// Espace d'un autre rôle, ouvert par la direction depuis Plus
+// Espace d'un autre rôle (ouvert par l'adresse ?role= ; plus proposé dans Plus depuis le 17/10, 16 h 11)
 const espaceDe = (cle: string, role: RoleAppli, libelle: string, icone: CleIcone, description: string): Ecran => ({
   cle, libelle, icone, description, pret: true, href: `/interne/espace?role=${role}`, actif: [],
 });
@@ -140,7 +142,7 @@ export const ECRANS: Record<string, Ecran> = {
     description: 'Poses et visites de maintenance affectées à l’installateur, par jour, avec l’itinéraire du jour, lisibles hors ligne',
   },
 
-  // Espaces des rôles, ouverts par la direction depuis Plus
+  // Espaces des rôles (ouverts par l'adresse ?role=)
   espaceCommercial: espaceDe('espaceCommercial', 'commercial', 'Espace commercial', 'pipeline', 'Prospection, devis à chiffrer, relances, négociation, pipeline vente, contacts'),
   espaceChef: espaceDe('espaceChef', 'chargeOperation', 'Espace chef de chantier', 'chantiers', 'Visites et relevés, feu vert, chantiers, réceptions, matériel, SAV, maintenance'),
   espacePoseur: espaceDe('espacePoseur', 'poseur', 'Espace installateur', 'interventions', 'Interventions, réception sur place, tickets SAV'),
@@ -233,10 +235,8 @@ export const MENUS: Record<RoleAppli, { barre: string[]; plus: string[] }> = {
   chargeOperation: { barre: ['journee', 'espace'], plus: ['planning', 'agenda', 'parc'] },
   poseur: { barre: ['journee', 'espace'], plus: ['releves', 'parc'] },
   backOffice: { barre: ['journee', 'espace'], plus: ['decomptes', 'planning', 'parc'] },
-  direction: {
-    barre: ['journee', 'espace'],
-    plus: ['espaceCommercial', 'espaceChef', 'espacePoseur', 'espaceBackOffice', 'releves', 'planning', 'agenda', 'parc', 'decomptes', 'ressources'],
-  },
+  // Direction (16 h 11) : plus de raccourcis vers les espaces des rôles ; Mon espace montre tous les écrans
+  direction: { barre: ['journee', 'espace'], plus: ['releves', 'planning', 'agenda', 'parc', 'decomptes', 'ressources'] },
 };
 
 // Bouton + du cadre : créations possibles par rôle (nouveau projet, ticket SAV, idée Kaizen)
