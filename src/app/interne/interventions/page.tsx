@@ -6,8 +6,10 @@
 // /interne/interventions?vue=sav : mes tickets SAV pas encore résolus.
 // Hors ligne : la dernière liste reçue est gardée sur le téléphone et réaffichée sans réseau, avec son heure de mise
 // à jour (lecture seule ; le bloc Contact demande du réseau). Chaque intervention a le bloc 📇 Contact.
+// 17/10, 12 h 33 : le nom ouvre la fiche affaire unique de l'affaire liée (le chantier pour une pose, l'installation du
+// Parc pour une visite ou un SAV).
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarClock, ExternalLink, HardHat, MapPin, Navigation, RefreshCw, WifiOff } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ChevronRight, ExternalLink, HardHat, MapPin, Navigation, RefreshCw, WifiOff } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
@@ -106,7 +108,14 @@ export default function InterventionsPage() {
         </span>
         {i.detail && <span className="text-[12px] font-bold text-slate-500">{i.detail}</span>}
       </div>
-      <p className="text-[17px] font-bold leading-tight">{i.nom}</p>
+      {i.contactId ? (
+        <a href={`/interne/fiches/${i.contactId}`} className="flex items-center justify-between gap-2">
+          <span className="text-[17px] font-bold leading-tight">{i.nom}</span>
+          <ChevronRight size={20} className="shrink-0" color={CYAN} />
+        </a>
+      ) : (
+        <p className="text-[17px] font-bold leading-tight">{i.nom}</p>
+      )}
       <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: i.quand ? CYAN : ORANGE }}>
         <CalendarClock size={15} className="shrink-0" />
         {i.quand || 'Date à fixer'}
