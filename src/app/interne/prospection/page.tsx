@@ -3,14 +3,18 @@
 // Prospection (Chasse) ❄️ de l'espace Commercial (validé par Matthieu le 17/10/2026, 10 h 44).
 // Deux vues comme dans ClickUp : 📞 À appeler aujourd'hui et 🚀 Pipeline chasse (rangé par étape, filtre LinkedIn).
 // Chaque prospect a le bloc 📇 Contact complet (Appeler, Google Voice, SMS, Gmail, Waze, Maps), lu au premier appui.
-// Lecture seule : la mise à jour du prospect (résultat d'appel, rappel) se fait encore dans ClickUp.
 // 17/10, 12 h 33 : le nom du prospect ouvre la fiche affaire unique (/interne/fiches/<id>), qui le suivra jusqu'au Parc.
 // 17/10, 19 h 25 : lien « 📖 Mode d'emploi de la liste » vers le wiki Prospection, lu dans l'application.
+// 17/10, 19 h 53 (Matthieu : « comment on fait pour ajouter un prospect à cette liste ? », puis « le type de tâche créé
+// doit être prospect, qui deviendra un projet si ça se concrétise ») : bouton « + Prospect » (/interne/prospection/nouveau)
+// et « Mettre à jour » sur chaque carte (src/components/ui/MajProspect.tsx), à la place de « Mettre à jour dans ClickUp » :
+// résultat d'appel, statut, prochain rappel, et RDV fixé → passage en projet (Qualification).
 import { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, CalendarClock, ChevronRight, ExternalLink, MapPin, RefreshCw } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarClock, ChevronRight, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
 import { CYAN, GRIS } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
+import MajProspect, { type OptionsProspect } from '@/components/ui/MajProspect';
 
 type VueMenu = { cle: string; libelle: string; n: number };
 type Prospect = {
@@ -25,6 +29,7 @@ export default function ProspectionPage() {
   const [linkedin, setLinkedin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [options, setOptions] = useState<OptionsProspect | null>(null);
 
   const charger = async (cle: string, li: boolean) => {
     setLoading(true);
@@ -48,6 +53,11 @@ export default function ProspectionPage() {
     setVue(cle);
     setLinkedin(li);
     charger(cle, li);
+    // Options de la mise à jour (statuts et résultats d'appel lus dans ClickUp)
+    fetch('/api/interne/prospects', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => { if (d?.success) setOptions({ statuts: d.statuts || [], resultats: d.resultats || [] }); })
+      .catch(() => null);
   }, []);
 
   const choisir = (cle: string, li: boolean) => {
@@ -88,9 +98,7 @@ export default function ProspectionPage() {
         </p>
       )}
       <BlocContact affaireId={p.id} differe />
-      <a href={p.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
-        <ExternalLink size={13} /> Mettre à jour dans ClickUp
-      </a>
+      <MajProspect id={p.id} statut={p.statut} options={options} onFait={() => charger(vue, linkedin)} />
     </div>
   );
 
@@ -111,6 +119,9 @@ export default function ProspectionPage() {
       <ContenuAppli className="space-y-4">
         <a href="/interne/wiki/prospection" className="inline-flex items-center gap-1.5 px-1 text-[14px] font-bold" style={{ color: CYAN }}>
           <BookOpen size={15} /> Mode d&apos;emploi de la liste
+        </a>
+        <a href="/interne/prospection/nouveau" className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95">
+          + Prospect
         </a>
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
           {(donnees?.vues || []).map((v) => {
