@@ -10,6 +10,8 @@
 // Libellés uniques : Commercial, Chef de chantier, Installateur, Back-office, Direction.
 // 17/10/2026, 16 h 32 (choix de Matthieu : « Deux blocs : Aujourd'hui / En retard ») : fin de « À faire aujourd'hui » et
 // « À débloquer ». Aujourd'hui = daté du jour ou travail sans date à traiter ; En retard = date dépassée (orange).
+// 17/10/2026, 17 h 03 (Matthieu : « je préférerais que ce qui est en retard soit au-dessus ») : En retard d'abord,
+// Aujourd'hui ensuite.
 // La date du titre est calculée sur le téléphone après chargement (la page est pré-générée au build).
 import { useEffect, useState } from 'react';
 import { CalendarClock, ChevronRight, ExternalLink, MapPin, RefreshCw } from 'lucide-react';
@@ -204,16 +206,16 @@ export default function JourneePage() {
 
         {donnees && (
           <>
-            <Repere>Aujourd'hui</Repere>
-            {relevesDuJour.map(carteReleve)}
-            {duJour.map(carteCompteur)}
-            {!relevesDuJour.length && !duJour.length && vide("Rien de prévu aujourd'hui.")}
-
-            <div className="h-2" />
             <Repere>En retard</Repere>
             {relevesEnRetard.map(carteReleve)}
             {enRetard.map(carteCompteur)}
             {!relevesEnRetard.length && !enRetard.length && vide('Aucun retard.')}
+
+            <div className="h-2" />
+            <Repere>Aujourd'hui</Repere>
+            {relevesDuJour.map(carteReleve)}
+            {duJour.map(carteCompteur)}
+            {!relevesDuJour.length && !duJour.length && vide("Rien de prévu aujourd'hui.")}
           </>
         )}
       </ContenuAppli>

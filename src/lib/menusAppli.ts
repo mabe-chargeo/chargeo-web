@@ -27,7 +27,7 @@
 // 17/10/2026, 14 h 28 (lot « écrans qui manquent ») : construits Planning (/interne/planning), Agenda (/interne/agenda),
 // les listes (/interne/liste/<source> : SAV, matériel, Parc, factures, ADVENIR, RH) avec la fiche générique, Ticket SAV
 // et Idée Kaizen (/interne/creer/sav et /interne/creer/kaizen). Carte du jour ouvre Mes interventions (itinéraire du
-// jour). Reste à décider : Ressources (lien du Drive, reporté par Matthieu à 15 h 10).
+// jour).
 // 17/10/2026, 14 h 50 : Visite de maintenance construite (/interne/maintenance/<id>) selon le protocole du contrôleur
 // Sefram MW9665 avec l'adaptateur A1532-XA, point de charge par point de charge, hors ligne. Ouverte depuis Mes
 // interventions et depuis la fiche d'une visite.
@@ -37,6 +37,8 @@
 // Mon espace) : Mon espace montre directement tous les écrans dans l'ordre du parcours.
 // 17/10/2026, 16 h 28 (Matthieu : « il y a des doublons entre l'onglet Mon espace et l'onglet Plus ») : règle, Plus ne
 // contient que ce qui n'est pas déjà dans Mon espace du rôle (src/lib/espaces.ts).
+// 17/10/2026, 17 h 03 (Matthieu : « chaque rôle a besoin de ses propres ressources ») : Ressources construit
+// (/interne/ressources, src/lib/ressources.ts) : les dossiers des drives partagés utiles au rôle, dans Plus de chaque rôle.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -67,10 +69,6 @@ export type Ecran = {
   parDefaut?: Partial<Record<RoleAppli, string>>;
 };
 
-const bientot = (cle: string, libelle: string, icone: CleIcone, description: string, plus: Partial<Ecran> = {}): Ecran => ({
-  cle, libelle, icone, description, pret: false, href: `/interne/bientot/${cle}`, actif: [`/interne/bientot/${cle}`], ...plus,
-});
-
 // Écran construit (lot du 17/10, 14 h 28)
 const pret = (cle: string, libelle: string, icone: CleIcone, href: string, description: string, plus: Partial<Ecran> = {}): Ecran => ({
   cle, libelle, icone, description, pret: true, href, actif: [href.split('?')[0]], ...plus,
@@ -89,7 +87,7 @@ export const ECRANS: Record<string, Ecran> = {
   // ── Écrans construits ──
   journee: {
     cle: 'journee', libelle: 'Ma journée', href: '/interne/journee', icone: 'journee', pret: true, actif: ['/interne/journee'],
-    description: "À faire aujourd'hui (une carte = une action) et à débloquer (retards, urgences), selon le rôle",
+    description: "Ce qui est en retard, puis ce qui est à faire aujourd'hui, selon le rôle",
   },
   pipeline: {
     cle: 'pipeline', libelle: 'Pipeline', href: '/interne/fiches', icone: 'pipeline', pret: true, actif: ['/interne/fiches'],
@@ -163,7 +161,7 @@ export const ECRANS: Record<string, Ecran> = {
     cle: 'contacts', libelle: 'Contacts', href: '/interne/contacts', icone: 'contacts', pret: true, actif: ['/interne/contacts'],
     description: 'Annuaire de la liste Contacts, partagé entre le commercial et le back-office : recherche, rôle, Appeler, Google Voice, SMS, Gmail.',
   },
-  ressources: bientot('ressources', 'Ressources', 'ressources', 'Le Google Drive partagé de l’espace Commercial (remplace « Outils & Wiki » de ClickUp).'),
+  ressources: pret('ressources', 'Ressources', 'ressources', '/interne/ressources', 'Les dossiers des drives partagés utiles à ton rôle : supports de vente, notices des bornes, normes, modèles, administratif.'),
 
   // ── Chef de chantier ──
   planning: pret('planning', 'Planning', 'planning', '/interne/planning', 'Master planning (par jour) et Planning techs (par installateur) : poses, dépannages, visites de maintenance.', {
@@ -232,14 +230,14 @@ export const ECRANS: Record<string, Ecran> = {
 };
 
 // Barre du bas (4 onglets au plus, « Plus » est ajouté après) et contenu de « Plus », par rôle (section 4 de la carte)
-// 16 h 28 : Plus = seulement ce qui n'est pas déjà dans Mon espace du rôle (Agenda, Planning, Décomptes, Relevés retirés
-// là où ils faisaient doublon). Parc complet et Ressources restent : Mon espace n'en montre qu'une vue (contrats) ou rien.
+// 16 h 28 : Plus = seulement ce qui n'est pas déjà dans Mon espace du rôle. 17 h 03 : Ressources dans Plus de chaque rôle
+// (ses propres dossiers du Drive).
 export const MENUS: Record<RoleAppli, { barre: string[]; plus: string[] }> = {
   commercial: { barre: ['journee', 'espace'], plus: ['ressources'] },
-  chargeOperation: { barre: ['journee', 'espace'], plus: ['agenda', 'parc'] },
-  poseur: { barre: ['journee', 'espace'], plus: ['releves', 'parc'] },
-  backOffice: { barre: ['journee', 'espace'], plus: ['planning', 'parc'] },
-  direction: { barre: ['journee', 'espace'], plus: ['parc', 'ressources'] },
+  chargeOperation: { barre: ['journee', 'espace'], plus: ['ressources', 'agenda', 'parc'] },
+  poseur: { barre: ['journee', 'espace'], plus: ['ressources', 'releves', 'parc'] },
+  backOffice: { barre: ['journee', 'espace'], plus: ['ressources', 'planning', 'parc'] },
+  direction: { barre: ['journee', 'espace'], plus: ['ressources', 'parc'] },
 };
 
 // Bouton + du cadre : créations possibles par rôle (nouveau projet, ticket SAV, idée Kaizen)
