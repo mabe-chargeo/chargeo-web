@@ -17,11 +17,14 @@
 // l'application (/interne/liste/<source>?vue=<clé>, src/lib/listesAppli.ts), avec la fiche générique. Le bouton de
 // création du commercial ouvre Nouveau projet. Planning construit (/interne/planning, compteur = chantiers en travaux)
 // et Agenda des visites ajouté au commercial (/interne/agenda, compteur = relevés planifiés).
+// 17/10, 15 h 22 : Décomptes construit depuis le Parc, sans nouvelle liste (/interne/decomptes, src/lib/decomptes.ts) ;
+// compteur = bornes suivies en relevé.
 // Clé de vue : « cle » dans la source de la vue, ou « source:cle » pour additionner une autre liste.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit.
 import type { Jour } from '@/lib/joursOuvres';
 import { aujourdhuiParis, ajouterJours, comparer } from '@/lib/joursOuvres';
 import { champ, nomOption } from '@/lib/vuesFiches';
+import { suivieEnReleve } from '@/lib/decomptes';
 
 export type SourceVue =
   | 'qualification' | 'prospection' | 'contacts' | 'planning' | 'commandes' | 'sav' | 'maintenance'
@@ -128,7 +131,7 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { cle: 'achats', emoji: '🚚', libelle: 'Achats et livraisons', description: 'Compteur : commandés dont la livraison prévue est dépassée', href: ecran('achats', 'livraisons-retard'), source: 'achats', vues: ['livraisons-retard'], urgent: true },
       { cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: 'Compteur : dossiers en cours dont la date limite de réalisation tombe dans les 30 jours', href: ecran('advenir', 'alertes'), source: 'advenir', vues: ['alertes'], urgent: true },
       { cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: 'Échéance annuelle dans les 30 jours ou dépassée', href: ecran('parc', 'contrats'), source: 'parc', vues: ['contrats'] },
-      { cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Préparation, validation, envoi au gestionnaire. Liste ClickUp à créer d’abord', href: '/interne/bientot/decomptes', source: 'aucune', aConstruire: true },
+      { cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Bornes en relevé : à préparer, à valider, envoyés au gestionnaire (compteur : bornes suivies)', href: '/interne/decomptes', source: 'parc', vues: ['releve'] },
       { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: CONTACTS_DESCRIPTION, href: '/interne/contacts', source: 'contacts', vues: VUES_CONTACTS },
       { cle: 'rh', emoji: '👔', libelle: 'RH et recrutement', description: 'Compteur : demandes RH nouvelles ou en examen', href: ecran('rh', 'demandes'), source: 'rh', vues: ['demandes'] },
     ],
@@ -244,10 +247,12 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
   },
   achats: { 'livraisons-retard': (t, a) => statut(t).includes('commande') && avant(champNomme(t, 'livraison prevue')?.value, a) },
   advenir: { alertes: (t, a) => advenirEnCours(t) && avant(champNomme(t, 'date limite')?.value, ajouterJours(a, 30)) },
-  // Parc : mêmes règles que la carte « Contrats à renouveler » de Ma journée
+  // Parc : mêmes règles que la carte « Contrats à renouveler » de Ma journée ; releve = bornes suivies en relevé
+  // (Décomptes, mêmes règles que src/lib/decomptes.ts)
   parc: {
     tous: () => true,
     contrats: (t, a) => !statut(t).includes('hors service') && avant(champNomme(t, 'echeance annuelle')?.value, ajouterJours(a, 30)),
+    releve: (t, a) => !t?.parent && suivieEnReleve(t, a),
   },
   rh: { demandes: (t) => statutParmi(t, ['nouvelle demande', 'en examen']) },
   // Direction (statuts relus le 17/10/2026)
