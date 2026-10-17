@@ -32,6 +32,8 @@
 // Commandes Matériel ; pastille « Achats à valider » pour la dépense.
 // 17/10/2026, 19 h 10 (choix de Matthieu : « Salarié et candidat ») : + Salarié et + Candidat dans Plus du back-office
 // et de la direction ; RH et recrutement = demandes, salariés, candidatures.
+// 17/10/2026, 19 h 25 (Matthieu : voir tous les wikis depuis l'appli) : Wikis (/interne/wiki, src/lib/wikis.ts) dans À
+// consulter de tous les rôles ; chaque écran de liste a son lien « 📖 Mode d'emploi de la liste ».
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -104,8 +106,8 @@ export const ECRANS: Record<string, Ecran> = {
   },
   espace: {
     cle: 'espace', libelle: 'Mon espace', href: '/interne/espace', icone: 'pipeline', pret: true,
-    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne/maintenance', '/interne/decomptes', '/interne/ressources', '/interne/pose', '/interne/carte-sav', '/interne'],
-    description: 'À traiter : les vues du rôle avec leurs compteurs. À consulter : Parc, Ressources et outils.',
+    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne/maintenance', '/interne/decomptes', '/interne/ressources', '/interne/pose', '/interne/carte-sav', '/interne/wiki', '/interne'],
+    description: 'À traiter : les vues du rôle avec leurs compteurs. À consulter : Parc, Ressources, Wikis et outils.',
   },
   releves: {
     cle: 'releves', libelle: 'Relevés', href: '/interne', icone: 'releves', pret: true, actif: ['/interne', '/interne/metre'],
@@ -157,6 +159,7 @@ export const ECRANS: Record<string, Ecran> = {
     description: 'Annuaire de la liste Contacts, partagé entre le commercial et le back-office : recherche, rôle, Appeler, Google Voice, SMS, Gmail.',
   },
   ressources: pret('ressources', 'Ressources', 'ressources', '/interne/ressources', 'Les dossiers Drive de ton rôle : supports de vente, notices des bornes par marque, normes, modèles, administratif.'),
+  wikis: pret('wikis', 'Wikis', 'ressources', '/interne/wiki', 'Le mode d’emploi de chaque liste et le guide de l’entreprise (premiers jours, règles internes, congés…), lisibles ici sans ouvrir ClickUp.'),
 
   // ── Chef de chantier ──
   planning: pret('planning', 'Planning', 'planning', '/interne/planning', 'Master planning (par jour) et Planning techs (par installateur) : poses, dépannages, visites de maintenance et relevés techniques, tout ce qui se planifie avec le client.', {
@@ -256,13 +259,13 @@ export const ECRANS: Record<string, Ecran> = {
 // 17 h 24 : consulter = ce qu'on consulte sans compteur (le référentiel Parc, les Ressources, l'outil d'un autre rôle) ;
 // plus = vide, l'onglet Plus ne montre que les créations (CREER) et la déconnexion.
 // 17 h 32 : plus de Relevés pour l'installateur. 18 h 02 : plus de Parc installé pour l'installateur (décision du 11/10).
-// 18 h 27 : Carte du SAV pour le chef de chantier et la direction.
+// 18 h 27 : Carte du SAV pour le chef de chantier et la direction. 19 h 25 : Wikis pour tous.
 export const MENUS: Record<RoleAppli, { barre: string[]; consulter: string[]; plus: string[] }> = {
-  commercial: { barre: ['journee', 'espace'], consulter: ['ressources'], plus: [] },
-  chargeOperation: { barre: ['journee', 'espace'], consulter: ['agenda', 'carteSav', 'parc', 'ressources'], plus: [] },
-  poseur: { barre: ['journee', 'espace'], consulter: ['ressources'], plus: [] },
-  backOffice: { barre: ['journee', 'espace'], consulter: ['planning', 'parc', 'ressources'], plus: [] },
-  direction: { barre: ['journee', 'espace'], consulter: ['carteSav', 'parc', 'ressources'], plus: [] },
+  commercial: { barre: ['journee', 'espace'], consulter: ['ressources', 'wikis'], plus: [] },
+  chargeOperation: { barre: ['journee', 'espace'], consulter: ['agenda', 'carteSav', 'parc', 'ressources', 'wikis'], plus: [] },
+  poseur: { barre: ['journee', 'espace'], consulter: ['ressources', 'wikis'], plus: [] },
+  backOffice: { barre: ['journee', 'espace'], consulter: ['planning', 'parc', 'ressources', 'wikis'], plus: [] },
+  direction: { barre: ['journee', 'espace'], consulter: ['carteSav', 'parc', 'ressources', 'wikis'], plus: [] },
 };
 
 // Créations possibles par rôle (nouveau projet, ticket SAV, idée Kaizen, salarié, candidat), dans l'onglet Plus.
