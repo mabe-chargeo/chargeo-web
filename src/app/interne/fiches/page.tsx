@@ -7,8 +7,11 @@
 // fiche détaillée. La vue est lue dans l'adresse après chargement (page pré-générée, pas de useSearchParams).
 // 17/10, 10 h 44 (espace Commercial validé) : la vue Toutes sert de « Pipeline vente », rangée par étape comme les
 // colonnes de la vue ClickUp PIPELINE VENTE 💰 (colonnes empilées sur téléphone).
+// 17/10, 20 h 44 (choix de Matthieu : caler le relevé depuis l'appli) : sur les vues de visite (À caler, Relevés
+// planifiés, En retard), chaque fiche à visiter a son bouton « 📅 Caler le relevé » (ou « Décaler » si une date est déjà
+// posée), vers /interne/caler/<id>.
 import { useEffect, useState } from 'react';
-import { CalendarClock, ChevronRight, GitBranch, MapPin, RefreshCw } from 'lucide-react';
+import { CalendarCheck, CalendarClock, ChevronRight, GitBranch, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
 import { CYAN, GRIS } from '@/components/charte/couleurs';
 import { etapeQualification } from '@/lib/espaces';
@@ -26,6 +29,9 @@ type Fiche = {
   scenarios: number;
 };
 type Reponse = { vues: VueMenu[]; vue: { cle: string; libelle: string; description: string } | null; fiches: Fiche[]; preview: boolean };
+
+const VUES_VISITE = ['a-caler', 'planifies', 'en-retard'];
+const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 export default function FichesPage() {
   const [donnees, setDonnees] = useState<Reponse | null>(null);
@@ -74,43 +80,59 @@ export default function FichesPage() {
     </button>
   );
 
-  const carteFiche = (f: Fiche) => (
-    <a key={f.id} href={`/interne/fiches/${f.id}`} className="flex items-center gap-3 rounded-[20px] p-5 transition-transform active:scale-[0.98]" style={{ backgroundColor: GRIS }}>
-      <div className="min-w-0 grow">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-white"
-            style={{ backgroundColor: f.couleurStatut || '#9aa3ad' }}
-          >
-            {f.statut || 'sans statut'}
-          </span>
-          {(f.typeClient || f.segment) && (
-            <span className="text-[12px] font-bold text-slate-500">{[f.typeClient, f.segment].filter(Boolean).join(' · ')}</span>
-          )}
-        </div>
-        <p className="mt-1.5 text-[17px] font-bold leading-tight">{f.nom}</p>
-        {f.quand && (
-          <p className="mt-1.5 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: CYAN }}>
-            <CalendarClock size={15} className="shrink-0" color={CYAN} />
-            {f.quand}
-          </p>
-        )}
-        {f.adresse && (
-          <p className="mt-1 flex items-center gap-1.5 text-[13px]">
-            <MapPin size={14} className="shrink-0" color={CYAN} />
-            <span className="truncate">{f.adresse}</span>
-          </p>
-        )}
-        {f.scenarios > 0 && (
-          <p className="mt-1 flex items-center gap-1.5 text-[13px] font-semibold">
-            <GitBranch size={14} className="shrink-0" color={CYAN} />
-            {f.scenarios} scénario{f.scenarios > 1 ? 's' : ''}
-          </p>
+  const carteFiche = (f: Fiche) => {
+    const caler = VUES_VISITE.includes(vue) && normal(f.statut).includes('visiter');
+    return (
+      <div key={f.id} className="overflow-hidden rounded-[20px]" style={{ backgroundColor: GRIS }}>
+        <a href={`/interne/fiches/${f.id}`} className="flex items-center gap-3 p-5 transition-transform active:scale-[0.98]">
+          <div className="min-w-0 grow">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-white"
+                style={{ backgroundColor: f.couleurStatut || '#9aa3ad' }}
+              >
+                {f.statut || 'sans statut'}
+              </span>
+              {(f.typeClient || f.segment) && (
+                <span className="text-[12px] font-bold text-slate-500">{[f.typeClient, f.segment].filter(Boolean).join(' · ')}</span>
+              )}
+            </div>
+            <p className="mt-1.5 text-[17px] font-bold leading-tight">{f.nom}</p>
+            {f.quand && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: CYAN }}>
+                <CalendarClock size={15} className="shrink-0" color={CYAN} />
+                {f.quand}
+              </p>
+            )}
+            {f.adresse && (
+              <p className="mt-1 flex items-center gap-1.5 text-[13px]">
+                <MapPin size={14} className="shrink-0" color={CYAN} />
+                <span className="truncate">{f.adresse}</span>
+              </p>
+            )}
+            {f.scenarios > 0 && (
+              <p className="mt-1 flex items-center gap-1.5 text-[13px] font-semibold">
+                <GitBranch size={14} className="shrink-0" color={CYAN} />
+                {f.scenarios} scénario{f.scenarios > 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+          <ChevronRight size={22} className="shrink-0" color={CYAN} />
+        </a>
+        {caler && (
+          <div className="px-5 pb-5">
+            <a
+              href={`/interne/caler/${f.id}`}
+              className={`flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-[15px] font-bold transition-transform active:scale-95 ${vue === 'a-caler' ? 'bg-[#FF6B00] text-white' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'}`}
+              style={vue === 'a-caler' ? undefined : { color: CYAN }}
+            >
+              <CalendarCheck size={17} /> {vue === 'a-caler' ? 'Caler le relevé' : 'Décaler le relevé'}
+            </a>
+          </div>
         )}
       </div>
-      <ChevronRight size={22} className="shrink-0" color={CYAN} />
-    </a>
-  );
+    );
+  };
 
   const fiches = donnees?.fiches || [];
   // Pipeline vente : rangé par étape (à visiter, devis à faire, devis envoyé, négociation, gagné, perdu)
@@ -131,7 +153,7 @@ export default function FichesPage() {
       <EnTeteAppli surtitre="Pipeline" titre={titre} action={boutonActualiser} />
 
       <ContenuAppli className="space-y-4">
-        {donnees?.preview && <Alerte>Prévisualisation : fiches lues dans 🧪 Qualification TEST. Rien n'est modifié.</Alerte>}
+        {donnees?.preview && <Alerte>Prévisualisation : fiches lues dans 🧪 Qualification TEST. Seules les fiches « Test · … » sont modifiées.</Alerte>}
 
         {!!donnees?.vues.length && (
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
