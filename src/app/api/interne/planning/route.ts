@@ -11,15 +11,20 @@ import { CHAMPS_INTERVENTION, LISTES, etapePlanning } from '@/lib/espaces';
 // - Pose : chantier du Planning à planifier, en préparation, planifié ou en cours ; date = 📅 Date Intervention,
 //   techniciens = 👷 Technicien. Ouvre la fiche affaire.
 // - Visite : Maintenance à planifier ou RDV confirmé ; date = 📆 Date de RDV, techniciens = 👷 Technicien.
-// - Dépannage : ticket SAV ni résolu ni archivé ; date = échéance, techniciens = assignés.
+// - Dépannage : ticket SAV ni résolu ni archivé ; date = échéance, techniciens = assignés (le Planning dépannage de la
+//   liste du 11/10).
+// - Livraison (17/10/2026, 18 h 22 : Planning réceptions et Planning logistique de la liste du 11/10) : Commandes Matériel
+//   commandées ou en livraison (date = champ « livraison ») et Achats Fournisseurs commandés (date = « livraison
+//   prévue »). Pas de technicien : absentes du Planning techs.
 // Droits : chef de chantier, back-office, direction.
 
 export const dynamic = 'force-dynamic';
 const PAGES_MAX = 10;
 const json = (corps: any, status = 200) => NextResponse.json(corps, { status });
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const champNomme = (t: any, mot: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => normal(c?.name).includes(mot));
 
-type TypeIntervention = 'pose' | 'visite' | 'depannage';
+type TypeIntervention = 'pose' | 'visite' | 'depannage' | 'livraison';
 
 async function lister(token: string, listId: string): Promise<any[]> {
   const toutes: any[] = [];
@@ -61,19 +66,21 @@ export async function GET(request: Request) {
     if (!['direction', 'chargeOperation', 'backOffice'].some((r) => roles.includes(r as any))) {
       return json({ error: 'Le planning est réservé au chef de chantier, au back-office et à la direction.' }, 403);
     }
-    const [rPlanning, rVisites, rSav] = await Promise.allSettled([
+    const [rPlanning, rVisites, rSav, rCommandes, rAchats] = await Promise.allSettled([
       lister(token, LISTES.planning),
       lister(token, LISTES.maintenance),
       lister(token, LISTES.sav),
+      lister(token, LISTES.commandes),
+      lister(token, LISTES.achats),
     ]);
     const avertissements: string[] = [];
     const items: any[] = [];
-    const pousser = (t: any, type: TypeIntervention, ms: unknown, techniciens: { id: string; nom: string }[], lien: string) => {
+    const pousser = (t: any, type: TypeIntervention, ms: unknown, techniciens: { id: string; nom: string }[], lien: string, origine = '') => {
       const d = jourEtHeure(ms);
       items.push({
         id: String(t.id), type, nom: String(t.name || ''),
         statut: String(t?.status?.status || ''), couleurStatut: String(t?.status?.color || ''),
-        jour: d?.jour || '', heure: d?.heure || '', techniciens, adresse: adresseDe(t), lien,
+        jour: d?.jour || '', heure: d?.heure || '', techniciens, adresse: adresseDe(t), lien, origine,
       });
     };
 
@@ -99,6 +106,22 @@ export async function GET(request: Request) {
         pousser(t, 'depannage', t?.due_date, personnes(t?.assignees), `/interne/element/${t.id}`);
       }
     } else avertissements.push('Tickets SAV illisibles pour l’instant');
+
+    // Livraisons : commandes matériel commandées ou en livraison, achats fournisseurs commandés
+    if (rCommandes.status === 'fulfilled') {
+      for (const t of rCommandes.value) {
+        const s = normal(t?.status?.status);
+        if (s.includes('a commander') || !(s.includes('commande') || s.includes('en livraison'))) continue;
+        pousser(t, 'livraison', champNomme(t, 'livraison')?.value, [], `/interne/element/${t.id}`, 'Commande matériel');
+      }
+    } else avertissements.push('Commandes Matériel illisibles pour l’instant');
+
+    if (rAchats.status === 'fulfilled') {
+      for (const t of rAchats.value) {
+        if (!normal(t?.status?.status).includes('commande')) continue;
+        pousser(t, 'livraison', champNomme(t, 'livraison prevue')?.value, [], `/interne/element/${t.id}`, 'Achat fournisseur');
+      }
+    } else avertissements.push('Achats Fournisseurs illisibles pour l’instant');
 
     const a = aujourdhuiParis();
     return json({ aujourdhui: String(a), items, avertissements, moi: String(session.id) });
