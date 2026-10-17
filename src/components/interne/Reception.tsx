@@ -10,10 +10,13 @@
 // - role « charge » (/interne/validation) : le chargé d'opération / chef de chantier contrôle, qualifie les réserves et
 //   valide la réception (statut 🏁 terminé). Le passage au Parc (contrat, facture de solde, avis Google) reste fait par
 //   la route existante ; ce qui est administratif part au back-office.
+// 17/10, 10 h 26 (Matthieu) : bloc 📇 Contact sur chaque chantier (Appeler, Google Voice, SMS, Gmail, Waze, Maps), lu au
+// premier appui.
 import { useEffect, useState } from 'react';
 import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Plus, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
+import { BlocContact } from '@/components/ui/BlocContact';
 
 interface Reserve { id: string; nom: string; responsables: string[]; echeance: number | null; faite: boolean }
 interface Option { id: string; nom: string; orderindex: number }
@@ -156,6 +159,8 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
           <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ backgroundColor: c.couleurStatut || CYAN }} />
           {c.statut}
         </p>
+
+        <BlocContact affaireId={c.id} differe />
 
         {/* PV et photos */}
         {([['pv', '📂 PV Réception', c.pv, FileText, 'image/*,application/pdf'], ['rapport', '📊 Rapport de mesures', (c.rapport || []) as Fichier[], Gauge, 'application/pdf,image/*'], ['photos', '📸 Photos Chantier', c.photos, Camera, 'image/*']] as const).map(([cible, libelle, liste, Icone, accept]) => (
