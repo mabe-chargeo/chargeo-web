@@ -20,6 +20,8 @@
 // 17/10/2026, 11 h 18 : espace Installateur validé, même barre (l'espace s'intitule « Mon travail ») ; Mes interventions
 // construit (/interne/interventions).
 // 17/10/2026, 11 h 28 : espace Back-office validé, même barre Ma journée · Mon espace · Plus.
+// 17/10/2026, 11 h 37 : espace Direction validé, même barre (remplace Ma journée · Pipeline · Chantiers · Pilotage) ;
+// Plus ouvre l'espace de chaque rôle.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -55,6 +57,11 @@ const bientot = (cle: string, libelle: string, icone: CleIcone, description: str
 });
 
 const fiches = (vue: string) => `/interne/fiches?vue=${vue}`;
+
+// Espace d'un autre rôle, ouvert par la direction depuis Plus
+const espaceDe = (cle: string, role: RoleAppli, libelle: string, icone: CleIcone, description: string): Ecran => ({
+  cle, libelle, icone, description, pret: true, href: `/interne/espace?role=${role}`, actif: [],
+});
 
 export const ECRANS: Record<string, Ecran> = {
   // ── Écrans construits ──
@@ -114,6 +121,12 @@ export const ECRANS: Record<string, Ecran> = {
     actif: ['/interne/interventions', '/interne/reception'],
     description: 'Poses et visites de maintenance affectées à l’installateur, par jour, avec l’itinéraire du jour, lisibles hors ligne',
   },
+
+  // Espaces des rôles, ouverts par la direction depuis Plus
+  espaceCommercial: espaceDe('espaceCommercial', 'commercial', 'Espace commercial', 'pipeline', 'Prospection, devis à chiffrer, relances, négociation, pipeline vente, contacts'),
+  espaceChef: espaceDe('espaceChef', 'chargeOperation', 'Espace chef de chantier', 'chantiers', 'Visites et relevés, feu vert, chantiers, réceptions, matériel, SAV, maintenance'),
+  espacePoseur: espaceDe('espacePoseur', 'poseur', 'Espace installateur', 'interventions', 'Interventions, réception sur place, tickets SAV'),
+  espaceBackOffice: espaceDe('espaceBackOffice', 'backOffice', 'Espace back-office', 'facturation', 'Factures, achats, ADVENIR, contrats, décomptes, contacts, RH'),
 
   // Étapes et actions construites, ouvertes depuis une pastille ou une fiche (plus dans la barre ni dans Plus)
   feuVert: { cle: 'feuVert', libelle: 'Feu vert', href: '/interne/feu-vert', icone: 'feuVert', pret: true, actif: ['/interne/feu-vert'], description: 'Pastille de Chantiers : prérequis par chantier et ce qui manque' },
@@ -213,8 +226,8 @@ export const MENUS: Record<RoleAppli, { barre: string[]; plus: string[] }> = {
   poseur: { barre: ['journee', 'espace'], plus: ['releves', 'parc'] },
   backOffice: { barre: ['journee', 'espace'], plus: ['parc'] },
   direction: {
-    barre: ['journee', 'pipeline', 'chantiers', 'pilotage'],
-    plus: ['releves', 'planning', 'agenda', 'contacts', 'sav', 'materielAchats', 'parc', 'facturation', 'advenir', 'decomptes', 'rh', 'ressources', 'interventions'],
+    barre: ['journee', 'espace'],
+    plus: ['espaceCommercial', 'espaceChef', 'espacePoseur', 'espaceBackOffice', 'releves', 'planning', 'parc', 'ressources'],
   },
 };
 
