@@ -1,9 +1,11 @@
 // Briques de l'application équipe CHARGéO (charte 2026), pensées pour le téléphone et la tablette.
 // Composants d'affichage purs (aucun état) : utilisables dans une page serveur comme dans un formulaire client.
+// Seule exception : la pastille du rôle actif dans l'en-tête (composant client RoleActif, 17/10/2026).
 // Servent à /interne aujourd'hui, puis à tous les écrans par rôle d'app.chargeo.fr (Phase 6).
 import React from "react";
 import { ArrowLeft } from "lucide-react";
 import { NAVY, CYAN, ORANGE, GRIS, CYAN_PALE, CYAN_SUR_NAVY } from "@/components/charte/couleurs";
+import RoleActif from "@/components/charte/RoleActif";
 
 // Champ de saisie et étiquette : mêmes réglages que le formulaire de contact du site (texte 16 px pour éviter le zoom iPhone).
 export const CHAMP =
@@ -19,7 +21,7 @@ export function PageAppli({ children }: { children: React.ReactNode }) {
   );
 }
 
-// En-tête navy : logo blanc, surtitre, titre, et au choix un lien retour ou une action (bouton actualiser...)
+// En-tête navy : logo blanc, surtitre, rôle affiché, titre, et au choix un lien retour ou une action (bouton actualiser...)
 export function EnTeteAppli({
   surtitre,
   titre,
@@ -44,7 +46,10 @@ export function EnTeteAppli({
           )}
           {!retour && action}
         </div>
-        <p className="mt-6 text-[12px] font-extrabold uppercase tracking-[0.14em]" style={{ color: CYAN_SUR_NAVY }}>{surtitre}</p>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[12px] font-extrabold uppercase tracking-[0.14em]" style={{ color: CYAN_SUR_NAVY }}>{surtitre}</p>
+          <RoleActif />
+        </div>
         <h1 className="mt-1 text-[26px] font-bold leading-tight tracking-[-0.015em] text-white sm:text-[28px]">{titre}</h1>
       </div>
     </header>
