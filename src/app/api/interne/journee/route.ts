@@ -5,6 +5,7 @@ import { sessionDeRequete } from '@/lib/session';
 import { rolesDe, type Role } from '@/lib/roles';
 import { CHAMPS } from '@/lib/champsClickUp';
 import { adresseDe, champ, dateVisiteDe, jourDe, libelleDate, nomOption, normal, sansEmoji, trier, vueDe, type CleVue } from '@/lib/vuesFiches';
+import { CHAMPS_INTERVENTION, chantierAMoi } from '@/lib/espaces';
 
 // Accueil « Ma journée » de l'application équipe (Phase 6, maquette du 13/10/2026). LECTURE SEULE.
 // GET : ce qui est à faire aujourd'hui et à débloquer, avec des compteurs réels, selon les rôles de la personne
@@ -16,6 +17,8 @@ import { adresseDe, champ, dateVisiteDe, jourDe, libelleDate, nomOption, normal,
 // Back-office : factures en retard et contrats à renouveler, encore vers ClickUp (écrans du lot back-office à venir).
 // 17/10, 11 h 01 (Matthieu : « ce n'est pas le commercial qui fait les relevés techniques ») : la carte « À caler »
 // passe au chargé d'opération / chef de chantier. Le commercial garde ses cartes devis et relances.
+// 17/10, 11 h 18 (espace Installateur validé) : carte « Mes interventions du jour » (chantiers dont je suis le
+// 👷 Technicien, date d'intervention aujourd'hui ou passée et pas encore réalisés), vers /interne/interventions.
 // Preview : fiches lues dans 🧪 Qualification TEST, le reste dans les listes réelles, en lecture seule.
 
 export const dynamic = 'force-dynamic';
@@ -162,6 +165,16 @@ export async function GET(request: Request) {
     carteVue('a-caler', 'chargeOperation', "Relevés · Chargé d'opération", false);
     carteVue('relances-echues', 'commercial', 'Commercial', true);
     carteVue('devis-a-chiffrer', 'commercial', 'Commercial', false);
+
+    // Installateur : ses chantiers du jour (ou en retard), pas encore réalisés
+    const moi = Number(session.id);
+    ajouter({
+      cle: 'mesInterventions', role: 'poseur', section: 'aFaire', surtitre: 'Installateur', titre: 'Mes interventions du jour',
+      detail: 'Chantiers où tu es le technicien, prévus aujourd’hui ou en retard', urgent: true, lien: '/interne/interventions', externe: false,
+    }, planning, (t) => {
+      const j = jourDe(champ(t, CHAMPS_INTERVENTION.dateChantier)?.value);
+      return chantierAMoi(t, moi) && !!j && comparer(j, aujourdhui) <= 0;
+    });
 
     ajouter({
       cle: 'feuVert', role: 'chargeOperation', section: 'aDebloquer', surtitre: "Chantiers · Chargé d'opération", titre: 'Feu vert à donner',
