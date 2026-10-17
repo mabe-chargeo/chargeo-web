@@ -37,6 +37,9 @@
 // Vie des Salariés 👥 (salaries) et Recrutement Installateurs 👷 (recrutement, alimentée par chargeo.fr/recrutement)
 // lues par le back-office et la direction : Candidatures à traiter, Salariés (arrivées et départs en cours,
 // habilitations qui expirent dans les 60 jours).
+// 17/10, 19 h 38 et 19 h 42 (choix de Matthieu) : « Factures non réglées » (à émettre, émises, partiellement payées, en
+// litige) et « Factures à relancer » (émises ou partiellement payées dont le rappel de relance, échéance de la tâche,
+// est arrivé ; la date limite de paiement est le champ 📅 Date d'échéance).
 // Clé de vue : « cle » dans la source de la vue, ou « source:cle » pour additionner une autre liste.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit.
 import type { Jour } from '@/lib/joursOuvres';
@@ -113,6 +116,9 @@ const ACHATS_DESCRIPTION = 'Demandes d’achat et achats à valider. Aussi : com
 // RH (19 h 10) : candidatures et salariés
 const RECRUTEMENT_DESCRIPTION = 'Candidatures reçues (site et saisies dans l’application). Aussi : pipeline, + Candidat';
 const SALARIES_DESCRIPTION = 'Arrivées et départs en cours, habilitations qui expirent sous 60 jours. Aussi : + Salarié';
+// Factures (19 h 42)
+const RELANCER_DESCRIPTION = 'Émises ou partiellement payées dont la date de relance (J+3, J+10, J+15) est arrivée ; règlement revérifié dans Costructor chaque matin';
+const NON_REGLEES_DESCRIPTION = 'À émettre, émises, partiellement payées, en litige (Costructor fait référence)';
 
 // Rangées de l'espace Direction : un rôle chacune, dans l'ordre du parcours de l'affaire (16 h 49)
 const COMMERCIAL = 'Commercial';
@@ -161,8 +167,8 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
   backOffice: {
     titre: 'Espace back-office',
     vues: [
-      { cle: 'factures-retard', emoji: '⏰', libelle: 'Factures en retard', description: 'Émises ou partiellement payées, échéance passée (relances J+3, J+10, J+15)', href: ecran('factures', 'retard'), source: 'factures', vues: ['retard'], urgent: true },
-      { cle: 'factures', emoji: '💰', libelle: 'Suivi des factures', description: 'À émettre, émises, partiellement payées, en litige (Costructor fait référence)', href: ecran('factures', 'ouvertes'), source: 'factures', vues: ['ouvertes'] },
+      { cle: 'factures-retard', emoji: '⏰', libelle: 'Factures à relancer', description: RELANCER_DESCRIPTION, href: ecran('factures', 'retard'), source: 'factures', vues: ['retard'], urgent: true },
+      { cle: 'factures', emoji: '💰', libelle: 'Factures non réglées', description: NON_REGLEES_DESCRIPTION, href: ecran('factures', 'ouvertes'), source: 'factures', vues: ['ouvertes'] },
       { cle: 'achats', emoji: '🧾', libelle: 'Achats à valider', description: ACHATS_DESCRIPTION, href: ecran('achats', 'a-valider'), source: 'achats', vues: ['a-valider'], urgent: true },
       { cle: 'livraisons', emoji: '🚚', libelle: 'Livraisons en retard', description: LIVRAISONS_DESCRIPTION, href: ecran('commandes', 'livraisons-retard'), source: 'commandes', vues: ['livraisons-retard'], urgent: true },
       { cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: 'Compteur : dossiers en cours dont la date limite tombe dans les 30 jours. Aussi : suivi, primes à encaisser', href: ecran('advenir', 'alertes'), source: 'advenir', vues: ['alertes'], urgent: true },
@@ -205,8 +211,8 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       // Back-office : achats, aides, facturation, contrats, décomptes, RH
       { etape: BACK_OFFICE, cle: 'achats', emoji: '🧾', libelle: 'Achats à valider', description: ACHATS_DESCRIPTION, href: ecran('achats', 'a-valider'), source: 'achats', vues: ['a-valider'], urgent: true },
       { etape: BACK_OFFICE, cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: 'Compteur : dossiers en cours dont la date limite tombe dans les 30 jours. Aussi : suivi, primes à encaisser', href: ecran('advenir', 'alertes'), source: 'advenir', vues: ['alertes'], urgent: true },
-      { etape: BACK_OFFICE, cle: 'factures', emoji: '💰', libelle: 'Suivi des factures', description: 'À émettre, émises, partiellement payées, en litige (Costructor fait référence)', href: ecran('factures', 'ouvertes'), source: 'factures', vues: ['ouvertes'] },
-      { etape: BACK_OFFICE, cle: 'factures-retard', emoji: '⏰', libelle: 'Factures en retard', description: 'Émises ou partiellement payées, échéance passée (relances J+3, J+10, J+15)', href: ecran('factures', 'retard'), source: 'factures', vues: ['retard'], urgent: true },
+      { etape: BACK_OFFICE, cle: 'factures', emoji: '💰', libelle: 'Factures non réglées', description: NON_REGLEES_DESCRIPTION, href: ecran('factures', 'ouvertes'), source: 'factures', vues: ['ouvertes'] },
+      { etape: BACK_OFFICE, cle: 'factures-retard', emoji: '⏰', libelle: 'Factures à relancer', description: RELANCER_DESCRIPTION, href: ecran('factures', 'retard'), source: 'factures', vues: ['retard'], urgent: true },
       { etape: BACK_OFFICE, cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: 'Échéance annuelle dans les 30 jours ou dépassée. Aussi : base du Parc, abonnements de supervision', href: ecran('parc', 'contrats'), source: 'parc', vues: ['contrats'] },
       { etape: BACK_OFFICE, cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Bornes en relevé : à préparer, à valider, envoyés (compteur : bornes suivies)', href: '/interne/decomptes', source: 'parc', vues: ['releve'] },
       { etape: BACK_OFFICE, cle: 'rh', emoji: '👔', libelle: 'Demandes RH', description: 'Compteur : demandes RH nouvelles ou en examen', href: ecran('rh', 'demandes'), source: 'rh', vues: ['demandes'] },
@@ -344,7 +350,8 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
     'mes-visites': (t, _a, moi) => visiteAMoi(t, moi),
     'visites-equipe': (t) => visiteOuverte(t),
   },
-  // Factures Clients : mêmes règles que la carte « Factures en retard » de Ma journée
+  // Factures Clients : mêmes règles que la carte « Factures à relancer » de Ma journée. retard = À relancer : l'échéance
+  // de la tâche est la date du rappel de relance (src/lib/controleReglements.ts). ouvertes = Non réglées.
   factures: {
     retard: (t, a) => { const s = statut(t); return !s.includes('litige') && (s.includes('emise') || s.includes('partiel')) && avant(t?.due_date, a); },
     ouvertes: (t) => statutParmi(t, ['a emettre', 'emise', 'partiel', 'litige']),
