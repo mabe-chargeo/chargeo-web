@@ -2,25 +2,29 @@
 
 // Saisie à la pose (étape 2, fiche intervention validée par Matthieu le 17/10/2026 à 13 h), action de la fiche
 // intervention de l'installateur. Pour chaque borne (ou prise renforcée) du scénario retenu : photo de l'étiquette,
-// n° de série, puissance configurée, photo de la borne posée. Pour chaque coffret : une photo. Le reste du matériel
-// prévu est affiché pour mémoire.
+// n° de série, puissance configurée, photo de la borne posée. Pour chaque coffret : une photo.
+// 17/10/2026, 17 h 37 (choix de Matthieu : « Ce qui est prévu, sans prix ») : en tête d'écran, le bloc « 📋 Ce qui est
+// prévu » (ancre #prevu) liste chaque élément du scénario retenu avec son détail (champs remplis, description), sans
+// aucun prix ; il remplace « Reste du matériel prévu ». Gardé hors ligne avec le reste du chantier.
 // Hors ligne : tout part d'abord sur le téléphone (src/lib/fileEnvoi.ts), puis la file d'envoi visible envoie dès que le
 // réseau revient. États : enregistré sur le téléphone (en attente), envoi en cours, envoyé, échec avec Réessayer. Une
 // photo en échec ne bloque jamais le reste. Le chantier lui-même est gardé sur le téléphone après la première ouverture.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, BatteryCharging, Camera, CheckCircle2, CloudOff, CloudUpload, MapPin, Package, RefreshCw, Save } from 'lucide-react';
+import { ArrowLeft, BatteryCharging, Camera, CheckCircle2, ClipboardList, CloudOff, CloudUpload, MapPin, Package, RefreshCw, Save } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere, TitreCarte, CHAMP } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { ajouter, envoyerTout, lister, nouvelleCle, reprendre, type Envoi } from '@/lib/fileEnvoi';
 
 type Element = {
-  id: string; nom: string; nature: string; libelleNature: string; aSaisir: boolean;
+  id: string; nom: string; scenario?: string; nature: string; libelleNature: string; aSaisir: boolean;
   numeroSerie: string; champSerie: boolean; photos: { etape: string; nom: string }[];
+  details?: { libelle: string; valeur: string }[]; description?: string;
 };
 type Donnees = {
   chantier: { id: string; nom: string; statut: string; couleurStatut: string; adresse: string; url: string; ecritureAutorisee: boolean };
   scenarios: string[];
+  retenu?: boolean;
   elements: Element[];
   puissances: string[];
   lu: number;
@@ -30,6 +34,8 @@ type Donnees = {
 const cleCache = (id: string) => `chargeo_pose_${id}`;
 const heure = (ms: number) => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
 const LIBELLE_ETAPE: Record<string, string> = { etiquette: 'Photo de l’étiquette', posee: 'Photo de la borne posée', coffret: 'Photo du coffret' };
+// Ordre d'affichage de Ce qui est prévu : bornes, coffrets, puis le reste
+const rangNature = (n: string) => (n === 'borne' || n === 'priseRenforcee' ? 0 : n === 'tdIrveCoffret' ? 1 : 2);
 
 // Photo réduite à 1600 px en JPEG (réseau de chantier, limite de 4 Mo), comme la réception
 async function preparer(fichier: File): Promise<Blob> {
@@ -109,6 +115,11 @@ export default function PosePage() {
     window.addEventListener('online', enLigne);
     return () => window.removeEventListener('online', enLigne);
   }, [id]);
+
+  // Ouvert depuis « Ce qui est prévu » (Mes interventions) : on descend au bloc une fois le chantier chargé
+  useEffect(() => {
+    if (donnees && window.location.hash === '#prevu') document.getElementById('prevu')?.scrollIntoView();
+  }, [donnees]);
 
   const enregistrer = async (e: Element) => {
     if (!donnees) return;
@@ -233,8 +244,31 @@ export default function PosePage() {
   const elements = donnees?.elements || [];
   const bornes = elements.filter((e) => e.aSaisir && e.nature !== 'tdIrveCoffret');
   const coffrets = elements.filter((e) => e.nature === 'tdIrveCoffret');
-  const autres = elements.filter((e) => !e.aSaisir);
   const sansChampSerie = bornes.some((e) => !e.champSerie);
+  const prevus = elements.slice().sort((a, b) => rangNature(a.nature) - rangNature(b.nature));
+  const plusieursScenarios = (donnees?.scenarios || []).length > 1;
+
+  // « Ce qui est prévu » : un élément, son détail, jamais de prix
+  const lignePrevue = (e: Element) => (
+    <div key={e.id} className="rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
+      <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500">
+        {e.libelleNature}{plusieursScenarios && e.scenario ? ` · ${e.scenario}` : ''}
+      </p>
+      <p className="mt-0.5 text-[16px] font-bold leading-tight">{e.nom}</p>
+      {(e.details || []).length > 0 && (
+        <dl className="mt-2 space-y-1">
+          {(e.details || []).map((d) => (
+            <div key={d.libelle} className="flex justify-between gap-3 text-[14px]">
+              <dt className="text-slate-500">{d.libelle}</dt>
+              <dd className="text-right font-semibold">{d.valeur}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {e.description && <p className="mt-2 whitespace-pre-line text-[13px]">{e.description}</p>}
+      {!(e.details || []).length && !e.description && <p className="mt-1 text-[13px] text-slate-500">Pas de détail renseigné au relevé.</p>}
+    </div>
+  );
 
   return (
     <PageAppli>
@@ -292,18 +326,26 @@ export default function PosePage() {
             {!elements.length && (
               <Carte className="text-center"><p className="text-[15px] font-semibold">Aucun matériel prévu : le scénario retenu n’a pas d’éléments.</p></Carte>
             )}
-            {bornes.length > 0 && <Repere>Bornes ({bornes.length})</Repere>}
-            {bornes.map(carteBorne)}
-            {coffrets.length > 0 && <Repere>Coffrets ({coffrets.length})</Repere>}
-            {coffrets.map(carteCoffret)}
-            {autres.length > 0 && (
-              <>
-                <Repere>Reste du matériel prévu ({autres.length})</Repere>
-                <Carte className="space-y-1.5">
-                  {autres.map((e) => <p key={e.id} className="text-[14px]"><span className="font-semibold">{e.libelleNature}</span> · {e.nom}</p>)}
-                </Carte>
-              </>
+
+            {prevus.length > 0 && (
+              <details id="prevu" open className="scroll-mt-4 rounded-[20px] p-4" style={{ backgroundColor: GRIS }}>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 text-[17px] font-bold"><ClipboardList size={20} color={CYAN} /> Ce qui est prévu ({prevus.length})</span>
+                  <span className="text-[13px] font-semibold" style={{ color: CYAN }}>afficher / masquer</span>
+                </summary>
+                <p className="mt-2 text-[13px]">
+                  {donnees.retenu === false
+                    ? 'Aucun scénario n’est marqué ✅ Retenu : tous les scénarios sont affichés, demande au chef de chantier lequel poser.'
+                    : `Scénario retenu : ${(donnees.scenarios || []).join(', ')}`}
+                </p>
+                <div className="mt-3 space-y-2">{prevus.map(lignePrevue)}</div>
+              </details>
             )}
+
+            {bornes.length > 0 && <Repere>Bornes à saisir ({bornes.length})</Repere>}
+            {bornes.map(carteBorne)}
+            {coffrets.length > 0 && <Repere>Coffrets à photographier ({coffrets.length})</Repere>}
+            {coffrets.map(carteCoffret)}
             <a href="/interne/reception" className="flex min-h-[56px] w-full items-center justify-center gap-2 rounded-full px-6 text-[16px] font-semibold ring-[1.5px] ring-[#dfe3e8]" style={{ color: CYAN }}>
               Étape suivante : rapport et signature
             </a>

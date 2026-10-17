@@ -9,6 +9,11 @@ import { LISTES } from '@/lib/espaces';
 // Saisie à la pose (étape 2, fiche intervention validée par Matthieu le 17/10/2026 à 13 h).
 // GET ?id=<chantier> : le matériel prévu = les éléments du scénario retenu (« ✅ Retenu · … », à défaut tous les
 //   scénarios non archivés), avec pour chaque borne et chaque coffret ce qui est déjà saisi (n° de série, photos).
+// 17/10/2026, 17 h 37 (choix de Matthieu : « Ce qui est prévu, sans prix ») : chaque élément arrive avec son détail
+//   (tous ses champs remplis : support, puissance visée, coffret, gestion de charge, départ et arrivée, type de
+//   cheminement, longueurs…) et sa description. Jamais de prix : les champs monétaires, les liens (dont Costructor, qui
+//   ouvre le devis chiffré) et tout champ dont le nom parle de prix, montant, budget, coût, tarif, marge, remise ou
+//   acompte sont écartés. La réponse entière est gardée sur le téléphone (« Préparer ma journée hors ligne »).
 // POST JSON { cle, chantierId, elementId, numeroSerie?, puissance? } : sur l'élément, 🆔 Numéro de Série (si le champ
 //   est sur la liste : Matthieu l'ajoute au Planning en « champ existant ») et un commentaire « 🔧 Saisie à la pose » qui
 //   garde n° de série, puissance configurée, auteur et heure (aucun champ puissance configurée n'existe au Planning).
@@ -23,6 +28,10 @@ export const dynamic = 'force-dynamic';
 const NUMERO_SERIE = '3b583c66-e4ac-4313-a60b-fd397b9f4923'; // 🆔 Numéro de Série (Parc, à ajouter au Planning)
 const PUISSANCES = ['3,7', '7,4', '11', '22'];
 const ETAPES_PHOTO: Record<string, string> = { etiquette: 'étiquette', posee: 'posée', coffret: 'coffret', autre: 'photo' };
+
+// Ce qui ne part jamais vers le téléphone de l'installateur (aucun prix)
+const TYPES_EXCLUS = ['currency', 'url', 'attachment', 'email', 'phone', 'location'];
+const MOTS_EXCLUS = ['prix', 'montant', 'budget', 'cout', 'tarif', 'marge', 'remise', 'acompte', 'ttc', 'costructor', 'lien'];
 
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const champ = (t: any, id: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => c?.id === id);
@@ -45,6 +54,57 @@ async function lire(token: string, id: string, sousTaches = false): Promise<any 
 
 function natureDe(e: any): Nature | null {
   return (cleOption(OPTIONS.nature, indexMenu(e, CHAMPS.nature)) as Nature | null) || null;
+}
+
+// Valeur lisible d'un champ (vide = non affiché)
+function valeurChamp(c: any, noms: Record<string, string>): string {
+  const v = c?.value;
+  if (v === undefined || v === null || v === '') return '';
+  const type = String(c?.type || '');
+  const options: any[] = Array.isArray(c?.type_config?.options) ? c.type_config.options : [];
+  if (type === 'drop_down') {
+    const o = options.find((x: any) => Number(x?.orderindex) === Number(v) || String(x?.id) === String(v));
+    return o ? String(o.name || '') : '';
+  }
+  if (type === 'labels') {
+    return (Array.isArray(v) ? v : []).map((id: any) => options.find((x: any) => String(x?.id) === String(id))?.label).filter(Boolean).join(', ');
+  }
+  if (type === 'checkbox') return v === true || v === 'true' ? 'Oui' : '';
+  if (type === 'tasks' || type === 'list_relationship') {
+    return (Array.isArray(v) ? v : []).map((x: any) => String(x?.name || noms[String(x?.id ?? x)] || '')).filter(Boolean).join(', ');
+  }
+  if (type === 'users') return (Array.isArray(v) ? v : []).map((u: any) => String(u?.username || '')).filter(Boolean).join(', ');
+  if (type === 'date') {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(n)) : '';
+  }
+  if (type === 'number' || type === 'formula') {
+    const n = Number(v);
+    return Number.isFinite(n) && n !== 0 ? String(Math.round(n * 100) / 100).replace('.', ',') : '';
+  }
+  if (typeof v === 'object') return '';
+  return String(v).trim();
+}
+
+// Détail d'un élément pour l'installateur : ses champs remplis, sans prix ni lien
+function detailsDe(t: any, noms: Record<string, string>): { libelle: string; valeur: string }[] {
+  const sortie: { libelle: string; valeur: string }[] = [];
+  for (const c of Array.isArray(t?.custom_fields) ? t.custom_fields : []) {
+    if (!c?.id || c.id === CHAMPS.nature || c.id === NUMERO_SERIE) continue;
+    const nom = String(c?.name || '').trim();
+    const n = normal(nom);
+    if (TYPES_EXCLUS.indexOf(String(c?.type || '')) >= 0 || nom.indexOf('€') >= 0 || MOTS_EXCLUS.some((m) => n.indexOf(m) >= 0)) continue;
+    const valeur = valeurChamp(c, noms);
+    if (valeur) sortie.push({ libelle: nom, valeur });
+  }
+  return sortie;
+}
+
+// Description de l'élément, sans la phrase automatique de conversion de l'ancien relevé
+function descriptionDe(t: any): string {
+  const d = String(t?.text_content || t?.description || '').trim();
+  if (!d || d.startsWith('Élément créé le')) return '';
+  return d.length > 600 ? `${d.slice(0, 600)}…` : d;
 }
 
 // Scénarios du chantier qui portent le matériel : le retenu, sinon tous ceux qui ne sont pas archivés
@@ -83,28 +143,34 @@ export async function GET(request: Request) {
     const t = c.tache;
     const scenarios = await scenariosDe(token, t);
     const lus = await Promise.all(scenarios.map((s: any) => lire(token, String(s.id), true)));
-    const elements: any[] = [];
+    const elements: { e: any; scenario: string }[] = [];
     for (const s of lus) {
       for (const e of Array.isArray(s?.subtasks) ? s.subtasks : []) {
-        if (!e?.archived && String(e?.parent || '') === String(s.id)) elements.push(e);
+        if (!e?.archived && String(e?.parent || '') === String(s.id)) elements.push({ e, scenario: String(s?.name || '') });
       }
     }
-    // Bornes, prises et coffrets : lus en entier (pièces jointes et n° de série)
+    // Chaque élément est lu en entier : champs (détail prévu), pièces jointes et n° de série
+    const complets = await Promise.all(elements.map(({ e }) => lire(token, String(e.id))));
+    // Noms des éléments, pour lire Départ et Arrivée d'un cheminement
+    const noms: Record<string, string> = {};
+    elements.forEach(({ e }) => { noms[String(e.id)] = String(e.name || ''); });
     const aSaisir = (n: Nature | null) => n === 'borne' || n === 'priseRenforcee' || n === 'tdIrveCoffret';
-    const complets = await Promise.all(elements.map((e) => (aSaisir(natureDe(e)) ? lire(token, String(e.id)) : Promise.resolve(null))));
-    const sortie = elements.map((e, i) => {
-      const n = natureDe(e);
+    const sortie = elements.map(({ e, scenario }, i) => {
       const plein = complets[i] || e;
+      const n = natureDe(plein);
       const serie = champ(plein, NUMERO_SERIE);
       return {
         id: String(e.id),
         nom: String(e.name || ''),
+        scenario,
         nature: n || 'autre',
         libelleNature: n ? LIBELLE_NATURE[n] : 'Autre',
         aSaisir: aSaisir(n),
         numeroSerie: serie?.value ? String(serie.value) : '',
         champSerie: !!serie,
-        photos: complets[i] ? photosDe(plein) : [],
+        photos: aSaisir(n) ? photosDe(plein) : [],
+        details: detailsDe(plein, noms),
+        description: descriptionDe(plein),
       };
     });
     return json({
@@ -118,6 +184,7 @@ export async function GET(request: Request) {
         ecritureAutorisee: ecritureAutorisee(t),
       },
       scenarios: scenarios.map((s: any) => String(s.name || '')),
+      retenu: scenarios.some((s: any) => String(s?.name || '').startsWith(PREFIXE_RETENU)),
       elements: sortie,
       puissances: PUISSANCES,
       lu: Date.now(),
