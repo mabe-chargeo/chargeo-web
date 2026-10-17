@@ -9,11 +9,13 @@
 // 17/10, 17 h 24 : deux parties, « À traiter » et « À consulter ».
 // 17/10, 20 h 17 (choix de Matthieu : barre à 4 onglets) : « À consulter » devient son propre onglet
 // (/interne/consulter) ; cet écran ne garde que les vues avec compteur.
+// 17/10, 20 h 29 (Matthieu : « il manque le bouton pour ajouter un nouveau prospect ») : + Prospect à côté de
+// + Nouveau projet pour les rôles qui peuvent créer un prospect (CREER de src/lib/menusAppli.ts : commercial, direction).
 import { useEffect, useState } from 'react';
 import { ChevronRight, ExternalLink, Plus, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, NAVY, ORANGE } from '@/components/charte/couleurs';
-import { LIBELLE_ROLE, type RoleAppli } from '@/lib/menusAppli';
+import { CREER, ECRANS, LIBELLE_ROLE, type RoleAppli } from '@/lib/menusAppli';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 
 type Vue = {
@@ -84,6 +86,10 @@ export default function EspacePage() {
   };
 
   const vues = donnees?.vues || [];
+  // Boutons de création en tête : celui de l'espace (+ Nouveau projet) et + Prospect si le rôle peut en créer
+  const boutons: { libelle: string; href: string }[] = [];
+  if (donnees?.espace?.creer) boutons.push(donnees.espace.creer);
+  if (donnees?.espace && roleVu && CREER[roleVu].includes('prospect') && ECRANS.prospect) boutons.push({ libelle: ECRANS.prospect.libelle, href: ECRANS.prospect.href });
 
   return (
     <PageAppli>
@@ -106,13 +112,18 @@ export default function EspacePage() {
           </Carte>
         )}
 
-        {donnees?.espace?.creer && (
-          <a
-            href={donnees.espace.creer.href}
-            className="flex w-full items-center justify-center gap-3 rounded-full bg-[#FF6B00] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95"
-          >
-            <Plus size={20} /> {donnees.espace.creer.libelle}
-          </a>
+        {boutons.length > 0 && (
+          <div className={boutons.length > 1 ? 'grid grid-cols-2 gap-2' : ''}>
+            {boutons.map((b) => (
+              <a
+                key={b.href}
+                href={b.href}
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-4 py-4 text-[16px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95"
+              >
+                <Plus size={19} /> {b.libelle}
+              </a>
+            ))}
+          </div>
         )}
 
         {vues.map((v, i) => (
