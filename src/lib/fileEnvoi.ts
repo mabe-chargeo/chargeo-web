@@ -4,6 +4,8 @@
 // Une photo en échec ne bloque jamais le reste : chaque envoi part seul.
 // Chaque envoi a une clé unique (« cle ») transmise au serveur, qui ne refait pas un envoi déjà reçu : rejouer la file
 // ne crée pas de doublon.
+// 17/10, 14 h 50 : chaque envoi peut viser sa route (« route ») : saisie à la pose (par défaut, /api/interne/pose) ou
+// visite de maintenance (/api/interne/maintenance). Pour une visite, chantierId = la visite, elementId = le point de charge.
 // IndexedDB (et pas localStorage) : les photos y tiennent sans la limite de 5 Mo. Navigateur uniquement.
 
 export type EtatEnvoi = 'attente' | 'encours' | 'echec';
@@ -14,10 +16,12 @@ export type Envoi = {
   elementId: string;
   elementNom: string;
   type: 'saisie' | 'photo';
-  // saisie : { numeroSerie, puissance } ; photo : { etape }
+  // saisie : { numeroSerie, puissance } ou { resultats } ; photo : { etape }
   donnees: Record<string, string>;
   fichier?: Blob;
   nomFichier?: string;
+  // Route qui reçoit l'envoi (absent = saisie à la pose)
+  route?: string;
   etat: EtatEnvoi;
   erreur?: string;
   creeLe: number;
@@ -26,6 +30,8 @@ export type Envoi = {
 
 const BASE = 'chargeo-terrain';
 const TABLE = 'envois';
+const ROUTES = ['/api/interne/pose', '/api/interne/maintenance'];
+const routeDe = (e: Envoi) => (e.route && ROUTES.includes(e.route) ? e.route : '/api/interne/pose');
 
 function ouvrir(): Promise<IDBDatabase> {
   return new Promise((ok, ko) => {
@@ -76,6 +82,7 @@ async function envoyerUn(e: Envoi): Promise<boolean> {
   await maj({ ...e, etat: 'encours', essaisLe: Date.now() });
   try {
     let res: Response;
+    const route = routeDe(e);
     if (e.type === 'photo') {
       if (!e.fichier) throw new Error('Photo absente du téléphone');
       const form = new FormData();
@@ -84,9 +91,9 @@ async function envoyerUn(e: Envoi): Promise<boolean> {
       form.append('elementId', e.elementId);
       form.append('etape', e.donnees.etape || 'photo');
       form.append('fichier', e.fichier, e.nomFichier || 'photo.jpg');
-      res = await fetch('/api/interne/pose', { method: 'POST', body: form });
+      res = await fetch(route, { method: 'POST', body: form });
     } else {
-      res = await fetch('/api/interne/pose', {
+      res = await fetch(route, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cle: e.cle, chantierId: e.chantierId, elementId: e.elementId, ...e.donnees }),
