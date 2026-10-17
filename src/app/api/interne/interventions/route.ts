@@ -10,6 +10,9 @@ import { CHAMPS_INTERVENTION, LISTES, chantierAMoi, etapePlanning, ticketAMoi, v
 // maintenance (Maintenance 🛠️, 👷 Technicien = moi, à planifier ou RDV confirmé), comme la vue ClickUp 📱 MODE TECH.
 // GET ?vue=sav : tickets SAV 🔧 affectés à moi, pas encore résolus.
 // « moi » = la personne connectée. Direction et chef de chantier voient ceux de toute l'équipe (pour vérifier).
+// 17/10/2026, 17 h 51 (Matthieu : « je suis en vue installateur, alors pourquoi j'ai ce message ? ») : &role= donne le
+// rôle choisi dans la pastille de l'en-tête. En vue Installateur, même la direction voit seulement ses interventions,
+// exactement comme un installateur ; la vue équipe reste pour Direction et Chef de chantier.
 // Le bloc Contact lit la fiche du chantier, ou la fiche du Parc reliée à la visite ou au ticket.
 // Preview : vraies listes, en lecture seule.
 
@@ -52,12 +55,15 @@ export async function GET(request: Request) {
 
   try {
     const roles = await rolesDe(token, session.id);
-    const equipe = roles.includes('direction') || roles.includes('chargeOperation');
-    if (!equipe && !roles.includes('poseur')) {
+    const peutVoirEquipe = roles.includes('direction') || roles.includes('chargeOperation');
+    if (!peutVoirEquipe && !roles.includes('poseur')) {
       return NextResponse.json({ error: 'Cet écran est réservé aux installateurs.' }, { status: 403 });
     }
+    const params = new URL(request.url).searchParams;
+    // Vue équipe sauf si le rôle choisi dans l'en-tête est Installateur
+    const equipe = peutVoirEquipe && params.get('role') !== 'poseur';
     const moi = Number(session.id);
-    const vue = new URL(request.url).searchParams.get('vue') === 'sav' ? 'sav' : 'interventions';
+    const vue = params.get('vue') === 'sav' ? 'sav' : 'interventions';
     const auj = cleJour(Date.now());
 
     if (vue === 'sav') {

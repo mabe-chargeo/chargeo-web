@@ -15,11 +15,15 @@
 // protocole Sefram MW9665 avec l'adaptateur A1532-XA, point de charge par point de charge.
 // 17/10, 17 h 37 (choix de Matthieu) : chaque pose a aussi « 📋 Ce qui est prévu » (/interne/pose/<id>#prevu) : les
 // éléments du scénario retenu avec leur détail, sans aucun prix, gardés hors ligne avec « Préparer ma journée ».
+// 17/10, 17 h 51 (Matthieu : « je suis en vue installateur, alors pourquoi j'ai ce message ? ») : le rôle choisi dans
+// la pastille de l'en-tête part avec la lecture (&role=). Vue Installateur = mes interventions, comme un installateur,
+// même pour la direction. Vue Direction ou Chef de chantier = toute l'équipe, avec le nom des installateurs.
 import { useEffect, useState } from 'react';
 import { ArrowLeft, CalendarClock, ChevronRight, Download, ExternalLink, HardHat, MapPin, Navigation, RefreshCw, WifiOff } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
+import { useRoleAppli } from '@/components/charte/roleAppli';
 
 type Item = {
   id: string; type: 'pose' | 'visite' | 'sav'; nom: string; statut: string; couleurStatut: string;
@@ -28,7 +32,7 @@ type Item = {
 };
 type Reponse = { vue: 'interventions' | 'sav'; aujourdhui: string; equipe: boolean; items: Item[]; lu: number };
 
-const cleCache = (vue: string) => `chargeo_interventions_${vue}`;
+const cleCache = (vue: string, role: string) => `chargeo_interventions_${vue}${role === 'poseur' || !role ? '' : `_${role}`}`;
 const CLE_PREPARATION = 'chargeo_journee_preparee';
 const decaler = (jour: string, n: number): string => {
   const [a, m, j] = jour.split('-').map(Number);
@@ -38,6 +42,7 @@ const decaler = (jour: string, n: number): string => {
 const heure = (ms: number) => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
 
 export default function InterventionsPage() {
+  const { role } = useRoleAppli();
   const [vue, setVue] = useState<'interventions' | 'sav'>('interventions');
   const [donnees, setDonnees] = useState<Reponse | null>(null);
   const [horsLigne, setHorsLigne] = useState(false);
@@ -48,22 +53,23 @@ export default function InterventionsPage() {
   const [prepMessage, setPrepMessage] = useState<string | null>(null);
 
   const charger = async (v: 'interventions' | 'sav') => {
+    const r = role || '';
     setLoading(true);
     setErreur(null);
     try {
-      const res = await fetch(`/api/interne/interventions?vue=${v}`, { cache: 'no-store' });
+      const res = await fetch(`/api/interne/interventions?vue=${v}&role=${encodeURIComponent(r)}`, { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
         setErreur(data?.error || `Lecture impossible (${res.status})`);
       } else {
         setDonnees(data as Reponse);
         setHorsLigne(false);
-        try { localStorage.setItem(cleCache(v), JSON.stringify(data)); } catch {}
+        try { localStorage.setItem(cleCache(v, r), JSON.stringify(data)); } catch {}
       }
     } catch {
       // Pas de réseau : dernière liste gardée sur le téléphone
       try {
-        const brut = localStorage.getItem(cleCache(v));
+        const brut = localStorage.getItem(cleCache(v, r));
         if (brut) { setDonnees(JSON.parse(brut) as Reponse); setHorsLigne(true); }
         else setErreur('Pas de réseau, et aucune liste gardée sur ce téléphone. Ouvre l’écran une fois avec du réseau.');
       } catch {
@@ -74,15 +80,17 @@ export default function InterventionsPage() {
     }
   };
 
+  // Relu quand le rôle de l'en-tête est connu ou change
   useEffect(() => {
     const v = new URLSearchParams(window.location.search).get('vue') === 'sav' ? 'sav' : 'interventions';
     setVue(v);
+    setDonnees(null);
     charger(v);
     try {
       const p = JSON.parse(localStorage.getItem(CLE_PREPARATION) || 'null');
       if (p && typeof p.le === 'number') setPreparation(p);
     } catch {}
-  }, []);
+  }, [role]);
 
   const choisir = (v: 'interventions' | 'sav') => {
     setVue(v);
@@ -134,9 +142,11 @@ export default function InterventionsPage() {
     setPrepEnCours(false);
   };
 
+  const equipe = !!donnees?.equipe;
+
   const boutonRetour = (
     <a href="/interne/espace" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Mon travail
+      <ArrowLeft size={16} /> Mon espace
     </a>
   );
 
@@ -163,7 +173,7 @@ export default function InterventionsPage() {
         <CalendarClock size={15} className="shrink-0" />
         {i.quand || 'Date à fixer'}
       </p>
-      {donnees?.equipe && (
+      {equipe && (
         <p className="flex items-center gap-1.5 text-[13px]">
           <HardHat size={14} className="shrink-0" color={CYAN} />
           {i.techniciens.length ? i.techniciens.join(', ') : 'Personne d’affecté'}
@@ -202,9 +212,18 @@ export default function InterventionsPage() {
     </div>
   );
 
+  const titre = equipe ? (vue === 'sav' ? 'Tickets SAV de l’équipe' : 'Interventions de l’équipe') : vue === 'sav' ? 'Mes tickets SAV' : 'Mes interventions';
+  const vide = equipe
+    ? vue === 'sav'
+      ? 'Aucun ticket SAV ouvert dans l’équipe.'
+      : 'Aucune intervention ouverte dans l’équipe (chantier en préparation, planifié ou en cours, visite à planifier ou confirmée).'
+    : vue === 'sav'
+      ? 'Aucun ticket SAV pour toi.'
+      : 'Aucune intervention prévue pour toi : aucun chantier ni aucune visite ne t’a été affecté (champ 👷 Technicien).';
+
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Installateur" titre={vue === 'sav' ? 'Mes tickets SAV' : 'Mes interventions'} action={boutonRetour} />
+      <EnTeteAppli surtitre={equipe ? 'Équipe d’installateurs' : 'Installateur'} titre={titre} action={boutonRetour} />
       <ContenuAppli className="space-y-4">
         <div className="flex gap-2">
           {(['interventions', 'sav'] as const).map((v) => (
@@ -227,7 +246,6 @@ export default function InterventionsPage() {
             <span className="inline-flex items-center gap-2"><WifiOff size={16} /> Hors ligne : liste du {heure(donnees.lu)}, gardée sur ce téléphone.</span>
           </Alerte>
         )}
-        {donnees?.equipe && <Alerte>Vue équipe (direction ou chef de chantier) : toutes les interventions, pas seulement les tiennes.</Alerte>}
         {erreur && <Alerte>{erreur}</Alerte>}
 
         {vue === 'interventions' && !horsLigne && posesAPreparer.length > 0 && (
@@ -256,11 +274,11 @@ export default function InterventionsPage() {
         {loading && !donnees && (
           <Carte className="p-8 text-center">
             <RefreshCw className="mx-auto animate-spin" size={28} color={CYAN} />
-            <p className="mt-3 text-[15px] font-semibold">Chargement de ton travail...</p>
+            <p className="mt-3 text-[15px] font-semibold">Chargement des interventions...</p>
           </Carte>
         )}
         {donnees && !items.length && (
-          <Carte className="text-center"><p className="text-[15px] font-semibold">{vue === 'sav' ? 'Aucun ticket SAV pour toi.' : 'Aucune intervention prévue pour toi.'}</p></Carte>
+          <Carte className="text-center"><p className="text-[15px] font-semibold">{vide}</p></Carte>
         )}
 
         {groupes.map((g) => (
