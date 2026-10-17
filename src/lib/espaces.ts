@@ -6,12 +6,16 @@
 // reçoit le relevé finalisé (Devis à chiffrer), chiffre, envoie et relance.
 // Espace Chef de chantier validé le 17/10 à 11 h 06 (9 vues). Les vues dont l'écran n'existe pas encore ouvrent la
 // liste ClickUp (externe) ou l'écran « à construire », avec leur compteur réel quand il est calculable.
+// Espace Installateur validé le 17/10 à 11 h 18 (3 vues) : il ne voit que son travail (« moi » = la personne connectée,
+// comme la vue ClickUp 📱 MODE TECH), lisible hors ligne.
+// Clé de vue : « cle » dans la source de la vue, ou « source:cle » pour additionner une autre liste.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit.
 import type { Jour } from '@/lib/joursOuvres';
 import { aujourdhuiParis, ajouterJours, comparer } from '@/lib/joursOuvres';
 import { champ, nomOption } from '@/lib/vuesFiches';
 
 export type SourceVue = 'qualification' | 'prospection' | 'contacts' | 'planning' | 'commandes' | 'sav' | 'maintenance' | 'aucune';
+export type Filtre = (t: any, a: Jour, moi: number) => boolean;
 
 export type VueEspace = {
   cle: string;
@@ -45,6 +49,17 @@ export const LISTES: Record<Exclude<SourceVue, 'qualification' | 'aucune'>, stri
   maintenance: '1200630000008492', // Maintenance 🛠️ (visites)
 };
 
+// Champs des interventions (relus le 17/10/2026)
+export const CHAMPS_INTERVENTION = {
+  dateChantier: '8ded0ef0-cdbc-43b8-9d20-5806e2fc119f', // 📅 Date Intervention (Planning Chantiers)
+  technicienChantier: 'b400c953-ae06-4336-b471-405296f9ff1c', // 👷 Technicien (Planning Chantiers)
+  dateVisite: '0d983f33-ec42-4a5d-b4c6-7ebc6aacc971', // 📆 Date de RDV (Maintenance)
+  technicienVisite: 'a851257d-140b-4e2d-9aca-273b49b55179', // 👷 Technicien (Maintenance)
+  borneVisitee: 'bf8c35b7-65e1-4bcf-afe3-5740e1acc9fa', // 🔋 Borne visitée (Maintenance → Parc)
+  installationTicket: '3804df6e-a2e1-4058-913c-447189c73d35', // 🔗 Fiche Installation (Tickets SAV → Parc)
+  severite: 'c2ae4e08-6903-4698-af96-a40082c11b39', // 🔥 Sévérité (Tickets SAV)
+};
+
 export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur' | 'backOffice' | 'direction', Espace>> = {
   commercial: {
     titre: 'Espace commercial',
@@ -73,6 +88,14 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { cle: 'maintenance', emoji: '🔧', libelle: 'Visites de maintenance (J-30)', description: 'À planifier, échéance dans les 30 jours ou dépassée (ouvre ClickUp en attendant l’écran)', href: liste(LISTES.maintenance), source: 'maintenance', vues: ['j-30'], externe: true },
     ],
   },
+  poseur: {
+    titre: 'Mon travail',
+    vues: [
+      { cle: 'interventions', emoji: '📱', libelle: 'Mes interventions', description: 'Poses et visites de maintenance : aujourd’hui, demain, la semaine, avec l’itinéraire du jour', href: '/interne/interventions', source: 'planning', vues: ['mes-interventions', 'maintenance:mes-visites'] },
+      { cle: 'reception', emoji: '📸', libelle: 'Réception sur place', description: 'PV signé, rapport de mesures, photos et réserves', href: '/interne/reception', source: 'planning', vues: ['mes-receptions'], urgent: true },
+      { cle: 'sav', emoji: '🔧', libelle: 'Mes tickets SAV', description: 'Tickets qui me sont affectés, pas encore résolus', href: '/interne/interventions?vue=sav', source: 'sav', vues: ['mes-tickets'], urgent: true },
+    ],
+  },
 };
 
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -82,6 +105,11 @@ const jourDe = (ms: unknown): Jour | null => {
 };
 const statut = (t: any) => normal(t?.status?.status);
 const champNomme = (t: any, mot: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => normal(c?.name).includes(mot));
+// La personne fait partie d'un champ Personnes (ou des assignés si champId est vide)
+export const estAMoi = (t: any, champId: string | null, moi: number): boolean => {
+  const v = champId ? champ(t, champId)?.value : t?.assignees;
+  return Array.isArray(v) && v.some((u: any) => Number(u?.id) === Number(moi));
+};
 
 // ── Planning Chantiers 🚧 : feu vert (mêmes règles que Ma journée et l'écran Feu vert) ──
 export const CHAMP_FEU_VERT = 'c27f8084-e2f2-4eaf-83bd-d75e082e0d0a';
@@ -105,6 +133,15 @@ export const etapePlanning = (s: string): number => {
   return i < 0 ? ETAPES_PLANNING.length : i;
 };
 const enTravaux = (t: any) => etapePlanning(String(t?.status?.status || '')) <= 3;
+// Intervention de l'installateur : chantier en préparation, planifié ou en cours ; visite à planifier ou RDV confirmé
+export const chantierAMoi = (t: any, moi: number) => {
+  const e = etapePlanning(String(t?.status?.status || ''));
+  return e >= 1 && e <= 3 && estAMoi(t, CHAMPS_INTERVENTION.technicienChantier, moi);
+};
+export const visiteAMoi = (t: any, moi: number) =>
+  (statut(t).includes('a planifier') || statut(t).includes('rdv confirme')) && estAMoi(t, CHAMPS_INTERVENTION.technicienVisite, moi);
+export const ticketAMoi = (t: any, moi: number) =>
+  !statut(t).includes('resolu') && !statut(t).includes('archive') && estAMoi(t, null, moi);
 
 // ── Prospection (Chasse) ❄️ ──
 export const PROSPECTION_ID = LISTES.prospection;
@@ -121,7 +158,7 @@ export const VUES_PROSPECTION: Record<string, { libelle: string; filtre: (t: any
 };
 
 // Filtres des sources autres que Qualification, par clé de vue
-export const FILTRES: Partial<Record<SourceVue, Record<string, (t: any, a: Jour) => boolean>>> = {
+export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
   prospection: {
     'a-appeler': VUES_PROSPECTION['a-appeler'].filtre,
     chasse: VUES_PROSPECTION.chasse.filtre,
@@ -131,15 +168,21 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, (t: any, a: Jour)
     'feu-vert': (t) => feuVertADonner(t),
     'en-cours': (t) => enTravaux(t),
     receptions: (t) => statut(t).includes('realise'),
+    'mes-interventions': (t, _a, moi) => chantierAMoi(t, moi),
+    'mes-receptions': (t, _a, moi) => statut(t).includes('en cours') && estAMoi(t, CHAMPS_INTERVENTION.technicienChantier, moi),
   },
   commandes: { 'a-commander': (t) => statut(t).includes('a commander') },
-  sav: { 'a-traiter': (t) => !statut(t).includes('resolu') && !statut(t).includes('archive') },
+  sav: {
+    'a-traiter': (t) => !statut(t).includes('resolu') && !statut(t).includes('archive'),
+    'mes-tickets': (t, _a, moi) => ticketAMoi(t, moi),
+  },
   maintenance: {
     'j-30': (t, a) => {
       if (!statut(t).includes('a planifier')) return false;
       const j = jourDe(champNomme(t, 'echeance')?.value);
       return !!j && comparer(j, ajouterJours(a, 30)) <= 0;
     },
+    'mes-visites': (t, _a, moi) => visiteAMoi(t, moi),
   },
 };
 
