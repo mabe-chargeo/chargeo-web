@@ -7,8 +7,10 @@
 // 17/10, 18 h 02 (écrans qui manquent, liste du 11/10) : pastilles (?vue=) Suivi travaux, Prêts (feu vert donné, pas
 // encore en cours), En cours, Réserves à lever (sous-tâches « 🔧 Réserve » pas faites, Planning et Parc), Avancement
 // (nombre de chantiers par étape, réalisés à réceptionner compris) et Carte des chantiers (comme la carte des visites).
+// 17/10, 22 h 49 : bouton « 📅 Planifier la pose » (ou « Décaler la pose ») sur les chantiers à planifier, en préparation
+// ou planifiés : /interne/planifier/<id> (installateurs, durée, agenda de la semaine).
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarClock, ChevronRight, ExternalLink, HardHat, MapPin, Navigation, RefreshCw } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CalendarPlus, ChevronRight, ExternalLink, HardHat, MapPin, Navigation, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
@@ -122,6 +124,11 @@ export default function ChantiersPage() {
         <HardHat size={14} className="shrink-0" color={CYAN} />
         {c.techniciens.length ? c.techniciens.join(', ') : 'Technicien à affecter'}
       </p>
+      {c.etape <= 2 && (
+        <a href={`/interne/planifier/${c.id}`} className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold text-white transition-transform active:scale-95" style={{ backgroundColor: CYAN }}>
+          <CalendarPlus size={15} /> {c.quand ? 'Décaler la pose' : 'Planifier la pose'}
+        </a>
+      )}
       {c.adresse && (
         <p className="flex items-center gap-1.5 text-[13px]">
           <MapPin size={14} className="shrink-0" color={CYAN} />
@@ -209,7 +216,7 @@ export default function ChantiersPage() {
             <RefreshCw size={18} color={CYAN} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
-        <Alerte>Lecture seule : les chantiers se modifient encore dans ClickUp, sauf le feu vert et la réception.</Alerte>
+        <Alerte>Les chantiers se modifient encore dans ClickUp, sauf la planification de la pose, le feu vert et la réception.</Alerte>
         {erreur && <Alerte>{erreur}</Alerte>}
         {loading && !chantiers.length && !reserves.length && (
           <Carte className="p-8 text-center">
