@@ -4,11 +4,13 @@ import { aujourdhuiParis } from '@/lib/joursOuvres';
 import { sessionDeRequete } from '@/lib/session';
 import { rolesDe } from '@/lib/roles';
 import { vueDe } from '@/lib/vuesFiches';
-import { ESPACES, FILTRES, LISTES, type SourceVue, type VueEspace } from '@/lib/espaces';
+import { ESPACES, FILTRES, LISTES, type Filtre, type SourceVue, type VueEspace } from '@/lib/espaces';
 
 // Mon espace (un espace par rôle, validé par Matthieu le 17/10/2026). LECTURE SEULE.
 // GET ?role=<rôle> : les vues de l'espace du rôle (src/lib/espaces.ts) avec leur compteur réel. Chaque liste ClickUp
 // nécessaire n'est lue qu'une fois, toutes en parallèle ; une liste illisible donne « ? » sans bloquer les autres.
+// Une clé « source:cle » additionne une autre liste (ex. Mes interventions = chantiers + visites de maintenance).
+// Les vues « moi » (installateur) comptent ce qui est affecté à la personne connectée.
 // Droits : la personne doit avoir ce rôle, ou être direction (qui peut voir l'espace de chaque rôle).
 // Preview : Qualification lue dans 🧪 Qualification TEST ; les autres listes dans les vraies listes, en lecture seule.
 
@@ -31,6 +33,12 @@ async function lister(token: string, listId: string): Promise<any[]> {
   return toutes;
 }
 
+// « maintenance:mes-visites » → { source: 'maintenance', cle: 'mes-visites' } ; « feu-vert » → source de la vue
+function decouper(v: VueEspace, cle: string): { source: SourceVue; cle: string } {
+  const i = cle.indexOf(':');
+  return i > 0 ? { source: cle.slice(0, i) as SourceVue, cle: cle.slice(i + 1) } : { source: v.source, cle };
+}
+
 export async function GET(request: Request) {
   const token = process.env.CLICKUP_API_KEY;
   if (!token) return NextResponse.json({ error: 'Configuration serveur incomplète' }, { status: 500 });
@@ -47,10 +55,16 @@ export async function GET(request: Request) {
     if (!roles.includes('direction') && !(roles as string[]).includes(role)) {
       return NextResponse.json({ error: 'Cet espace ne correspond pas à ton rôle.' }, { status: 403 });
     }
+    const moi = Number(session.id);
 
     // Listes à lire, une seule fois chacune
     const sources: SourceVue[] = [];
-    for (const v of espace.vues) if (v.source !== 'aucune' && !sources.includes(v.source)) sources.push(v.source);
+    for (const v of espace.vues) {
+      for (const k of v.vues || []) {
+        const s = decouper(v, k).source;
+        if (s !== 'aucune' && !sources.includes(s)) sources.push(s);
+      }
+    }
     const qualifId = getQualificationListId();
     const idDe = (s: SourceVue): string | undefined => (s === 'qualification' ? qualifId : (LISTES as Record<string, string>)[s]);
     const lus = await Promise.allSettled(sources.map((s) => {
@@ -62,13 +76,18 @@ export async function GET(request: Request) {
     const aujourdhui = aujourdhuiParis();
 
     const vues = espace.vues.map((v) => {
-      const liste = taches[v.source];
       let n: number | null = null;
-      if (liste && v.vues?.length) {
-        const filtres = v.vues
-          .map((cle) => (v.source === 'qualification' ? vueDe(cle)?.filtre : FILTRES[v.source]?.[cle]))
-          .filter((f): f is (t: any, a: any) => boolean => typeof f === 'function');
-        if (filtres.length === v.vues.length) n = liste.filter((t) => filtres.some((f) => f(t, aujourdhui))).length;
+      if (v.vues?.length) {
+        let total = 0;
+        let complet = true;
+        for (const k of v.vues) {
+          const { source, cle } = decouper(v, k);
+          const liste = taches[source];
+          const f: Filtre | undefined = source === 'qualification' ? vueDe(cle)?.filtre : FILTRES[source]?.[cle];
+          if (!liste || !f) { complet = false; break; }
+          total += liste.filter((t) => f(t, aujourdhui, moi)).length;
+        }
+        n = complet ? total : null;
       }
       return { ...v, n };
     });
