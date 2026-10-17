@@ -24,6 +24,10 @@
 // Plus ouvre l'espace de chaque rôle.
 // 17/10/2026, 14 h 08 : « Nouveau lead » devient « Nouveau projet » (/interne/projet/nouveau) : qui appelle, adresse du
 // chantier, doublons, contacts avec leur rôle.
+// 17/10/2026, 14 h 28 (lot « écrans qui manquent ») : construits Planning (/interne/planning), Agenda (/interne/agenda),
+// les listes (/interne/liste/<source> : SAV, matériel, Parc, factures, ADVENIR, RH) avec la fiche générique, Ticket SAV
+// et Idée Kaizen (/interne/creer/sav et /interne/creer/kaizen). Carte du jour ouvre Mes interventions (itinéraire du
+// jour). Restent à décider : Ressources (lien du Drive), Visite de maintenance, Décomptes.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -58,7 +62,13 @@ const bientot = (cle: string, libelle: string, icone: CleIcone, description: str
   cle, libelle, icone, description, pret: false, href: `/interne/bientot/${cle}`, actif: [`/interne/bientot/${cle}`], ...plus,
 });
 
+// Écran construit (lot du 17/10, 14 h 28)
+const pret = (cle: string, libelle: string, icone: CleIcone, href: string, description: string, plus: Partial<Ecran> = {}): Ecran => ({
+  cle, libelle, icone, description, pret: true, href, actif: [href.split('?')[0]], ...plus,
+});
+
 const fiches = (vue: string) => `/interne/fiches?vue=${vue}`;
+const liste = (source: string, vue?: string) => `/interne/liste/${source}${vue ? `?vue=${vue}` : ''}`;
 
 // Espace d'un autre rôle, ouvert par la direction depuis Plus
 const espaceDe = (cle: string, role: RoleAppli, libelle: string, icone: CleIcone, description: string): Ecran => ({
@@ -92,7 +102,7 @@ export const ECRANS: Record<string, Ecran> = {
   },
   espace: {
     cle: 'espace', libelle: 'Mon espace', href: '/interne/espace', icone: 'pipeline', pret: true,
-    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne'],
+    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne'],
     description: 'Les vues du rôle, dans l’ordre de son travail, avec leurs compteurs',
   },
   releves: {
@@ -136,8 +146,8 @@ export const ECRANS: Record<string, Ecran> = {
   reception: { cle: 'reception', libelle: 'Rapport et signature', href: '/interne/reception', icone: 'reception', pret: true, actif: ['/interne/reception'], description: "Action de la fiche intervention : PV signé, rapport de mesures, photos et réserves, validé par le chef de chantier" },
 
   // ── Commercial ──
-  agenda: bientot('agenda', 'Agenda', 'agenda', 'AGENDA VISITES et CARTE DES AUDITS de Qualification : jour, semaine, carte des visites.', {
-    pastilles: [{ cle: 'jour', libelle: 'Jour' }, { cle: 'semaine', libelle: 'Semaine' }, { cle: 'carte', libelle: 'Carte des visites' }],
+  agenda: pret('agenda', 'Agenda', 'agenda', '/interne/agenda', 'Relevés techniques calés : jour (avec itinéraire), semaine, carte des visites.', {
+    pastilles: [{ cle: 'jour', libelle: 'Jour', href: '/interne/agenda' }, { cle: 'semaine', libelle: 'Semaine', href: '/interne/agenda?vue=semaine' }, { cle: 'carte', libelle: 'Carte des visites', href: '/interne/agenda?vue=carte' }],
   }),
   contacts: {
     cle: 'contacts', libelle: 'Contacts', href: '/interne/contacts', icone: 'contacts', pret: true, actif: ['/interne/contacts'],
@@ -146,73 +156,52 @@ export const ECRANS: Record<string, Ecran> = {
   ressources: bientot('ressources', 'Ressources', 'ressources', 'Le Google Drive partagé de l’espace Commercial (remplace « Outils & Wiki » de ClickUp).'),
 
   // ── Chef de chantier ──
-  planning: bientot('planning', 'Planning', 'planning', 'Planning Chantiers, Tickets SAV et Maintenance : Master planning (chantiers) et Planning techs (par installateur), filtres poses, dépannages, visites de maintenance.', {
+  planning: pret('planning', 'Planning', 'planning', '/interne/planning', 'Master planning (par jour) et Planning techs (par installateur) : poses, dépannages, visites de maintenance.', {
     pastilles: [
-      { cle: 'master', libelle: 'Master planning' },
-      { cle: 'techs', libelle: 'Planning techs' },
-      { cle: 'poses', libelle: 'Poses', groupe: 'Filtres' },
-      { cle: 'depannages', libelle: 'Dépannages', groupe: 'Filtres' },
-      { cle: 'visites', libelle: 'Visites de maintenance', groupe: 'Filtres' },
+      { cle: 'master', libelle: 'Master planning', href: '/interne/planning' },
+      { cle: 'techs', libelle: 'Planning techs', href: '/interne/planning?vue=techs' },
     ],
   }),
-  sav: bientot('sav', 'SAV et maintenance', 'sav', 'Tickets SAV et Maintenance : urgences et tri, dépannages planifiés, visites à préparer (J-30), suivi des visites. Fiche ticket avec l’historique de la borne. Les SAV urgents remontent aussi dans Ma journée.', {
+  sav: pret('sav', 'SAV et maintenance', 'sav', liste('sav', 'a-traiter'), 'Tickets SAV (urgences et tri) et visites de maintenance (J-30), avec la fiche du ticket.', {
     court: 'SAV',
     pastilles: [
-      { cle: 'urgences', libelle: 'Urgences et tri' },
-      { cle: 'depannages', libelle: 'Dépannages planifiés' },
-      { cle: 'j-30', libelle: 'Visites à préparer (J-30)' },
-      { cle: 'suivi-visites', libelle: 'Suivi des visites' },
+      { cle: 'urgences', libelle: 'Urgences et tri', href: liste('sav', 'a-traiter') },
+      { cle: 'j-30', libelle: 'Visites à préparer (J-30)', href: liste('maintenance', 'j-30') },
     ],
   }),
-  materielAchats: bientot('materielAchats', 'Matériel et achats', 'materiel', 'Commandes Matériel et Achats Fournisseurs : à commander, en livraison, réceptions prévues, livraisons en retard. Fiche commande : attendu, reçu, conforme.', {
+  materielAchats: pret('materielAchats', 'Matériel et achats', 'materiel', liste('commandes', 'a-commander'), 'Commandes Matériel et Achats Fournisseurs : à commander, livraisons en retard.', {
     court: 'Matériel',
     pastilles: [
-      { cle: 'a-commander', libelle: 'À commander' },
-      { cle: 'en-livraison', libelle: 'En livraison' },
-      { cle: 'receptions', libelle: 'Réceptions prévues' },
-      { cle: 'retards', libelle: 'Livraisons en retard' },
+      { cle: 'a-commander', libelle: 'À commander', href: liste('commandes', 'a-commander') },
+      { cle: 'retards', libelle: 'Livraisons en retard', href: liste('achats', 'livraisons-retard') },
     ],
-    parDefaut: { chargeOperation: 'a-commander', backOffice: 'retards' },
   }),
-  parc: bientot('parc', 'Parc', 'parc', 'Parc Installé : base globale, renouvellements et contrats, supervision, carte des bornes. Fiche installation ou borne : mesures, SAV, contrat, documents, visites. Installateur : historique d’une borne seulement.', {
-    pastilles: [
-      { cle: 'base', libelle: 'Base globale', roles: ['direction', 'chargeOperation', 'backOffice'] },
-      { cle: 'contrats', libelle: 'Renouvellements et contrats', roles: ['direction', 'chargeOperation', 'backOffice'] },
-      { cle: 'supervision', libelle: 'Supervision', roles: ['direction', 'chargeOperation', 'backOffice'] },
-      { cle: 'carte', libelle: 'Carte des bornes' },
-    ],
+  parc: pret('parc', 'Parc', 'parc', liste('parc'), 'Parc Installé : installations, contrats à renouveler. La fiche d’une installation garde tout son historique.', {
+    pastilles: [{ cle: 'contrats', libelle: 'Renouvellements et contrats', href: liste('parc', 'contrats') }],
   }),
 
   // ── Installateur ──
-  carteDuJour: bientot('carteDuJour', 'Carte du jour', 'carte', 'Itinéraire des interventions du jour (aussi en pastille d’Interventions).', { court: 'Carte' }),
+  carteDuJour: pret('carteDuJour', 'Carte du jour', 'carte', '/interne/interventions', 'Itinéraire des interventions du jour (dans Mes interventions).', { court: 'Carte' }),
   savSite: { cle: 'savSite', libelle: 'Mes tickets SAV', court: 'SAV', href: '/interne/interventions?vue=sav', icone: 'sav', pret: true, actif: [], description: 'Ses tickets SAV pas encore résolus, avec l’historique de la borne. Pas d’accès à Urgences et tri (chef de chantier).' },
-  saisiePose: bientot('saisiePose', 'Saisie à la pose', 'reception', 'Action de la fiche intervention : matériel posé, n° de série, puissance configurée, mesures (terre, protections), photos, hors ligne.'),
+  saisiePose: { cle: 'saisiePose', libelle: 'Saisie à la pose', icone: 'reception', pret: true, href: '/interne/interventions', actif: ['/interne/pose'], description: 'Action de la fiche intervention : n° de série, puissance configurée, photos, hors ligne.' },
   maintenance: bientot('maintenance', 'Visite de maintenance', 'maintenance', 'Action de la fiche intervention : mesures par point de charge (point 18).'),
 
   // ── Back-office ──
-  facturation: bientot('facturation', 'Facturation', 'facturation', 'Factures Clients (Costructor fait référence) : à émettre, envoyées, en retard J+3 / J+10 / J+15, réglées. Fiche facture : lien Costructor, reste dû.', {
-    pastilles: [
-      { cle: 'a-emettre', libelle: 'À émettre' },
-      { cle: 'envoyees', libelle: 'Envoyées' },
-      { cle: 'retard', libelle: 'En retard J+3 / J+10 / J+15' },
-      { cle: 'reglees', libelle: 'Réglées' },
-    ],
+  facturation: pret('facturation', 'Facturation', 'facturation', liste('factures', 'ouvertes'), 'Factures Clients (Costructor fait référence) : à suivre, en retard.', {
+    pastilles: [{ cle: 'retard', libelle: 'En retard J+3 / J+10 / J+15', href: liste('factures', 'retard') }, { cle: 'ouvertes', libelle: 'À suivre', href: liste('factures', 'ouvertes') }],
   }),
-  advenir: bientot('advenir', 'Aides ADVENIR', 'advenir', 'Dossiers Advenir : suivi quotidien, alertes délais, cash-flow des aides. Fiche dossier : pièces, échéances.', {
+  advenir: pret('advenir', 'Aides ADVENIR', 'advenir', liste('advenir'), 'Dossiers Advenir : alertes délais, primes estimées et réelles.', {
     court: 'ADVENIR',
-    pastilles: [{ cle: 'suivi', libelle: 'Suivi quotidien' }, { cle: 'alertes', libelle: 'Alertes délais' }, { cle: 'cash-flow', libelle: 'Cash-flow des aides' }],
+    pastilles: [{ cle: 'alertes', libelle: 'Alertes délais', href: liste('advenir', 'alertes') }],
   }),
   decomptes: bientot('decomptes', 'Décomptes', 'decomptes', 'Décomptes énergétiques : à préparer, à valider, envoyés au gestionnaire (points 6 et 9). Liste ClickUp à créer avant de construire ce menu.', {
     pastilles: [{ cle: 'a-preparer', libelle: 'À préparer' }, { cle: 'a-valider', libelle: 'À valider' }, { cle: 'envoyes', libelle: 'Envoyés' }],
   }),
-  rh: bientot('rh', 'RH et recrutement', 'rh', 'Gestion RH, Vie des salariés et les 2 listes Recrutement : demandes, salariés, recrutement installateurs et commerciaux.', {
-    court: 'RH',
-    pastilles: [{ cle: 'demandes', libelle: 'Demandes' }, { cle: 'salaries', libelle: 'Salariés' }, { cle: 'installateurs', libelle: 'Recrutement installateurs' }, { cle: 'commerciaux', libelle: 'Recrutement commerciaux' }],
-  }),
+  rh: pret('rh', 'RH et recrutement', 'rh', liste('rh'), 'Gestion RH : demandes à traiter.', { court: 'RH' }),
 
   // ── Direction ──
-  pilotage: bientot('pilotage', 'Pilotage', 'pilotage', 'Réunions CODIR, Stratégie & OKR, Vues globales, Kaizen, To-Do. Tableaux de bord prévus en Phase 7.', {
-    pastilles: [{ cle: 'codir', libelle: 'CODIR' }, { cle: 'okr', libelle: 'OKR' }, { cle: 'kaizen', libelle: 'Kaizen' }, { cle: 'todo', libelle: 'To-Do' }],
+  pilotage: pret('pilotage', 'Pilotage', 'pilotage', '/interne/espace?role=direction', 'Réunions CODIR, Stratégie & OKR, Kaizen, To-Do. Tableaux de bord prévus en Phase 7.', {
+    pastilles: [{ cle: 'codir', libelle: 'CODIR', href: liste('codir') }, { cle: 'okr', libelle: 'OKR', href: liste('okr') }, { cle: 'kaizen', libelle: 'Kaizen', href: liste('kaizen') }, { cle: 'todo', libelle: 'To-Do', href: liste('todo') }],
   }),
 
   // ── Bouton + (créations, pas des destinations) ──
@@ -220,19 +209,19 @@ export const ECRANS: Record<string, Ecran> = {
     cle: 'lead', libelle: 'Nouveau projet', href: '/interne/projet/nouveau', icone: 'lead', pret: true, actif: ['/interne/projet/nouveau'],
     description: 'Qui appelle (contact existant ou nouveau, avec son rôle), adresse du chantier, contrôle des doublons. Crée la fiche en Qualification.',
   },
-  ticketSav: bientot('ticketSav', 'Ticket SAV', 'sav', 'Créer un ticket SAV, rattaché à la borne concernée.'),
-  kaizen: bientot('kaizen', 'Idée Kaizen', 'pilotage', 'Proposer une idée d’amélioration (liste Kaizen).'),
+  ticketSav: pret('ticketSav', 'Ticket SAV', 'sav', '/interne/creer/sav', 'Créer un ticket SAV rattaché à l’installation du Parc : sévérité, type de panne, symptôme.'),
+  kaizen: pret('kaizen', 'Idée Kaizen', 'pilotage', '/interne/creer/kaizen', 'Proposer une idée d’amélioration (liste Kaizen).'),
 };
 
 // Barre du bas (4 onglets au plus, « Plus » est ajouté après) et contenu de « Plus », par rôle (section 4 de la carte)
 export const MENUS: Record<RoleAppli, { barre: string[]; plus: string[] }> = {
-  commercial: { barre: ['journee', 'espace'], plus: ['ressources'] },
-  chargeOperation: { barre: ['journee', 'espace'], plus: ['parc'] },
+  commercial: { barre: ['journee', 'espace'], plus: ['agenda', 'ressources'] },
+  chargeOperation: { barre: ['journee', 'espace'], plus: ['planning', 'agenda', 'parc'] },
   poseur: { barre: ['journee', 'espace'], plus: ['releves', 'parc'] },
-  backOffice: { barre: ['journee', 'espace'], plus: ['parc'] },
+  backOffice: { barre: ['journee', 'espace'], plus: ['planning', 'parc'] },
   direction: {
     barre: ['journee', 'espace'],
-    plus: ['espaceCommercial', 'espaceChef', 'espacePoseur', 'espaceBackOffice', 'releves', 'planning', 'parc', 'ressources'],
+    plus: ['espaceCommercial', 'espaceChef', 'espacePoseur', 'espaceBackOffice', 'releves', 'planning', 'agenda', 'parc', 'ressources'],
   },
 };
 
