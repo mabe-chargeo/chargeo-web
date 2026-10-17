@@ -5,8 +5,9 @@
 // Chaque prospect a le bloc 📇 Contact complet (Appeler, Google Voice, SMS, Gmail, Waze, Maps), lu au premier appui.
 // Lecture seule : la mise à jour du prospect (résultat d'appel, rappel) se fait encore dans ClickUp.
 // 17/10, 12 h 33 : le nom du prospect ouvre la fiche affaire unique (/interne/fiches/<id>), qui le suivra jusqu'au Parc.
+// 17/10, 19 h 25 : lien « 📖 Mode d'emploi de la liste » vers le wiki Prospection, lu dans l'application.
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarClock, ChevronRight, ExternalLink, MapPin, RefreshCw } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarClock, ChevronRight, ExternalLink, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
 import { CYAN, GRIS } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
@@ -108,6 +109,9 @@ export default function ProspectionPage() {
     <PageAppli>
       <EnTeteAppli surtitre="Prospection" titre={donnees?.vue?.libelle || 'Prospection'} action={boutonRetour} />
       <ContenuAppli className="space-y-4">
+        <a href="/interne/wiki/prospection" className="inline-flex items-center gap-1.5 px-1 text-[14px] font-bold" style={{ color: CYAN }}>
+          <BookOpen size={15} /> Mode d&apos;emploi de la liste
+        </a>
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
           {(donnees?.vues || []).map((v) => {
             const actif = v.cle === vue && !linkedin;

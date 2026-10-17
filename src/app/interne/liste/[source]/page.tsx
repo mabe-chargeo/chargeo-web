@@ -10,11 +10,13 @@
 // réelles ; factures ; achats), calculée sur les fiches affichées (vue, statut et recherche), avec le nombre de fiches
 // sans montant.
 // 17/10, 19 h 10 : bouton de création en tête quand la liste en a un (+ Salarié, + Candidat).
+// 17/10, 19 h 25 : lien « 📖 Mode d'emploi de la liste » vers son wiki, lu dans l'application (/interne/wiki/<clé>).
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, BadgeEuro, CalendarClock, ChevronRight, ExternalLink, RefreshCw, Search, User } from 'lucide-react';
+import { ArrowLeft, BadgeEuro, BookOpen, CalendarClock, ChevronRight, ExternalLink, RefreshCw, Search, User } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, CHAMP, TitreCarte } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
+import { wikiDeSource } from '@/lib/wikis';
 
 type Element = {
   id: string; nom: string; statut: string; couleurStatut: string; echeance: string; echeanceMs: number | null;
@@ -32,6 +34,7 @@ const euros = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency',
 export default function ListePage() {
   const params = useParams<{ source: string }>();
   const source = String(params?.source || '');
+  const wiki = wikiDeSource(source);
   const [liste, setListe] = useState<Liste | null>(null);
   const [filtre, setFiltre] = useState('');
   const [recherche, setRecherche] = useState('');
@@ -103,7 +106,16 @@ export default function ListePage() {
     <PageAppli>
       <EnTeteAppli surtitre={liste ? `${liste.emoji} ${liste.restreint ? 'Mes tâches' : 'Liste'}` : 'Liste'} titre={liste?.titre || 'Liste'} action={boutonRetour} />
       <ContenuAppli className="space-y-4">
-        {liste?.note && <p className="px-1 text-[13px]">{liste.note}</p>}
+        {(liste?.note || wiki) && (
+          <div className="space-y-1.5 px-1">
+            {liste?.note && <p className="text-[13px]">{liste.note}</p>}
+            {wiki && (
+              <a href={`/interne/wiki/${wiki}`} className="inline-flex items-center gap-1.5 text-[14px] font-bold" style={{ color: CYAN }}>
+                <BookOpen size={15} /> Mode d&apos;emploi de la liste
+              </a>
+            )}
+          </div>
+        )}
         {liste?.creer && (
           <a href={liste.creer.href} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95">
             {liste.creer.libelle}
