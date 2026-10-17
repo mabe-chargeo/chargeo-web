@@ -2,18 +2,27 @@ import { createSign } from 'crypto';
 
 // Google Agenda des chefs de chantier (17/10/2026, 21 h 16, Matthieu : « il va falloir caler avec le Google agenda de
 // toute façon pour être sûr de ne pas avoir de conflit »). Compte de service Google Workspace (Business Standard) avec
-// délégation au niveau du domaine, scope calendar.events : le site agit au nom du chef sur son agenda principal.
+// délégation au niveau du domaine : le site agit au nom du chef.
 // Configuration Vercel : GOOGLE_SERVICE_ACCOUNT_JSON = contenu entier du fichier de clé JSON du compte de service.
-// Sans cette variable : « non branché », l'écran Caler montre seulement le planning de l'ERP.
+// Délégation (admin.google.com, client 115771874577305581781) :
+// - https://www.googleapis.com/auth/calendar.events : lire les événements, créer et déplacer le relevé ;
+// - https://www.googleapis.com/auth/calendar.calendarlist.readonly : liste des agendas affichés du chef (17/10, 22 h 01,
+//   choix de Matthieu « lis tous ses agendas affichés » : Perso, agendas importés…). Sans cette autorisation, repli
+//   sur l'agenda principal seul, signalé.
+// Sans la variable : « non branché », l'écran Caler montre seulement le planning de l'ERP.
 // Lecture : horaires des événements seulement (ni titre ni lieu : l'agenda perso reste privé). Ignorés : annulés,
-// « disponible », refusés, lieux de travail, et nos propres relevés (déjà dans le planning ERP).
-// Écriture : un événement par fiche, d'identifiant fixe (« releve » + id de la fiche en hexadécimal) : créé, puis
-// déplacé au décalage, retiré de l'agenda d'un autre chef si le chef change.
+// « disponible », refusés, lieux de travail, nos propres relevés (déjà dans le planning ERP), agendas de jours fériés,
+// anniversaires et météo. Un agenda secondaire illisible est sauté (signalé), l'agenda principal doit être lisible.
+// Écriture : un événement par fiche dans l'agenda principal, d'identifiant fixe (« releve » + id de la fiche en
+// hexadécimal) : créé, puis déplacé au décalage, retiré de l'agenda d'un autre chef si le chef change.
 // Gratuit (doc Google « Usage limits », 11/09/2026) : 10 000 requêtes par minute par projet, 600 par utilisateur.
 
-const SCOPE = 'https://www.googleapis.com/auth/calendar.events';
-const API = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+const SCOPE_EVENEMENTS = 'https://www.googleapis.com/auth/calendar.events';
+const SCOPE_LISTE = 'https://www.googleapis.com/auth/calendar.calendarlist.readonly';
+const RACINE = 'https://www.googleapis.com/calendar/v3';
+const API = `${RACINE}/calendars/primary/events`;
 const PAGES_MAX = 4;
+const AGENDAS_MAX = 12;
 
 function compte(): { email: string; cle: string } | null {
   const brut = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
@@ -33,14 +42,16 @@ const b64url = (s: string | Buffer) => Buffer.from(s).toString('base64').replace
 const jetons = new Map<string, { jeton: string; expire: number }>();
 
 // Jeton d'accès « au nom de » la personne (délégation au niveau du domaine)
-async function jetonPour(sujet: string): Promise<string> {
+async function jetonPour(sujet: string, scopes: string[] = [SCOPE_EVENEMENTS]): Promise<string> {
   const c = compte();
   if (!c) throw new Error('Google Agenda non branché');
-  const deja = jetons.get(sujet);
+  const scope = scopes.join(' ');
+  const cleCache = `${sujet}|${scope}`;
+  const deja = jetons.get(cleCache);
   if (deja && deja.expire > Date.now() + 60000) return deja.jeton;
   const maintenant = Math.floor(Date.now() / 1000);
   const entete = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const charge = b64url(JSON.stringify({ iss: c.email, sub: sujet, scope: SCOPE, aud: 'https://oauth2.googleapis.com/token', iat: maintenant, exp: maintenant + 3600 }));
+  const charge = b64url(JSON.stringify({ iss: c.email, sub: sujet, scope, aud: 'https://oauth2.googleapis.com/token', iat: maintenant, exp: maintenant + 3600 }));
   const signe = createSign('RSA-SHA256');
   signe.update(`${entete}.${charge}`);
   const signature = b64url(signe.sign(c.cle));
@@ -52,7 +63,7 @@ async function jetonPour(sujet: string): Promise<string> {
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j?.access_token) throw new Error(`accès refusé par Google (${j?.error_description || j?.error || r.status})`);
-  jetons.set(sujet, { jeton: String(j.access_token), expire: Date.now() + (Number(j.expires_in) || 3600) * 1000 });
+  jetons.set(cleCache, { jeton: String(j.access_token), expire: Date.now() + (Number(j.expires_in) || 3600) * 1000 });
   return String(j.access_token);
 }
 
@@ -68,12 +79,31 @@ const lendemain = (iso: string) => {
   const [a, m, j] = iso.split('-').map(Number);
   return new Date(Date.UTC(a, m - 1, j + 1, 12)).toISOString().slice(0, 10);
 };
+// Agendas sans rendez-vous réels : jours fériés, anniversaires des contacts, météo
+const agendaIgnore = (id: string) => /#holiday@|#contacts@|#weather@|#daynum@/i.test(id);
+
+// Agendas affichés de la personne (principal en premier). complet = false si la liste n'est pas autorisée.
+async function agendasAffiches(email: string): Promise<{ ids: string[]; complet: boolean }> {
+  let jeton = '';
+  try {
+    jeton = await jetonPour(email, [SCOPE_EVENEMENTS, SCOPE_LISTE]);
+  } catch {
+    return { ids: ['primary'], complet: false };
+  }
+  const r = await fetch(`${RACINE}/users/me/calendarList?maxResults=250&fields=items(id,primary,selected,hidden,deleted)`, { headers: { Authorization: `Bearer ${jeton}` }, cache: 'no-store' });
+  if (!r.ok) return { ids: ['primary'], complet: false };
+  const j = await r.json().catch(() => ({}));
+  const autres = (Array.isArray(j?.items) ? j.items : [])
+    .filter((c: any) => !c?.primary && c?.selected && !c?.hidden && !c?.deleted && c?.id && !agendaIgnore(String(c.id)))
+    .map((c: any) => String(c.id));
+  return { ids: ['primary'].concat(autres).slice(0, AGENDAS_MAX), complet: true };
+}
 
 export type CreneauAgenda = { jour: string; debut: number; fin: number; journee: boolean };
+export type LectureAgenda = { creneaux: CreneauAgenda[]; agendas: number; listeComplete: boolean; sautes: number };
 
-// Créneaux occupés de l'agenda principal de la personne, découpés par jour
-export async function occupationsAgenda(email: string, depuis: Date, jusque: Date): Promise<CreneauAgenda[]> {
-  const jeton = await jetonPour(email);
+// Créneaux occupés d'un agenda, découpés par jour
+async function lireUnAgenda(jeton: string, agendaId: string, depuis: Date, jusque: Date): Promise<CreneauAgenda[]> {
   const creneaux: CreneauAgenda[] = [];
   let page = '';
   for (let n = 0; n < PAGES_MAX; n++) {
@@ -86,7 +116,7 @@ export async function occupationsAgenda(email: string, depuis: Date, jusque: Dat
       fields: 'items(id,status,transparency,eventType,start,end,attendees(self,responseStatus)),nextPageToken',
     });
     if (page) q.set('pageToken', page);
-    const r = await fetch(`${API}?${q.toString()}`, { headers: { Authorization: `Bearer ${jeton}` }, cache: 'no-store' });
+    const r = await fetch(`${RACINE}/calendars/${encodeURIComponent(agendaId)}/events?${q.toString()}`, { headers: { Authorization: `Bearer ${jeton}` }, cache: 'no-store' });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(`lecture refusée par Google (${j?.error?.message || r.status})`);
     for (const e of Array.isArray(j?.items) ? j.items : []) {
@@ -119,7 +149,28 @@ export async function occupationsAgenda(email: string, depuis: Date, jusque: Dat
   return creneaux;
 }
 
-// Crée (ou déplace) le relevé dans l'agenda du chef
+// Créneaux occupés de tous les agendas affichés de la personne (sans doublon)
+export async function occupationsAgenda(email: string, depuis: Date, jusque: Date): Promise<LectureAgenda> {
+  const jeton = await jetonPour(email);
+  const { ids, complet } = await agendasAffiches(email);
+  const lus = await Promise.allSettled(ids.map((id) => lireUnAgenda(jeton, id, depuis, jusque)));
+  if (lus[0].status !== 'fulfilled') throw (lus[0] as PromiseRejectedResult).reason;
+  const vus = new Set<string>();
+  const creneaux: CreneauAgenda[] = [];
+  let sautes = 0;
+  for (const r of lus) {
+    if (r.status !== 'fulfilled') { sautes++; continue; }
+    for (const c of r.value) {
+      const cle = `${c.jour}|${c.debut}|${c.fin}`;
+      if (vus.has(cle)) continue;
+      vus.add(cle);
+      creneaux.push(c);
+    }
+  }
+  return { creneaux, agendas: ids.length - sautes, listeComplete: complet, sautes };
+}
+
+// Crée (ou déplace) le relevé dans l'agenda principal du chef
 export async function poserReleve(email: string, ficheId: string, e: { debutMs: number; dureeMin: number; titre: string; lieu: string; description: string }): Promise<'cree' | 'deplace'> {
   const jeton = await jetonPour(email);
   const id = idEvenementReleve(ficheId);
