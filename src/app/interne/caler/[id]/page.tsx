@@ -10,6 +10,8 @@
 // pour regrouper les visites d'un même secteur) et les créneaux, grisés quand un rendez-vous est à moins d'1 h 30.
 // 17/10, 21 h 16 : + le Google Agenda du chef (créneaux occupés, sans détail). Un créneau d'1 h est grisé s'il
 // chevauche un événement de l'agenda, avec 30 min de marge pour la route. Le RDV calé part dans l'agenda du chef.
+// 17/10, 22 h 35 (Matthieu : « il ne se passe pas grand-chose quand j'appuie sur caler le relevé ») : l'erreur
+// d'enregistrement s'affiche juste sous le bouton (elle était en haut de page, hors de vue).
 // Écrit par /api/interne/caler. Ouvert depuis « Visites à caler » et depuis la fiche affaire.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
@@ -185,7 +187,7 @@ export default function CalerPage() {
       <PageAppli>
         <EnTeteAppli surtitre="Relevé technique" titre={titre} retour={{ href: c.lienFiche, libelle: 'Fiche' }} />
         <ContenuAppli className="space-y-4">
-          {preview && !renvoyee && <Alerte>Preview : seule la fiche « Test · … » a été modifiée.</Alerte>}
+          {preview && !renvoyee && <Alerte>Preview : seule cette fiche de test a été modifiée.</Alerte>}
           {!renvoyee && !chefOk && <Alerte>La date est enregistrée, mais le chef de chantier n’a pas pu être assigné à la fiche.</Alerte>}
           {!renvoyee && s === 'erreur' && <Alerte>La date est enregistrée, mais l’agenda Google du chef n’a pas pu être mis à jour : {statutAgenda.erreur}</Alerte>}
           {!renvoyee && s === 'sans-chef' && <Alerte>La date est enregistrée, mais aucun agenda Google n’a été mis à jour (chef sans email dans ClickUp).</Alerte>}
@@ -233,8 +235,8 @@ export default function CalerPage() {
     <PageAppli>
       <EnTeteAppli surtitre="Relevé technique" titre={fiche?.nom || 'Caler le relevé'} action={boutonRetour} />
       <ContenuAppli className="space-y-4">
-        {preview && <Alerte>Preview : seules les fiches « Test · … » peuvent être calées.</Alerte>}
-        {erreur && <Alerte>{erreur}</Alerte>}
+        {preview && <Alerte>Preview : seules les fiches de test (avec « Test » dans le nom) peuvent être calées.</Alerte>}
+        {erreur && !fiche && <Alerte>{erreur}</Alerte>}
         {!fiche && !erreur && <Carte className="p-8 text-center"><RefreshCw className="mx-auto animate-spin" size={28} color={CYAN} /></Carte>}
         {fiche && !fiche.aVisiter && <Alerte>Cette fiche n’est plus à visiter ({fiche.statut}) : le relevé est déjà fait.</Alerte>}
         {fiche && fiche.aVisiter && (
@@ -341,9 +343,10 @@ export default function CalerPage() {
               <textarea className={`${CHAMP} mt-1.5 min-h-[90px]`} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Code portail, gardien à prévenir, place de parking, qui sera présent…" />
             </div>
 
+            {erreur && <Alerte>{erreur}</Alerte>}
             <BoutonPrincipal inactif={!pret || envoi} disabled={!pret || envoi} onClick={envoyer}>
               {envoi ? <RefreshCw size={20} className="animate-spin" /> : <CalendarCheck size={20} />}
-              {fiche.dejaCale ? 'Décaler le relevé' : 'Caler le relevé'}
+              {envoi ? 'Enregistrement…' : fiche.dejaCale ? 'Décaler le relevé' : 'Caler le relevé'}
             </BoutonPrincipal>
             <p className="text-center text-[12px] text-slate-500">Ensuite, le RDV part dans l’agenda du chef et l’email de confirmation au client est prêt à envoyer.</p>
           </>
