@@ -19,6 +19,7 @@
 // Ma journée · Relevés · Chantiers · Planning de la carte des menus).
 // 17/10/2026, 11 h 18 : espace Installateur validé, même barre (l'espace s'intitule « Mon travail ») ; Mes interventions
 // construit (/interne/interventions).
+// 17/10/2026, 11 h 28 : espace Back-office validé, même barre Ma journée · Mon espace · Plus.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -210,7 +211,7 @@ export const MENUS: Record<RoleAppli, { barre: string[]; plus: string[] }> = {
   commercial: { barre: ['journee', 'espace'], plus: ['ressources'] },
   chargeOperation: { barre: ['journee', 'espace'], plus: ['parc'] },
   poseur: { barre: ['journee', 'espace'], plus: ['releves', 'parc'] },
-  backOffice: { barre: ['journee', 'facturation', 'materielAchats', 'parc'], plus: ['advenir', 'decomptes', 'contacts', 'rh'] },
+  backOffice: { barre: ['journee', 'espace'], plus: ['parc'] },
   direction: {
     barre: ['journee', 'pipeline', 'chantiers', 'pilotage'],
     plus: ['releves', 'planning', 'agenda', 'contacts', 'sav', 'materielAchats', 'parc', 'facturation', 'advenir', 'decomptes', 'rh', 'ressources', 'interventions'],
