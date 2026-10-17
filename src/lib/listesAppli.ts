@@ -1,6 +1,6 @@
 // Écrans de liste de l'application (lot « écrans qui manquent », lancé par Matthieu le 17/10/2026 à 14 h 28 : « on crée
 // tout d'un coup au fur et à mesure »). Un seul moteur pour toutes les listes ClickUp qui s'ouvraient encore dans ClickUp :
-// Commandes, SAV, Maintenance, Factures, Achats, ADVENIR, Parc, RH, CODIR, OKR, Kaizen, To-Do.
+// Commandes, SAV, Maintenance, Factures, Achats, ADVENIR, Parc, RH, Salariés, Recrutement, CODIR, OKR, Kaizen, To-Do.
 // Écran /interne/liste/<source>?vue=<clé> : pastilles (vues de l'espace + une par statut), cartes avec les champs clés,
 // et la fiche générique /interne/element/<id> (tous les champs remplis, description, commentaires, liens).
 // Les vues et leurs compteurs sont ceux de src/lib/espaces.ts (FILTRES) : mêmes chiffres que Mon espace.
@@ -15,6 +15,9 @@
 // 19 h 00 (écrans qui restent) : totaux de la vue affichée (totaux : champs monétaires additionnés), pour la
 // trésorerie des aides ADVENIR (primes estimées et réelles, « Primes à encaisser »), des factures et des achats.
 // Champs ADVENIR corrigés : les mots sont comparés sans accents, « prime estimee » ne trouvait pas « Prime Estimé ».
+// 19 h 10 (choix de Matthieu : salarié et candidat créés depuis l'application) : Salariés (Vie des Salariés) et
+// Recrutement (Recrutement Installateurs, alimentée par chargeo.fr/recrutement), lus par le back-office et la
+// direction (données RH sensibles) ; creer = bouton de création en tête de l'écran.
 // Fichier pur : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit : les routes
 // /api/interne/listes et /api/interne/elements contrôlent les rôles.
 import { LISTES, FILTRES, type Filtre, type SourceVue } from '@/lib/espaces';
@@ -35,6 +38,8 @@ export type ConfigListe = {
   champs: string[];
   // Champs monétaires additionnés en tête de la vue (mot du nom du champ, sans accents)
   totaux?: { mot: string; libelle: string }[];
+  // Bouton de création en tête de l'écran
+  creer?: { libelle: string; href: string };
   // Phrase de rappel en tête d'écran
   note?: string;
 };
@@ -106,8 +111,30 @@ export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
     champs: ['type de contrat', 'echeance annuelle', 'modele', 'nb points', 'abonnement supervision'],
   },
   rh: {
-    titre: 'RH et recrutement', emoji: '👔', roles: ['backOffice'],
+    titre: 'Demandes RH', emoji: '☕', roles: ['backOffice'],
     vues: [{ cle: 'demandes', libelle: 'Demandes à traiter' }], champs: ['type', 'salarie', 'date'],
+  },
+  salaries: {
+    titre: 'Salariés', emoji: '👥', roles: ['backOffice'],
+    vues: [
+      { cle: 'a-suivre', libelle: 'À suivre' },
+      { cle: 'mouvements', libelle: 'Arrivées et départs' },
+      { cle: 'habilitations', libelle: 'Habilitations à recycler (60 j)' },
+      { cle: 'presents', libelle: 'Effectif' },
+    ],
+    champs: ['poste', 'type de contrat', "date d'entree", 'expiration habilitation'],
+    creer: { libelle: '+ Salarié', href: '/interne/creer/salarie' },
+    note: 'Une personne = une fiche, de son arrivée à son départ. Données RH : visibles du back-office et de la direction seulement.',
+  },
+  recrutement: {
+    titre: 'Recrutement installateurs', emoji: '👷', roles: ['backOffice'],
+    vues: [
+      { cle: 'a-traiter', libelle: 'Candidatures reçues' },
+      { cle: 'pipeline', libelle: 'Pipeline' },
+    ],
+    champs: ['poste', 'disponibilite', 'telephone', 'habilitation'],
+    creer: { libelle: '+ Candidat', href: '/interne/creer/candidat' },
+    note: 'Les candidatures de chargeo.fr/recrutement arrivent ici. Un candidat répond sous 48 h ou il est perdu.',
   },
   codir: { titre: 'Réunions CODIR', emoji: '🗣️', roles: [], vues: [{ cle: 'a-venir', libelle: 'À venir' }], champs: ['date', 'participants'] },
   okr: { titre: 'Stratégie et OKR', emoji: '🎯', roles: [], vues: [{ cle: 'en-cours', libelle: 'En cours' }], champs: ['objectif', 'progres', 'trimestre'] },

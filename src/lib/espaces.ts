@@ -33,6 +33,10 @@
 // logistique (chef de chantier), Achat = la dépense (back-office). « Livraisons en retard » lit 📅 Date Livraison
 // Prévue des Commandes (plus la date des Achats, champ à supprimer dans ClickUp) ; le back-office garde « Achats à
 // valider ». Le champ est cherché par « livraison prevue » (« livraison » seul attrapait aussi 📎 Bon de Livraison).
+// 17/10, 19 h 10 (choix de Matthieu : créer une fiche salarié et une fiche candidat depuis l'application) : listes
+// Vie des Salariés 👥 (salaries) et Recrutement Installateurs 👷 (recrutement, alimentée par chargeo.fr/recrutement)
+// lues par le back-office et la direction : Candidatures à traiter, Salariés (arrivées et départs en cours,
+// habilitations qui expirent dans les 60 jours).
 // Clé de vue : « cle » dans la source de la vue, ou « source:cle » pour additionner une autre liste.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit.
 import type { Jour } from '@/lib/joursOuvres';
@@ -42,7 +46,7 @@ import { suivieEnReleve } from '@/lib/decomptes';
 
 export type SourceVue =
   | 'qualification' | 'prospection' | 'contacts' | 'planning' | 'commandes' | 'sav' | 'maintenance'
-  | 'factures' | 'achats' | 'advenir' | 'parc' | 'rh' | 'codir' | 'okr' | 'kaizen' | 'todo' | 'aucune';
+  | 'factures' | 'achats' | 'advenir' | 'parc' | 'rh' | 'salaries' | 'recrutement' | 'codir' | 'okr' | 'kaizen' | 'todo' | 'aucune';
 export type Filtre = (t: any, a: Jour, moi: number) => boolean;
 
 export type VueEspace = {
@@ -79,6 +83,8 @@ export const LISTES: Record<Exclude<SourceVue, 'qualification' | 'aucune'>, stri
   advenir: '901520038271', // Dossiers Advenir 📄
   parc: '901520038290', // Parc Installé (Maintenance) 🔄
   rh: '1200630000003868', // Gestion RH Quotidienne ☕ (v2)
+  salaries: '1200630000003867', // Vie des Salariés 👥 (v2)
+  recrutement: '1200630000003865', // Recrutement Installateurs 👷‍♂️ (v2), formulaire chargeo.fr/recrutement
   codir: '1200630000003872', // Réunions CODIR 🗣️
   okr: '1200630000003869', // Stratégie & OKR 🎯
   kaizen: '1200630000003873', // Kaizen (Amélioration) 💡
@@ -104,6 +110,9 @@ const CONTACTS_DESCRIPTION = 'Clients, syndics, conseils syndicaux, gestionnaire
 // Livraisons en retard (Commandes Matériel) et Achats à valider (Achats Fournisseurs), 18 h 48
 const LIVRAISONS_DESCRIPTION = 'Commandes commandées ou en livraison dont la livraison prévue est dépassée';
 const ACHATS_DESCRIPTION = 'Demandes d’achat et achats à valider. Aussi : commandés et reçus';
+// RH (19 h 10) : candidatures et salariés
+const RECRUTEMENT_DESCRIPTION = 'Candidatures reçues (site et saisies dans l’application). Aussi : pipeline, + Candidat';
+const SALARIES_DESCRIPTION = 'Arrivées et départs en cours, habilitations qui expirent sous 60 jours. Aussi : + Salarié';
 
 // Rangées de l'espace Direction : un rôle chacune, dans l'ordre du parcours de l'affaire (16 h 49)
 const COMMERCIAL = 'Commercial';
@@ -160,7 +169,9 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: 'Échéance annuelle dans les 30 jours ou dépassée. Aussi : base du Parc, abonnements de supervision', href: ecran('parc', 'contrats'), source: 'parc', vues: ['contrats'] },
       { cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Bornes en relevé : à préparer, à valider, envoyés au gestionnaire (compteur : bornes suivies)', href: '/interne/decomptes', source: 'parc', vues: ['releve'] },
       { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: CONTACTS_DESCRIPTION, href: '/interne/contacts', source: 'contacts', vues: VUES_CONTACTS },
-      { cle: 'rh', emoji: '👔', libelle: 'RH et recrutement', description: 'Compteur : demandes RH nouvelles ou en examen', href: ecran('rh', 'demandes'), source: 'rh', vues: ['demandes'] },
+      { cle: 'rh', emoji: '👔', libelle: 'Demandes RH', description: 'Compteur : demandes RH nouvelles ou en examen', href: ecran('rh', 'demandes'), source: 'rh', vues: ['demandes'] },
+      { cle: 'recrutement', emoji: '👷', libelle: 'Candidatures à traiter', description: RECRUTEMENT_DESCRIPTION, href: ecran('recrutement', 'a-traiter'), source: 'recrutement', vues: ['a-traiter'], urgent: true },
+      { cle: 'salaries', emoji: '👥', libelle: 'Salariés', description: SALARIES_DESCRIPTION, href: ecran('salaries', 'a-suivre'), source: 'salaries', vues: ['a-suivre'], urgent: true },
     ],
   },
   // Direction : les écrans de tous les rôles, une rangée par rôle, chacune dans l'ordre du workflow (16 h 49)
@@ -198,7 +209,9 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { etape: BACK_OFFICE, cle: 'factures-retard', emoji: '⏰', libelle: 'Factures en retard', description: 'Émises ou partiellement payées, échéance passée (relances J+3, J+10, J+15)', href: ecran('factures', 'retard'), source: 'factures', vues: ['retard'], urgent: true },
       { etape: BACK_OFFICE, cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: 'Échéance annuelle dans les 30 jours ou dépassée. Aussi : base du Parc, abonnements de supervision', href: ecran('parc', 'contrats'), source: 'parc', vues: ['contrats'] },
       { etape: BACK_OFFICE, cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Bornes en relevé : à préparer, à valider, envoyés (compteur : bornes suivies)', href: '/interne/decomptes', source: 'parc', vues: ['releve'] },
-      { etape: BACK_OFFICE, cle: 'rh', emoji: '👔', libelle: 'RH et recrutement', description: 'Compteur : demandes RH nouvelles ou en examen', href: ecran('rh', 'demandes'), source: 'rh', vues: ['demandes'] },
+      { etape: BACK_OFFICE, cle: 'rh', emoji: '👔', libelle: 'Demandes RH', description: 'Compteur : demandes RH nouvelles ou en examen', href: ecran('rh', 'demandes'), source: 'rh', vues: ['demandes'] },
+      { etape: BACK_OFFICE, cle: 'recrutement', emoji: '👷', libelle: 'Candidatures à traiter', description: RECRUTEMENT_DESCRIPTION, href: ecran('recrutement', 'a-traiter'), source: 'recrutement', vues: ['a-traiter'], urgent: true },
+      { etape: BACK_OFFICE, cle: 'salaries', emoji: '👥', libelle: 'Salariés', description: SALARIES_DESCRIPTION, href: ecran('salaries', 'a-suivre'), source: 'salaries', vues: ['a-suivre'], urgent: true },
       // Direction : pilotage
       { etape: DIRECTION, cle: 'codir', emoji: '🗣️', libelle: 'Réunions CODIR', description: 'Réunions planifiées ou en rédaction', href: ecran('codir', 'a-venir'), source: 'codir', vues: ['a-venir'] },
       { etape: DIRECTION, cle: 'okr', emoji: '🎯', libelle: 'Stratégie et OKR', description: 'Objectifs à définir ou en cours', href: ecran('okr', 'en-cours'), source: 'okr', vues: ['en-cours'] },
@@ -285,6 +298,12 @@ const advenirEnCours = (t: any) => !statutParmi(t, ['valide', 'prime payee', 'an
 const commandeEnRoute = (t: any) => statutParmi(t, ['commande', 'en livraison']) && !statut(t).includes('a commander');
 // 📅 Date Livraison Prévue des Commandes Matériel (seule date de livraison depuis le 17/10, 18 h 48)
 const livraisonPrevue = (t: any) => champNomme(t, 'livraison prevue')?.value;
+// RH (statuts relus le 17/10, 19 h 10). Vie des Salariés : nouvel arrivant, onboarding, offboarding, intégré, archivé.
+// Recrutement Installateurs : candidature reçue, entretien 1, test technique, offre proposée, embauché, refusé, archivé.
+const salariePresent = (t: any) => !statut(t).includes('archive');
+const mouvementEnCours = (t: any) => statutParmi(t, ['nouvel arrivant', 'onboarding', 'offboarding']);
+const habilitationAExpirer = (t: any, a: Jour) => salariePresent(t) && avant(champNomme(t, 'expiration habilitation')?.value, ajouterJours(a, 60));
+const candidatEnCours = (t: any) => statutParmi(t, ['candidature recue', 'entretien', 'test technique', 'mise en situation', 'offre proposee']);
 
 // Filtres des sources autres que Qualification, par clé de vue
 export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
@@ -353,6 +372,18 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
     supervision: (t) => { const o = optionNommee(t, 'abonnement supervision'); return !!o && !o.includes('aucun') && !o.includes('resilie'); },
   },
   rh: { demandes: (t) => statutParmi(t, ['nouvelle demande', 'en examen']) },
+  // Vie des Salariés : à suivre = arrivée ou départ en cours, ou habilitation qui expire sous 60 jours
+  salaries: {
+    'a-suivre': (t, a) => mouvementEnCours(t) || habilitationAExpirer(t, a),
+    mouvements: (t) => mouvementEnCours(t),
+    habilitations: (t, a) => habilitationAExpirer(t, a),
+    presents: (t) => salariePresent(t),
+  },
+  // Recrutement Installateurs : à traiter = candidature reçue ; pipeline = pas encore embauché, refusé ni archivé
+  recrutement: {
+    'a-traiter': (t) => statut(t).includes('candidature recue'),
+    pipeline: (t) => candidatEnCours(t),
+  },
   // Direction (statuts relus le 17/10/2026)
   codir: { 'a-venir': (t) => statutParmi(t, ['planifiee', 'en redaction']) },
   okr: { 'en-cours': (t) => statutParmi(t, ['a definir', 'en cours']) },
