@@ -3,16 +3,20 @@ import { getQualificationListId } from '@/lib/listesClickUp';
 import { sessionDeRequete } from '@/lib/session';
 import { chargerTypes, estScenario } from '@/lib/typesTaches';
 import { CHAMPS } from '@/lib/champsClickUp';
-import { adresseDe, champ, dateVisiteDe, libelleDate, nomOption, normal, sansEmoji } from '@/lib/vuesFiches';
+import { aujourdhuiParis, comparer } from '@/lib/joursOuvres';
+import { adresseDe, champ, dateVisiteDe, jourDe, libelleDate, nomOption, normal, sansEmoji } from '@/lib/vuesFiches';
 import { CHAMP_FEU_VERT, CHAMPS_INTERVENTION, LISTES, PREREQUIS_FEU_VERT } from '@/lib/espaces';
 
 // Fiche affaire unique (étape 1 de l'ordre de construction, lancée par Matthieu le 17/10/2026 à 12 h 25). LECTURE SEULE.
 // Une seule fiche suit la tâche voyageuse de Prospection à Qualification, Planning Chantiers puis Parc (section 3 de la
 // carte des menus) : la route lit la tâche où qu'elle soit et renvoie les sections de son étape.
 // GET /api/interne/fiches/<id> : statut, étape, passeport, relevé et scénarios, devis, feu vert, chantier, réception,
-// parc et contrat (avec ses SAV et visites liés).
+// parc et contrat (avec ses SAV et visites liés), factures et dossiers ADVENIR.
 // Listes lisibles : Qualification de l'environnement (🧪 TEST en preview), Prospection, Planning Chantiers et Parc,
 // en lecture seule (comme le bloc Contact).
+// 17/10, 12 h 47 : factures = Factures Clients dont le champ 🔗 Affaire pointe sur la fiche (relu le 17/10 sur la facture
+// de solde de test) ; dossiers ADVENIR = tâches de Dossiers Advenir liées à la fiche (lien de tâche posé à la création du
+// dossier quand l'affaire est gagnée, relu le 17/10). Une liste illisible n'empêche pas la fiche de s'afficher.
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +37,18 @@ const PARC = {
   pointsDeCharge: '56a64d37-0a10-4a5a-84d5-d6123ec47364',
   lienChargeUnix: '14cdce07-ad36-42ea-a67f-43cf6c74cfd6',
 };
+// Factures Clients 💰 (v2), champs relus le 17/10/2026
+const FACTURE = {
+  affaire: '70f095a0-d0ec-413a-9ed9-fbc763306869', // 🔗 Affaire
+  typePiece: '2885d2af-84ee-4c56-aa4d-3be5e2efd671',
+  montantHT: 'b1ed211d-fa1a-452a-a955-a45cbc57ebe7',
+  echeance: 'ad00c457-c263-46cd-a2bb-83741ab5a240',
+  numero: 'acb6da97-630a-4421-8a0b-1533b1cc0338', // 🧾 N° facture Costructor
+  lienCostructor: '87363f81-73a0-4928-b637-5a1c63fdc075',
+};
 const LIBELLES_PREREQUIS = ['Devis signé', 'Acompte', 'Autorisations et aides', 'Matériel reçu conforme', 'Équipe, date et accès'];
+const PAGES_FACTURES = 5;
+const LIENS_MAX = 10;
 
 const texte = (t: any, id: string): string => {
   const v = champ(t, id)?.value;
@@ -53,6 +68,7 @@ const tableau = (t: any, id: string): any[] => { const v = champ(t, id)?.value; 
 const personnes = (t: any, id: string): string[] =>
   tableau(t, id).map((u: any) => String(u?.username || u?.email || '').trim()).filter(Boolean);
 const liees = (t: any, id: string) => tableau(t, id).map((x: any) => ({ id: String(x?.id || ''), nom: String(x?.name || '') })).filter((x) => x.id);
+const champNomme = (t: any, mot: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => normal(c?.name).includes(mot));
 
 async function lire(token: string, id: string, sousTaches = false): Promise<any | null> {
   const res = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(id)}${sousTaches ? '?include_subtasks=true' : ''}`, {
@@ -60,6 +76,36 @@ async function lire(token: string, id: string, sousTaches = false): Promise<any 
     cache: 'no-store',
   });
   return res.ok ? res.json() : null;
+}
+
+// Toutes les factures (y compris payées) qui pointent sur l'affaire
+async function facturesDe(token: string, affaireId: string): Promise<any[]> {
+  const trouvees: any[] = [];
+  for (let page = 0; page < PAGES_FACTURES; page++) {
+    const res = await fetch(`https://api.clickup.com/api/v2/list/${LISTES.factures}/task?archived=false&include_closed=true&subtasks=true&page=${page}`, {
+      headers: { Authorization: token },
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`Factures illisibles (${res.status})`);
+    const json = await res.json().catch(() => ({}));
+    const lot: any[] = Array.isArray(json?.tasks) ? json.tasks : [];
+    for (const f of lot) {
+      if (tableau(f, FACTURE.affaire).some((x: any) => String(x?.id || '') === affaireId)) trouvees.push(f);
+    }
+    if (json?.last_page !== false || lot.length === 0) break;
+  }
+  return trouvees;
+}
+
+// Tâches liées (liens de tâche ClickUp) qui sont dans Dossiers Advenir
+async function dossiersAdvenirDe(token: string, t: any): Promise<any[]> {
+  const ids: string[] = [];
+  for (const l of Array.isArray(t?.linked_tasks) ? t.linked_tasks : []) {
+    const autre = String(l?.task_id || '') === String(t.id) ? String(l?.link_id || '') : String(l?.task_id || '');
+    if (autre && autre !== String(t.id) && !ids.includes(autre)) ids.push(autre);
+  }
+  const lues = await Promise.all(ids.slice(0, LIENS_MAX).map((i) => lire(token, i).catch(() => null)));
+  return lues.filter((d) => d && String(d?.list?.id || '') === LISTES.advenir);
 }
 
 function etapeDe(listId: string): Etape | null {
@@ -87,30 +133,71 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (!etape) return NextResponse.json({ error: 'Fiche hors des listes autorisées' }, { status: 403 });
     if (t?.parent) return NextResponse.json({ error: 'Ceci est un scénario ou un élément : ouvre la fiche principale', parent: String(t.parent) }, { status: 400 });
 
-    // Scénarios : sous-tâches directes, qui suivent la tâche voyageuse
+    // Scénarios (sous-tâches directes, qui suivent la tâche voyageuse), factures et dossiers ADVENIR, en parallèle
     const { carte } = await chargerTypes(token);
     const directes = (Array.isArray(t?.subtasks) ? t.subtasks : []).filter((s: any) => !s?.archived && (!s?.parent || String(s.parent) === String(t.id)));
-    const scenarios = await Promise.all(
-      directes.filter((s: any) => estScenario(s, carte)).map(async (s: any) => {
-        const complet = await lire(token, String(s.id), true);
-        const elements = (Array.isArray(complet?.subtasks) ? complet.subtasks : [])
-          .filter((e: any) => !e?.archived && String(e?.parent || '') === String(s.id));
-        const parNature = new Map<string, number>();
-        for (const e of elements) {
-          const n = sansEmoji(nomOption(e, CHAMPS.nature)) || 'Autre';
-          parNature.set(n, (parNature.get(n) || 0) + 1);
-        }
-        return {
-          id: String(s.id),
-          nom: String(s.name || ''),
-          statut: String(s?.status?.status || ''),
-          couleurStatut: String(s?.status?.color || ''),
-          segment: nomOption(complet || s, CHAMPS.segment),
-          elements: elements.length,
-          natures: [...parNature.entries()].map(([nature, n]) => ({ nature, n })),
-        };
-      })
-    );
+    const enVente = etape === 'prospection';
+    const [scenarios, facturesLues, dossiersLus] = await Promise.all([
+      Promise.all(
+        directes.filter((s: any) => estScenario(s, carte)).map(async (s: any) => {
+          const complet = await lire(token, String(s.id), true);
+          const elements = (Array.isArray(complet?.subtasks) ? complet.subtasks : [])
+            .filter((e: any) => !e?.archived && String(e?.parent || '') === String(s.id));
+          const parNature = new Map<string, number>();
+          for (const e of elements) {
+            const n = sansEmoji(nomOption(e, CHAMPS.nature)) || 'Autre';
+            parNature.set(n, (parNature.get(n) || 0) + 1);
+          }
+          return {
+            id: String(s.id),
+            nom: String(s.name || ''),
+            statut: String(s?.status?.status || ''),
+            couleurStatut: String(s?.status?.color || ''),
+            segment: nomOption(complet || s, CHAMPS.segment),
+            elements: elements.length,
+            natures: [...parNature.entries()].map(([nature, n]) => ({ nature, n })),
+          };
+        })
+      ),
+      // Pas de facture ni de dossier en prospection
+      enVente ? Promise.resolve([] as any[]) : facturesDe(token, String(t.id)).catch((e) => { console.error('Fiche affaire, factures :', e); return null; }),
+      enVente ? Promise.resolve([] as any[]) : dossiersAdvenirDe(token, t).catch((e) => { console.error('Fiche affaire, ADVENIR :', e); return null; }),
+    ]);
+
+    const aujourdhui = aujourdhuiParis();
+    const factures = facturesLues === null ? null : facturesLues.map((f: any) => {
+      const s = normal(f?.status?.status);
+      const echeance = Number(champ(f, FACTURE.echeance)?.value) || Number(f?.due_date) || 0;
+      const j = jourDe(echeance);
+      return {
+        id: String(f.id),
+        nom: String(f.name || ''),
+        statut: String(f?.status?.status || ''),
+        couleurStatut: String(f?.status?.color || ''),
+        type: sansEmoji(nomOption(f, FACTURE.typePiece)),
+        numero: texte(f, FACTURE.numero),
+        montantHT: nombre(f, FACTURE.montantHT),
+        echeance: echeance ? libelleDate(echeance, false) : '',
+        enRetard: !s.includes('litige') && (s.includes('emise') || s.includes('partiel')) && !!j && comparer(j, aujourdhui) < 0,
+        lienCostructor: texte(f, FACTURE.lienCostructor),
+        url: String(f.url || `https://app.clickup.com/t/${f.id}`),
+      };
+    });
+    const advenir = dossiersLus === null ? null : dossiersLus.map((d: any) => {
+      const limite = Number(champNomme(d, 'date limite')?.value) || 0;
+      const estimee = Number(champNomme(d, 'prime estim')?.value);
+      const reelle = Number(champNomme(d, 'prime reel')?.value);
+      return {
+        id: String(d.id),
+        nom: String(d.name || ''),
+        statut: String(d?.status?.status || ''),
+        couleurStatut: String(d?.status?.color || ''),
+        dateLimite: limite ? libelleDate(limite, false) : '',
+        primeEstimee: Number.isFinite(estimee) && estimee > 0 ? estimee : null,
+        primeReelle: Number.isFinite(reelle) && reelle > 0 ? reelle : null,
+        url: String(d.url || `https://app.clickup.com/t/${d.id}`),
+      };
+    });
 
     const visite = dateVisiteDe(t);
     const echeance = Number(t?.due_date) || 0;
@@ -196,6 +283,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         chantier,
         reception,
         parc,
+        // null = liste illisible ; [] = rien de lié
+        factures,
+        advenir,
       },
       preview: process.env.VERCEL_ENV !== 'production',
     });
