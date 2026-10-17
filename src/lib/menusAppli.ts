@@ -28,6 +28,8 @@
 // 17/10/2026, 18 h 34 (Matthieu : « le planning c'est pour planifier avec les clients ») : plus de livraisons dans le
 // Planning (retirées, avec la pastille « Planning réceptions ») ; elles restent dans Matériel et achats (suivi
 // logistique, réceptions sous 7 jours). Pastille « Relevés techniques » ajoutée au Planning.
+// 17/10/2026, 18 h 48 (choix de Matthieu : la date de livraison seulement dans Commandes) : Livraisons en retard lue dans
+// Commandes Matériel ; pastille « Achats à valider » pour la dépense.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -173,13 +175,14 @@ export const ECRANS: Record<string, Ecran> = {
       { cle: 'j-30', libelle: 'Visites à préparer (J-30)', href: liste('maintenance', 'j-30') },
     ],
   }),
-  materielAchats: pret('materielAchats', 'Matériel et achats', 'materiel', liste('commandes', 'a-commander'), 'Commandes Matériel et Achats Fournisseurs : à commander, suivi logistique, réceptions sous 7 jours, livraisons en retard.', {
+  materielAchats: pret('materielAchats', 'Matériel et achats', 'materiel', liste('commandes', 'a-commander'), 'Commandes Matériel (la logistique : à commander, suivi, réceptions sous 7 jours, livraisons en retard) et Achats Fournisseurs (la dépense : à valider).', {
     court: 'Matériel',
     pastilles: [
       { cle: 'a-commander', libelle: 'À commander', href: liste('commandes', 'a-commander') },
       { cle: 'logistique', libelle: 'Suivi logistique', href: liste('commandes', 'suivi-logistique') },
       { cle: 'receptions', libelle: 'Réceptions sous 7 jours', href: liste('commandes', 'receptions-7j') },
-      { cle: 'retards', libelle: 'Livraisons en retard', href: liste('achats', 'livraisons-retard') },
+      { cle: 'retards', libelle: 'Livraisons en retard', href: liste('commandes', 'livraisons-retard') },
+      { cle: 'achats', libelle: 'Achats à valider', href: liste('achats', 'a-valider') },
     ],
   }),
   parc: pret('parc', 'Parc installé', 'parc', liste('parc', 'tous'), 'Toutes les bornes posées. La fiche d’une installation garde tout son historique (pose, SAV, maintenance, contrat).', {

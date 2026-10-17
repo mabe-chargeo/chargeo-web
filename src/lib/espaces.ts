@@ -29,6 +29,10 @@
 // 17/10, 18 h 02 (Matthieu : « il faut créer tous les écrans qui manquent », liste des écrans validée le 11/10) : vues
 // ajoutées aux listes : Suivi logistique et Réceptions sous 7 jours (Commandes), Achats à valider et Achats en cours,
 // Planning dépannage (SAV), Suivi des dossiers et Primes à encaisser (ADVENIR), Abonnements de supervision (Parc).
+// 17/10, 18 h 48 (choix de Matthieu : la date de livraison seulement dans Commandes Matériel) : Commande = la
+// logistique (chef de chantier), Achat = la dépense (back-office). « Livraisons en retard » lit 📅 Date Livraison
+// Prévue des Commandes (plus la date des Achats, champ à supprimer dans ClickUp) ; le back-office garde « Achats à
+// valider ». Le champ est cherché par « livraison prevue » (« livraison » seul attrapait aussi 📎 Bon de Livraison).
 // Clé de vue : « cle » dans la source de la vue, ou « source:cle » pour additionner une autre liste.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit.
 import type { Jour } from '@/lib/joursOuvres';
@@ -97,6 +101,9 @@ const ecran = (source: string, vue: string) => `/interne/liste/${source}?vue=${v
 // Contacts : la liste Contacts + les fiches clients, de la Prospection au Parc (même périmètre que /api/interne/contacts)
 const VUES_CONTACTS = ['tous', 'prospection:chasse', 'qualification:toutes', 'planning:tous', 'parc:tous'];
 const CONTACTS_DESCRIPTION = 'Clients, syndics, conseils syndicaux, gestionnaires';
+// Livraisons en retard (Commandes Matériel) et Achats à valider (Achats Fournisseurs), 18 h 48
+const LIVRAISONS_DESCRIPTION = 'Commandes commandées ou en livraison dont la livraison prévue est dépassée';
+const ACHATS_DESCRIPTION = 'Demandes d’achat et achats à valider. Aussi : commandés et reçus';
 
 // Rangées de l'espace Direction : un rôle chacune, dans l'ordre du parcours de l'affaire (16 h 49)
 const COMMERCIAL = 'Commercial';
@@ -126,10 +133,10 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
     vues: [
       { cle: 'releves', emoji: '📋', libelle: 'Relevés à faire', description: 'Visites calées par le commercial : du jour, en retard et à venir, utilisables hors ligne', href: '/interne', source: 'qualification', vues: ['planifies', 'en-retard'], urgent: true },
       { cle: 'feu-vert', emoji: '🚦', libelle: 'Feu vert à donner', description: 'Chantiers dont les 5 prérequis sont OK', href: '/interne/feu-vert', source: 'planning', vues: ['feu-vert'] },
-      { cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Poses, dépannages et visites par jour et par technicien', href: '/interne/planning', source: 'planning', vues: ['en-cours'] },
+      { cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Poses, dépannages, visites et relevés par jour et par technicien', href: '/interne/planning', source: 'planning', vues: ['en-cours'] },
       { cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux, prêts, en cours, réserves à lever, avancement, carte', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
       { cle: 'receptions', emoji: '✅', libelle: 'Réceptions à valider', description: 'PV, rapport de mesures et photos déposés par le poseur', href: '/interne/validation', source: 'planning', vues: ['receptions'], urgent: true },
-      { cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: 'Commandes en « à commander », suivi logistique, réceptions sous 7 jours', href: ecran('commandes', 'a-commander'), source: 'commandes', vues: ['a-commander'] },
+      { cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: 'Commandes en « à commander », suivi logistique, réceptions sous 7 jours, livraisons en retard', href: ecran('commandes', 'a-commander'), source: 'commandes', vues: ['a-commander'] },
       { cle: 'sav', emoji: '🚨', libelle: 'SAV urgences et tri', description: 'Tickets pas encore résolus, planning dépannage', href: ecran('sav', 'a-traiter'), source: 'sav', vues: ['a-traiter'], urgent: true },
       { cle: 'maintenance', emoji: '🔧', libelle: 'Visites de maintenance (J-30)', description: 'À planifier, échéance dans les 30 jours ou dépassée', href: ecran('maintenance', 'j-30'), source: 'maintenance', vues: ['j-30'] },
     ],
@@ -147,7 +154,8 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
     vues: [
       { cle: 'factures-retard', emoji: '⏰', libelle: 'Factures en retard', description: 'Émises ou partiellement payées, échéance passée (relances J+3, J+10, J+15)', href: ecran('factures', 'retard'), source: 'factures', vues: ['retard'], urgent: true },
       { cle: 'factures', emoji: '💰', libelle: 'Suivi des factures', description: 'À émettre, émises, partiellement payées, en litige (Costructor fait référence)', href: ecran('factures', 'ouvertes'), source: 'factures', vues: ['ouvertes'] },
-      { cle: 'achats', emoji: '🚚', libelle: 'Achats et livraisons', description: 'Compteur : commandés dont la livraison prévue est dépassée. Aussi : à valider, en cours', href: ecran('achats', 'livraisons-retard'), source: 'achats', vues: ['livraisons-retard'], urgent: true },
+      { cle: 'achats', emoji: '🧾', libelle: 'Achats à valider', description: ACHATS_DESCRIPTION, href: ecran('achats', 'a-valider'), source: 'achats', vues: ['a-valider'], urgent: true },
+      { cle: 'livraisons', emoji: '🚚', libelle: 'Livraisons en retard', description: LIVRAISONS_DESCRIPTION, href: ecran('commandes', 'livraisons-retard'), source: 'commandes', vues: ['livraisons-retard'], urgent: true },
       { cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: 'Compteur : dossiers en cours dont la date limite tombe dans les 30 jours. Aussi : suivi, primes à encaisser', href: ecran('advenir', 'alertes'), source: 'advenir', vues: ['alertes'], urgent: true },
       { cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: 'Échéance annuelle dans les 30 jours ou dépassée. Aussi : base du Parc, abonnements de supervision', href: ecran('parc', 'contrats'), source: 'parc', vues: ['contrats'] },
       { cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Bornes en relevé : à préparer, à valider, envoyés au gestionnaire (compteur : bornes suivies)', href: '/interne/decomptes', source: 'parc', vues: ['releve'] },
@@ -174,7 +182,8 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { etape: CHEF, cle: 'releves', emoji: '📋', libelle: 'Relevés à faire', description: 'Visites du chef de chantier : du jour, en retard et à venir', href: '/interne', source: 'qualification', vues: ['planifies', 'en-retard'], urgent: true },
       { etape: CHEF, cle: 'feu-vert', emoji: '🚦', libelle: 'Feu vert à donner', description: 'Chantiers dont les 5 prérequis sont OK', href: '/interne/feu-vert', source: 'planning', vues: ['feu-vert'] },
       { etape: CHEF, cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: 'Commandes en « à commander », suivi logistique, réceptions sous 7 jours', href: ecran('commandes', 'a-commander'), source: 'commandes', vues: ['a-commander'] },
-      { etape: CHEF, cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Poses, dépannages et visites par jour et par technicien', href: '/interne/planning', source: 'planning', vues: ['en-cours'] },
+      { etape: CHEF, cle: 'livraisons', emoji: '🚚', libelle: 'Livraisons en retard', description: LIVRAISONS_DESCRIPTION, href: ecran('commandes', 'livraisons-retard'), source: 'commandes', vues: ['livraisons-retard'], urgent: true },
+      { etape: CHEF, cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Poses, dépannages, visites et relevés par jour et par technicien', href: '/interne/planning', source: 'planning', vues: ['en-cours'] },
       { etape: CHEF, cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux, prêts, en cours, réserves à lever, avancement, carte', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
       { etape: CHEF, cle: 'receptions', emoji: '✅', libelle: 'Réceptions à valider', description: 'PV, rapport de mesures et photos déposés par le poseur', href: '/interne/validation', source: 'planning', vues: ['receptions'], urgent: true },
       { etape: CHEF, cle: 'sav', emoji: '🚨', libelle: 'SAV urgences et tri', description: 'Tickets pas encore résolus, planning dépannage', href: ecran('sav', 'a-traiter'), source: 'sav', vues: ['a-traiter'], urgent: true },
@@ -183,7 +192,7 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { etape: INSTALLATEUR, cle: 'interventions', emoji: '📱', libelle: 'Interventions de l’équipe', description: 'Poses et visites de maintenance des installateurs, par jour, avec l’itinéraire', href: '/interne/interventions', source: 'planning', vues: ['interventions-equipe', 'maintenance:visites-equipe'] },
       { etape: INSTALLATEUR, cle: 'reception', emoji: '📸', libelle: 'Réception sur place', description: 'Chantiers en cours : PV signé, rapport de mesures, photos et réserves du poseur', href: '/interne/reception', source: 'planning', vues: ['en-chantier'] },
       // Back-office : achats, aides, facturation, contrats, décomptes, RH
-      { etape: BACK_OFFICE, cle: 'achats', emoji: '🚚', libelle: 'Achats et livraisons', description: 'Compteur : commandés dont la livraison prévue est dépassée. Aussi : à valider, en cours', href: ecran('achats', 'livraisons-retard'), source: 'achats', vues: ['livraisons-retard'], urgent: true },
+      { etape: BACK_OFFICE, cle: 'achats', emoji: '🧾', libelle: 'Achats à valider', description: ACHATS_DESCRIPTION, href: ecran('achats', 'a-valider'), source: 'achats', vues: ['a-valider'], urgent: true },
       { etape: BACK_OFFICE, cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: 'Compteur : dossiers en cours dont la date limite tombe dans les 30 jours. Aussi : suivi, primes à encaisser', href: ecran('advenir', 'alertes'), source: 'advenir', vues: ['alertes'], urgent: true },
       { etape: BACK_OFFICE, cle: 'factures', emoji: '💰', libelle: 'Suivi des factures', description: 'À émettre, émises, partiellement payées, en litige (Costructor fait référence)', href: ecran('factures', 'ouvertes'), source: 'factures', vues: ['ouvertes'] },
       { etape: BACK_OFFICE, cle: 'factures-retard', emoji: '⏰', libelle: 'Factures en retard', description: 'Émises ou partiellement payées, échéance passée (relances J+3, J+10, J+15)', href: ecran('factures', 'retard'), source: 'factures', vues: ['retard'], urgent: true },
@@ -272,6 +281,10 @@ export const VUES_PROSPECTION: Record<string, { libelle: string; filtre: (t: any
 
 // Dossier ADVENIR encore en cours (ni validé, ni prime payée, ni annulé / expiré, ni archivé)
 const advenirEnCours = (t: any) => !statutParmi(t, ['valide', 'prime payee', 'annule', 'archive']);
+// Commande passée chez le fournisseur, pas encore reçue (commandé ou en livraison)
+const commandeEnRoute = (t: any) => statutParmi(t, ['commande', 'en livraison']) && !statut(t).includes('a commander');
+// 📅 Date Livraison Prévue des Commandes Matériel (seule date de livraison depuis le 17/10, 18 h 48)
+const livraisonPrevue = (t: any) => champNomme(t, 'livraison prevue')?.value;
 
 // Filtres des sources autres que Qualification, par clé de vue
 export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
@@ -295,9 +308,11 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
   commandes: {
     'a-commander': (t) => statut(t).includes('a commander'),
     // Suivi logistique : commandé ou en livraison
-    'suivi-logistique': (t) => statutParmi(t, ['commande', 'en livraison']) && !statut(t).includes('a commander'),
-    // Planning réceptions : livraison prévue dans les 7 jours (ou dépassée), pas encore reçue
-    'receptions-7j': (t, a) => statutParmi(t, ['commande', 'en livraison']) && !statut(t).includes('a commander') && avant(champNomme(t, 'livraison')?.value, ajouterJours(a, 7)),
+    'suivi-logistique': (t) => commandeEnRoute(t),
+    // Réceptions : livraison prévue dans les 7 jours (ou dépassée), pas encore reçue
+    'receptions-7j': (t, a) => commandeEnRoute(t) && avant(livraisonPrevue(t), ajouterJours(a, 7)),
+    // Livraisons en retard : livraison prévue avant aujourd'hui, pas encore reçue
+    'livraisons-retard': (t, a) => commandeEnRoute(t) && avant(livraisonPrevue(t), ajouterJours(a, -1)),
   },
   sav: {
     'a-traiter': (t) => !statut(t).includes('resolu') && !statut(t).includes('archive'),
@@ -315,9 +330,9 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
     retard: (t, a) => { const s = statut(t); return !s.includes('litige') && (s.includes('emise') || s.includes('partiel')) && avant(t?.due_date, a); },
     ouvertes: (t) => statutParmi(t, ['a emettre', 'emise', 'partiel', 'litige']),
   },
-  // Achats Fournisseurs (statuts relus le 17/10, 18 h : demande d'achat, à valider, commandé, reçu, soldé, annulé)
+  // Achats Fournisseurs (statuts relus le 17/10, 18 h : demande d'achat, à valider, commandé, reçu, soldé, annulé).
+  // La dépense seulement : plus de date de livraison ici (18 h 48)
   achats: {
-    'livraisons-retard': (t, a) => statut(t).includes('commande') && avant(champNomme(t, 'livraison prevue')?.value, a),
     'a-valider': (t) => statutParmi(t, ['demande d', 'a valider']),
     'en-cours': (t) => statutParmi(t, ['commande', 'recu']),
   },

@@ -10,6 +10,8 @@
 // facturation est donné par les pastilles de statut de Factures.
 // 18 h 02 aussi : l'installateur ne lit plus le Parc en entier (décision du 11/10 : « pas d'accès à la Base de données
 // globale du Parc »). Il garde l'historique de la borne par ses tickets et ses visites.
+// 18 h 48 (choix de Matthieu : la date de livraison seulement dans Commandes) : Livraisons en retard passe dans
+// Matériel et commandes ; Achats fournisseurs = la dépense (à valider, commandés et reçus, montants, échéance).
 // Fichier pur : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit : les routes
 // /api/interne/listes et /api/interne/elements contrôlent les rôles.
 import { LISTES, FILTRES, type Filtre, type SourceVue } from '@/lib/espaces';
@@ -39,8 +41,9 @@ export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
       { cle: 'a-commander', libelle: 'À commander' },
       { cle: 'suivi-logistique', libelle: 'Suivi logistique' },
       { cle: 'receptions-7j', libelle: 'Réceptions sous 7 jours' },
+      { cle: 'livraisons-retard', libelle: 'Livraisons en retard' },
     ],
-    champs: ['fournisseur', 'chantier', 'livraison', 'montant'],
+    champs: ['fournisseur', 'chantier', 'livraison prevue', 'ref. commande'],
   },
   sav: {
     titre: 'Tickets SAV', emoji: '🚨', roles: ['chargeOperation', 'backOffice', 'poseur'], seulementMoi: ['poseur'],
@@ -61,13 +64,13 @@ export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
     note: 'Costructor fait référence pour les montants et les règlements. Les pastilles de statut donnent le pipeline de facturation.',
   },
   achats: {
-    titre: 'Achats et livraisons', emoji: '🚚', roles: ['backOffice', 'chargeOperation'],
+    titre: 'Achats fournisseurs', emoji: '🧾', roles: ['backOffice', 'chargeOperation'],
     vues: [
-      { cle: 'livraisons-retard', libelle: 'Livraisons en retard' },
       { cle: 'a-valider', libelle: 'À valider' },
       { cle: 'en-cours', libelle: 'Commandés et reçus' },
     ],
-    champs: ['fournisseur', 'livraison prevue', 'montant', 'chantier'],
+    champs: ['fournisseur', 'montant ht', 'echeance de paiement', 'chantier'],
+    note: 'La dépense : montant engagé, facture fournisseur, paiement. La livraison se suit dans Matériel et commandes.',
   },
   advenir: {
     titre: 'Aides ADVENIR', emoji: '📄', roles: ['backOffice', 'commercial'],
