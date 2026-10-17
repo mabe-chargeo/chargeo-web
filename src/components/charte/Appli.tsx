@@ -1,13 +1,15 @@
 // Briques de l'application équipe CHARGéO (charte 2026), pensées pour le téléphone et la tablette.
 // Composants d'affichage purs (aucun état) : utilisables dans une page serveur comme dans un formulaire client.
-// Exceptions : la pastille du rôle actif dans l'en-tête (composant client RoleActif, 17/10/2026) et le bouton Retour
-// (composant client BoutonRetour, 17/10/2026, 16 h 19).
+// Exceptions : la pastille du rôle actif dans l'en-tête (composant client RoleActif, 17/10/2026), le bouton Retour
+// (composant client BoutonRetour, 17/10/2026, 16 h 19) et le masque des liens ClickUp (composant client MasqueClickUp,
+// 17/10/2026, 18 h 34 : liens ClickUp seulement pour le back-office et la direction).
 // Servent à /interne aujourd'hui, puis à tous les écrans par rôle d'app.chargeo.fr (Phase 6).
 import React from "react";
 import { ArrowLeft } from "lucide-react";
 import { NAVY, CYAN, ORANGE, GRIS, CYAN_PALE, CYAN_SUR_NAVY } from "@/components/charte/couleurs";
 import RoleActif from "@/components/charte/RoleActif";
 import BoutonRetour from "@/components/charte/BoutonRetour";
+import MasqueClickUp from "@/components/charte/MasqueClickUp";
 
 // Champ de saisie et étiquette : mêmes réglages que le formulaire de contact du site (texte 16 px pour éviter le zoom iPhone).
 export const CHAMP =
@@ -18,6 +20,7 @@ export const ETIQUETTE = "ml-1 block text-[12px] font-extrabold uppercase tracki
 export function PageAppli({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-white pb-12 font-sans antialiased" style={{ color: NAVY }}>
+      <MasqueClickUp />
       {children}
     </div>
   );
