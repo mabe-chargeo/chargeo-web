@@ -40,7 +40,7 @@ export default function RoleActif() {
       {ouvert && (
         <>
           <button type="button" aria-label="Fermer" className="fixed inset-0 z-40 cursor-default" onClick={() => setOuvert(false)} />
-          <span className="absolute left-0 top-full z-50 mt-2 block w-60 rounded-[16px] bg-white p-2 shadow-[0_12px_32px_rgba(0,0,0,0.25)]">
+          <span className="absolute right-0 top-full z-50 mt-2 block w-60 rounded-[16px] bg-white p-2 shadow-[0_12px_32px_rgba(0,0,0,0.25)]">
             <span className="block px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wider" style={{ color: NAVY }}>Voir l&apos;appli comme</span>
             {possibles.map((r) => {
               const actif = r === role;
