@@ -8,6 +8,8 @@
 // 17/10/2026, 13 h 40 (sélecteur de rôle unique, décision de Matthieu) : plus de filtres propres à cette page. Les cartes
 // suivent le rôle choisi dans la pastille de l'en-tête : « Direction » montre tout, un autre rôle seulement ses cartes.
 // Libellés uniques : Commercial, Chef de chantier, Installateur, Back-office, Direction.
+// 17/10/2026, 16 h 32 (choix de Matthieu : « Deux blocs : Aujourd'hui / En retard ») : fin de « À faire aujourd'hui » et
+// « À débloquer ». Aujourd'hui = daté du jour ou travail sans date à traiter ; En retard = date dépassée (orange).
 // La date du titre est calculée sur le téléphone après chargement (la page est pré-générée au build).
 import { useEffect, useState } from 'react';
 import { CalendarClock, ChevronRight, ExternalLink, MapPin, RefreshCw } from 'lucide-react';
@@ -21,7 +23,7 @@ type Exemple = { nom: string; url: string };
 type CarteJournee = {
   cle: string;
   role: Role;
-  section: 'aFaire' | 'aDebloquer';
+  section: 'aujourdhui' | 'retard';
   surtitre: string;
   titre: string;
   detail: string;
@@ -80,8 +82,10 @@ export default function JourneePage() {
   const garde = (r: Role) => tout || r === role;
   const cartes = (donnees?.cartes || []).filter((c) => garde(c.role));
   const releves = garde('chargeOperation') ? donnees?.releves || [] : [];
-  const aFaire = cartes.filter((c) => c.section === 'aFaire');
-  const aDebloquer = cartes.filter((c) => c.section === 'aDebloquer');
+  const relevesDuJour = releves.filter((r) => !r.retard);
+  const relevesEnRetard = releves.filter((r) => r.retard);
+  const duJour = cartes.filter((c) => c.section === 'aujourdhui');
+  const enRetard = cartes.filter((c) => c.section === 'retard');
   const surtitre = role === 'direction' ? 'Direction · tous les rôles' : role ? LIBELLE_ROLE[role] : 'Application équipe';
 
   const boutonActualiser = (
@@ -111,7 +115,7 @@ export default function JourneePage() {
       target={c.externe ? '_blank' : undefined}
       rel={c.externe ? 'noopener noreferrer' : undefined}
       className={`block rounded-[20px] p-5 transition-transform active:scale-[0.98] ${c.n === 0 ? 'opacity-60' : ''}`}
-      style={{ backgroundColor: GRIS }}
+      style={c.section === 'retard' ? { backgroundColor: GRIS, boxShadow: `inset 5px 0 0 ${ORANGE}` } : { backgroundColor: GRIS }}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -200,15 +204,16 @@ export default function JourneePage() {
 
         {donnees && (
           <>
-            <Repere>À faire aujourd'hui</Repere>
-            {releves.map(carteReleve)}
-            {aFaire.map(carteCompteur)}
-            {!releves.length && !aFaire.length && vide("Rien de prévu aujourd'hui.")}
+            <Repere>Aujourd'hui</Repere>
+            {relevesDuJour.map(carteReleve)}
+            {duJour.map(carteCompteur)}
+            {!relevesDuJour.length && !duJour.length && vide("Rien de prévu aujourd'hui.")}
 
             <div className="h-2" />
-            <Repere>À débloquer</Repere>
-            {aDebloquer.map(carteCompteur)}
-            {!aDebloquer.length && vide('Rien à débloquer.')}
+            <Repere>En retard</Repere>
+            {relevesEnRetard.map(carteReleve)}
+            {enRetard.map(carteCompteur)}
+            {!relevesEnRetard.length && !enRetard.length && vide('Aucun retard.')}
           </>
         )}
       </ContenuAppli>
