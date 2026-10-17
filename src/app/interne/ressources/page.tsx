@@ -6,6 +6,7 @@
 // sur téléphone). Les droits sont ceux du Drive.
 // 17 h 14 : Notices et manuels montre un bouton par marque (Bornes, Supervision et logiciels, Matériel), puis « Toutes
 // les marques ». Pour la direction, les marques ne sont dépliées qu'une fois (rangée Chef de chantier).
+// 17 h 24 : ouvert depuis Mon espace (partie À consulter), le retour y ramène.
 import { ChevronRight, ExternalLink } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS } from '@/components/charte/couleurs';
@@ -89,7 +90,7 @@ export default function RessourcesPage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre={role ? LIBELLE_ROLE[role] : 'Application équipe'} titre="Ressources" retour={{ href: '/interne/plus', libelle: 'Plus' }} />
+      <EnTeteAppli surtitre={role ? LIBELLE_ROLE[role] : 'Application équipe'} titre="Ressources" retour={{ href: '/interne/espace', libelle: 'Mon espace' }} />
       <ContenuAppli className="space-y-3">
         <Alerte>Chaque carte ouvre le dossier dans Google Drive. Si un dossier refuse l’accès, demande à Matthieu de te l’ouvrir.</Alerte>
         {roles.map((r, i) => (

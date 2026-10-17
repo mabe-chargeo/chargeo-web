@@ -2,43 +2,22 @@
 // 17/10/2026) », validée par Matthieu le 17/10/2026 (10 h 12) avec 2 correctifs :
 //   1. le SAV de l'installateur ne montre que ses tickets, sans Urgences et tri (retiré le 11/10) ;
 //   2. Carte du jour est aussi une pastille d'Interventions.
-// Principe : ClickUp est rangé par service, l'application par travail à faire. Barre du bas : 3 ou 4 menus par rôle,
+// Principe : ClickUp est rangé par service, l'application par travail à faire. Barre du bas : Ma journée, Mon espace,
 // puis « Plus ». Un menu = une liste à traiter, avec ses pastilles (vues ClickUp existantes et leurs compteurs).
-// Les 5 changements de la carte : Feu vert et Réception sont des pastilles de Chantiers ; Saisie à la pose, Rapport et
-// Visite de maintenance sont des actions de la fiche intervention (ACTIONS_INTERVENTION) ; Matériel et Achats
-// fusionnent ; barre du chef de chantier Ma journée · Relevés · Chantiers · Planning ; Nouveau lead passe dans le
-// bouton + (CREER).
 // court = libellé de barre (1 ou 2 mots) pour ne pas être tronqué en 12 px.
 // pret = écran déjà construit ; sinon l'onglet ouvre /interne/bientot/<clé>, qui affiche ce qui a été validé.
 // Pastille sans href = à brancher quand l'écran du menu sera construit.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit :
 // chaque route contrôle les rôles elle-même.
-// 17/10/2026, 10 h 44 : « un espace par rôle » validé pour le Commercial (src/lib/espaces.ts, écran /interne/espace).
-// Barre du commercial : Ma journée · Mon espace · Plus. Les autres rôles gardent leur barre en attendant leur validation.
-// 17/10/2026, 11 h 06 : espace Chef de chantier validé, même barre Ma journée · Mon espace · Plus (remplace la barre
-// Ma journée · Relevés · Chantiers · Planning de la carte des menus).
-// 17/10/2026, 11 h 18 : espace Installateur validé, même barre (l'espace s'intitule « Mon travail ») ; Mes interventions
-// construit (/interne/interventions).
-// 17/10/2026, 11 h 28 : espace Back-office validé, même barre Ma journée · Mon espace · Plus.
-// 17/10/2026, 11 h 37 : espace Direction validé, même barre (remplace Ma journée · Pipeline · Chantiers · Pilotage) ;
-// Plus ouvre l'espace de chaque rôle.
-// 17/10/2026, 14 h 08 : « Nouveau lead » devient « Nouveau projet » (/interne/projet/nouveau) : qui appelle, adresse du
-// chantier, doublons, contacts avec leur rôle.
-// 17/10/2026, 14 h 28 (lot « écrans qui manquent ») : construits Planning (/interne/planning), Agenda (/interne/agenda),
-// les listes (/interne/liste/<source> : SAV, matériel, Parc, factures, ADVENIR, RH) avec la fiche générique, Ticket SAV
-// et Idée Kaizen (/interne/creer/sav et /interne/creer/kaizen). Carte du jour ouvre Mes interventions (itinéraire du
-// jour).
-// 17/10/2026, 14 h 50 : Visite de maintenance construite (/interne/maintenance/<id>) selon le protocole du contrôleur
-// Sefram MW9665 avec l'adaptateur A1532-XA, point de charge par point de charge, hors ligne. Ouverte depuis Mes
-// interventions et depuis la fiche d'une visite.
-// 17/10/2026, 15 h 22 : Décomptes construit depuis le Parc, sans nouvelle liste (/interne/decomptes) : à préparer,
-// à valider, envoyés, fiches à compléter.
-// 17/10/2026, 16 h 11 (Matthieu) : en direction, plus de raccourcis vers les espaces des rôles (ni dans Plus, ni dans
-// Mon espace) : Mon espace montre directement tous les écrans dans l'ordre du parcours.
-// 17/10/2026, 16 h 28 (Matthieu : « il y a des doublons entre l'onglet Mon espace et l'onglet Plus ») : règle, Plus ne
-// contient que ce qui n'est pas déjà dans Mon espace du rôle (src/lib/espaces.ts).
-// 17/10/2026, 17 h 03 (Matthieu : « chaque rôle a besoin de ses propres ressources ») : Ressources construit
-// (/interne/ressources, src/lib/ressources.ts) : les dossiers des drives partagés utiles au rôle, dans Plus de chaque rôle.
+// Historique du 17/10/2026 : un espace par rôle validé (Commercial 10 h 44, Chef de chantier 11 h 06, Installateur
+// 11 h 18, Back-office 11 h 28, Direction 11 h 37), barre Ma journée · Mon espace · Plus pour tous ; Nouveau projet
+// (14 h 08) ; écrans qui manquent (14 h 28) ; Visite de maintenance (14 h 50) ; Décomptes (15 h 22) ; en direction plus
+// de raccourcis vers les espaces des rôles (16 h 11) ; Plus sans doublon avec Mon espace (16 h 28) ; Ressources par
+// rôle (17 h 03, /interne/ressources, src/lib/ressources.ts).
+// 17/10/2026, 17 h 24 (choix de Matthieu : « Mon espace en deux parties ») : Mon espace = « À traiter » (les vues avec
+// compteur, src/lib/espaces.ts) puis « À consulter » (MENUS[rôle].consulter : Parc, Ressources, Agenda, Planning,
+// Relevés selon le rôle). L'onglet Plus ne garde que les créations (CREER : Nouveau projet, Ticket SAV, Idée Kaizen,
+// en attendant le bouton + de l'en-tête, jamais construit) et la déconnexion.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -61,7 +40,7 @@ export type Ecran = {
   pret: boolean;
   // Chemins où l'onglet est considéré comme actif
   actif: string[];
-  // Contenu validé (affiché sur l'écran « à construire » et dans Plus)
+  // Contenu validé (affiché sur l'écran « à construire », dans À consulter et dans Plus)
   description: string;
   pastilles?: Pastille[];
   // Pastille ouverte par défaut selon le rôle (Matériel et achats : À commander pour le chef, Livraisons en retard
@@ -110,8 +89,8 @@ export const ECRANS: Record<string, Ecran> = {
   },
   espace: {
     cle: 'espace', libelle: 'Mon espace', href: '/interne/espace', icone: 'pipeline', pret: true,
-    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne/maintenance', '/interne/decomptes', '/interne'],
-    description: 'Les vues du rôle, dans l’ordre de son travail, avec leurs compteurs',
+    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne/maintenance', '/interne/decomptes', '/interne/ressources', '/interne'],
+    description: 'À traiter : les vues du rôle avec leurs compteurs. À consulter : Parc, Ressources et outils.',
   },
   releves: {
     cle: 'releves', libelle: 'Relevés', href: '/interne', icone: 'releves', pret: true, actif: ['/interne', '/interne/metre'],
@@ -154,14 +133,15 @@ export const ECRANS: Record<string, Ecran> = {
   reception: { cle: 'reception', libelle: 'Rapport et signature', href: '/interne/reception', icone: 'reception', pret: true, actif: ['/interne/reception'], description: "Action de la fiche intervention : PV signé, rapport de mesures, photos et réserves, validé par le chef de chantier" },
 
   // ── Commercial ──
-  agenda: pret('agenda', 'Agenda', 'agenda', '/interne/agenda', 'Relevés techniques calés : jour (avec itinéraire), semaine, carte des visites.', {
+  agenda: pret('agenda', 'Agenda des visites', 'agenda', '/interne/agenda', 'Relevés techniques calés par le commercial : jour (avec itinéraire), semaine, carte des visites.', {
+    court: 'Agenda',
     pastilles: [{ cle: 'jour', libelle: 'Jour', href: '/interne/agenda' }, { cle: 'semaine', libelle: 'Semaine', href: '/interne/agenda?vue=semaine' }, { cle: 'carte', libelle: 'Carte des visites', href: '/interne/agenda?vue=carte' }],
   }),
   contacts: {
     cle: 'contacts', libelle: 'Contacts', href: '/interne/contacts', icone: 'contacts', pret: true, actif: ['/interne/contacts'],
     description: 'Annuaire de la liste Contacts, partagé entre le commercial et le back-office : recherche, rôle, Appeler, Google Voice, SMS, Gmail.',
   },
-  ressources: pret('ressources', 'Ressources', 'ressources', '/interne/ressources', 'Les dossiers des drives partagés utiles à ton rôle : supports de vente, notices des bornes, normes, modèles, administratif.'),
+  ressources: pret('ressources', 'Ressources', 'ressources', '/interne/ressources', 'Les dossiers Drive de ton rôle : supports de vente, notices des bornes par marque, normes, modèles, administratif.'),
 
   // ── Chef de chantier ──
   planning: pret('planning', 'Planning', 'planning', '/interne/planning', 'Master planning (par jour) et Planning techs (par installateur) : poses, dépannages, visites de maintenance.', {
@@ -184,7 +164,8 @@ export const ECRANS: Record<string, Ecran> = {
       { cle: 'retards', libelle: 'Livraisons en retard', href: liste('achats', 'livraisons-retard') },
     ],
   }),
-  parc: pret('parc', 'Parc', 'parc', liste('parc'), 'Parc Installé : installations, contrats à renouveler. La fiche d’une installation garde tout son historique.', {
+  parc: pret('parc', 'Parc installé', 'parc', liste('parc'), 'Toutes les bornes posées. La fiche d’une installation garde tout son historique (pose, SAV, maintenance, contrat).', {
+    court: 'Parc',
     pastilles: [{ cle: 'contrats', libelle: 'Renouvellements et contrats', href: liste('parc', 'contrats') }],
   }),
 
@@ -220,7 +201,7 @@ export const ECRANS: Record<string, Ecran> = {
     pastilles: [{ cle: 'codir', libelle: 'CODIR', href: liste('codir') }, { cle: 'okr', libelle: 'OKR', href: liste('okr') }, { cle: 'kaizen', libelle: 'Kaizen', href: liste('kaizen') }, { cle: 'todo', libelle: 'To-Do', href: liste('todo') }],
   }),
 
-  // ── Bouton + (créations, pas des destinations) ──
+  // ── Créations (onglet Plus, en attendant le bouton + de l'en-tête) ──
   lead: {
     cle: 'lead', libelle: 'Nouveau projet', href: '/interne/projet/nouveau', icone: 'lead', pret: true, actif: ['/interne/projet/nouveau'],
     description: 'Qui appelle (contact existant ou nouveau, avec son rôle), adresse du chantier, contrôle des doublons. Crée la fiche en Qualification.',
@@ -229,18 +210,18 @@ export const ECRANS: Record<string, Ecran> = {
   kaizen: pret('kaizen', 'Idée Kaizen', 'pilotage', '/interne/creer/kaizen', 'Proposer une idée d’amélioration (liste Kaizen).'),
 };
 
-// Barre du bas (4 onglets au plus, « Plus » est ajouté après) et contenu de « Plus », par rôle (section 4 de la carte)
-// 16 h 28 : Plus = seulement ce qui n'est pas déjà dans Mon espace du rôle. 17 h 03 : Ressources dans Plus de chaque rôle
-// (ses propres dossiers du Drive).
-export const MENUS: Record<RoleAppli, { barre: string[]; plus: string[] }> = {
-  commercial: { barre: ['journee', 'espace'], plus: ['ressources'] },
-  chargeOperation: { barre: ['journee', 'espace'], plus: ['ressources', 'agenda', 'parc'] },
-  poseur: { barre: ['journee', 'espace'], plus: ['ressources', 'releves', 'parc'] },
-  backOffice: { barre: ['journee', 'espace'], plus: ['ressources', 'planning', 'parc'] },
-  direction: { barre: ['journee', 'espace'], plus: ['ressources', 'parc'] },
+// Barre du bas (« Plus » est ajouté après), partie « À consulter » de Mon espace, et écrans de l'onglet Plus, par rôle.
+// 17 h 24 : consulter = ce qu'on consulte sans compteur (le référentiel Parc, les Ressources, l'outil d'un autre rôle) ;
+// plus = vide, l'onglet Plus ne montre que les créations (CREER) et la déconnexion.
+export const MENUS: Record<RoleAppli, { barre: string[]; consulter: string[]; plus: string[] }> = {
+  commercial: { barre: ['journee', 'espace'], consulter: ['ressources'], plus: [] },
+  chargeOperation: { barre: ['journee', 'espace'], consulter: ['agenda', 'parc', 'ressources'], plus: [] },
+  poseur: { barre: ['journee', 'espace'], consulter: ['releves', 'parc', 'ressources'], plus: [] },
+  backOffice: { barre: ['journee', 'espace'], consulter: ['planning', 'parc', 'ressources'], plus: [] },
+  direction: { barre: ['journee', 'espace'], consulter: ['parc', 'ressources'], plus: [] },
 };
 
-// Bouton + du cadre : créations possibles par rôle (nouveau projet, ticket SAV, idée Kaizen)
+// Créations possibles par rôle (nouveau projet, ticket SAV, idée Kaizen), dans l'onglet Plus
 export const CREER: Record<RoleAppli, string[]> = {
   commercial: ['lead', 'kaizen'],
   chargeOperation: ['ticketSav', 'kaizen'],
