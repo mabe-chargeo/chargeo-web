@@ -22,6 +22,8 @@
 // 17/10/2026, 11 h 28 : espace Back-office validé, même barre Ma journée · Mon espace · Plus.
 // 17/10/2026, 11 h 37 : espace Direction validé, même barre (remplace Ma journée · Pipeline · Chantiers · Pilotage) ;
 // Plus ouvre l'espace de chaque rôle.
+// 17/10/2026, 14 h 08 : « Nouveau lead » devient « Nouveau projet » (/interne/projet/nouveau) : qui appelle, adresse du
+// chantier, doublons, contacts avec leur rôle.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -214,7 +216,10 @@ export const ECRANS: Record<string, Ecran> = {
   }),
 
   // ── Bouton + (créations, pas des destinations) ──
-  lead: bientot('lead', 'Nouveau lead', 'lead', 'Écran de l’application qui écrit dans Qualification, comme les formulaires du site.'),
+  lead: {
+    cle: 'lead', libelle: 'Nouveau projet', href: '/interne/projet/nouveau', icone: 'lead', pret: true, actif: ['/interne/projet/nouveau'],
+    description: 'Qui appelle (contact existant ou nouveau, avec son rôle), adresse du chantier, contrôle des doublons. Crée la fiche en Qualification.',
+  },
   ticketSav: bientot('ticketSav', 'Ticket SAV', 'sav', 'Créer un ticket SAV, rattaché à la borne concernée.'),
   kaizen: bientot('kaizen', 'Idée Kaizen', 'pilotage', 'Proposer une idée d’amélioration (liste Kaizen).'),
 };
@@ -231,7 +236,7 @@ export const MENUS: Record<RoleAppli, { barre: string[]; plus: string[] }> = {
   },
 };
 
-// Bouton + du cadre : créations possibles par rôle (nouveau lead, ticket SAV, idée Kaizen)
+// Bouton + du cadre : créations possibles par rôle (nouveau projet, ticket SAV, idée Kaizen)
 export const CREER: Record<RoleAppli, string[]> = {
   commercial: ['lead', 'kaizen'],
   chargeOperation: ['ticketSav', 'kaizen'],
