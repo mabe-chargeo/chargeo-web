@@ -1,14 +1,15 @@
 "use client";
 
-// Barre de navigation de l'application équipe, une par rôle (validée par Matthieu le 17/10/2026, écrans du 11/10) :
-// les écrans les plus utilisés du rôle affiché, puis « Plus ». Menus définis dans src/lib/menusAppli.ts.
-// Libellés en 12 px minimum (recherche bonnes pratiques du 17/10 : gants, plein soleil).
+// Barre de navigation de l'application équipe, une par rôle (carte des menus validée par Matthieu le 17/10/2026) :
+// les menus les plus utilisés du rôle affiché, puis « Plus ». Menus définis dans src/lib/menusAppli.ts.
+// Libellés courts (champ court, ex. « Matériel » pour Matériel et achats) en 12 px minimum (recherche bonnes
+// pratiques du 17/10 : gants, plein soleil).
 // Sans rôle connu (première ouverture hors ligne), barre minimale : Ma journée, Relevés, Plus.
 // Masquée dans le relevé (/interne/metre/...), qui a ses propres boutons en bas d'écran.
 import { usePathname } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { CYAN, NAVY } from '@/components/charte/couleurs';
-import { ECRANS, MENUS, estActif } from '@/lib/menusAppli';
+import { ECRANS, MENUS, estActif, libelleBarre } from '@/lib/menusAppli';
 import { ICONES } from '@/components/charte/iconesAppli';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 
@@ -22,7 +23,7 @@ export default function NavAppli() {
   const ecrans = cles.map((c) => ECRANS[c]).filter(Boolean);
   const unActif = ecrans.some((e) => estActif(e, chemin));
   const onglets = [
-    ...ecrans.map((e) => ({ cle: e.cle, href: e.href, libelle: e.libelle, Icon: ICONES[e.icone], actif: estActif(e, chemin) })),
+    ...ecrans.map((e) => ({ cle: e.cle, href: e.href, libelle: libelleBarre(e), Icon: ICONES[e.icone], actif: estActif(e, chemin) })),
     { cle: 'plus', href: '/interne/plus', libelle: 'Plus', Icon: Menu, actif: chemin.startsWith('/interne/plus') || !unActif },
   ];
 
