@@ -1,7 +1,8 @@
 "use client";
 
-// Écran Fiches de l'application équipe (structure validée par Matthieu le 16/10/2026) : la fiche voyageuse, avec un
-// sous-menu de vues comme dans ClickUp (À caler, Relevés planifiés, Devis à chiffrer…), chacune avec son compteur.
+// Écran Pipeline de l'application équipe (ex-« Fiches », structure validée par Matthieu le 16/10/2026, renommé le 17/10
+// selon les écrans par rôle du 11/10) : la fiche voyageuse, avec un sous-menu de vues comme dans ClickUp (À caler,
+// Relevés planifiés, Devis à chiffrer…), chacune avec son compteur.
 // Adresse /interne/fiches?vue=<clé> : Ma journée ouvre directement la bonne vue. Une fiche ouvre sa fiche détaillée.
 // La vue est lue dans l'adresse après chargement (page pré-générée, pas de useSearchParams).
 import { useEffect, useState } from 'react';
@@ -110,7 +111,7 @@ export default function FichesPage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Fiches" titre={donnees?.vue?.libelle || 'Fiches'} action={boutonActualiser} />
+      <EnTeteAppli surtitre="Pipeline" titre={donnees?.vue?.libelle || 'Pipeline'} action={boutonActualiser} />
 
       <ContenuAppli className="space-y-4">
         {donnees?.preview && <Alerte>Prévisualisation : fiches lues dans 🧪 Qualification TEST. Rien n'est modifié.</Alerte>}
