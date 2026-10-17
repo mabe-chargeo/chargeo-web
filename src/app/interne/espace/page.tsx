@@ -3,12 +3,16 @@
 // Mon espace (un espace par rôle, validé par Matthieu le 17/10/2026) : comme un espace ClickUp, les vues dont le rôle
 // a besoin, dans l'ordre de son travail, chacune avec son compteur. Une vue ouvre la liste des fiches ; une fiche ouvre
 // la fiche avec le bloc 📇 Contact. Espaces définis dans src/lib/espaces.ts (Commercial validé le 17/10 à 10 h 44,
-// Chef de chantier à 11 h 06). Une vue sans écran ouvre ClickUp (mention « ClickUp ») ou l'écran « à construire ».
+// Chef de chantier à 11 h 06, Installateur à 11 h 18, Back-office à 11 h 28, Direction à 11 h 37). Une vue sans écran
+// ouvre ClickUp (mention « ClickUp ») ou l'écran « à construire ».
+// ?role=<rôle> : la direction ouvre l'espace d'un autre rôle (depuis Plus ou le bas de son espace). La route vérifie
+// les droits : seul la direction peut voir un espace qui n'est pas le sien.
 import { useEffect, useState } from 'react';
 import { ChevronRight, ExternalLink, Plus, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, NAVY, ORANGE } from '@/components/charte/couleurs';
-import { LIBELLE_ROLE } from '@/lib/menusAppli';
+import { LIBELLE_ROLE, type RoleAppli } from '@/lib/menusAppli';
+import { ESPACES_DES_ROLES } from '@/lib/espaces';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 
 type Vue = {
@@ -17,11 +21,25 @@ type Vue = {
 };
 type Reponse = { espace: { titre: string; creer: { libelle: string; href: string } | null } | null; vues: Vue[]; preview: boolean };
 
+const estRole = (r: string | null): r is RoleAppli => !!r && Object.prototype.hasOwnProperty.call(LIBELLE_ROLE, r);
+
 export default function EspacePage() {
   const { role } = useRoleAppli();
+  const [roleDemande, setRoleDemande] = useState<RoleAppli | null>(null);
+  const [pret, setPret] = useState(false);
   const [donnees, setDonnees] = useState<Reponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+
+  // Rôle demandé dans l'adresse (lu côté téléphone, sans Suspense)
+  useEffect(() => {
+    const r = new URLSearchParams(window.location.search).get('role');
+    setRoleDemande(estRole(r) ? r : null);
+    setPret(true);
+  }, []);
+
+  const roleVu: RoleAppli | null = roleDemande || role;
+  const autreEspace = !!roleDemande && roleDemande !== role;
 
   const charger = async (r: string) => {
     setLoading(true);
@@ -39,12 +57,12 @@ export default function EspacePage() {
   };
 
   useEffect(() => {
-    if (role) charger(role);
-  }, [role]);
+    if (pret && roleVu) charger(roleVu);
+  }, [pret, roleVu]);
 
   const boutonActualiser = (
     <button
-      onClick={() => role && charger(role)}
+      onClick={() => roleVu && charger(roleVu)}
       aria-label="Actualiser"
       className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white transition-transform active:scale-95"
     >
@@ -66,9 +84,12 @@ export default function EspacePage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre={role ? LIBELLE_ROLE[role] : 'Application équipe'} titre={donnees?.espace?.titre || 'Mon espace'} action={boutonActualiser} />
+      <EnTeteAppli surtitre={roleVu ? LIBELLE_ROLE[roleVu] : 'Application équipe'} titre={donnees?.espace?.titre || 'Mon espace'} action={boutonActualiser} />
       <ContenuAppli className="space-y-3">
         {donnees?.preview && <Alerte>Prévisualisation : affaires lues dans 🧪 Qualification TEST, le reste dans les vraies listes. Rien n&apos;est modifié.</Alerte>}
+        {autreEspace && (
+          <a href="/interne/espace" className="block text-[15px] font-semibold" style={{ color: CYAN }}>← Revenir à mon espace</a>
+        )}
         {erreur && <Alerte>{erreur}</Alerte>}
         {loading && !donnees && (
           <Carte className="p-8 text-center">
@@ -78,7 +99,7 @@ export default function EspacePage() {
         )}
         {donnees && !donnees.espace && (
           <Carte className="text-center">
-            <p className="text-[15px] font-semibold">L&apos;espace {role ? LIBELLE_ROLE[role].toLowerCase() : ''} est en cours de validation avec Matthieu.</p>
+            <p className="text-[15px] font-semibold">L&apos;espace {roleVu ? LIBELLE_ROLE[roleVu].toLowerCase() : ''} est en cours de validation avec Matthieu.</p>
           </Carte>
         )}
 
@@ -109,6 +130,25 @@ export default function EspacePage() {
             {v.externe ? <ExternalLink size={18} className="shrink-0" color={CYAN} /> : <ChevronRight size={20} className="shrink-0" color={CYAN} />}
           </a>
         ))}
+
+        {/* Direction : l'espace de chaque rôle */}
+        {role === 'direction' && !autreEspace && donnees?.espace && (
+          <div className="pt-3">
+            <p className="mb-2 text-[13px] font-bold uppercase tracking-wide" style={{ color: NAVY }}>Espaces des rôles</p>
+            <div className="space-y-2">
+              {ESPACES_DES_ROLES.map((r) => (
+                <a
+                  key={r}
+                  href={`/interne/espace?role=${r}`}
+                  className="flex items-center justify-between rounded-[20px] bg-white p-4 text-[16px] font-semibold transition-transform active:scale-[0.98]"
+                >
+                  {LIBELLE_ROLE[r]}
+                  <ChevronRight size={20} color={CYAN} />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </ContenuAppli>
     </PageAppli>
   );
