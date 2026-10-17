@@ -2,6 +2,8 @@
 // c'étaient des vues ClickUp »). Une vue = un filtre sur les fiches principales de Qualification (la fiche voyageuse),
 // avec son libellé, ses rôles et son tri. Source unique : l'écran Fiches (sous-menu des vues, compteurs) et Ma journée
 // (cartes qui ouvrent la vue) lisent les mêmes règles, donc les mêmes chiffres.
+// 17/10/2026, 11 h 01 (Matthieu : « ce n'est pas le commercial qui fait les relevés techniques ») : les vues de relevé
+// (À caler, Relevés planifiés, Relevés en retard) sont réservées au chargé d'opération / chef de chantier.
 // Pas d'accès réseau ici : fonctions pures sur les tâches lues par l'appelant.
 import { estAVisiter } from '@/lib/listesClickUp';
 import { aujourdhuiParis, comparer, type Jour } from '@/lib/joursOuvres';
@@ -81,16 +83,16 @@ export function libelleDate(ms: number, avecHeure = true): string {
 export const VUES: Vue[] = [
   {
     cle: 'a-caler', libelle: 'À caler', description: 'Relevés sans date de visite : appeler le client pour fixer le rendez-vous',
-    roles: ['commercial', 'chargeOperation'], filtre: (t) => aVisiter(t) && !visite(t), tri: 'maj',
+    roles: ['chargeOperation'], filtre: (t) => aVisiter(t) && !visite(t), tri: 'maj',
   },
   {
     cle: 'planifies', libelle: 'Relevés planifiés', description: "Visites calées, aujourd'hui et à venir",
-    roles: ['chargeOperation', 'commercial'],
+    roles: ['chargeOperation'],
     filtre: (t, a) => { const j = visite(t); return aVisiter(t) && !!j && comparer(j, a) >= 0; }, tri: 'dateVisite',
   },
   {
     cle: 'en-retard', libelle: 'Relevés en retard', description: 'Date de visite passée, relevé pas encore envoyé',
-    roles: ['chargeOperation', 'commercial'],
+    roles: ['chargeOperation'],
     filtre: (t, a) => { const j = visite(t); return aVisiter(t) && !!j && comparer(j, a) < 0; }, tri: 'dateVisite',
   },
   {
