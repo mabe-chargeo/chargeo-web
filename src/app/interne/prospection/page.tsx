@@ -4,8 +4,9 @@
 // Deux vues comme dans ClickUp : 📞 À appeler aujourd'hui et 🚀 Pipeline chasse (rangé par étape, filtre LinkedIn).
 // Chaque prospect a le bloc 📇 Contact complet (Appeler, Google Voice, SMS, Gmail, Waze, Maps), lu au premier appui.
 // Lecture seule : la mise à jour du prospect (résultat d'appel, rappel) se fait encore dans ClickUp.
+// 17/10, 12 h 33 : le nom du prospect ouvre la fiche affaire unique (/interne/fiches/<id>), qui le suivra jusqu'au Parc.
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarClock, ExternalLink, MapPin, RefreshCw } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ChevronRight, ExternalLink, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
 import { CYAN, GRIS } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
@@ -69,7 +70,10 @@ export default function ProspectionPage() {
         </span>
         {(p.typeClient || p.source) && <span className="text-[12px] font-bold text-slate-500">{[p.typeClient, p.source].filter(Boolean).join(' · ')}</span>}
       </div>
-      <p className="text-[17px] font-bold leading-tight">{p.nom}</p>
+      <a href={`/interne/fiches/${p.id}`} className="flex items-center justify-between gap-2">
+        <span className="text-[17px] font-bold leading-tight">{p.nom}</span>
+        <ChevronRight size={20} className="shrink-0" color={CYAN} />
+      </a>
       {(p.rappel || p.resultat) && (
         <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: CYAN }}>
           <CalendarClock size={15} className="shrink-0" color={CYAN} />
