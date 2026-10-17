@@ -4,10 +4,14 @@
 // Une carte par chantier ouvert de Planning Chantiers : les 5 prérequis à régler d'un geste (✅ Confirmé, ➖ Non applicable,
 // ❌ Manquant), le blocage borne résident, puis le bouton Donner le feu vert, actif seulement quand tout est OK.
 // Le commentaire « Feu vert donné » et le retrait automatique restent faits par la route existante (automatisations).
+// 17/10, 10 h 26 (Matthieu) : bloc 📇 Contact sur chaque chantier (Appeler, Google Voice, SMS, Gmail, Waze, Maps), lu au
+// premier appui.
+// 17/10, 12 h 33 : le nom du chantier ouvre la fiche affaire unique ; retour vers Mon espace (et non plus le Planning).
 import { useEffect, useState } from 'react';
 import { ExternalLink, RefreshCw, ShieldCheck, TrafficCone } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, TitreCarte, Alerte, BoutonPrincipal } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
+import { BlocContact } from '@/components/ui/BlocContact';
 
 interface Prerequis { id: string; libelle: string; optionId: string | null; valeur: string | null; ok: boolean }
 interface Option { id: string; nom: string; orderindex: number }
@@ -89,7 +93,7 @@ export default function FeuVertPage() {
           icon={c.feuVert ? ShieldCheck : TrafficCone}
           extra={<a href={c.url} target="_blank" rel="noreferrer" aria-label="Ouvrir dans ClickUp" className="shrink-0"><ExternalLink size={18} color={CYAN} /></a>}
         >
-          <span className="leading-tight">{c.nom}</span>
+          <a href={`/interne/fiches/${c.id}`} className="leading-tight underline decoration-[#dfe3e8] underline-offset-4">{c.nom}</a>
         </TitreCarte>
         {c.statut && (
           <p className="text-[13px] font-semibold">
@@ -97,6 +101,8 @@ export default function FeuVertPage() {
             {c.statut}
           </p>
         )}
+
+        <BlocContact affaireId={c.id} differe />
 
         <div className="space-y-3">
           {c.prerequis.map((p) => (
@@ -156,7 +162,7 @@ export default function FeuVertPage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Chargé d'opération" titre="Feu vert chantiers" retour={{ href: '/interne', libelle: 'Planning' }} />
+      <EnTeteAppli surtitre="Chargé d'opération" titre="Feu vert chantiers" retour={{ href: '/interne/espace', libelle: 'Mon espace' }} />
       <ContenuAppli className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[13px]">Le chantier démarre quand les 5 prérequis sont OK et que tu as donné le feu vert.</p>

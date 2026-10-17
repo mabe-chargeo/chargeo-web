@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
+import { champType } from '@/lib/typesTaches';
 
 // Liste ClickUp "Recrutement Installateurs (v2)" (BACK OFFICE > RESSOURCES HUMAINES).
 // Surcharge possible par la variable Vercel CLICKUP_LIST_RECRUTEMENT_ID.
+// 17/10/2026 : type de tache Candidat pose a la creation (src/lib/typesTaches.ts). Si le type est introuvable,
+// la candidature est creee quand meme, en Tache : un type ne bloque jamais une candidature.
 const LIST_ID = process.env.CLICKUP_LIST_RECRUTEMENT_ID || "1200630000003865";
 
 // Matthieu BELENGRI : chaque candidature lui est assignee (notification ClickUp).
@@ -146,10 +149,13 @@ export async function POST(request: Request) {
       `Consentement RGPD : conservation de la candidature 2 ans accepté le ${recu}.`,
     ].join("\n");
 
+    // Type Candidat lu avec la cle principale (la cle "site" peut ne pas lire les types de l'espace de travail)
+    const type = await champType((process.env.CLICKUP_API_KEY || CLICKUP_API_KEY) as string, 'candidat').catch(() => ({}));
+
     const response = await fetch(`https://api.clickup.com/api/v2/list/${LIST_ID}/task`, {
       method: 'POST',
       headers: { 'Authorization': CLICKUP_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: nom, description, assignees: [ASSIGNEE_ID], custom_fields }),
+      body: JSON.stringify({ name: nom, description, ...type, assignees: [ASSIGNEE_ID], custom_fields }),
     });
 
     if (!response.ok) {

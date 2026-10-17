@@ -10,10 +10,17 @@
 // - role « charge » (/interne/validation) : le chargé d'opération / chef de chantier contrôle, qualifie les réserves et
 //   valide la réception (statut 🏁 terminé). Le passage au Parc (contrat, facture de solde, avis Google) reste fait par
 //   la route existante ; ce qui est administratif part au back-office.
+// 17/10, 10 h 26 (Matthieu) : bloc 📇 Contact sur chaque chantier (Appeler, Google Voice, SMS, Gmail, Waze, Maps), lu au
+// premier appui.
+// 17/10, 12 h 33 : le nom du chantier ouvre la fiche affaire unique ; retour vers Mon espace / Mon travail.
+// 17/10, 15 h 34 (Matthieu : « le chef de chantier corrige, avec trace ») : une fois le PV signé et envoyé (✅ réalisé),
+// cadenas sur le PV et les réserves. Le poseur ne peut plus les changer ; le chef de chantier corrige en donnant un motif,
+// gardé en commentaire sur le chantier. Rapport de mesures et photos restent ajoutables.
 import { useEffect, useState } from 'react';
-import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Plus, RefreshCw } from 'lucide-react';
+import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Lock, Plus, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
+import { BlocContact } from '@/components/ui/BlocContact';
 
 interface Reserve { id: string; nom: string; responsables: string[]; echeance: number | null; faite: boolean }
 interface Option { id: string; nom: string; orderindex: number }
@@ -22,6 +29,7 @@ interface Chantier {
   id: string; nom: string; statut: string; couleurStatut: string; url: string;
   pv: Fichier[]; photos: Fichier[]; rapport: Fichier[]; techniciens: string[]; reservesOptionId: string | null; niveau: string;
   reserves: Reserve[]; motifs: string[]; avertissements: string[]; ecritureAutorisee: boolean; envoye: boolean;
+  verrouille?: boolean;
 }
 
 const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -62,6 +70,8 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
   const [enCours, setEnCours] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, string>>({});
   const [saisie, setSaisie] = useState<Record<string, { libelle: string; echeance: string }>>({});
+  // Motif de correction d'un PV signé (chef de chantier), par chantier
+  const [correction, setCorrection] = useState<Record<string, string>>({});
 
   const charger = async () => {
     setLoading(true);
@@ -98,7 +108,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
       const res = await fetch('/api/interne/reception', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId: c.id, ...corps }),
+        body: JSON.stringify({ taskId: c.id, ...corps, ...(c.verrouille ? { motif: correction[c.id] || '' } : {}) }),
       });
       const data = await res.json();
       appliquer(c, data);
@@ -125,6 +135,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
       form.append('taskId', c.id);
       form.append('cible', cible);
       form.append('fichier', fichier);
+      if (c.verrouille) form.append('motif', correction[c.id] || '');
       try {
         const res = await fetch('/api/interne/reception', { method: 'POST', body: form });
         const data = await res.json();
@@ -144,69 +155,100 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
     const occupe = !!enCours && enCours.startsWith(c.id);
     const bloque = !c.ecritureAutorisee;
     const s = saisie[c.id] || { libelle: '', echeance: '' };
+    // PV signé et envoyé : le poseur ne touche plus au PV ni aux réserves ; le chef de chantier doit donner un motif
+    const verrou = !!c.verrouille;
+    const verrouPoseur = verrou && poseur;
+    const motifManquant = verrou && !poseur && (correction[c.id] || '').trim().length < 5;
+    const pvFige = verrouPoseur || motifManquant;
     return (
       <Carte key={c.id} className="space-y-4">
         <TitreCarte
           icon={ClipboardCheck}
           extra={<a href={c.url} target="_blank" rel="noreferrer" aria-label="Ouvrir dans ClickUp" className="shrink-0"><ExternalLink size={18} color={CYAN} /></a>}
         >
-          <span className="leading-tight">{c.nom}</span>
+          <a href={`/interne/fiches/${c.id}`} className="leading-tight underline decoration-[#dfe3e8] underline-offset-4">{c.nom}</a>
         </TitreCarte>
         <p className="text-[13px] font-semibold">
           <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ backgroundColor: c.couleurStatut || CYAN }} />
           {c.statut}
         </p>
 
-        {/* PV et photos */}
-        {([['pv', '📂 PV Réception', c.pv, FileText, 'image/*,application/pdf'], ['rapport', '📊 Rapport de mesures', (c.rapport || []) as Fichier[], Gauge, 'application/pdf,image/*'], ['photos', '📸 Photos Chantier', c.photos, Camera, 'image/*']] as const).map(([cible, libelle, liste, Icone, accept]) => (
-          <div key={cible} className="rounded-[14px] bg-white p-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[14px] font-bold">{libelle}</p>
-              <span className="text-[12px] font-semibold" style={{ color: liste.length ? '#16a34a' : ORANGE }}>
-                {liste.length ? `${liste.length} fichier${liste.length > 1 ? 's' : ''}` : 'aucun fichier'}
-              </span>
-            </div>
-            {/* Aperçu : vignette pour les images, icône pour les PDF, ouverture en grand dans un nouvel onglet */}
-            {liste.length > 0 && (
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                {liste.map((f, i) => {
-                  const lien = `/api/interne/fichier?taskId=${encodeURIComponent(c.id)}&cible=${cible}&id=${encodeURIComponent(f.id)}`;
-                  return (
-                    <a key={f.id || i} href={lien} target="_blank" rel="noreferrer" title={f.nom} className="block overflow-hidden rounded-[10px] ring-[1.5px] ring-[#dfe3e8]">
-                      {f.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={`${lien}&mini=1`} alt={f.nom} loading="lazy" className="aspect-square w-full object-cover" />
-                      ) : (
-                        <div className="flex aspect-square flex-col items-center justify-center gap-1 p-2 text-center">
-                          <FileText size={22} color={CYAN} />
-                          <span className="line-clamp-2 break-all text-[11px]">{f.nom}</span>
-                        </div>
-                      )}
-                    </a>
-                  );
-                })}
-              </div>
+        <BlocContact affaireId={c.id} differe />
+
+        {verrou && (
+          <div className="space-y-2 rounded-[14px] bg-white p-3 ring-[1.5px] ring-[#dfe3e8]">
+            <p className="flex items-center gap-2 text-[14px] font-bold"><Lock size={16} color={ORANGE} /> PV signé et envoyé</p>
+            {poseur ? (
+              <p className="text-[13px]">PV et réserves sont verrouillés. S’il faut corriger, préviens le chef de chantier : lui seul peut le faire. Tu peux encore ajouter le rapport de mesures et des photos.</p>
+            ) : (
+              <>
+                <p className="text-[13px]">Pour corriger le PV ou les réserves, indique d’abord le motif : il est gardé en commentaire sur le chantier.</p>
+                <input
+                  className={CHAMP}
+                  placeholder="Motif de la correction (ex. réserve oubliée sur le PV)"
+                  value={correction[c.id] || ''}
+                  onChange={(e) => setCorrection((x) => ({ ...x, [c.id]: e.target.value }))}
+                />
+              </>
             )}
-            <label className={`mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8] ${bloque || occupe ? 'pointer-events-none opacity-50' : ''}`}>
-              <Icone size={16} color={CYAN} />
-              {enCours === `${c.id}:${cible}` ? 'Envoi...' : cible === 'pv' ? 'Ajouter le PV signé' : cible === 'rapport' ? 'Ajouter le rapport du contrôleur' : 'Ajouter des photos'}
-              <input type="file" accept={accept} multiple={cible === 'photos'} className="hidden" onChange={(e) => { deposer(c, cible, e.target.files); e.target.value = ''; }} />
-            </label>
           </div>
-        ))}
+        )}
+
+        {/* PV et photos */}
+        {([['pv', '📂 PV Réception', c.pv, FileText, 'image/*,application/pdf'], ['rapport', '📊 Rapport de mesures', (c.rapport || []) as Fichier[], Gauge, 'application/pdf,image/*'], ['photos', '📸 Photos Chantier', c.photos, Camera, 'image/*']] as const).map(([cible, libelle, liste, Icone, accept]) => {
+          const fige = cible === 'pv' && pvFige;
+          return (
+            <div key={cible} className="rounded-[14px] bg-white p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[14px] font-bold">{libelle}{cible === 'pv' && verrou ? ' 🔒' : ''}</p>
+                <span className="text-[12px] font-semibold" style={{ color: liste.length ? '#16a34a' : ORANGE }}>
+                  {liste.length ? `${liste.length} fichier${liste.length > 1 ? 's' : ''}` : 'aucun fichier'}
+                </span>
+              </div>
+              {/* Aperçu : vignette pour les images, icône pour les PDF, ouverture en grand dans un nouvel onglet */}
+              {liste.length > 0 && (
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {liste.map((f, i) => {
+                    const lien = `/api/interne/fichier?taskId=${encodeURIComponent(c.id)}&cible=${cible}&id=${encodeURIComponent(f.id)}`;
+                    return (
+                      <a key={f.id || i} href={lien} target="_blank" rel="noreferrer" title={f.nom} className="block overflow-hidden rounded-[10px] ring-[1.5px] ring-[#dfe3e8]">
+                        {f.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={`${lien}&mini=1`} alt={f.nom} loading="lazy" className="aspect-square w-full object-cover" />
+                        ) : (
+                          <div className="flex aspect-square flex-col items-center justify-center gap-1 p-2 text-center">
+                            <FileText size={22} color={CYAN} />
+                            <span className="line-clamp-2 break-all text-[11px]">{f.nom}</span>
+                          </div>
+                        )}
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+              {!(cible === 'pv' && verrouPoseur) && (
+                <label className={`mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8] ${bloque || occupe || fige ? 'pointer-events-none opacity-50' : ''}`}>
+                  <Icone size={16} color={CYAN} />
+                  {enCours === `${c.id}:${cible}` ? 'Envoi...' : cible === 'pv' ? (verrou ? 'Corriger : déposer un nouveau PV' : 'Ajouter le PV signé') : cible === 'rapport' ? 'Ajouter le rapport du contrôleur' : 'Ajouter des photos'}
+                  <input type="file" accept={accept} multiple={cible === 'photos'} className="hidden" onChange={(e) => { deposer(c, cible, e.target.files); e.target.value = ''; }} />
+                </label>
+              )}
+            </div>
+          );
+        })}
 
         {/* Réserves */}
         <div className="rounded-[14px] bg-white p-3">
-          <p className="text-[14px] font-bold">🧾 Réserves</p>
+          <p className="text-[14px] font-bold">🧾 Réserves{verrou ? ' 🔒' : ''}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {options.map((o) => {
               const choisi = c.reservesOptionId === o.id;
               return (
                 <button
                   key={o.id}
-                  disabled={occupe || choisi || bloque}
+                  disabled={occupe || choisi || bloque || pvFige}
                   onClick={() => envoyer(c, { action: 'reserves', optionId: o.id }, `${c.id}:res:${o.id}`)}
-                  className={`rounded-full px-3 py-2 text-[13px] font-semibold transition-transform active:scale-95 ${choisi ? 'text-white' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'} ${bloque && !choisi ? 'opacity-50' : ''}`}
+                  className={`rounded-full px-3 py-2 text-[13px] font-semibold transition-transform active:scale-95 ${choisi ? 'text-white' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'} ${(bloque || pvFige) && !choisi ? 'opacity-50' : ''}`}
                   style={choisi ? { backgroundColor: couleurReserve(o.nom) } : undefined}
                 >
                   {o.nom}
@@ -226,7 +268,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
                   </p>
                 </div>
               ))}
-              {c.niveau === 'mineure' && !bloque && (
+              {c.niveau === 'mineure' && !bloque && !verrouPoseur && (
                 <div className="space-y-2 pt-1">
                   <input
                     className={CHAMP}
@@ -241,13 +283,13 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
                     onChange={(e) => setSaisie((x) => ({ ...x, [c.id]: { ...s, echeance: e.target.value } }))}
                   />
                   <button
-                    disabled={occupe || !s.libelle.trim() || !s.echeance}
+                    disabled={occupe || !s.libelle.trim() || !s.echeance || motifManquant}
                     onClick={async () => {
                       if (await envoyer(c, { action: 'reserve_ajout', libelle: s.libelle, echeance: s.echeance }, `${c.id}:ajout`)) {
                         setSaisie((x) => ({ ...x, [c.id]: { libelle: '', echeance: '' } }));
                       }
                     }}
-                    className={`flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8] ${!s.libelle.trim() || !s.echeance ? 'opacity-50' : ''}`}
+                    className={`flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8] ${!s.libelle.trim() || !s.echeance || motifManquant ? 'opacity-50' : ''}`}
                   >
                     <Plus size={16} color={CYAN} /> {enCours === `${c.id}:ajout` ? 'Création...' : `Ajouter la réserve (${c.techniciens?.length ? c.techniciens.join(', ') : 'à mon nom'})`}
                   </button>
@@ -302,7 +344,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
       <EnTeteAppli
         surtitre={poseur ? 'Technicien poseur' : 'Chargé d\'opération'}
         titre={poseur ? 'Réception sur place' : 'Valider les réceptions'}
-        retour={{ href: '/interne', libelle: 'Planning' }}
+        retour={{ href: '/interne/espace', libelle: poseur ? 'Mon travail' : 'Mon espace' }}
       />
       <ContenuAppli className="space-y-4">
         <div className="flex items-center justify-between gap-3">

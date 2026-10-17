@@ -7,10 +7,12 @@
 // - scénarios (archiver, restaurer, renommer, dupliquer) : direction et commercial ;
 // - éléments (créer, ajouter, renommer, dupliquer, archiver, restaurer) : direction, commercial et chargé d'opération ;
 // - poseur et back-office : jamais.
+// 17/10/2026, 20 h 44 : membresDuRole donne les personnes d'un rôle (ex. les chefs de chantier, pour caler un relevé).
+// 17/10, 21 h 16 : avec leur email ClickUp (pour leur Google Agenda), à ne pas renvoyer au navigateur.
 export type Role = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 export type Droits = { scenarios: boolean; elements: boolean };
 
-type Cache = { lu: number; proprietaires: Set<number>; groupes: { role: Role; membres: Set<number> }[] };
+type Cache = { lu: number; proprietaires: Set<number>; groupes: { role: Role; membres: Set<number> }[]; noms: Map<number, string>; emails: Map<number, string> };
 let cache: Cache | null = null;
 const DUREE_CACHE = 5 * 60 * 1000;
 
@@ -31,6 +33,8 @@ async function charger(token: string): Promise<Cache> {
   const equipe = process.env.CLICKUP_TEAM_ID?.trim() || '90151325642';
   const proprietaires = new Set<number>();
   const groupes: Cache['groupes'] = [];
+  const noms = new Map<number, string>();
+  const emails = new Map<number, string>();
   let complet = true;
   try {
     const r = await fetch('https://api.clickup.com/api/v2/team', { headers: { Authorization: token }, cache: 'no-store' });
@@ -38,7 +42,12 @@ async function charger(token: string): Promise<Cache> {
       const j = await r.json().catch(() => ({}));
       const t = (Array.isArray(j?.teams) ? j.teams : []).find((x: any) => String(x?.id) === equipe);
       for (const m of Array.isArray(t?.members) ? t.members : []) {
-        if (Number(m?.user?.role) === 1) proprietaires.add(Number(m.user.id));
+        const id = Number(m?.user?.id);
+        if (Number(m?.user?.role) === 1) proprietaires.add(id);
+        const nom = String(m?.user?.username || m?.user?.email || '').trim();
+        if (id > 0 && nom) noms.set(id, nom);
+        const email = String(m?.user?.email || '').trim().toLowerCase();
+        if (id > 0 && email) emails.set(id, email);
       }
     } else complet = false;
     const g = await fetch(`https://api.clickup.com/api/v2/group?team_id=${equipe}`, { headers: { Authorization: token }, cache: 'no-store' });
@@ -47,7 +56,15 @@ async function charger(token: string): Promise<Cache> {
       for (const x of Array.isArray(j?.groups) ? j.groups : []) {
         const role = roleDuGroupe(`${x?.name || ''} ${x?.handle || ''}`);
         if (!role) continue;
-        const membres = new Set<number>((Array.isArray(x?.members) ? x.members : []).map((m: any) => Number(m?.id)));
+        const liste: any[] = Array.isArray(x?.members) ? x.members : [];
+        for (const m of liste) {
+          const id = Number(m?.id);
+          const nom = String(m?.username || m?.email || '').trim();
+          if (id > 0 && nom && !noms.has(id)) noms.set(id, nom);
+          const email = String(m?.email || '').trim().toLowerCase();
+          if (id > 0 && email && !emails.has(id)) emails.set(id, email);
+        }
+        const membres = new Set<number>(liste.map((m: any) => Number(m?.id)));
         groupes.push({ role, membres });
       }
     } else complet = false;
@@ -55,7 +72,7 @@ async function charger(token: string): Promise<Cache> {
     complet = false;
     console.error('Rôles illisibles', e);
   }
-  const lu: Cache = { lu: Date.now(), proprietaires, groupes };
+  const lu: Cache = { lu: Date.now(), proprietaires, groupes, noms, emails };
   if (complet) cache = lu;
   return lu;
 }
@@ -67,6 +84,16 @@ export async function rolesDe(token: string, userId: number): Promise<Role[]> {
   if (c.proprietaires.has(Number(userId)) || direction.includes(Number(userId))) roles.add('direction');
   for (const g of c.groupes) if (g.membres.has(Number(userId))) roles.add(g.role);
   return [...roles];
+}
+
+// Personnes qui ont un rôle (groupes ClickUp), avec leur nom et leur email, triées par nom
+export async function membresDuRole(token: string, role: Role): Promise<{ id: number; nom: string; email: string }[]> {
+  const c = await charger(token);
+  const ids = new Set<number>();
+  for (const g of c.groupes) if (g.role === role) g.membres.forEach((m) => { if (m > 0) ids.add(m); });
+  return [...ids]
+    .map((id) => ({ id, nom: c.noms.get(id) || `Membre ${id}`, email: c.emails.get(id) || '' }))
+    .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
 }
 
 export function droitsDe(roles: Role[]): Droits {

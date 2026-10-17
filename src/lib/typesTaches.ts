@@ -6,6 +6,8 @@
 // après la conversion des ~75 tâches.
 // Test du 15/10 (preview) : Projet 1012, Scénario 1013, Élément 1014, Installation 1015, Réserve 1016, Commande 1017,
 // Achat 1018, Dossier aide 1019, Ticket SAV 1020, Intervention 1010, Facture 1004, Prospect 1002, Contact 1011.
+// 17/10/2026, 20 h 01 : Salarié et Candidat ajoutés (types déjà créés dans l'espace de travail), posés par
+// /api/interne/creer-rh et /api/recrutement. Prospect posé par /api/interne/prospects, Projet au passage en Qualification.
 // ClickUp renvoie 0 (ou rien) pour le type Tâche par défaut.
 
 export const TYPES = {
@@ -22,6 +24,8 @@ export const TYPES = {
   facture: 'Facture',
   prospect: 'Prospect',
   contact: 'Contact',
+  salarie: 'Salarié',
+  candidat: 'Candidat',
 } as const;
 
 export type CleType = keyof typeof TYPES;

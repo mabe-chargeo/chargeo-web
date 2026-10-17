@@ -27,9 +27,15 @@ import { lireSiteRecu } from '@/lib/releveSite';
 // 16/10, 15 h 44 (Matthieu) : sur une fiche sans scénario, l'ancien formulaire de relevé est retiré. Le relevé se fait
 // dans le scénario, élément par élément. Les valeurs déjà saisies restent dans les champs ClickUp de la fiche. L'ancien
 // relevé reste sur les scénarios sans éléments (décision du 15/10) et sur les fiches à emplacements, jusqu'à la conversion.
+// 17/10, 20 h 33 (Matthieu : « ce serait bien qu'il y ait la barre d'onglets là ») : la fiche sans scénario et la liste
+// des scénarios affichent la barre du bas (repère data-barre-appli lu par NavAppli). Le scénario, l'emplacement et la
+// fiche à emplacements (relevé commun du site) gardent leurs propres boutons en bas, sans la barre.
 const SEGMENT_OPTIONS: Record<number, string> = { 0: 'RES', 1: 'DAP', 2: 'COP', 3: 'PAR', 4: 'FLT', 5: 'TER', 6: 'RIC' };
 const SEGMENT_ID = 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2';
 const BANDEAU_ANCIEN = 'Ancien modèle (emplacements) : cette fiche sera convertie en scénario avec éléments. Chaque emplacement deviendra une branche du scénario.';
+
+// Demande la barre d'onglets en bas de la page (src/components/charte/NavAppli.tsx)
+const BarreAppli = () => <span data-barre-appli="oui" hidden />;
 
 function segmentDe(tache: any): string {
   const champ = tache?.custom_fields?.find((f: any) => f.id === SEGMENT_ID);
@@ -162,6 +168,7 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
   if (fiche.type === 'scenario') {
     return (
       <PageAppli>
+        <BarreAppli />
         <EnTeteAppli surtitre="Visite technique" titre={fiche.name} retour={{ href: '/interne', libelle: 'Planning' }} />
         <ContenuAppli className="space-y-5">
           <BlocContact affaireId={taskId} />
@@ -176,6 +183,7 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
   // Fiche sans sous-relevé : création d'un scénario proposée (le relevé se fait ensuite dans le scénario)
   return (
     <PageAppli>
+      <BarreAppli />
       <EnTeteAppli surtitre="Visite technique" titre={fiche.name} retour={{ href: '/interne', libelle: 'Planning' }} />
       <ContenuAppli className="space-y-5">
         <BlocContact affaireId={taskId} />
