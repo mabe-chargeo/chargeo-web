@@ -106,8 +106,26 @@ export const etapePlanning = (s: string): number => {
 };
 const enTravaux = (t: any) => etapePlanning(String(t?.status?.status || '')) <= 3;
 
+// ── Prospection (Chasse) ❄️ ──
+export const PROSPECTION_ID = LISTES.prospection;
+export const SOURCE_PROSPECT_ID = '473aa581-a6b1-43c7-8c2e-efd683954a6c';
+// Ordre des étapes de la liste (lu le 17/10/2026)
+export const ETAPES_PROSPECTION = ['a traiter', 'en traitement', 'contacte', 'nurturing', 'rdv fixe', 'pas interesse'];
+const termine = (t: any) => { const s = statut(t); return s.includes('rdv fixe') || s.includes('pas interesse') || s.includes('archive'); };
+
+export const VUES_PROSPECTION: Record<string, { libelle: string; filtre: (t: any, a: Jour) => boolean }> = {
+  // Vue ClickUp 📞 À APPELER AUJOURD'HUI : échéance du jour ou passée, prospects encore en cours
+  'a-appeler': { libelle: "À appeler aujourd'hui", filtre: (t, a) => { const j = jourDe(t?.due_date); return !termine(t) && !!j && comparer(j, a) <= 0; } },
+  // Vue ClickUp 🚀 PIPELINE CHASSE : tous les prospects ouverts, par étape
+  chasse: { libelle: 'Pipeline chasse', filtre: () => true },
+};
+
 // Filtres des sources autres que Qualification, par clé de vue
 export const FILTRES: Partial<Record<SourceVue, Record<string, (t: any, a: Jour) => boolean>>> = {
+  prospection: {
+    'a-appeler': VUES_PROSPECTION['a-appeler'].filtre,
+    chasse: VUES_PROSPECTION.chasse.filtre,
+  },
   contacts: { tous: () => true },
   planning: {
     'feu-vert': (t) => feuVertADonner(t),
@@ -124,21 +142,6 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, (t: any, a: Jour)
     },
   },
 };
-
-// ── Prospection (Chasse) ❄️ ──
-export const PROSPECTION_ID = LISTES.prospection;
-export const SOURCE_PROSPECT_ID = '473aa581-a6b1-43c7-8c2e-efd683954a6c';
-// Ordre des étapes de la liste (lu le 17/10/2026)
-export const ETAPES_PROSPECTION = ['a traiter', 'en traitement', 'contacte', 'nurturing', 'rdv fixe', 'pas interesse'];
-const termine = (t: any) => { const s = statut(t); return s.includes('rdv fixe') || s.includes('pas interesse') || s.includes('archive'); };
-
-export const VUES_PROSPECTION: Record<string, { libelle: string; filtre: (t: any, a: Jour) => boolean }> = {
-  // Vue ClickUp 📞 À APPELER AUJOURD'HUI : échéance du jour ou passée, prospects encore en cours
-  'a-appeler': { libelle: "À appeler aujourd'hui", filtre: (t, a) => { const j = jourDe(t?.due_date); return !termine(t) && !!j && comparer(j, a) <= 0; } },
-  // Vue ClickUp 🚀 PIPELINE CHASSE : tous les prospects ouverts, par étape
-  chasse: { libelle: 'Pipeline chasse', filtre: () => true },
-};
-FILTRES.prospection = Object.fromEntries(Object.entries(VUES_PROSPECTION).map(([k, v]) => [k, v.filtre]));
 
 export const etapeProspect = (t: any): number => {
   const s = statut(t);
