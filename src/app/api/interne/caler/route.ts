@@ -28,8 +28,9 @@ import { agendaBranche, occupationsAgenda, poserReleve, retirerReleve } from '@/
 //   Le commercial l'ouvre dans sa messagerie, le relit et l'envoie lui-même (rien n'est envoyé par le site).
 // 17/10, 20 h 53 : le texte s'arrête à « Bien cordialement, », la messagerie ajoute la signature de son compte ; nom et
 //   CHARGéO sont ajoutés seulement au texte copié (signature). Le texte est gardé dans le commentaire de la fiche.
-// Droits : commercial, chef de chantier et direction. Fiche de la Qualification de l'environnement (🧪 TEST en preview,
-// où seules les fiches « Test … » sont modifiées), au statut 📍 à visiter.
+// Droits : commercial, chef de chantier et direction. Fiche de la Qualification de l'environnement (🧪 TEST en preview)
+// au statut 📍 à visiter. En preview, seules les fiches avec le mot « Test » dans le nom sont modifiées (17/10, 22 h 35 :
+// avant, le nom devait commencer par « Test », ce qui bloquait « Lead Site Web : Test Test » créé par le formulaire).
 // Le fichier n'exporte que les handlers (règle des routes Next).
 
 export const dynamic = 'force-dynamic';
@@ -282,7 +283,7 @@ export async function POST(request: Request) {
     const t = lu.tache;
     if (t?.parent) return json({ success: false, error: 'Ouvre la fiche principale, pas un scénario' }, 400);
     if (!estAVisiter(t?.status?.status)) return json({ success: false, error: 'Cette fiche n’est plus à visiter : le relevé est déjà fait.' }, 400);
-    if (preview && !/^test/i.test(String(t?.name || ''))) return json({ success: false, error: 'En preview, seules les fiches « Test … » peuvent être modifiées.' }, 403);
+    if (preview && !/\btest\b/i.test(String(t?.name || ''))) return json({ success: false, error: 'En preview, seules les fiches de test (avec « Test » dans le nom) peuvent être modifiées.' }, 403);
 
     const date = /^\d{4}-\d{2}-\d{2}$/.test(texte(corps?.date, 10)) ? texte(corps.date, 10) : '';
     const heure = /^\d{2}:\d{2}$/.test(texte(corps?.heure, 5)) ? texte(corps.heure, 5) : '';
