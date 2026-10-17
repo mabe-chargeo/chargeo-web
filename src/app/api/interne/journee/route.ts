@@ -21,6 +21,7 @@ import { CHAMPS_INTERVENTION, chantierAMoi } from '@/lib/espaces';
 // carte « Visites à caler » revient au commercial, avec ses cartes devis et relances.
 // 17/10, 11 h 18 (espace Installateur validé) : carte « Mes interventions du jour » (chantiers dont je suis le
 // 👷 Technicien, date d'intervention aujourd'hui ou passée et pas encore réalisés), vers /interne/interventions.
+// 17/10, 13 h 40 (sélecteur de rôle unique) : libellés uniques dans les surtitres (Chef de chantier, Installateur).
 // Preview : fiches lues dans 🧪 Qualification TEST, le reste dans les listes réelles, en lecture seule.
 
 export const dynamic = 'force-dynamic';
@@ -41,6 +42,7 @@ const PREREQUIS = [
 const PAGES_MAX = 10;
 const JOURS_CONTRAT = 30;
 const EXEMPLES_MAX = 3;
+const CHEF = 'Chef de chantier';
 
 type Exemple = { nom: string; url: string };
 type CarteJournee = {
@@ -163,7 +165,7 @@ export async function GET(request: Request) {
       });
     };
 
-    carteVue('planifies', 'chargeOperation', "Relevés · Chargé d'opération", false);
+    carteVue('planifies', 'chargeOperation', `Relevés · ${CHEF}`, false);
     carteVue('a-caler', 'commercial', 'Commercial', false);
     carteVue('relances-echues', 'commercial', 'Commercial', true);
     carteVue('devis-a-chiffrer', 'commercial', 'Commercial', false);
@@ -179,7 +181,7 @@ export async function GET(request: Request) {
     });
 
     ajouter({
-      cle: 'feuVert', role: 'chargeOperation', section: 'aDebloquer', surtitre: "Chantiers · Chargé d'opération", titre: 'Feu vert à donner',
+      cle: 'feuVert', role: 'chargeOperation', section: 'aDebloquer', surtitre: `Chantiers · ${CHEF}`, titre: 'Feu vert à donner',
       detail: 'Chantiers dont les 5 prérequis sont OK', urgent: false, lien: '/interne/feu-vert', externe: false,
     }, planning, (t) => {
       const coche = champ(t, CHAMP_FEU_VERT)?.value;
@@ -187,7 +189,7 @@ export async function GET(request: Request) {
       return PREREQUIS.every((id) => { const n = normal(nomOption(t, id)); return n.includes('confirme') || n.includes('non applicable'); });
     });
     ajouter({
-      cle: 'receptions', role: 'chargeOperation', section: 'aDebloquer', surtitre: "Chantiers · Chargé d'opération", titre: 'Réceptions à valider',
+      cle: 'receptions', role: 'chargeOperation', section: 'aDebloquer', surtitre: `Chantiers · ${CHEF}`, titre: 'Réceptions à valider',
       detail: 'PV, rapport de mesures et photos déposés par le poseur', urgent: true, lien: '/interne/validation', externe: false,
     }, planning, (t) => statut(t).includes('realise'));
     ajouter({
