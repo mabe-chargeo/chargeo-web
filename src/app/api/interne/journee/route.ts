@@ -25,6 +25,8 @@ import { CHAMPS_INTERVENTION, chantierAMoi } from '@/lib/espaces';
 //   Une carte datée est coupée en deux : sa part du jour dans Aujourd'hui, sa part en retard (si non vide) dans En retard.
 //   La carte « Relevés planifiés » (visites à venir) est retirée : ce n'est pas le travail du jour, les relevés du
 //   jour ont chacun leur carte.
+// 17/10, 19 h 42 (choix de Matthieu : « À relancer ») : l'échéance de la tâche Factures est la date de RELANCE
+// (J+3, J+10, J+15), pas la date limite de paiement (champ 📅 Date d'échéance) : libellés des cartes corrigés.
 // Preview : fiches lues dans 🧪 Qualification TEST, le reste dans les listes réelles, en lecture seule.
 
 export const dynamic = 'force-dynamic';
@@ -218,13 +220,14 @@ export async function GET(request: Request) {
     }, planning, (t) => statut(t).includes('realise'));
 
     // ── Back-office ──
+    // Échéance de la tâche = date de relance (J+3, J+10, J+15), pas la date limite de paiement
     ajouter({
       cle: 'factures', role: 'backOffice', surtitre: 'Back-office', titre: 'Factures à relancer aujourd’hui',
-      detail: 'Échéance aujourd’hui (relances J+3, J+10, J+15)', urgent: true, lien: '/interne/liste/factures?vue=retard', externe: false,
+      detail: 'Date de relance aujourd’hui, pas encore payées (relances J+3, J+10, J+15)', urgent: true, lien: '/interne/liste/factures?vue=retard', externe: false,
     }, factures, (t) => {
       const s = statut(t);
       return !s.includes('litige') && (s.includes('emise') || s.includes('partiel')) && echu(t?.due_date);
-    }, { dateDe: (t) => jourDe(t?.due_date), titreRetard: 'Factures en retard', detailRetard: 'Échéance dépassée, pas encore payées (relances J+3, J+10, J+15)' });
+    }, { dateDe: (t) => jourDe(t?.due_date), titreRetard: 'Relances de factures en retard', detailRetard: 'Date de relance dépassée, pas encore payées (relances J+3, J+10, J+15)' });
     ajouter({
       cle: 'contrats', role: 'backOffice', surtitre: 'Back-office', titre: 'Contrats à renouveler',
       detail: `Échéance annuelle dans les ${JOURS_CONTRAT} jours`, urgent: false, lien: '/interne/liste/parc?vue=contrats', externe: false,
