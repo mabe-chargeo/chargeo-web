@@ -13,6 +13,8 @@
 // (modèle Procore / ServiceTitan de la recherche du 17/10 : ouvrir avant de perdre le réseau).
 // 17/10, 14 h 50 : chaque visite de maintenance a le bouton « Visite de maintenance » (/interne/maintenance/<id>),
 // protocole Sefram MW9665 avec l'adaptateur A1532-XA, point de charge par point de charge.
+// 17/10, 17 h 37 (choix de Matthieu) : chaque pose a aussi « 📋 Ce qui est prévu » (/interne/pose/<id>#prevu) : les
+// éléments du scénario retenu avec leur détail, sans aucun prix, gardés hors ligne avec « Préparer ma journée ».
 import { useEffect, useState } from 'react';
 import { ArrowLeft, CalendarClock, ChevronRight, Download, ExternalLink, HardHat, MapPin, Navigation, RefreshCw, WifiOff } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
@@ -174,6 +176,11 @@ export default function InterventionsPage() {
         </p>
       )}
       {i.type === 'pose' && (
+        <a href={`/interne/pose/${i.id}#prevu`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-white px-6 text-[15px] font-semibold ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95" style={{ color: CYAN }}>
+          📋 Ce qui est prévu
+        </a>
+      )}
+      {i.type === 'pose' && (
         <a href={`/interne/pose/${i.id}`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 text-[15px] font-semibold text-white transition-transform active:scale-95">
           📸 Saisie à la pose
         </a>
@@ -234,7 +241,7 @@ export default function InterventionsPage() {
               <Download size={18} /> {prepEnCours ? 'Préparation...' : 'Préparer ma journée hors ligne'}
             </button>
             <p className="mt-2 text-center text-[13px]">
-              {preparation ? `Dernière préparation : ${heure(preparation.le)} (${preparation.n} pose${preparation.n > 1 ? 's' : ''})` : 'Garde le matériel prévu de tes poses d’aujourd’hui et de demain sur le téléphone.'}
+              {preparation ? `Dernière préparation : ${heure(preparation.le)} (${preparation.n} pose${preparation.n > 1 ? 's' : ''})` : 'Garde ce qui est prévu sur tes poses d’aujourd’hui et de demain sur le téléphone.'}
             </p>
             {prepMessage && <p className="mt-1 text-center text-[13px]" style={{ color: ORANGE }}>{prepMessage}</p>}
           </div>
