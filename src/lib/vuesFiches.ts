@@ -3,7 +3,9 @@
 // avec son libellé, ses rôles et son tri. Source unique : l'écran Fiches (sous-menu des vues, compteurs) et Ma journée
 // (cartes qui ouvrent la vue) lisent les mêmes règles, donc les mêmes chiffres.
 // 17/10/2026, 11 h 01 (Matthieu : « ce n'est pas le commercial qui fait les relevés techniques ») : les vues de relevé
-// (À caler, Relevés planifiés, Relevés en retard) sont réservées au chargé d'opération / chef de chantier.
+// (Relevés planifiés, Relevés en retard) sont réservées au chargé d'opération / chef de chantier, qui fait le relevé.
+// 17/10/2026, 13 h 13 (Matthieu : « c'est le commercial qui planifie le relevé technique pour le chef de chantier ») :
+// « À caler » revient au commercial, qui appelle le client et fixe la 📅 Date Visite Technique.
 // Pas d'accès réseau ici : fonctions pures sur les tâches lues par l'appelant.
 import { estAVisiter } from '@/lib/listesClickUp';
 import { aujourdhuiParis, comparer, type Jour } from '@/lib/joursOuvres';
@@ -82,8 +84,8 @@ export function libelleDate(ms: number, avecHeure = true): string {
 
 export const VUES: Vue[] = [
   {
-    cle: 'a-caler', libelle: 'À caler', description: 'Relevés sans date de visite : appeler le client pour fixer le rendez-vous',
-    roles: ['chargeOperation'], filtre: (t) => aVisiter(t) && !visite(t), tri: 'maj',
+    cle: 'a-caler', libelle: 'Visites à caler', description: 'Relevés sans date de visite : appeler le client et fixer le rendez-vous du chef de chantier',
+    roles: ['commercial'], filtre: (t) => aVisiter(t) && !visite(t), tri: 'maj',
   },
   {
     cle: 'planifies', libelle: 'Relevés planifiés', description: "Visites calées, aujourd'hui et à venir",
