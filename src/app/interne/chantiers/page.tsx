@@ -4,8 +4,9 @@
 // 🏗️ SUIVI TRAVAUX : chantiers ouverts du Planning, rangés par étape (à planifier, préparation, planifié, en cours),
 // avec date d'intervention, technicien, état du feu vert et le bloc 📇 Contact (lu au premier appui).
 // Remplace l'ancien menu à 3 liens (Feu vert, Réception sur place, Réceptions à valider), qui sont dans Mon espace.
+// 17/10, 12 h 25 : le nom du chantier ouvre la fiche affaire unique (/interne/fiches/<id>), la même que le Pipeline.
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarClock, ExternalLink, HardHat, MapPin, RefreshCw } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ChevronRight, ExternalLink, HardHat, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
@@ -64,7 +65,10 @@ export default function ChantiersPage() {
         </span>
         {(c.typeClient || c.segment) && <span className="text-[12px] font-bold text-slate-500">{[c.typeClient, c.segment].filter(Boolean).join(' · ')}</span>}
       </div>
-      <p className="text-[17px] font-bold leading-tight">{c.nom}</p>
+      <a href={`/interne/fiches/${c.id}`} className="flex items-center justify-between gap-2">
+        <span className="text-[17px] font-bold leading-tight">{c.nom}</span>
+        <ChevronRight size={20} className="shrink-0" color={CYAN} />
+      </a>
       <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: c.quand ? CYAN : ORANGE }}>
         <CalendarClock size={15} className="shrink-0" />
         {c.quand ? `Intervention ${c.quand}` : 'Date d’intervention à fixer'}
