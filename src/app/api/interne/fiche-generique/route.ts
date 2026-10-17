@@ -10,6 +10,7 @@ import { champsLus, dateCourte, estAMoiPartout } from '@/lib/champsGeneriques';
 // GET ?id=<tâche> : une tâche d'une liste de src/lib/listesAppli.ts (commande, ticket SAV, visite, facture, achat, dossier
 // ADVENIR, installation du Parc, demande RH, CODIR, OKR, Kaizen, To-Do), avec tous ses champs remplis, sa description,
 // ses 10 derniers commentaires, ses pièces jointes et ses sous-tâches.
+// 17/10, 20 h 01 : et ses checklists (onboarding des salariés…), cochables par /api/interne/checklist.
 // Une fiche affaire (Prospection, Qualification, Planning, Parc) renvoie { fiche } : l'écran bascule sur la fiche
 // affaire unique /interne/fiches/<id>, qui garde le bloc Contact et les sections par étape.
 // (/api/interne/elements est déjà pris par les éléments des scénarios du relevé.)
@@ -53,6 +54,13 @@ export async function GET(request: Request) {
     const sousTaches = (Array.isArray(t?.subtasks) ? t.subtasks : [])
       .filter((s: any) => !s?.archived)
       .map((s: any) => ({ id: String(s.id), nom: String(s.name || ''), statut: String(s?.status?.status || ''), couleurStatut: String(s?.status?.color || '') }));
+    // Checklists, points dans l'ordre de ClickUp
+    const parOrdre = (a: any, b: any) => Number(a?.orderindex ?? 0) - Number(b?.orderindex ?? 0);
+    const checklists = (Array.isArray(t?.checklists) ? t.checklists.slice() : []).sort(parOrdre).map((c: any) => ({
+      id: String(c.id),
+      nom: String(c.name || 'Checklist'),
+      points: (Array.isArray(c?.items) ? c.items.slice() : []).sort(parOrdre).map((i: any) => ({ id: String(i.id), nom: String(i.name || ''), fait: !!i.resolved })),
+    }));
 
     return json({
       element: {
@@ -72,6 +80,7 @@ export async function GET(request: Request) {
         champs: champsLus(t),
         parent: t?.parent ? String(t.parent) : '',
         sousTaches,
+        checklists,
         piecesJointes: (Array.isArray(t?.attachments) ? t.attachments : []).map((a: any) => ({ nom: String(a?.title || 'fichier'), url: String(a?.url || '') })).filter((a: any) => a.url),
         commentaires,
         url: String(t.url || `https://app.clickup.com/t/${t.id}`),

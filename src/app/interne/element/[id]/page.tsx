@@ -1,23 +1,27 @@
 "use client";
 
-// Fiche générique (lot « écrans qui manquent », 17/10/2026, 14 h 28). LECTURE SEULE.
+// Fiche générique (lot « écrans qui manquent », 17/10/2026, 14 h 28).
 // Une commande, un ticket SAV, une visite, une facture, un achat, un dossier ADVENIR, une demande RH, une réunion CODIR,
 // un OKR, une idée Kaizen ou une tâche To-Do : statut, échéance, assignés, tous les champs remplis (téléphone, email
 // et liens cliquables, tâches reliées ouvertes dans l'application), description, sous-tâches, pièces jointes et
 // derniers commentaires. Une fiche affaire (Prospection à Parc) bascule sur /interne/fiches/<id>.
 // 17/10, 14 h 50 : une visite de maintenance a le bouton « Faire la visite » (/interne/maintenance/<id>, protocole
 // Sefram MW9665 avec l'adaptateur A1532-XA).
+// 17/10, 20 h 01 (choix de Matthieu : checklist d'onboarding dans la fiche salarié) : les checklists de la tâche,
+// avec leur avancement, se cochent ici (/api/interne/checklist). Seule écriture de la fiche générique.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CalendarClock, ChevronRight, ExternalLink, MessageSquare, Paperclip, RefreshCw, Tag, User } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Check, ChevronRight, ExternalLink, ListChecks, MessageSquare, Paperclip, RefreshCw, Tag, User } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte } from '@/components/charte/Appli';
 import { CYAN } from '@/components/charte/couleurs';
 
 type Champ = { id: string; nom: string; type: string; texte: string; lien?: string; taches?: { id: string; nom: string }[] };
+type Checklist = { id: string; nom: string; points: { id: string; nom: string; fait: boolean }[] };
 type Element = {
   id: string; nom: string; source: string; liste: string; emoji: string; retour: string; statut: string; couleurStatut: string;
   echeance: string; debut: string; assignes: string[]; tags: string[]; description: string; champs: Champ[]; parent: string;
   sousTaches: { id: string; nom: string; statut: string; couleurStatut: string }[];
+  checklists?: Checklist[];
   piecesJointes: { nom: string; url: string }[];
   commentaires: { id: string; auteur: string; date: string; texte: string }[];
   url: string;
@@ -31,6 +35,8 @@ export default function ElementPage() {
   const [element, setElement] = useState<Element | null>(null);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<{ texte: string; url?: string } | null>(null);
+  const [enCours, setEnCours] = useState<string | null>(null);
+  const [erreurCoche, setErreurCoche] = useState<string | null>(null);
 
   const charger = async () => {
     setLoading(true);
@@ -49,6 +55,30 @@ export default function ElementPage() {
   };
 
   useEffect(() => { if (id) charger(); }, [id]);
+
+  // Coche ou décoche un point ; l'affichage change dès que ClickUp a accepté
+  const cocher = async (checklistId: string, pointId: string, fait: boolean) => {
+    if (!element || enCours) return;
+    setEnCours(pointId);
+    setErreurCoche(null);
+    try {
+      const res = await fetch('/api/interne/checklist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tacheId: element.id, checklistId, pointId, fait }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) { setErreurCoche(data?.error || `Enregistrement impossible (${res.status})`); return; }
+      setElement({
+        ...element,
+        checklists: (element.checklists || []).map((c) => (c.id !== checklistId ? c : { ...c, points: c.points.map((p) => (p.id === pointId ? { ...p, fait } : p)) })),
+      });
+    } catch {
+      setErreurCoche('Impossible de joindre le serveur. Rien n’a changé.');
+    } finally {
+      setEnCours(null);
+    }
+  };
 
   const retour = () => {
     if (window.history.length > 1 && document.referrer.includes('/interne/')) window.history.back();
@@ -118,6 +148,35 @@ export default function ElementPage() {
                 {element.assignes.length > 0 && <p className="flex items-center gap-2 text-[15px]"><User size={16} color={CYAN} /> {element.assignes.join(', ')}</p>}
               </Carte>
             )}
+
+            {(element.checklists || []).map((c) => {
+              const faits = c.points.filter((p) => p.fait).length;
+              const pct = c.points.length ? Math.round((faits / c.points.length) * 100) : 0;
+              return (
+                <Carte key={c.id} accent className="space-y-3">
+                  <TitreCarte icon={ListChecks} extra={<span className="text-[14px] font-bold">{faits}/{c.points.length}</span>}>{c.nom}</TitreCarte>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-[#eceef1]">
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: CYAN }} />
+                  </div>
+                  {erreurCoche && <p className="text-[13px] font-bold text-red-600">{erreurCoche}</p>}
+                  <div className="space-y-1.5">
+                    {c.points.map((p) => (
+                      <button
+                        key={p.id}
+                        disabled={!!enCours}
+                        onClick={() => cocher(c.id, p.id, !p.fait)}
+                        className="flex w-full items-center gap-3 rounded-[14px] bg-white p-3 text-left ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
+                      >
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md ring-2" style={p.fait ? { backgroundColor: CYAN, boxShadow: 'none' } : { boxShadow: 'inset 0 0 0 2px #c5ccd4' }}>
+                          {enCours === p.id ? <RefreshCw size={14} className="animate-spin" color={p.fait ? '#fff' : CYAN} /> : p.fait ? <Check size={16} color="#fff" /> : null}
+                        </span>
+                        <span className={`text-[15px] ${p.fait ? 'text-slate-400 line-through' : 'font-semibold'}`}>{p.nom}</span>
+                      </button>
+                    ))}
+                  </div>
+                </Carte>
+              );
+            })}
 
             {element.champs.length > 0 && (
               <Carte className="space-y-3">
