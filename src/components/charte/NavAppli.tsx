@@ -2,6 +2,7 @@
 
 // Barre de navigation de l'application équipe, une par rôle (validée par Matthieu le 17/10/2026, écrans du 11/10) :
 // les écrans les plus utilisés du rôle affiché, puis « Plus ». Menus définis dans src/lib/menusAppli.ts.
+// Libellés en 12 px minimum (recherche bonnes pratiques du 17/10 : gants, plein soleil).
 // Sans rôle connu (première ouverture hors ligne), barre minimale : Ma journée, Relevés, Plus.
 // Masquée dans le relevé (/interne/metre/...), qui a ses propres boutons en bas d'écran.
 import { usePathname } from 'next/navigation';
@@ -39,14 +40,14 @@ export default function NavAppli() {
               key={cle}
               href={href}
               aria-current={actif ? 'page' : undefined}
-              className="flex min-w-0 flex-1 flex-col items-center gap-1 px-0.5 py-2.5 text-center text-[11px] font-bold leading-tight transition-transform active:scale-95"
+              className="flex min-h-[60px] min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 py-2.5 text-center text-[12px] font-bold leading-tight transition-transform active:scale-95"
               style={{ color: actif ? CYAN : NAVY }}
             >
               <span
                 className="flex h-8 w-12 items-center justify-center rounded-full"
                 style={actif ? { backgroundColor: '#e3f4f7' } : undefined}
               >
-                <Icon size={21} strokeWidth={actif ? 2.2 : 1.8} />
+                <Icon size={22} strokeWidth={actif ? 2.2 : 1.8} />
               </span>
               <span className="w-full truncate">{libelle}</span>
             </a>
