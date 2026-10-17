@@ -20,6 +20,9 @@
 // attendant le bouton + de l'en-tête, jamais construit) et la déconnexion.
 // 17/10/2026, 17 h 32 (Matthieu : « pourquoi l'installateur a accès au relevé ? ») : Relevés retiré de l'installateur.
 // Le relevé technique est fait par le chef de chantier ; l'installateur pose, il ne fait pas de relevé.
+// 17/10/2026, 18 h 02 (écrans qui manquent) : Parc installé retiré aussi de l'installateur, décision du 11/10 « pas
+// d'accès à la Base de données globale du Parc » ; il garde l'historique de la borne par ses tickets et ses visites.
+// Pastilles de Chantiers branchées (Prêts, En cours, Réserves à lever, Avancement, Carte).
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -58,6 +61,7 @@ const pret = (cle: string, libelle: string, icone: CleIcone, href: string, descr
 const fiches = (vue: string) => `/interne/fiches?vue=${vue}`;
 const liste = (source: string, vue?: string) => `/interne/liste/${source}${vue ? `?vue=${vue}` : ''}`;
 const decomptes = (vue: string) => `/interne/decomptes?vue=${vue}`;
+const chantiersVue = (vue: string) => `/interne/chantiers?vue=${vue}`;
 
 // Espace d'un autre rôle (ouvert par l'adresse ?role= ; plus proposé dans Plus depuis le 17/10, 16 h 11)
 const espaceDe = (cle: string, role: RoleAppli, libelle: string, icone: CleIcone, description: string): Ecran => ({
@@ -74,8 +78,8 @@ export const ECRANS: Record<string, Ecran> = {
     cle: 'pipeline', libelle: 'Pipeline', href: '/interne/fiches', icone: 'pipeline', pret: true, actif: ['/interne/fiches'],
     description: 'Prospection (Chasse) et Qualification (Études) : appels, visites, devis, gagnées et perdues',
     pastilles: [
-      { cle: 'a-appeler', libelle: "À appeler aujourd'hui", groupe: 'Prospection' },
-      { cle: 'chasse', libelle: 'Pipeline chasse', groupe: 'Prospection' },
+      { cle: 'a-appeler', libelle: "À appeler aujourd'hui", groupe: 'Prospection', href: '/interne/prospection?vue=a-appeler' },
+      { cle: 'chasse', libelle: 'Pipeline chasse', groupe: 'Prospection', href: '/interne/prospection?vue=chasse' },
       { cle: 'linkedin', libelle: 'LinkedIn', groupe: 'Prospection' },
       { cle: 'a-caler', libelle: 'À caler', groupe: 'Visites', href: fiches('a-caler') },
       { cle: 'planifies', libelle: 'Relevés planifiés', groupe: 'Visites', href: fiches('planifies') },
@@ -91,7 +95,7 @@ export const ECRANS: Record<string, Ecran> = {
   },
   espace: {
     cle: 'espace', libelle: 'Mon espace', href: '/interne/espace', icone: 'pipeline', pret: true,
-    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne/maintenance', '/interne/decomptes', '/interne/ressources', '/interne'],
+    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne/maintenance', '/interne/decomptes', '/interne/ressources', '/interne/pose', '/interne'],
     description: 'À traiter : les vues du rôle avec leurs compteurs. À consulter : Parc, Ressources et outils.',
   },
   releves: {
@@ -106,15 +110,15 @@ export const ECRANS: Record<string, Ecran> = {
   chantiers: {
     cle: 'chantiers', libelle: 'Chantiers', href: '/interne/chantiers', icone: 'chantiers', pret: true,
     actif: ['/interne/chantiers', '/interne/feu-vert', '/interne/validation'],
-    description: 'Planning Chantiers : chantiers en cours par étape, avec feu vert et réception',
+    description: 'Planning Chantiers : suivi travaux, prêts, en cours, réserves à lever, avancement, carte',
     pastilles: [
       { cle: 'feu-vert', libelle: 'Feu vert à donner', href: '/interne/feu-vert' },
-      { cle: 'prets', libelle: 'Prêts' },
-      { cle: 'en-cours', libelle: 'En cours' },
+      { cle: 'prets', libelle: 'Prêts', href: chantiersVue('prets') },
+      { cle: 'en-cours', libelle: 'En cours', href: chantiersVue('en-cours') },
       { cle: 'a-receptionner', libelle: 'À réceptionner', href: '/interne/validation' },
-      { cle: 'reserves', libelle: 'Réserves à lever' },
-      { cle: 'avancement', libelle: 'Avancement' },
-      { cle: 'carte', libelle: 'Carte des chantiers' },
+      { cle: 'reserves', libelle: 'Réserves à lever', href: chantiersVue('reserves') },
+      { cle: 'avancement', libelle: 'Avancement', href: chantiersVue('avancement') },
+      { cle: 'carte', libelle: 'Carte des chantiers', href: chantiersVue('carte') },
     ],
   },
   interventions: {
@@ -152,41 +156,52 @@ export const ECRANS: Record<string, Ecran> = {
       { cle: 'techs', libelle: 'Planning techs', href: '/interne/planning?vue=techs' },
     ],
   }),
-  sav: pret('sav', 'SAV et maintenance', 'sav', liste('sav', 'a-traiter'), 'Tickets SAV (urgences et tri) et visites de maintenance (J-30), avec la fiche du ticket.', {
+  sav: pret('sav', 'SAV et maintenance', 'sav', liste('sav', 'a-traiter'), 'Tickets SAV (urgences et tri, planning dépannage) et visites de maintenance (J-30), avec la fiche du ticket.', {
     court: 'SAV',
     pastilles: [
       { cle: 'urgences', libelle: 'Urgences et tri', href: liste('sav', 'a-traiter') },
+      { cle: 'depannage', libelle: 'Planning dépannage', href: liste('sav', 'planning-depannage') },
       { cle: 'j-30', libelle: 'Visites à préparer (J-30)', href: liste('maintenance', 'j-30') },
     ],
   }),
-  materielAchats: pret('materielAchats', 'Matériel et achats', 'materiel', liste('commandes', 'a-commander'), 'Commandes Matériel et Achats Fournisseurs : à commander, livraisons en retard.', {
+  materielAchats: pret('materielAchats', 'Matériel et achats', 'materiel', liste('commandes', 'a-commander'), 'Commandes Matériel et Achats Fournisseurs : à commander, suivi logistique, réceptions sous 7 jours, livraisons en retard.', {
     court: 'Matériel',
     pastilles: [
       { cle: 'a-commander', libelle: 'À commander', href: liste('commandes', 'a-commander') },
+      { cle: 'logistique', libelle: 'Suivi logistique', href: liste('commandes', 'suivi-logistique') },
+      { cle: 'receptions', libelle: 'Réceptions sous 7 jours', href: liste('commandes', 'receptions-7j') },
       { cle: 'retards', libelle: 'Livraisons en retard', href: liste('achats', 'livraisons-retard') },
     ],
   }),
-  parc: pret('parc', 'Parc installé', 'parc', liste('parc'), 'Toutes les bornes posées. La fiche d’une installation garde tout son historique (pose, SAV, maintenance, contrat).', {
+  parc: pret('parc', 'Parc installé', 'parc', liste('parc', 'tous'), 'Toutes les bornes posées. La fiche d’une installation garde tout son historique (pose, SAV, maintenance, contrat).', {
     court: 'Parc',
-    pastilles: [{ cle: 'contrats', libelle: 'Renouvellements et contrats', href: liste('parc', 'contrats') }],
+    pastilles: [
+      { cle: 'tous', libelle: 'Base du Parc', href: liste('parc', 'tous') },
+      { cle: 'contrats', libelle: 'Renouvellements et contrats', href: liste('parc', 'contrats') },
+      { cle: 'supervision', libelle: 'Abonnements de supervision', href: liste('parc', 'supervision') },
+    ],
   }),
 
   // ── Installateur ──
   carteDuJour: pret('carteDuJour', 'Carte du jour', 'carte', '/interne/interventions', 'Itinéraire des interventions du jour (dans Mes interventions).', { court: 'Carte' }),
   savSite: { cle: 'savSite', libelle: 'Mes tickets SAV', court: 'SAV', href: '/interne/interventions?vue=sav', icone: 'sav', pret: true, actif: [], description: 'Ses tickets SAV pas encore résolus, avec l’historique de la borne. Pas d’accès à Urgences et tri (chef de chantier).' },
-  saisiePose: { cle: 'saisiePose', libelle: 'Saisie à la pose', icone: 'reception', pret: true, href: '/interne/interventions', actif: ['/interne/pose'], description: 'Action de la fiche intervention : n° de série, puissance configurée, photos, hors ligne.' },
+  saisiePose: { cle: 'saisiePose', libelle: 'Saisie à la pose', icone: 'reception', pret: true, href: '/interne/interventions', actif: ['/interne/pose'], description: 'Action de la fiche intervention : ce qui est prévu, n° de série, puissance configurée, photos, hors ligne.' },
   maintenance: {
     cle: 'maintenance', libelle: 'Visite de maintenance', icone: 'maintenance', pret: true, href: '/interne/interventions', actif: ['/interne/maintenance'],
     description: 'Action de la fiche intervention : protocole Sefram MW9665 (adaptateur A1532-XA) point de charge par point de charge, 10 étapes, photos, hors ligne. Résultats en commentaire sur la visite.',
   },
 
   // ── Back-office ──
-  facturation: pret('facturation', 'Facturation', 'facturation', liste('factures', 'ouvertes'), 'Factures Clients (Costructor fait référence) : à suivre, en retard.', {
+  facturation: pret('facturation', 'Facturation', 'facturation', liste('factures', 'ouvertes'), 'Factures Clients (Costructor fait référence) : à suivre, en retard, pipeline par statut.', {
     pastilles: [{ cle: 'retard', libelle: 'En retard J+3 / J+10 / J+15', href: liste('factures', 'retard') }, { cle: 'ouvertes', libelle: 'À suivre', href: liste('factures', 'ouvertes') }],
   }),
-  advenir: pret('advenir', 'Aides ADVENIR', 'advenir', liste('advenir'), 'Dossiers Advenir : alertes délais, primes estimées et réelles.', {
+  advenir: pret('advenir', 'Aides ADVENIR', 'advenir', liste('advenir'), 'Dossiers Advenir : alertes délais, suivi des dossiers, primes à encaisser.', {
     court: 'ADVENIR',
-    pastilles: [{ cle: 'alertes', libelle: 'Alertes délais', href: liste('advenir', 'alertes') }],
+    pastilles: [
+      { cle: 'alertes', libelle: 'Alertes délais', href: liste('advenir', 'alertes') },
+      { cle: 'suivi', libelle: 'Suivi des dossiers', href: liste('advenir', 'suivi') },
+      { cle: 'a-encaisser', libelle: 'Primes à encaisser', href: liste('advenir', 'a-encaisser') },
+    ],
   }),
   decomptes: pret('decomptes', 'Décomptes', 'decomptes', '/interne/decomptes', 'Décomptes énergétiques des bornes du Parc suivies en relevé : à préparer (PDF), à valider, envoyés au gestionnaire. Jamais en refacturation (Charge Unix).', {
     pastilles: [
@@ -215,11 +230,11 @@ export const ECRANS: Record<string, Ecran> = {
 // Barre du bas (« Plus » est ajouté après), partie « À consulter » de Mon espace, et écrans de l'onglet Plus, par rôle.
 // 17 h 24 : consulter = ce qu'on consulte sans compteur (le référentiel Parc, les Ressources, l'outil d'un autre rôle) ;
 // plus = vide, l'onglet Plus ne montre que les créations (CREER) et la déconnexion.
-// 17 h 32 : plus de Relevés pour l'installateur (le relevé est fait par le chef de chantier).
+// 17 h 32 : plus de Relevés pour l'installateur. 18 h 02 : plus de Parc installé pour l'installateur (décision du 11/10).
 export const MENUS: Record<RoleAppli, { barre: string[]; consulter: string[]; plus: string[] }> = {
   commercial: { barre: ['journee', 'espace'], consulter: ['ressources'], plus: [] },
   chargeOperation: { barre: ['journee', 'espace'], consulter: ['agenda', 'parc', 'ressources'], plus: [] },
-  poseur: { barre: ['journee', 'espace'], consulter: ['parc', 'ressources'], plus: [] },
+  poseur: { barre: ['journee', 'espace'], consulter: ['ressources'], plus: [] },
   backOffice: { barre: ['journee', 'espace'], consulter: ['planning', 'parc', 'ressources'], plus: [] },
   direction: { barre: ['journee', 'espace'], consulter: ['parc', 'ressources'], plus: [] },
 };

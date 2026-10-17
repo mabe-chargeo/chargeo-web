@@ -1,12 +1,14 @@
 "use client";
 
-// Chantiers en cours de l'espace Chef de chantier (validé par Matthieu le 17/10/2026, 11 h 06), comme la vue ClickUp
+// Chantiers de l'espace Chef de chantier (validé par Matthieu le 17/10/2026, 11 h 06), comme la vue ClickUp
 // 🏗️ SUIVI TRAVAUX : chantiers ouverts du Planning, rangés par étape (à planifier, préparation, planifié, en cours),
 // avec date d'intervention, technicien, état du feu vert et le bloc 📇 Contact (lu au premier appui).
-// Remplace l'ancien menu à 3 liens (Feu vert, Réception sur place, Réceptions à valider), qui sont dans Mon espace.
 // 17/10, 12 h 25 : le nom du chantier ouvre la fiche affaire unique (/interne/fiches/<id>), la même que le Pipeline.
+// 17/10, 18 h 02 (écrans qui manquent, liste du 11/10) : pastilles (?vue=) Suivi travaux, Prêts (feu vert donné, pas
+// encore en cours), En cours, Réserves à lever (sous-tâches « 🔧 Réserve » pas faites, Planning et Parc), Avancement
+// (nombre de chantiers par étape, réalisés à réceptionner compris) et Carte des chantiers (comme la carte des visites).
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarClock, ChevronRight, ExternalLink, HardHat, MapPin, RefreshCw } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ChevronRight, ExternalLink, HardHat, MapPin, Navigation, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
@@ -15,6 +17,21 @@ type Chantier = {
   id: string; nom: string; statut: string; couleurStatut: string; etape: number; quand: string;
   techniciens: string[]; segment: string; typeClient: string; adresse: string; feuVert: 'donne' | 'a-donner' | 'incomplet'; url: string;
 };
+type Reserve = {
+  id: string; nom: string; chantierId: string; chantier: string; auParc: boolean; responsables: string[];
+  echeance: number; quand: string; enRetard: boolean; url: string;
+};
+type Vue = 'suivi' | 'prets' | 'en-cours' | 'reserves' | 'avancement' | 'carte';
+
+const VUES: { cle: Vue; libelle: string }[] = [
+  { cle: 'suivi', libelle: 'Suivi travaux' },
+  { cle: 'prets', libelle: 'Prêts' },
+  { cle: 'en-cours', libelle: 'En cours' },
+  { cle: 'reserves', libelle: 'Réserves à lever' },
+  { cle: 'avancement', libelle: 'Avancement' },
+  { cle: 'carte', libelle: 'Carte' },
+];
+const ETAPES = ['À planifier', 'Préparation', 'Planifié', 'En cours', 'Réalisé, à réceptionner'];
 
 const FEU: Record<Chantier['feuVert'], { texte: string; couleur: string }> = {
   donne: { texte: '🟢 Feu vert donné', couleur: '#16a34a' },
@@ -23,7 +40,11 @@ const FEU: Record<Chantier['feuVert'], { texte: string; couleur: string }> = {
 };
 
 export default function ChantiersPage() {
+  const [vue, setVue] = useState<Vue>('suivi');
   const [chantiers, setChantiers] = useState<Chantier[]>([]);
+  const [realises, setRealises] = useState<Chantier[]>([]);
+  const [reserves, setReserves] = useState<Reserve[]>([]);
+  const [choisi, setChoisi] = useState('');
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -34,7 +55,11 @@ export default function ChantiersPage() {
       const res = await fetch('/api/interne/chantiers', { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) setErreur(data?.error || `Lecture impossible (${res.status})`);
-      else setChantiers(data.chantiers || []);
+      else {
+        setChantiers(data.chantiers || []);
+        setRealises(data.realises || []);
+        setReserves(data.reserves || []);
+      }
     } catch {
       setErreur('Impossible de joindre le serveur.');
     } finally {
@@ -42,14 +67,34 @@ export default function ChantiersPage() {
     }
   };
 
-  useEffect(() => { charger(); }, []);
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get('vue');
+    if (VUES.some((x) => x.cle === v)) setVue(v as Vue);
+    charger();
+  }, []);
 
-  const etapes: { statut: string; liste: Chantier[] }[] = [];
-  for (const c of chantiers) {
-    const g = etapes.find((e) => e.statut === c.statut);
-    if (g) g.liste.push(c);
-    else etapes.push({ statut: c.statut, liste: [c] });
-  }
+  const choisir = (v: Vue) => {
+    setVue(v);
+    window.history.replaceState(null, '', v === 'suivi' ? '/interne/chantiers' : `/interne/chantiers?vue=${v}`);
+  };
+
+  const prets = chantiers.filter((c) => c.feuVert === 'donne' && c.etape <= 2);
+  const enCours = chantiers.filter((c) => c.etape === 3);
+  const avecAdresse = chantiers.filter((c) => !!c.adresse);
+  const selection = avecAdresse.find((c) => c.id === choisi) || avecAdresse[0] || null;
+  const compte: Record<Vue, number | null> = {
+    suivi: chantiers.length, prets: prets.length, 'en-cours': enCours.length, reserves: reserves.length, avancement: null, carte: null,
+  };
+
+  const grouper = (liste: Chantier[]) => {
+    const etapes: { statut: string; liste: Chantier[] }[] = [];
+    for (const c of liste) {
+      const g = etapes.find((e) => e.statut === c.statut);
+      if (g) g.liste.push(c);
+      else etapes.push({ statut: c.statut, liste: [c] });
+    }
+    return etapes;
+  };
 
   const boutonRetour = (
     <a href="/interne/espace" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
@@ -57,7 +102,7 @@ export default function ChantiersPage() {
     </a>
   );
 
-  const carte = (c: Chantier) => (
+  const carte = (c: Chantier, surCarte?: () => void) => (
     <div key={c.id} className="space-y-3 rounded-[20px] p-5" style={{ backgroundColor: GRIS }}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-white" style={{ backgroundColor: c.couleurStatut || '#9aa3ad' }}>
@@ -84,41 +129,175 @@ export default function ChantiersPage() {
         </p>
       )}
       <a href="/interne/feu-vert" className="inline-block text-[13px] font-bold" style={{ color: FEU[c.feuVert].couleur }}>{FEU[c.feuVert].texte}</a>
-      <BlocContact affaireId={c.id} differe />
+      {surCarte ? (
+        <button onClick={surCarte} className="block text-[13px] font-bold" style={{ color: CYAN }}>Voir sur la carte</button>
+      ) : (
+        <BlocContact affaireId={c.id} differe />
+      )}
       <a href={c.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
         <ExternalLink size={13} /> Ouvrir dans ClickUp
       </a>
     </div>
   );
 
+  const listeParEtape = (liste: Chantier[], vide: string) => (
+    <>
+      {!loading && !erreur && !liste.length && <Carte className="text-center"><p className="text-[15px] font-semibold">{vide}</p></Carte>}
+      {grouper(liste).map((e) => (
+        <div key={e.statut} className="space-y-3">
+          <div className="h-1" />
+          <Repere>{e.statut} ({e.liste.length})</Repere>
+          {e.liste.map((c) => carte(c))}
+        </div>
+      ))}
+    </>
+  );
+
+  const ligneReserve = (r: Reserve) => (
+    <div key={r.id} className="rounded-[20px] p-5" style={r.enRetard ? { backgroundColor: GRIS, boxShadow: `inset 5px 0 0 ${ORANGE}` } : { backgroundColor: GRIS }}>
+      <p className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-slate-500">{r.chantier}{r.auParc ? ' · au Parc' : ''}</p>
+      <p className="mt-1 text-[17px] font-bold leading-tight">{r.nom}</p>
+      <p className="mt-1.5 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: r.enRetard || !r.quand ? ORANGE : CYAN }}>
+        <CalendarClock size={15} className="shrink-0" />
+        {r.quand ? `${r.enRetard ? 'Échéance dépassée' : 'À lever'} ${r.quand}` : 'Échéance à fixer'}
+      </p>
+      <p className="mt-1 flex items-center gap-1.5 text-[13px]">
+        <HardHat size={14} className="shrink-0" color={CYAN} />
+        {r.responsables.length ? r.responsables.join(', ') : 'Responsable à désigner'}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-4">
+        {!r.auParc && <a href={`/interne/fiches/${r.chantierId}`} className="text-[13px] font-bold" style={{ color: CYAN }}>Ouvrir le chantier</a>}
+        <a href={r.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
+          <ExternalLink size={13} /> Ouvrir la réserve dans ClickUp
+        </a>
+      </div>
+    </div>
+  );
+
+  // Avancement : nombre de chantiers par étape (barre proportionnelle)
+  const parEtape = [0, 1, 2, 3].map((i) => chantiers.filter((c) => c.etape === i).length).concat([realises.length]);
+  const maxEtape = Math.max(1, ...parEtape);
+  const feuVertDonnes = chantiers.filter((c) => c.feuVert === 'donne').length;
+  const sansDate = chantiers.filter((c) => !c.quand).length;
+  const sansTech = chantiers.filter((c) => !c.techniciens.length).length;
+
+  const itineraire = (cs: Chantier[]) => {
+    const pts = cs.map((c) => c.adresse).filter(Boolean);
+    if (!pts.length) return '';
+    const etapes = pts.slice(0, -1).join('|');
+    return `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(pts[pts.length - 1])}${etapes ? `&waypoints=${encodeURIComponent(etapes)}` : ''}`;
+  };
+
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Planning chantiers" titre="Chantiers en cours" action={boutonRetour} />
+      <EnTeteAppli surtitre="Planning chantiers" titre="Chantiers" action={boutonRetour} />
       <ContenuAppli className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[13px]">Chantiers ouverts, du « à planifier » au « en cours ». Les réalisés sont dans Réceptions à valider.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {VUES.map((v) => (
+              <button
+                key={v.cle}
+                onClick={() => choisir(v.cle)}
+                className={`rounded-full px-4 py-2 text-[14px] font-bold transition-transform active:scale-95 ${vue === v.cle ? 'text-white' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'}`}
+                style={vue === v.cle ? { backgroundColor: CYAN } : undefined}
+              >
+                {v.libelle}{compte[v.cle] !== null && !loading ? ` · ${compte[v.cle]}` : ''}
+              </button>
+            ))}
+          </div>
           <button onClick={charger} aria-label="Actualiser" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95">
             <RefreshCw size={18} color={CYAN} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
         <Alerte>Lecture seule : les chantiers se modifient encore dans ClickUp, sauf le feu vert et la réception.</Alerte>
         {erreur && <Alerte>{erreur}</Alerte>}
-        {loading && !chantiers.length && (
+        {loading && !chantiers.length && !reserves.length && (
           <Carte className="p-8 text-center">
             <RefreshCw className="mx-auto animate-spin" size={28} color={CYAN} />
             <p className="mt-3 text-[15px] font-semibold">Chargement des chantiers...</p>
           </Carte>
         )}
-        {!loading && !erreur && !chantiers.length && (
-          <Carte className="text-center"><p className="text-[15px] font-semibold">Aucun chantier en cours.</p></Carte>
+
+        {vue === 'suivi' && (
+          <>
+            <p className="px-1 text-[13px]">Chantiers ouverts, du « à planifier » au « en cours ». Les réalisés sont dans Réceptions à valider.</p>
+            {listeParEtape(chantiers, 'Aucun chantier ouvert.')}
+          </>
         )}
-        {etapes.map((e) => (
-          <div key={e.statut} className="space-y-3">
-            <div className="h-1" />
-            <Repere>{e.statut} ({e.liste.length})</Repere>
-            {e.liste.map(carte)}
-          </div>
-        ))}
+
+        {vue === 'prets' && (
+          <>
+            <p className="px-1 text-[13px]">Feu vert donné, travaux pas encore commencés : les équipes peuvent y aller.</p>
+            {listeParEtape(prets, 'Aucun chantier prêt : pas de feu vert donné sur un chantier pas encore commencé.')}
+          </>
+        )}
+
+        {vue === 'en-cours' && listeParEtape(enCours, 'Aucun chantier en cours.')}
+
+        {vue === 'reserves' && (
+          <>
+            <p className="px-1 text-[13px]">Réserves mineures notées à la réception et pas encore levées, y compris sur les chantiers déjà passés au Parc.</p>
+            {!loading && !erreur && !reserves.length && <Carte className="text-center"><p className="text-[15px] font-semibold">Aucune réserve à lever.</p></Carte>}
+            {reserves.map(ligneReserve)}
+          </>
+        )}
+
+        {vue === 'avancement' && !loading && (
+          <>
+            <Carte className="space-y-3">
+              {ETAPES.map((libelle, i) => (
+                <div key={libelle}>
+                  <div className="flex justify-between text-[14px] font-bold">
+                    <span>{libelle}</span>
+                    <span>{parEtape[i]}</span>
+                  </div>
+                  <div className="mt-1 h-3 overflow-hidden rounded-full bg-[#eef1f4]">
+                    <div className="h-full rounded-full" style={{ width: `${Math.round((parEtape[i] / maxEtape) * 100)}%`, backgroundColor: i === 4 ? '#16a34a' : CYAN }} />
+                  </div>
+                </div>
+              ))}
+            </Carte>
+            <Carte className="space-y-2">
+              <p className="text-[15px] font-bold">Sur les {chantiers.length} chantier{chantiers.length > 1 ? 's' : ''} ouvert{chantiers.length > 1 ? 's' : ''}</p>
+              <p className="text-[14px]">🟢 Feu vert donné : <b>{feuVertDonnes}</b></p>
+              <p className="text-[14px]" style={{ color: sansDate ? ORANGE : undefined }}>📅 Sans date d’intervention : <b>{sansDate}</b></p>
+              <p className="text-[14px]" style={{ color: sansTech ? ORANGE : undefined }}>👷 Sans technicien : <b>{sansTech}</b></p>
+              <p className="text-[14px]" style={{ color: reserves.length ? ORANGE : undefined }}>🔧 Réserves à lever : <b>{reserves.length}</b></p>
+            </Carte>
+            {realises.length > 0 && (
+              <a href="/interne/validation" className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-white px-6 text-[15px] font-semibold ring-[1.5px] ring-[#dfe3e8]" style={{ color: CYAN }}>
+                ✅ {realises.length} réception{realises.length > 1 ? 's' : ''} à valider
+              </a>
+            )}
+          </>
+        )}
+
+        {vue === 'carte' && !loading && (
+          <>
+            {selection ? (
+              <div className="overflow-hidden rounded-[20px] ring-[1.5px] ring-[#dfe3e8]">
+                <iframe
+                  title={`Carte : ${selection.nom}`}
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(selection.adresse)}&z=15&output=embed`}
+                  className="h-[280px] w-full border-0"
+                  loading="lazy"
+                />
+                <p className="bg-white px-4 py-2 text-[14px] font-bold">{selection.nom}{selection.quand ? ` · ${selection.quand}` : ''}</p>
+              </div>
+            ) : (
+              <Carte className="text-center"><p className="text-[15px] font-semibold">Aucun chantier ouvert avec une adresse.</p></Carte>
+            )}
+            {avecAdresse.length > 1 && itineraire(avecAdresse) && (
+              <a href={itineraire(avecAdresse)} target="_blank" rel="noopener noreferrer" className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 py-3.5 text-[16px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)]">
+                <Navigation size={18} /> Tous les chantiers dans Google Maps ({avecAdresse.length})
+              </a>
+            )}
+            {chantiers.length > avecAdresse.length && (
+              <p className="px-1 text-[13px]" style={{ color: ORANGE }}>{chantiers.length - avecAdresse.length} chantier{chantiers.length - avecAdresse.length > 1 ? 's' : ''} sans adresse, absent{chantiers.length - avecAdresse.length > 1 ? 's' : ''} de la carte.</p>
+            )}
+            {avecAdresse.map((c) => carte(c, () => { setChoisi(c.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }))}
+          </>
+        )}
       </ContenuAppli>
     </PageAppli>
   );

@@ -26,6 +26,9 @@
 // l'ordre du workflow ; les contacts vont plutôt dans l'espace commercial ») : rangées Commercial, Chef de chantier,
 // Installateur, Back-office, Direction (fin des étapes Vente, Chantier, Facturation et aides…). Chaque écran n'apparaît
 // qu'une fois : Contacts dans Commercial, Achats dans Back-office, SAV dans Chef de chantier.
+// 17/10, 18 h 02 (Matthieu : « il faut créer tous les écrans qui manquent », liste des écrans validée le 11/10) : vues
+// ajoutées aux listes : Suivi logistique et Réceptions sous 7 jours (Commandes), Achats à valider et Achats en cours,
+// Planning dépannage (SAV), Suivi des dossiers et Primes à encaisser (ADVENIR), Abonnements de supervision (Parc).
 // Clé de vue : « cle » dans la source de la vue, ou « source:cle » pour additionner une autre liste.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit.
 import type { Jour } from '@/lib/joursOuvres';
@@ -124,10 +127,10 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { cle: 'releves', emoji: '📋', libelle: 'Relevés à faire', description: 'Visites calées par le commercial : du jour, en retard et à venir, utilisables hors ligne', href: '/interne', source: 'qualification', vues: ['planifies', 'en-retard'], urgent: true },
       { cle: 'feu-vert', emoji: '🚦', libelle: 'Feu vert à donner', description: 'Chantiers dont les 5 prérequis sont OK', href: '/interne/feu-vert', source: 'planning', vues: ['feu-vert'] },
       { cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Poses, dépannages et visites par jour et par technicien', href: '/interne/planning', source: 'planning', vues: ['en-cours'] },
-      { cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux : à planifier, préparation, planifié, en cours', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
+      { cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux, prêts, en cours, réserves à lever, avancement, carte', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
       { cle: 'receptions', emoji: '✅', libelle: 'Réceptions à valider', description: 'PV, rapport de mesures et photos déposés par le poseur', href: '/interne/validation', source: 'planning', vues: ['receptions'], urgent: true },
-      { cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: 'Commandes en « à commander »', href: ecran('commandes', 'a-commander'), source: 'commandes', vues: ['a-commander'] },
-      { cle: 'sav', emoji: '🚨', libelle: 'SAV urgences et tri', description: 'Tickets pas encore résolus', href: ecran('sav', 'a-traiter'), source: 'sav', vues: ['a-traiter'], urgent: true },
+      { cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: 'Commandes en « à commander », suivi logistique, réceptions sous 7 jours', href: ecran('commandes', 'a-commander'), source: 'commandes', vues: ['a-commander'] },
+      { cle: 'sav', emoji: '🚨', libelle: 'SAV urgences et tri', description: 'Tickets pas encore résolus, planning dépannage', href: ecran('sav', 'a-traiter'), source: 'sav', vues: ['a-traiter'], urgent: true },
       { cle: 'maintenance', emoji: '🔧', libelle: 'Visites de maintenance (J-30)', description: 'À planifier, échéance dans les 30 jours ou dépassée', href: ecran('maintenance', 'j-30'), source: 'maintenance', vues: ['j-30'] },
     ],
   },
@@ -144,9 +147,9 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
     vues: [
       { cle: 'factures-retard', emoji: '⏰', libelle: 'Factures en retard', description: 'Émises ou partiellement payées, échéance passée (relances J+3, J+10, J+15)', href: ecran('factures', 'retard'), source: 'factures', vues: ['retard'], urgent: true },
       { cle: 'factures', emoji: '💰', libelle: 'Suivi des factures', description: 'À émettre, émises, partiellement payées, en litige (Costructor fait référence)', href: ecran('factures', 'ouvertes'), source: 'factures', vues: ['ouvertes'] },
-      { cle: 'achats', emoji: '🚚', libelle: 'Achats et livraisons', description: 'Compteur : commandés dont la livraison prévue est dépassée', href: ecran('achats', 'livraisons-retard'), source: 'achats', vues: ['livraisons-retard'], urgent: true },
-      { cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: 'Compteur : dossiers en cours dont la date limite de réalisation tombe dans les 30 jours', href: ecran('advenir', 'alertes'), source: 'advenir', vues: ['alertes'], urgent: true },
-      { cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: 'Échéance annuelle dans les 30 jours ou dépassée', href: ecran('parc', 'contrats'), source: 'parc', vues: ['contrats'] },
+      { cle: 'achats', emoji: '🚚', libelle: 'Achats et livraisons', description: 'Compteur : commandés dont la livraison prévue est dépassée. Aussi : à valider, en cours', href: ecran('achats', 'livraisons-retard'), source: 'achats', vues: ['livraisons-retard'], urgent: true },
+      { cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: 'Compteur : dossiers en cours dont la date limite tombe dans les 30 jours. Aussi : suivi, primes à encaisser', href: ecran('advenir', 'alertes'), source: 'advenir', vues: ['alertes'], urgent: true },
+      { cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: 'Échéance annuelle dans les 30 jours ou dépassée. Aussi : base du Parc, abonnements de supervision', href: ecran('parc', 'contrats'), source: 'parc', vues: ['contrats'] },
       { cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Bornes en relevé : à préparer, à valider, envoyés au gestionnaire (compteur : bornes suivies)', href: '/interne/decomptes', source: 'parc', vues: ['releve'] },
       { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: CONTACTS_DESCRIPTION, href: '/interne/contacts', source: 'contacts', vues: VUES_CONTACTS },
       { cle: 'rh', emoji: '👔', libelle: 'RH et recrutement', description: 'Compteur : demandes RH nouvelles ou en examen', href: ecran('rh', 'demandes'), source: 'rh', vues: ['demandes'] },
@@ -170,21 +173,21 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       // Chef de chantier : relevé, feu vert, matériel, planning, travaux, réception, SAV, maintenance
       { etape: CHEF, cle: 'releves', emoji: '📋', libelle: 'Relevés à faire', description: 'Visites du chef de chantier : du jour, en retard et à venir', href: '/interne', source: 'qualification', vues: ['planifies', 'en-retard'], urgent: true },
       { etape: CHEF, cle: 'feu-vert', emoji: '🚦', libelle: 'Feu vert à donner', description: 'Chantiers dont les 5 prérequis sont OK', href: '/interne/feu-vert', source: 'planning', vues: ['feu-vert'] },
-      { etape: CHEF, cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: 'Commandes en « à commander »', href: ecran('commandes', 'a-commander'), source: 'commandes', vues: ['a-commander'] },
+      { etape: CHEF, cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: 'Commandes en « à commander », suivi logistique, réceptions sous 7 jours', href: ecran('commandes', 'a-commander'), source: 'commandes', vues: ['a-commander'] },
       { etape: CHEF, cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Poses, dépannages et visites par jour et par technicien', href: '/interne/planning', source: 'planning', vues: ['en-cours'] },
-      { etape: CHEF, cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux : à planifier, préparation, planifié, en cours', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
+      { etape: CHEF, cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux, prêts, en cours, réserves à lever, avancement, carte', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
       { etape: CHEF, cle: 'receptions', emoji: '✅', libelle: 'Réceptions à valider', description: 'PV, rapport de mesures et photos déposés par le poseur', href: '/interne/validation', source: 'planning', vues: ['receptions'], urgent: true },
-      { etape: CHEF, cle: 'sav', emoji: '🚨', libelle: 'SAV urgences et tri', description: 'Tickets pas encore résolus', href: ecran('sav', 'a-traiter'), source: 'sav', vues: ['a-traiter'], urgent: true },
+      { etape: CHEF, cle: 'sav', emoji: '🚨', libelle: 'SAV urgences et tri', description: 'Tickets pas encore résolus, planning dépannage', href: ecran('sav', 'a-traiter'), source: 'sav', vues: ['a-traiter'], urgent: true },
       { etape: CHEF, cle: 'maintenance', emoji: '🔧', libelle: 'Visites de maintenance (J-30)', description: 'À planifier, échéance dans les 30 jours ou dépassée', href: ecran('maintenance', 'j-30'), source: 'maintenance', vues: ['j-30'] },
       // Installateur : interventions puis réception sur place (compteurs de toute l'équipe)
       { etape: INSTALLATEUR, cle: 'interventions', emoji: '📱', libelle: 'Interventions de l’équipe', description: 'Poses et visites de maintenance des installateurs, par jour, avec l’itinéraire', href: '/interne/interventions', source: 'planning', vues: ['interventions-equipe', 'maintenance:visites-equipe'] },
       { etape: INSTALLATEUR, cle: 'reception', emoji: '📸', libelle: 'Réception sur place', description: 'Chantiers en cours : PV signé, rapport de mesures, photos et réserves du poseur', href: '/interne/reception', source: 'planning', vues: ['en-chantier'] },
       // Back-office : achats, aides, facturation, contrats, décomptes, RH
-      { etape: BACK_OFFICE, cle: 'achats', emoji: '🚚', libelle: 'Achats et livraisons', description: 'Compteur : commandés dont la livraison prévue est dépassée', href: ecran('achats', 'livraisons-retard'), source: 'achats', vues: ['livraisons-retard'], urgent: true },
-      { etape: BACK_OFFICE, cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: 'Compteur : dossiers en cours dont la date limite tombe dans les 30 jours', href: ecran('advenir', 'alertes'), source: 'advenir', vues: ['alertes'], urgent: true },
+      { etape: BACK_OFFICE, cle: 'achats', emoji: '🚚', libelle: 'Achats et livraisons', description: 'Compteur : commandés dont la livraison prévue est dépassée. Aussi : à valider, en cours', href: ecran('achats', 'livraisons-retard'), source: 'achats', vues: ['livraisons-retard'], urgent: true },
+      { etape: BACK_OFFICE, cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: 'Compteur : dossiers en cours dont la date limite tombe dans les 30 jours. Aussi : suivi, primes à encaisser', href: ecran('advenir', 'alertes'), source: 'advenir', vues: ['alertes'], urgent: true },
       { etape: BACK_OFFICE, cle: 'factures', emoji: '💰', libelle: 'Suivi des factures', description: 'À émettre, émises, partiellement payées, en litige (Costructor fait référence)', href: ecran('factures', 'ouvertes'), source: 'factures', vues: ['ouvertes'] },
       { etape: BACK_OFFICE, cle: 'factures-retard', emoji: '⏰', libelle: 'Factures en retard', description: 'Émises ou partiellement payées, échéance passée (relances J+3, J+10, J+15)', href: ecran('factures', 'retard'), source: 'factures', vues: ['retard'], urgent: true },
-      { etape: BACK_OFFICE, cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: 'Échéance annuelle dans les 30 jours ou dépassée', href: ecran('parc', 'contrats'), source: 'parc', vues: ['contrats'] },
+      { etape: BACK_OFFICE, cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: 'Échéance annuelle dans les 30 jours ou dépassée. Aussi : base du Parc, abonnements de supervision', href: ecran('parc', 'contrats'), source: 'parc', vues: ['contrats'] },
       { etape: BACK_OFFICE, cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Bornes en relevé : à préparer, à valider, envoyés (compteur : bornes suivies)', href: '/interne/decomptes', source: 'parc', vues: ['releve'] },
       { etape: BACK_OFFICE, cle: 'rh', emoji: '👔', libelle: 'RH et recrutement', description: 'Compteur : demandes RH nouvelles ou en examen', href: ecran('rh', 'demandes'), source: 'rh', vues: ['demandes'] },
       // Direction : pilotage
@@ -208,6 +211,15 @@ const statut = (t: any) => normal(t?.status?.status);
 const champNomme = (t: any, mot: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => normal(c?.name).includes(mot));
 const avant = (ms: unknown, limite: Jour) => { const j = jourDe(ms); return !!j && comparer(j, limite) <= 0; };
 const statutParmi = (t: any, mots: string[]) => { const s = statut(t); return mots.some((m) => s.includes(m)); };
+// Option choisie d'un menu déroulant trouvé par un mot de son nom (sans accents), en minuscules sans accents
+const optionNommee = (t: any, mot: string): string => {
+  const c = champNomme(t, mot);
+  const v = c?.value;
+  if (v === undefined || v === null || v === '') return '';
+  const options: any[] = Array.isArray(c?.type_config?.options) ? c.type_config.options : [];
+  const o = options.find((x: any) => Number(x?.orderindex) === Number(v) || String(x?.id) === String(v));
+  return normal(o?.name);
+};
 // La personne fait partie d'un champ Personnes (ou des assignés si champId est vide)
 export const estAMoi = (t: any, champId: string | null, moi: number): boolean => {
   const v = champId ? champ(t, champId)?.value : t?.assignees;
@@ -279,10 +291,19 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
     'interventions-equipe': (t) => interventionOuverte(t),
     'en-chantier': (t) => statut(t).includes('en cours'),
   },
-  commandes: { 'a-commander': (t) => statut(t).includes('a commander') },
+  // Commandes Matériel (statuts relus le 17/10, 18 h : à commander, commandé, en livraison, reçu / vérifié, annulé)
+  commandes: {
+    'a-commander': (t) => statut(t).includes('a commander'),
+    // Suivi logistique : commandé ou en livraison
+    'suivi-logistique': (t) => statutParmi(t, ['commande', 'en livraison']) && !statut(t).includes('a commander'),
+    // Planning réceptions : livraison prévue dans les 7 jours (ou dépassée), pas encore reçue
+    'receptions-7j': (t, a) => statutParmi(t, ['commande', 'en livraison']) && !statut(t).includes('a commander') && avant(champNomme(t, 'livraison')?.value, ajouterJours(a, 7)),
+  },
   sav: {
     'a-traiter': (t) => !statut(t).includes('resolu') && !statut(t).includes('archive'),
     'mes-tickets': (t, _a, moi) => ticketAMoi(t, moi),
+    // Planning dépannage : interventions SAV planifiées
+    'planning-depannage': (t) => statut(t).includes('intervention planifiee'),
   },
   maintenance: {
     'j-30': (t, a) => statut(t).includes('a planifier') && avant(champNomme(t, 'echeance')?.value, ajouterJours(a, 30)),
@@ -294,14 +315,27 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
     retard: (t, a) => { const s = statut(t); return !s.includes('litige') && (s.includes('emise') || s.includes('partiel')) && avant(t?.due_date, a); },
     ouvertes: (t) => statutParmi(t, ['a emettre', 'emise', 'partiel', 'litige']),
   },
-  achats: { 'livraisons-retard': (t, a) => statut(t).includes('commande') && avant(champNomme(t, 'livraison prevue')?.value, a) },
-  advenir: { alertes: (t, a) => advenirEnCours(t) && avant(champNomme(t, 'date limite')?.value, ajouterJours(a, 30)) },
+  // Achats Fournisseurs (statuts relus le 17/10, 18 h : demande d'achat, à valider, commandé, reçu, soldé, annulé)
+  achats: {
+    'livraisons-retard': (t, a) => statut(t).includes('commande') && avant(champNomme(t, 'livraison prevue')?.value, a),
+    'a-valider': (t) => statutParmi(t, ['demande d', 'a valider']),
+    'en-cours': (t) => statutParmi(t, ['commande', 'recu']),
+  },
+  advenir: {
+    alertes: (t, a) => advenirEnCours(t) && avant(champNomme(t, 'date limite')?.value, ajouterJours(a, 30)),
+    // Suivi quotidien : tous les dossiers en cours
+    suivi: (t) => advenirEnCours(t),
+    // Cash-flow des aides : primes validées pas encore payées
+    'a-encaisser': (t) => statut(t).includes('valide') && !statut(t).includes('payee'),
+  },
   // Parc : mêmes règles que la carte « Contrats à renouveler » de Ma journée ; releve = bornes suivies en relevé
   // (Décomptes, mêmes règles que src/lib/decomptes.ts)
   parc: {
     tous: () => true,
     contrats: (t, a) => !statut(t).includes('hors service') && avant(champNomme(t, 'echeance annuelle')?.value, ajouterJours(a, 30)),
     releve: (t, a) => !t?.parent && suivieEnReleve(t, a),
+    // 📡 Abonnement supervision à activer, actif ou suspendu (ni vide, ni aucun, ni résilié)
+    supervision: (t) => { const o = optionNommee(t, 'abonnement supervision'); return !!o && !o.includes('aucun') && !o.includes('resilie'); },
   },
   rh: { demandes: (t) => statutParmi(t, ['nouvelle demande', 'en examen']) },
   // Direction (statuts relus le 17/10/2026)

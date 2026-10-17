@@ -4,6 +4,12 @@
 // Écran /interne/liste/<source>?vue=<clé> : pastilles (vues de l'espace + une par statut), cartes avec les champs clés,
 // et la fiche générique /interne/element/<id> (tous les champs remplis, description, commentaires, liens).
 // Les vues et leurs compteurs sont ceux de src/lib/espaces.ts (FILTRES) : mêmes chiffres que Mon espace.
+// 17/10/2026, 18 h 02 (Matthieu : « il faut créer tous les écrans qui manquent ») : vues de la liste du 11/10 ajoutées,
+// Suivi logistique et Réceptions sous 7 jours (Matériel), Planning dépannage (SAV), À valider et En cours (Achats),
+// Suivi des dossiers et Primes à encaisser (ADVENIR), Base du Parc et Abonnements de supervision (Parc). Le pipeline de
+// facturation est donné par les pastilles de statut de Factures.
+// 18 h 02 aussi : l'installateur ne lit plus le Parc en entier (décision du 11/10 : « pas d'accès à la Base de données
+// globale du Parc »). Il garde l'historique de la borne par ses tickets et ses visites.
 // Fichier pur : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit : les routes
 // /api/interne/listes et /api/interne/elements contrôlent les rôles.
 import { LISTES, FILTRES, type Filtre, type SourceVue } from '@/lib/espaces';
@@ -29,11 +35,21 @@ export type ConfigListe = {
 export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
   commandes: {
     titre: 'Matériel et commandes', emoji: '📦', roles: ['chargeOperation', 'backOffice'],
-    vues: [{ cle: 'a-commander', libelle: 'À commander' }], champs: ['fournisseur', 'chantier', 'livraison', 'montant'],
+    vues: [
+      { cle: 'a-commander', libelle: 'À commander' },
+      { cle: 'suivi-logistique', libelle: 'Suivi logistique' },
+      { cle: 'receptions-7j', libelle: 'Réceptions sous 7 jours' },
+    ],
+    champs: ['fournisseur', 'chantier', 'livraison', 'montant'],
   },
   sav: {
     titre: 'Tickets SAV', emoji: '🚨', roles: ['chargeOperation', 'backOffice', 'poseur'], seulementMoi: ['poseur'],
-    vues: [{ cle: 'a-traiter', libelle: 'Urgences et tri' }, { cle: 'mes-tickets', libelle: 'Mes tickets' }], champs: ['severite', 'installation', 'borne', 'symptome'],
+    vues: [
+      { cle: 'a-traiter', libelle: 'Urgences et tri' },
+      { cle: 'planning-depannage', libelle: 'Planning dépannage' },
+      { cle: 'mes-tickets', libelle: 'Mes tickets' },
+    ],
+    champs: ['severite', 'installation', 'borne', 'symptome'],
   },
   maintenance: {
     titre: 'Visites de maintenance', emoji: '🔧', roles: ['chargeOperation', 'backOffice', 'poseur'], seulementMoi: ['poseur'],
@@ -42,19 +58,34 @@ export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
   factures: {
     titre: 'Factures clients', emoji: '💰', roles: ['backOffice'],
     vues: [{ cle: 'retard', libelle: 'En retard' }, { cle: 'ouvertes', libelle: 'À suivre' }], champs: ['type de piece', 'montant ht', 'echeance', 'n costructor'],
-    note: 'Costructor fait référence pour les montants et les règlements.',
+    note: 'Costructor fait référence pour les montants et les règlements. Les pastilles de statut donnent le pipeline de facturation.',
   },
   achats: {
     titre: 'Achats et livraisons', emoji: '🚚', roles: ['backOffice', 'chargeOperation'],
-    vues: [{ cle: 'livraisons-retard', libelle: 'Livraisons en retard' }], champs: ['fournisseur', 'livraison prevue', 'montant', 'chantier'],
+    vues: [
+      { cle: 'livraisons-retard', libelle: 'Livraisons en retard' },
+      { cle: 'a-valider', libelle: 'À valider' },
+      { cle: 'en-cours', libelle: 'Commandés et reçus' },
+    ],
+    champs: ['fournisseur', 'livraison prevue', 'montant', 'chantier'],
   },
   advenir: {
     titre: 'Aides ADVENIR', emoji: '📄', roles: ['backOffice', 'commercial'],
-    vues: [{ cle: 'alertes', libelle: 'Alertes délais (30 j)' }], champs: ['date limite', 'prime estimee', 'prime reelle', 'numero'],
+    vues: [
+      { cle: 'alertes', libelle: 'Alertes délais (30 j)' },
+      { cle: 'suivi', libelle: 'Suivi des dossiers' },
+      { cle: 'a-encaisser', libelle: 'Primes à encaisser' },
+    ],
+    champs: ['date limite', 'prime estimee', 'prime reelle', 'numero'],
   },
   parc: {
-    titre: 'Parc installé', emoji: '🔋', roles: ['chargeOperation', 'backOffice', 'poseur', 'commercial'],
-    vues: [{ cle: 'contrats', libelle: 'Contrats à renouveler' }], champs: ['type de contrat', 'echeance annuelle', 'modele', 'nb points'],
+    titre: 'Parc installé', emoji: '🔋', roles: ['chargeOperation', 'backOffice', 'commercial'],
+    vues: [
+      { cle: 'tous', libelle: 'Base du Parc' },
+      { cle: 'contrats', libelle: 'Contrats à renouveler' },
+      { cle: 'supervision', libelle: 'Abonnements de supervision' },
+    ],
+    champs: ['type de contrat', 'echeance annuelle', 'modele', 'nb points', 'abonnement supervision'],
   },
   rh: {
     titre: 'RH et recrutement', emoji: '👔', roles: ['backOffice'],
