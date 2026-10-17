@@ -1,11 +1,13 @@
 // Briques de l'application équipe CHARGéO (charte 2026), pensées pour le téléphone et la tablette.
 // Composants d'affichage purs (aucun état) : utilisables dans une page serveur comme dans un formulaire client.
-// Seule exception : la pastille du rôle actif dans l'en-tête (composant client RoleActif, 17/10/2026).
+// Exceptions : la pastille du rôle actif dans l'en-tête (composant client RoleActif, 17/10/2026) et le bouton Retour
+// (composant client BoutonRetour, 17/10/2026, 16 h 19).
 // Servent à /interne aujourd'hui, puis à tous les écrans par rôle d'app.chargeo.fr (Phase 6).
 import React from "react";
 import { ArrowLeft } from "lucide-react";
 import { NAVY, CYAN, ORANGE, GRIS, CYAN_PALE, CYAN_SUR_NAVY } from "@/components/charte/couleurs";
 import RoleActif from "@/components/charte/RoleActif";
+import BoutonRetour from "@/components/charte/BoutonRetour";
 
 // Champ de saisie et étiquette : mêmes réglages que le formulaire de contact du site (texte 16 px pour éviter le zoom iPhone).
 export const CHAMP =
@@ -21,7 +23,19 @@ export function PageAppli({ children }: { children: React.ReactNode }) {
   );
 }
 
-// En-tête navy : logo blanc, surtitre, rôle affiché, titre, et au choix un lien retour ou une action (bouton actualiser...)
+// Une « action » d'en-tête qui est en fait un ancien lien de retour (lien ou bouton avec la flèche ←) : remplacée par le
+// bouton Retour commun, qui revient à l'écran précédent (son lien sert d'écran parent de repli).
+function ancienRetour(n: React.ReactNode): { repli?: string } | null {
+  if (!React.isValidElement(n)) return null;
+  const props = (n.props || {}) as { children?: React.ReactNode; href?: unknown };
+  const fleche = React.Children.toArray(props.children).some((c) => React.isValidElement(c) && c.type === ArrowLeft);
+  if (!fleche) return null;
+  return { repli: typeof props.href === 'string' ? props.href : undefined };
+}
+
+// En-tête navy : bouton Retour (écran précédent) et logo blanc à gauche, action à droite (actualiser...), surtitre,
+// rôle affiché, titre. « retour » donne l'écran parent de repli quand on arrive de l'extérieur.
+// 17/10/2026, 16 h 19 : le bouton Retour est sur tous les écrans sauf Ma journée, Mon espace et Plus.
 export function EnTeteAppli({
   surtitre,
   titre,
@@ -33,18 +47,19 @@ export function EnTeteAppli({
   retour?: { href: string; libelle: string };
   action?: React.ReactNode;
 }) {
+  const ancien = ancienRetour(action);
+  const repli = retour?.href || ancien?.repli || '/interne/espace';
+  const droite = ancien ? null : action;
   return (
     <header className="mb-6 px-6 pb-8 pt-10" style={{ backgroundColor: NAVY }}>
       <div className="mx-auto max-w-lg">
-        <div className="flex items-center justify-between gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-chargeo-blanc.svg" alt="CHARGéO" className="h-9 w-auto" />
-          {retour && (
-            <a href={retour.href} className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-              <ArrowLeft size={16} /> {retour.libelle}
-            </a>
-          )}
-          {!retour && action}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <BoutonRetour repli={repli} force={!!retour || !!ancien} />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-chargeo-blanc.svg" alt="CHARGéO" className="h-8 w-auto min-w-0 sm:h-9" />
+          </div>
+          {droite}
         </div>
         <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
           <p className="text-[12px] font-extrabold uppercase tracking-[0.14em]" style={{ color: CYAN_SUR_NAVY }}>{surtitre}</p>
