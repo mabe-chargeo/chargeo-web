@@ -1,38 +1,35 @@
 "use client";
 
 // Caler le relevé technique (17/10/2026, 20 h 44, choix de Matthieu : « Caler + email de confirmation prêt à
-// envoyer »). Le commercial a le client au téléphone : chef de chantier, créneau, note d'accès. Ensuite l'email de
-// confirmation s'ouvre déjà rédigé, il le relit et l'envoie (ou le copie).
-// 17/10, 20 h 53 : ?confirmation=1 (« Renvoyer la confirmation » de la fiche) ouvre directement l'email du rendez-vous
-// déjà calé, sans recaler.
+// envoyer »). Le commercial a le client au téléphone : chef de chantier, durée, créneau, note d'accès. Ensuite l'email
+// de confirmation s'ouvre déjà rédigé, il le relit et l'envoie (ou le copie).
+// 17/10, 20 h 53 : ?confirmation=1 (« Renvoyer la confirmation » de la fiche) ouvre l'email du rendez-vous déjà calé.
 // 17/10, 20 h 59 et 21 h 16 : planning du chef (ERP) + son Google Agenda (tous ses agendas affichés, horaires seulement).
-// 17/10, 22 h 35 : l'erreur d'enregistrement s'affiche juste au-dessus du bouton.
-// 17/10, 22 h 42 (Matthieu : « un vrai agenda avec les créneaux, les jours, et on clique sur un créneau libre ») :
-//   agenda de la semaine (src/components/ui/AgendaSemaine.tsx) au lieu des pastilles de jours et d'heures. Durées
-//   supposées des rendez-vous de l'ERP (ils n'ont qu'une heure de début) : relevé 1 h, maintenance et dépannage 1 h 30,
-//   pose avec heure 4 h ; pose sans heure = bandeau « chantier » sur la journée. Marge de route 30 min.
-//   Email (Matthieu : « il faudrait que ça ouvre l'application Gmail ») : comme les boutons des fiches contact, sur
-//   iPhone et iPad l'application Gmail (googlegmail://co), ailleurs Gmail web sur le compte CHARGéO (authuser). La
-//   signature dépend des réglages Gmail du compte (signature par défaut des nouveaux messages, signature mobile).
+// 17/10, 22 h 42 : agenda de la semaine (src/components/ui/AgendaSemaine.tsx) ; email par l'application Gmail sur
+//   iPhone et iPad, Gmail web sur le compte CHARGéO ailleurs. Durées supposées des RDV ERP sans durée : maintenance et
+//   dépannage 1 h 30, pose avec heure 4 h ; pose sans heure = bandeau chantier. Marge de route 30 min.
+// 17/10, 23 h 00 (Matthieu : « il faudrait pouvoir supprimer un créneau aussi si on se trompe et en modifier la
+//   durée ») : durée au choix (⏳ Durée relevé), créneau choisi effaçable (le toucher à nouveau, ou « Effacer »),
+//   « Annuler le rendez-vous » pour une fiche déjà calée (date vidée, événement retiré de l'agenda du chef).
 // Écrit par /api/interne/caler. Ouvert depuis « Visites à caler » et depuis la fiche affaire.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, CalendarCheck, Check, ChevronRight, Copy, Mail, MapPin, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CalendarCheck, CalendarX, Check, ChevronRight, Copy, Mail, MapPin, RefreshCw, X } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import AgendaSemaine, { heureDe, libelleJourCourt, type BlocAgenda, type JourneeAgenda } from '@/components/ui/AgendaSemaine';
 
-type Fiche = { id: string; nom: string; statut: string; aVisiter: boolean; adresse: string; ville?: string; email: string; telephone: string; dejaCale: string };
+type Fiche = { id: string; nom: string; statut: string; aVisiter: boolean; adresse: string; ville?: string; email: string; telephone: string; dejaCale: string; duree?: string };
 type Chef = { id: number; nom: string };
 type Email = { a: string; sujet: string; texte: string; signature?: string };
 type Cale = { quand: string; chef: string; lienFiche: string };
 type TypeRdv = 'pose' | 'visite' | 'depannage' | 'releve';
-type Occupation = { jour: string; minutes: number | null; type: TypeRdv; nom: string; ville: string; techniciens: number[] };
+type Occupation = { jour: string; minutes: number | null; duree?: number; type: TypeRdv; nom: string; ville: string; techniciens: number[] };
 type CreneauAgenda = { chefId: number; jour: string; debut: number; fin: number; journee: boolean };
 type Agenda = { branche: boolean; creneaux: CreneauAgenda[]; erreurs: string[] };
 type StatutAgenda = 'cree' | 'deplace' | 'non-branche' | 'sans-chef' | 'erreur';
+type Duree = { libelle: string; minutes: number };
 
-const DUREE_RELEVE = 60;
 const MARGE_ROUTE = 30;
 const DUREE_ERP: Record<TypeRdv, number> = { releve: 60, visite: 90, depannage: 90, pose: 240 };
 const VERT = '#16a34a';
@@ -59,6 +56,8 @@ export default function CalerPage() {
   const [occupations, setOccupations] = useState<Occupation[]>([]);
   const [planningIncomplet, setPlanningIncomplet] = useState(false);
   const [agenda, setAgenda] = useState<Agenda>({ branche: false, creneaux: [], erreurs: [] });
+  const [durees, setDurees] = useState<Duree[]>([]);
+  const [duree, setDuree] = useState<Duree>({ libelle: '1 h', minutes: 60 });
   const [preview, setPreview] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [date, setDate] = useState('');
@@ -67,6 +66,7 @@ export default function CalerPage() {
   const [chefId, setChefId] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [envoi, setEnvoi] = useState(false);
+  const [annule, setAnnule] = useState(false);
   const [cale, setCale] = useState<Cale | null>(null);
   const [email, setEmail] = useState<Email | null>(null);
   // Rendez-vous déjà calé (lu à l'ouverture) : pour renvoyer la confirmation
@@ -97,6 +97,10 @@ export default function CalerPage() {
           setOccupations(data.occupations || []);
           setPlanningIncomplet(!!data.planningIncomplet);
           if (data.agenda) setAgenda({ branche: !!data.agenda.branche, creneaux: data.agenda.creneaux || [], erreurs: data.agenda.erreurs || [] });
+          const ds: Duree[] = Array.isArray(data.durees) ? data.durees : [];
+          setDurees(ds);
+          const actuelle = ds.find((d) => d.libelle === data.fiche?.duree) || ds.find((d) => d.minutes === 60);
+          if (actuelle) setDuree(actuelle);
           setPreview(!!data.preview);
           setChefId(data.chefAssigne || (data.chefs?.length === 1 ? data.chefs[0].id : null));
           if (data.cale && data.emailConfirmation) {
@@ -116,7 +120,7 @@ export default function CalerPage() {
   const agendaDuChef = chefId === null ? [] : agenda.creneaux.filter((c) => c.chefId === chefId);
   const blocs: BlocAgenda[] = duChef
     .filter((o) => o.minutes !== null)
-    .map((o) => ({ jour: o.jour, debut: o.minutes as number, fin: (o.minutes as number) + DUREE_ERP[o.type], titre: TYPES[o.type], detail: [o.nom, o.ville].filter(Boolean).join(' · '), ton: (memeVille(o.ville) ? 'proche' : 'erp') as BlocAgenda['ton'] }))
+    .map((o) => ({ jour: o.jour, debut: o.minutes as number, fin: (o.minutes as number) + (o.duree || DUREE_ERP[o.type]), titre: TYPES[o.type], detail: [o.nom, o.ville].filter(Boolean).join(' · '), ton: (memeVille(o.ville) ? 'proche' : 'erp') as BlocAgenda['ton'] }))
     .concat(agendaDuChef.filter((c) => !c.journee).map((c) => ({ jour: c.jour, debut: c.debut, fin: c.fin, titre: 'Occupé', detail: 'Agenda Google', ton: 'agenda' as BlocAgenda['ton'] })));
   const journees: JourneeAgenda[] = duChef
     .filter((o) => o.minutes === null)
@@ -124,7 +128,10 @@ export default function CalerPage() {
     .concat(agendaDuChef.filter((c) => c.journee).map((c) => ({ jour: c.jour, titre: '📆 Journée' })));
   const choix = date && /^\d{2}:\d{2}$/.test(heure) ? { jour: date, minutes: Number(heure.slice(0, 2)) * 60 + Number(heure.slice(3, 5)) } : null;
   const journeeDuChoix = choix ? journees.filter((x) => x.jour === choix.jour) : [];
+  const effacer = () => { setDate(''); setHeure(''); };
+  // Toucher le créneau déjà choisi l'efface
   const choisir = (jour: string, minutes: number) => {
+    if (choix && choix.jour === jour && choix.minutes === minutes) { effacer(); return; }
     setDate(jour);
     setHeure(`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`);
   };
@@ -138,7 +145,7 @@ export default function CalerPage() {
       const res = await fetch('/api/interne/caler', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, date, heure, chefId, note }),
+        body: JSON.stringify({ id, date, heure, duree: duree.libelle, chefId, note }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) setErreur(data?.error || `Enregistrement impossible (${res.status})`);
@@ -155,6 +162,22 @@ export default function CalerPage() {
       setEnvoi(false);
     }
   };
+  const annuler = async () => {
+    if (envoi || !fiche?.dejaCale) return;
+    if (!window.confirm(`Annuler le rendez-vous du ${fiche.dejaCale} ? La date est vidée et le rendez-vous retiré de l’agenda du chef. Pense à prévenir le client.`)) return;
+    setEnvoi(true);
+    setErreur(null);
+    try {
+      const res = await fetch('/api/interne/caler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'annuler' }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) setErreur(data?.error || `Annulation impossible (${res.status})`);
+      else setAnnule(true);
+    } catch {
+      setErreur('Impossible de joindre le serveur. Rien n’a été annulé.');
+    } finally {
+      setEnvoi(false);
+    }
+  };
 
   const pastille = (actif: boolean, libelle: string, changer: () => void) => (
     <button key={libelle} onClick={changer} className={`rounded-full px-4 py-2 text-[14px] font-bold ${actif ? 'text-white' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'}`} style={actif ? { backgroundColor: CYAN } : undefined}>
@@ -166,6 +189,23 @@ export default function CalerPage() {
       <ArrowLeft size={16} /> Visites à caler
     </a>
   );
+
+  if (annule) {
+    return (
+      <PageAppli>
+        <EnTeteAppli surtitre="Relevé technique" titre="Rendez-vous annulé" retour={{ href: '/interne/fiches?vue=a-caler', libelle: 'Visites à caler' }} />
+        <ContenuAppli className="space-y-4">
+          <Carte accent>
+            <p className="text-[18px] font-bold">{fiche?.nom}</p>
+            <p className="mt-1 text-[14px]">Le rendez-vous du {fiche?.dejaCale} est annulé : la fiche revient dans Visites à caler et sort de l’agenda du chef.</p>
+          </Carte>
+          <p className="px-1 text-[13px] font-semibold" style={{ color: ORANGE }}>Préviens le client, l’annulation ne lui envoie rien.</p>
+          <button onClick={() => window.location.reload()} className="block w-full text-center text-[15px] font-semibold" style={{ color: CYAN }}>Caler un nouveau rendez-vous</button>
+          <a href={`/interne/fiches/${id}`} className="flex items-center justify-center gap-1 text-[15px] font-semibold" style={{ color: CYAN }}>Ouvrir la fiche <ChevronRight size={16} /></a>
+        </ContenuAppli>
+      </PageAppli>
+    );
+  }
 
   // Écran de confirmation : juste après avoir calé, ou « Renvoyer la confirmation »
   const confirmation = (c: Cale, e: Email, titre: string, renvoyee: boolean) => {
@@ -212,7 +252,7 @@ export default function CalerPage() {
           </button>
           <a href={c.lienFiche} className="flex items-center justify-center gap-1 text-[15px] font-semibold" style={{ color: CYAN }}>Ouvrir la fiche <ChevronRight size={16} /></a>
           {renvoyee
-            ? <button onClick={() => setRenvoi(false)} className="block w-full text-center text-[15px] font-semibold" style={{ color: CYAN }}>Décaler le rendez-vous</button>
+            ? <button onClick={() => setRenvoi(false)} className="block w-full text-center text-[15px] font-semibold" style={{ color: CYAN }}>Décaler ou annuler le rendez-vous</button>
             : <a href="/interne/agenda" className="block text-center text-[15px] font-semibold" style={{ color: CYAN }}>Voir l’agenda des visites</a>}
         </ContenuAppli>
       </PageAppli>
@@ -235,12 +275,19 @@ export default function CalerPage() {
             {(fiche.adresse || fiche.dejaCale) && (
               <Carte className="space-y-2">
                 {fiche.adresse && <p className="flex items-center gap-1.5 text-[14px]"><MapPin size={15} color={CYAN} /> {fiche.adresse}</p>}
-                {fiche.dejaCale && <p className="text-[14px] font-bold">Déjà calé le {fiche.dejaCale} : enregistrer décale le rendez-vous.</p>}
-                {dejaCale && (
-                  <button onClick={() => setRenvoi(true)} className="inline-flex items-center gap-1.5 text-[14px] font-bold" style={{ color: CYAN }}>
-                    <Mail size={15} /> Renvoyer la confirmation
-                  </button>
-                )}
+                {fiche.dejaCale && <p className="text-[14px] font-bold">Déjà calé le {fiche.dejaCale}{fiche.duree ? ` (${fiche.duree})` : ''} : choisir un autre créneau le décale.</p>}
+                <div className="flex flex-wrap gap-4">
+                  {dejaCale && (
+                    <button onClick={() => setRenvoi(true)} className="inline-flex items-center gap-1.5 text-[14px] font-bold" style={{ color: CYAN }}>
+                      <Mail size={15} /> Renvoyer la confirmation
+                    </button>
+                  )}
+                  {fiche.dejaCale && (
+                    <button onClick={annuler} disabled={envoi} className="inline-flex items-center gap-1.5 text-[14px] font-bold" style={{ color: ORANGE }}>
+                      <CalendarX size={15} /> Annuler le rendez-vous
+                    </button>
+                  )}
+                </div>
               </Carte>
             )}
 
@@ -256,14 +303,21 @@ export default function CalerPage() {
             {agenda.erreurs.map((x) => <p key={x} className="px-1 text-[12px]" style={{ color: ORANGE }}>{x}</p>)}
             {planningIncomplet && <p className="px-1 text-[12px]" style={{ color: ORANGE }}>Une partie du planning n’a pas pu être lue : vérifie avec le chef avant de confirmer.</p>}
 
-            <Repere>2 · Le créneau</Repere>
+            <Repere>2 · La durée</Repere>
+            {durees.length ? (
+              <div className="flex flex-wrap gap-2">{durees.map((d) => pastille(duree.libelle === d.libelle, d.libelle, () => { setDuree(d); effacer(); }))}</div>
+            ) : (
+              <p className="px-1 text-[13px]">Durée : 1 h (le champ ⏳ Durée relevé n’est pas trouvé sur cette fiche).</p>
+            )}
+
+            <Repere>3 · Le créneau</Repere>
             {chefId === null && chefs.length > 0 ? (
               <p className="px-1 text-[14px] font-semibold">Choisis d’abord le chef de chantier pour voir son agenda.</p>
             ) : (
               <AgendaSemaine
                 blocs={blocs}
                 journees={journees}
-                duree={DUREE_RELEVE}
+                duree={duree.minutes}
                 marge={MARGE_ROUTE}
                 choix={choix}
                 onChoisir={choisir}
@@ -273,7 +327,12 @@ export default function CalerPage() {
             )}
             {choix ? (
               <Carte accent>
-                <p className="flex items-center gap-1.5 text-[16px] font-bold"><CalendarCheck size={17} color={CYAN} /> {libelleJourCourt(choix.jour)} à {heureDe(choix.minutes)} · 1 h</p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="flex items-center gap-1.5 text-[16px] font-bold"><CalendarCheck size={17} color={CYAN} /> {libelleJourCourt(choix.jour)} à {heureDe(choix.minutes)} · {duree.libelle}</p>
+                  <button onClick={effacer} aria-label="Effacer le créneau" className="inline-flex shrink-0 items-center gap-1 text-[13px] font-bold" style={{ color: ORANGE }}>
+                    <X size={15} /> Effacer
+                  </button>
+                </div>
                 {journeeDuChoix.map((x, i) => (
                   <p key={i} className="mt-1 flex items-center gap-1.5 text-[13px] font-bold" style={{ color: ORANGE }}>
                     <AlertTriangle size={14} /> {x.titre} ce jour-là : vérifie avec le chef.
@@ -281,7 +340,7 @@ export default function CalerPage() {
                 ))}
               </Carte>
             ) : (
-              <p className="px-1 text-[13px] text-slate-500">Touche un créneau blanc pour placer le relevé (1 h, 30 min de route comprises autour des autres rendez-vous).</p>
+              <p className="px-1 text-[13px] text-slate-500">Touche un créneau blanc pour placer le relevé ({duree.libelle}, 30 min de route comprises autour des autres rendez-vous). Le toucher à nouveau l’efface.</p>
             )}
 
             <div>
