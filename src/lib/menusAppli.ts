@@ -13,6 +13,8 @@
 // Pastille sans href = à brancher quand l'écran du menu sera construit.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit :
 // chaque route contrôle les rôles elle-même.
+// 17/10/2026, 10 h 44 : « un espace par rôle » validé pour le Commercial (src/lib/espaces.ts, écran /interne/espace).
+// Barre du commercial : Ma journée · Mon espace · Plus. Les autres rôles gardent leur barre en attendant leur validation.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -74,6 +76,11 @@ export const ECRANS: Record<string, Ecran> = {
       { cle: 'toutes', libelle: 'Toutes', groupe: 'Issue', href: fiches('toutes') },
     ],
   },
+  espace: {
+    cle: 'espace', libelle: 'Mon espace', href: '/interne/espace', icone: 'pipeline', pret: true,
+    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts'],
+    description: 'Les vues du rôle, dans l’ordre de son travail, avec leurs compteurs',
+  },
   releves: {
     cle: 'releves', libelle: 'Relevés', href: '/interne', icone: 'releves', pret: true, actif: ['/interne', '/interne/metre'],
     description: 'Outil terrain : fiches 📍 à visiter, relevé (mètre, scénarios, photos) utilisable hors ligne',
@@ -107,9 +114,10 @@ export const ECRANS: Record<string, Ecran> = {
   agenda: bientot('agenda', 'Agenda', 'agenda', 'AGENDA VISITES et CARTE DES AUDITS de Qualification : jour, semaine, carte des visites.', {
     pastilles: [{ cle: 'jour', libelle: 'Jour' }, { cle: 'semaine', libelle: 'Semaine' }, { cle: 'carte', libelle: 'Carte des visites' }],
   }),
-  contacts: bientot('contacts', 'Contacts', 'contacts', 'Annuaire de la liste Contacts, partagé entre le commercial et le back-office. Fiche contact : ses affaires, ses bornes.', {
-    pastilles: [{ cle: 'par-role', libelle: 'Par rôle' }, { cle: 'tous', libelle: 'Tous' }],
-  }),
+  contacts: {
+    cle: 'contacts', libelle: 'Contacts', href: '/interne/contacts', icone: 'contacts', pret: true, actif: ['/interne/contacts'],
+    description: 'Annuaire de la liste Contacts, partagé entre le commercial et le back-office : recherche, rôle, Appeler, Google Voice, SMS, Gmail.',
+  },
   ressources: bientot('ressources', 'Ressources', 'ressources', 'Le Google Drive partagé de l’espace Commercial (remplace « Outils & Wiki » de ClickUp).'),
 
   // ── Chef de chantier ──
@@ -202,7 +210,7 @@ export const ECRANS: Record<string, Ecran> = {
 
 // Barre du bas (4 onglets au plus, « Plus » est ajouté après) et contenu de « Plus », par rôle (section 4 de la carte)
 export const MENUS: Record<RoleAppli, { barre: string[]; plus: string[] }> = {
-  commercial: { barre: ['journee', 'pipeline', 'agenda', 'contacts'], plus: ['ressources'] },
+  commercial: { barre: ['journee', 'espace'], plus: ['ressources'] },
   chargeOperation: { barre: ['journee', 'releves', 'chantiers', 'planning'], plus: ['sav', 'materielAchats', 'parc'] },
   poseur: { barre: ['interventions', 'carteDuJour', 'savSite'], plus: ['releves', 'parc'] },
   backOffice: { barre: ['journee', 'facturation', 'materielAchats', 'parc'], plus: ['advenir', 'decomptes', 'contacts', 'rh'] },
