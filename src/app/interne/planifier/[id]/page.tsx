@@ -5,9 +5,11 @@
 // (½ journée à 5 jours), 3 la demi-journée de départ dans l'agenda de la semaine (src/components/ui/AgendaSemaine.tsx),
 // avec le planning ERP et le Google Agenda des installateurs choisis : un départ est libre si toutes les demi-journées
 // de la pose le sont pour chacun d'eux. Écrit par /api/interne/planifier. Ouvert depuis Chantiers.
+// 17/10, 23 h 00 (Matthieu : « pouvoir supprimer un créneau aussi si on se trompe ») : départ effaçable (le toucher à
+// nouveau, ou « Effacer ») et « Annuler la planification » pour un chantier déjà planifié.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertTriangle, CalendarCheck, Check, ChevronRight, HardHat, MapPin, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, CalendarX, Check, ChevronRight, HardHat, MapPin, RefreshCw, X } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import AgendaSemaine, { type BlocAgenda, type JourneeAgenda } from '@/components/ui/AgendaSemaine';
@@ -42,6 +44,7 @@ export default function PlanifierPage() {
   const [choix, setChoix] = useState<{ jour: string; minutes: number } | null>(null);
   const [envoi, setEnvoi] = useState(false);
   const [resultat, setResultat] = useState<Resultat | null>(null);
+  const [annule, setAnnule] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -83,6 +86,8 @@ export default function PlanifierPage() {
   const alertesChoix = journees.filter((x) => segsChoix.some((s) => s.jour === x.jour));
 
   const basculer = (pid: number) => { setChoisis(choisis.includes(pid) ? choisis.filter((x) => x !== pid) : choisis.concat([pid])); setChoix(null); };
+  // Toucher le départ déjà choisi l'efface
+  const choisirDepart = (jour: string, minutes: number) => setChoix(choix && choix.jour === jour && choix.minutes === minutes ? null : { jour, minutes });
   const pret = !!choix && !!duree && choisis.length > 0;
 
   const envoyer = async () => {
@@ -104,12 +109,44 @@ export default function PlanifierPage() {
       setEnvoi(false);
     }
   };
+  const annuler = async () => {
+    if (envoi || !chantier?.quand) return;
+    if (!window.confirm(`Annuler la pose prévue ${chantier.quand} ? La date est vidée, la pose sort des agendas des installateurs et le chantier repasse à planifier.`)) return;
+    setEnvoi(true);
+    setErreur(null);
+    try {
+      const res = await fetch('/api/interne/planifier', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'annuler' }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) setErreur(data?.error || `Annulation impossible (${res.status})`);
+      else setAnnule(true);
+    } catch {
+      setErreur('Impossible de joindre le serveur. Rien n’a été annulé.');
+    } finally {
+      setEnvoi(false);
+    }
+  };
 
   const pastille = (actif: boolean, libelle: string, changer: () => void, cle: string) => (
     <button key={cle} onClick={changer} className={`rounded-full px-4 py-2 text-[14px] font-bold ${actif ? 'text-white' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'}`} style={actif ? { backgroundColor: CYAN } : undefined}>
       {actif ? '✓ ' : ''}{libelle}
     </button>
   );
+
+  if (annule) {
+    return (
+      <PageAppli>
+        <EnTeteAppli surtitre="Pose" titre="Planification annulée" retour={{ href: '/interne/chantiers', libelle: 'Chantiers' }} />
+        <ContenuAppli className="space-y-4">
+          <Carte accent>
+            <p className="text-[18px] font-bold">{chantier?.nom}</p>
+            <p className="mt-1 text-[14px]">La pose prévue {chantier?.quand} est annulée : elle sort des agendas des installateurs et le chantier est à replanifier.</p>
+          </Carte>
+          <button onClick={() => window.location.reload()} className="block w-full text-center text-[15px] font-semibold" style={{ color: CYAN }}>Replanifier maintenant</button>
+          <a href="/interne/chantiers" className="block text-center text-[15px] font-semibold" style={{ color: CYAN }}>Retour aux chantiers</a>
+        </ContenuAppli>
+      </PageAppli>
+    );
+  }
 
   if (resultat) {
     return (
@@ -154,7 +191,12 @@ export default function PlanifierPage() {
           <>
             <Carte className="space-y-1.5">
               {chantier.adresse && <p className="flex items-center gap-1.5 text-[14px]"><MapPin size={15} color={CYAN} /> {chantier.adresse}</p>}
-              <p className="text-[14px] font-semibold">{chantier.quand ? `Déjà planifiée : ${chantier.quand}${chantier.duree ? ` (${chantier.duree})` : ''}. Enregistrer la décale.` : 'Pas encore planifiée.'}</p>
+              <p className="text-[14px] font-semibold">{chantier.quand ? `Déjà planifiée : ${chantier.quand}${chantier.duree ? ` (${chantier.duree})` : ''}. Choisir un autre départ la décale.` : 'Pas encore planifiée.'}</p>
+              {chantier.quand && (
+                <button onClick={annuler} disabled={envoi} className="inline-flex items-center gap-1.5 text-[14px] font-bold" style={{ color: ORANGE }}>
+                  <CalendarX size={15} /> Annuler la planification
+                </button>
+              )}
             </Carte>
             {champManquant && <Alerte>Le champ ⏳ Durée intervention est introuvable dans le Planning Chantiers.</Alerte>}
 
@@ -180,7 +222,7 @@ export default function PlanifierPage() {
                 duree={240}
                 marge={0}
                 choix={choix}
-                onChoisir={(jour, minutes) => setChoix({ jour, minutes })}
+                onChoisir={choisirDepart}
                 semaine={semaine}
                 onSemaine={setSemaine}
                 semainesMax={4}
@@ -190,7 +232,12 @@ export default function PlanifierPage() {
             )}
             {choix ? (
               <Carte accent>
-                <p className="flex items-center gap-1.5 text-[16px] font-bold"><CalendarCheck size={17} color={CYAN} /> {libellePose(segsChoix)} · {duree}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="flex items-center gap-1.5 text-[16px] font-bold"><CalendarCheck size={17} color={CYAN} /> {libellePose(segsChoix)} · {duree}</p>
+                  <button onClick={() => setChoix(null)} aria-label="Effacer le départ" className="inline-flex shrink-0 items-center gap-1 text-[13px] font-bold" style={{ color: ORANGE }}>
+                    <X size={15} /> Effacer
+                  </button>
+                </div>
                 {alertesChoix.map((x, i) => (
                   <p key={i} className="mt-1 flex items-center gap-1.5 text-[13px] font-bold" style={{ color: ORANGE }}>
                     <AlertTriangle size={14} /> {x.titre} sur la journée : vérifie.
@@ -198,7 +245,7 @@ export default function PlanifierPage() {
                 ))}
               </Carte>
             ) : (
-              <p className="px-1 text-[13px] text-slate-500">Touche une demi-journée libre (matin ou après-midi) : la pose s’étale sur les jours ouvrés suivants selon la durée.</p>
+              <p className="px-1 text-[13px] text-slate-500">Touche une demi-journée libre (matin ou après-midi) : la pose s’étale sur les jours ouvrés suivants selon la durée. La toucher à nouveau l’efface.</p>
             )}
 
             {erreur && <Alerte>{erreur}</Alerte>}

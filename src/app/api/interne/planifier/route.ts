@@ -17,6 +17,9 @@ import { DEPARTS_POSE, demiJourneesDe, jourEtMinutes, libellePose, parisVersMs, 
 //   📅 planifié si le chantier était à planifier ou en préparation, événements « 🏗️ Pose · nom » (un par jour) dans
 //   l'agenda Google de chaque technicien, retirés de l'agenda de ceux qui n'y sont plus, commentaire de trace.
 //   Un échec Google n'annule jamais l'écriture ClickUp : il est signalé par personne.
+// 17/10, 23 h 00 (Matthieu : « pouvoir supprimer un créneau aussi si on se trompe ») : POST { id, action: 'annuler' }
+//   vide la date et la durée, retire les événements Google, repasse le chantier planifié en 📥 à planifier (les
+//   techniciens restent affectés) et laisse une trace en commentaire.
 // Droits : chef de chantier et direction. Preview : seules les fiches avec « Test » dans le nom sont modifiées.
 // Le fichier n'exporte que les handlers (règle des routes Next).
 
@@ -27,6 +30,7 @@ const texte = (v: unknown, max = 200) => (v === undefined || v === null ? '' : S
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const AUTORISES = ['direction', 'chargeOperation'];
 const STATUT_PLANIFIE = '📅 planifié';
+const STATUT_A_PLANIFIER = '📥 à planifier';
 const JOURS_PLANNING = 35;
 const PAGES_MAX = 10;
 const DUREE_RDV: Record<string, number> = { releve: 60, visite: 90, depannage: 90 };
@@ -179,6 +183,8 @@ const segmentsDe = (t: any, cd: ChampDuree | null): Segment[] => {
   if (!d) return [];
   return segmentsPose(d.jour, d.minutes === null ? 480 : d.minutes, demiJourneesDe(dureeDe(t, cd)) || 2);
 };
+const techniciensDe = (t: any): number[] =>
+  (Array.isArray(champ(t, CHAMPS_INTERVENTION.technicienChantier)?.value) ? champ(t, CHAMPS_INTERVENTION.technicienChantier)?.value : []).map((u: any) => Number(u?.id)).filter((n: number) => n > 0);
 
 export async function GET(request: Request) {
   const token = process.env.CLICKUP_API_KEY;
@@ -193,7 +199,6 @@ export async function GET(request: Request) {
     const ids = personnes.map((p) => p.id);
     const [erp, agenda] = await Promise.all([occupationsErp(token, ids, String(t.id), cd), lireAgendas(personnes)]);
     const d = jourEtMinutes(champ(t, CHAMPS_INTERVENTION.dateChantier)?.value);
-    const techniciens = (Array.isArray(champ(t, CHAMPS_INTERVENTION.technicienChantier)?.value) ? champ(t, CHAMPS_INTERVENTION.technicienChantier)?.value : []).map((u: any) => Number(u?.id)).filter((n: number) => n > 0);
     const actuels = segmentsDe(t, cd);
     return json({
       success: true,
@@ -209,7 +214,7 @@ export async function GET(request: Request) {
         minutes: d ? d.minutes : null,
         duree: dureeDe(t, cd),
         quand: actuels.length ? libellePose(actuels) : '',
-        techniciens,
+        techniciens: techniciensDe(t),
       },
       durees: cd ? cd.options.map((o) => o.nom) : [],
       champDureeManquant: !cd,
@@ -236,14 +241,41 @@ export async function POST(request: Request) {
     const lu = await lireChantier(token, texte(corps?.id, 30));
     if (!lu.ok) return json({ success: false, error: lu.erreur }, lu.status);
     const t = lu.t;
+    const tid = encodeURIComponent(String(t.id));
     const etape = etapePlanning(String(t?.status?.status || ''));
     if (etape > 2) return json({ success: false, error: 'Ce chantier est déjà en cours ou terminé : il ne se planifie plus.' }, 400);
     if (preview && !/\btest\b/i.test(String(t?.name || ''))) return json({ success: false, error: 'En preview, seules les fiches de test (avec « Test » dans le nom) peuvent être modifiées.' }, 403);
+    const [cd, personnes] = await Promise.all([champDuree(token), personnesPose(token)]);
+    const ancienSegs = segmentsDe(t, cd);
+    const anciens = techniciensDe(t);
+
+    // Annuler la planification : date et durée vidées, événements Google retirés, retour à planifier
+    if (texte(corps?.action, 20) === 'annuler') {
+      if (!ancienSegs.length) return json({ success: false, error: 'Aucune pose planifiée sur ce chantier.' }, 400);
+      const r = await fetch(`${API}/task/${tid}/field/${CHAMPS_INTERVENTION.dateChantier}`, { method: 'DELETE', headers: { Authorization: token }, cache: 'no-store' });
+      if (!r.ok) return json({ success: false, error: `ClickUp a refusé l’annulation (${r.status})` }, 502);
+      if (cd) await fetch(`${API}/task/${tid}/field/${cd.id}`, { method: 'DELETE', headers: { Authorization: token }, cache: 'no-store' }).catch(() => null);
+      if (etape === 2) await fetch(`${API}/task/${tid}`, { method: 'PUT', headers: { Authorization: token, 'Content-Type': 'application/json' }, body: JSON.stringify({ status: STATUT_A_PLANIFIER }), cache: 'no-store' }).catch(() => null);
+      let agendaOk = true;
+      if (agendaBranche()) {
+        for (const p of personnes.filter((x) => x.email && anciens.includes(x.id))) {
+          for (let i = 0; i < ancienSegs.length; i++) {
+            try { await retirerEvenement(p.email, idEvenement('pose', String(t.id), i)); } catch { agendaOk = false; }
+          }
+        }
+      }
+      await fetch(`${API}/task/${tid}/comment`, {
+        method: 'POST',
+        headers: { Authorization: token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment_text: `🏗️ Pose déplanifiée depuis l'application par ${auteur} (elle était prévue ${libellePose(ancienSegs)}). Les techniciens restent affectés.${agendaOk ? '' : '\n⚠️ Des événements n’ont pas pu être retirés des agendas Google.'}`, notify_all: false }),
+        cache: 'no-store',
+      }).catch(() => null);
+      return json({ success: true, annule: true, agendaOk, preview });
+    }
 
     const jour = /^\d{4}-\d{2}-\d{2}$/.test(texte(corps?.jour, 10)) ? texte(corps.jour, 10) : '';
     const minutes = Number(corps?.minutes);
     if (!jour || !DEPARTS_POSE.includes(minutes)) return json({ success: false, error: 'Choisis une demi-journée de départ dans l’agenda' }, 400);
-    const [cd, personnes] = await Promise.all([champDuree(token), personnesPose(token)]);
     if (!cd) return json({ success: false, error: 'Le champ ⏳ Durée intervention est introuvable dans le Planning Chantiers' }, 500);
     const option = cd.options.find((o) => o.nom === texte(corps?.duree, 30));
     if (!option) return json({ success: false, error: 'Choisis la durée de la pose' }, 400);
@@ -253,9 +285,7 @@ export async function POST(request: Request) {
     const debutMs = parisVersMs(jour, minutes);
     if (debutMs < Date.now()) return json({ success: false, error: 'Ce créneau est déjà passé' }, 400);
 
-    const ancienSegs = segmentsDe(t, cd);
-    const anciens = (Array.isArray(champ(t, CHAMPS_INTERVENTION.technicienChantier)?.value) ? champ(t, CHAMPS_INTERVENTION.technicienChantier)?.value : []).map((u: any) => Number(u?.id)).filter((n: number) => n > 0);
-    const ecrire = (champId: string, valeur: any) => fetch(`${API}/task/${encodeURIComponent(String(t.id))}/field/${champId}`, {
+    const ecrire = (champId: string, valeur: any) => fetch(`${API}/task/${tid}/field/${champId}`, {
       method: 'POST', headers: { Authorization: token, 'Content-Type': 'application/json' }, body: JSON.stringify(valeur), cache: 'no-store',
     });
     const avertissements: string[] = [];
@@ -276,7 +306,7 @@ export async function POST(request: Request) {
     // 4. Statut planifié (depuis à planifier ou préparation)
     let statut = String(t?.status?.status || '');
     if (etape < 2) {
-      const rs = await fetch(`${API}/task/${encodeURIComponent(String(t.id))}`, { method: 'PUT', headers: { Authorization: token, 'Content-Type': 'application/json' }, body: JSON.stringify({ status: STATUT_PLANIFIE }), cache: 'no-store' });
+      const rs = await fetch(`${API}/task/${tid}`, { method: 'PUT', headers: { Authorization: token, 'Content-Type': 'application/json' }, body: JSON.stringify({ status: STATUT_PLANIFIE }), cache: 'no-store' });
       if (rs.ok) statut = STATUT_PLANIFIE;
       else avertissements.push('Le statut n’a pas pu passer à « planifié ».');
     }
@@ -314,7 +344,7 @@ export async function POST(request: Request) {
     // 6. Commentaire de trace
     const quand = libellePose(segs);
     const noms = personnes.filter((p) => choisis.includes(p.id)).map((p) => p.nom);
-    await fetch(`${API}/task/${encodeURIComponent(String(t.id))}/comment`, {
+    await fetch(`${API}/task/${tid}/comment`, {
       method: 'POST',
       headers: { Authorization: token, 'Content-Type': 'application/json' },
       body: JSON.stringify({
