@@ -1,6 +1,6 @@
 "use client";
 
-// Planning (lot B des écrans manquants, 17/10/2026). LECTURE SEULE.
+// Planning (lot B des écrans manquants, 17/10/2026).
 // Deux vues, comme la carte des menus : Master planning (tout, par jour) et Planning techs (par installateur, puis par
 // jour). En tête : en retard (date passée, pas terminé), puis les jours à venir, puis « Sans date » (à planifier).
 // Chaque ligne ouvre la fiche (affaire pour une pose ou un relevé, générique sinon).
@@ -8,8 +8,13 @@
 // dépannages, les visites de maintenance et éventuellement aussi les relevés techniques ») : filtres Poses, Dépannages,
 // Visites, Relevés. Plus de livraisons (ajoutées par erreur à 18 h 22).
 // ?types=releve (ou depannage, visite, pose, séparés par des virgules) ouvre le planning sur ces filtres.
+// 17/10, 23 h 16 (Matthieu : « Y a rien à faire dans le planning ? ») : on planifie depuis le planning. Relevé à visiter :
+//   « Caler le relevé » ou « Décaler » (/interne/caler/<id> : commercial, chef de chantier, direction). Pose à planifier,
+//   en préparation ou planifiée : « Planifier la pose » ou « Décaler » (/interne/planifier/<id> : chef de chantier,
+//   direction). Les boutons suivent les rôles de /api/interne/moi ; chaque route contrôle elle-même les droits.
+//   Visites de maintenance et dépannages : pas encore d'écran de planification.
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ChevronRight, MapPin, RefreshCw, User } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, ChevronRight, MapPin, RefreshCw, User } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 
@@ -24,6 +29,9 @@ const TYPES: { cle: Type; libelle: string; emoji: string }[] = [
 ];
 const TOUS: Type[] = ['pose', 'depannage', 'visite', 'releve'];
 const emojiDe = (t: Type) => TYPES.find((x) => x.cle === t)?.emoji || '';
+const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const ROLES_CALER = ['direction', 'commercial', 'chargeOperation'];
+const ROLES_PLANIFIER = ['direction', 'chargeOperation'];
 
 const aujourdhui = () => new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const libelleJour = (jour: string, auj: string) => {
@@ -43,6 +51,7 @@ export default function PlanningPage() {
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [auj, setAuj] = useState('');
+  const [roles, setRoles] = useState<string[]>([]);
 
   const charger = async () => {
     setLoading(true);
@@ -66,10 +75,21 @@ export default function PlanningPage() {
     const demandes = String(params.get('types') || '').split(',').filter((t): t is Type => TOUS.indexOf(t as Type) >= 0);
     if (demandes.length) setTypes(demandes);
     charger();
+    fetch('/api/interne/moi', { cache: 'no-store' }).then((r) => r.json()).then((j) => setRoles(Array.isArray(j?.roles) ? j.roles.map(String) : [])).catch(() => null);
   }, []);
 
   const visibles = items.filter((i) => types.includes(i.type));
   const basculer = (t: Type) => setTypes((l) => (l.includes(t) ? (l.length > 1 ? l.filter((x) => x !== t) : l) : [...l, t]));
+  const peutCaler = roles.some((r) => ROLES_CALER.includes(r));
+  const peutPlanifier = roles.some((r) => ROLES_PLANIFIER.includes(r));
+
+  // Action de planification d'une ligne (ou rien)
+  const actionDe = (i: Item): { href: string; libelle: string } | null => {
+    const s = normal(i.statut);
+    if (i.type === 'releve' && peutCaler && s.includes('a visiter')) return { href: `/interne/caler/${i.id}`, libelle: i.jour ? 'Décaler le relevé' : 'Caler le relevé' };
+    if (i.type === 'pose' && peutPlanifier && (s.includes('a planifier') || s.includes('preparation') || s.includes('planifie'))) return { href: `/interne/planifier/${i.id}`, libelle: i.jour ? 'Décaler la pose' : 'Planifier la pose' };
+    return null;
+  };
 
   // Groupes par jour : en retard, jours à venir dans l'ordre, sans date
   const groupes = (liste: Item[]) => {
@@ -90,25 +110,33 @@ export default function PlanningPage() {
   }, []).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
   const nonAffectes = visibles.filter((i) => !i.techniciens.length);
 
-  const ligne = (i: Item, avecTech: boolean) => (
-    <a key={`${i.type}-${i.id}`} href={i.lien} className="block rounded-[16px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[12px] font-bold text-slate-500">
-            {emojiDe(i.type)} {i.heure || (i.jour ? 'heure à caler' : 'à planifier')} · <span style={{ color: i.couleurStatut || undefined }}>{i.statut}</span>
-          </p>
-          <p className="mt-0.5 text-[16px] font-bold leading-tight">{i.nom}</p>
-          {i.adresse && <p className="mt-1 flex items-center gap-1 truncate text-[13px]"><MapPin size={13} className="shrink-0" color={CYAN} /> {i.adresse}</p>}
-          {avecTech && (
-            <p className="mt-1 flex items-center gap-1 text-[13px] font-semibold" style={{ color: i.techniciens.length ? undefined : ORANGE }}>
-              <User size={13} className="shrink-0" color={i.techniciens.length ? CYAN : ORANGE} /> {i.techniciens.length ? i.techniciens.map((t) => t.nom).join(', ') : 'Technicien à affecter'}
+  const ligne = (i: Item, avecTech: boolean) => {
+    const action = actionDe(i);
+    return (
+      <div key={`${i.type}-${i.id}`} className="rounded-[16px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
+        <a href={i.lien} className="flex items-start justify-between gap-3 transition-transform active:scale-[0.98]">
+          <div className="min-w-0">
+            <p className="text-[12px] font-bold text-slate-500">
+              {emojiDe(i.type)} {i.heure || (i.jour ? 'heure à caler' : 'à planifier')} · <span style={{ color: i.couleurStatut || undefined }}>{i.statut}</span>
             </p>
-          )}
-        </div>
-        <ChevronRight size={20} className="shrink-0" color={CYAN} />
+            <p className="mt-0.5 text-[16px] font-bold leading-tight">{i.nom}</p>
+            {i.adresse && <p className="mt-1 flex items-center gap-1 truncate text-[13px]"><MapPin size={13} className="shrink-0" color={CYAN} /> {i.adresse}</p>}
+            {avecTech && (
+              <p className="mt-1 flex items-center gap-1 text-[13px] font-semibold" style={{ color: i.techniciens.length ? undefined : ORANGE }}>
+                <User size={13} className="shrink-0" color={i.techniciens.length ? CYAN : ORANGE} /> {i.techniciens.length ? i.techniciens.map((t) => t.nom).join(', ') : 'Technicien à affecter'}
+              </p>
+            )}
+          </div>
+          <ChevronRight size={20} className="shrink-0" color={CYAN} />
+        </a>
+        {action && (
+          <a href={action.href} className="mt-3 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold text-white transition-transform active:scale-95" style={{ backgroundColor: CYAN }}>
+            <CalendarPlus size={15} /> {action.libelle}
+          </a>
+        )}
       </div>
-    </a>
-  );
+    );
+  };
 
   const blocJours = (liste: Item[], avecTech: boolean) =>
     groupes(liste).map((g) => (
