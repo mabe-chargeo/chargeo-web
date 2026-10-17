@@ -11,6 +11,8 @@
 // 17/10, 13 h (étape 2, fiche intervention validée) : chaque pose a le bouton « Saisie à la pose » (/interne/pose/<id>),
 // et « Préparer ma journée hors ligne » garde sur le téléphone le matériel prévu des poses d'aujourd'hui et de demain
 // (modèle Procore / ServiceTitan de la recherche du 17/10 : ouvrir avant de perdre le réseau).
+// 17/10, 14 h 50 : chaque visite de maintenance a le bouton « Visite de maintenance » (/interne/maintenance/<id>),
+// protocole Sefram MW9665 avec l'adaptateur A1532-XA, point de charge par point de charge.
 import { useEffect, useState } from 'react';
 import { ArrowLeft, CalendarClock, ChevronRight, Download, ExternalLink, HardHat, MapPin, Navigation, RefreshCw, WifiOff } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
@@ -136,6 +138,9 @@ export default function InterventionsPage() {
     </a>
   );
 
+  // Pose et visite ont leur bouton orange principal : l'action éventuelle passe alors en bouton secondaire
+  const aBoutonPrincipal = (i: Item) => i.type === 'pose' || i.type === 'visite';
+
   const carte = (i: Item) => (
     <div key={`${i.type}-${i.id}`} className="space-y-3 rounded-[20px] p-5" style={{ backgroundColor: GRIS }}>
       <div className="flex flex-wrap items-center gap-2">
@@ -173,8 +178,13 @@ export default function InterventionsPage() {
           📸 Saisie à la pose
         </a>
       )}
+      {i.type === 'visite' && (
+        <a href={`/interne/maintenance/${i.id}`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 text-[15px] font-semibold text-white transition-transform active:scale-95">
+          🔧 Visite de maintenance (MW9665)
+        </a>
+      )}
       {i.action && (
-        <a href={i.action.href} className={`flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold transition-transform active:scale-95 ${i.type === 'pose' ? 'ring-[1.5px] ring-[#dfe3e8]' : 'bg-[#FF6B00] text-white'}`} style={i.type === 'pose' ? { color: CYAN } : undefined}>
+        <a href={i.action.href} className={`flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold transition-transform active:scale-95 ${aBoutonPrincipal(i) ? 'ring-[1.5px] ring-[#dfe3e8]' : 'bg-[#FF6B00] text-white'}`} style={aBoutonPrincipal(i) ? { color: CYAN } : undefined}>
           {i.action.libelle}
         </a>
       )}
