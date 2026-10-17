@@ -2,10 +2,13 @@
 // Principe validé par Matthieu le 17/10/2026 : 3 niveaux seulement. Mon espace = les vues du rôle dans l'ordre de son
 // travail, chacune avec son compteur ; une vue = la liste des fiches ; la fiche, toujours la même, avec le bloc 📇 Contact.
 // Espace Commercial validé le 17/10 à 10 h 44, corrigé à 11 h 01 (Matthieu : « ce n'est pas le commercial qui fait les
-// relevés techniques ») : Visites à caler et Agenda des visites retirées, elles vont au chef de chantier. Le commercial
-// reçoit le relevé finalisé (Devis à chiffrer), chiffre, envoie et relance.
-// Espace Chef de chantier validé le 17/10 à 11 h 06 (9 vues). Les vues dont l'écran n'existe pas encore ouvrent la
-// liste ClickUp (externe) ou l'écran « à construire », avec leur compteur réel quand il est calculable.
+// relevés techniques ») : il ne fait pas le relevé, il reçoit le relevé finalisé (Devis à chiffrer), chiffre, envoie et
+// relance. Corrigé à 13 h 13 (Matthieu : « c'est le commercial qui planifie le relevé technique pour le chef de
+// chantier ») : Visites à caler revient au commercial et sort de l'espace du chef de chantier.
+// 17/10, 13 h 13 aussi : Contacts montre tous les contacts, clients compris (pas seulement syndics, conseils syndicaux
+// et gestionnaires) ; son compteur additionne la liste Contacts et les fiches clients (Prospection à Parc).
+// Espace Chef de chantier validé le 17/10 à 11 h 06. Les vues dont l'écran n'existe pas encore ouvrent la liste
+// ClickUp (externe) ou l'écran « à construire », avec leur compteur réel quand il est calculable.
 // Espace Installateur validé le 17/10 à 11 h 18 (3 vues) : il ne voit que son travail (« moi » = la personne connectée,
 // comme la vue ClickUp 📱 MODE TECH), lisible hors ligne.
 // Espace Back-office validé le 17/10 à 11 h 28 (8 vues). Costructor reste la référence des factures et règlements :
@@ -75,6 +78,9 @@ export const CHAMPS_INTERVENTION = {
 };
 
 const CLICKUP = ' (ouvre ClickUp en attendant l’écran)';
+// Contacts : la liste Contacts + les fiches clients, de la Prospection au Parc (même périmètre que /api/interne/contacts)
+const VUES_CONTACTS = ['tous', 'prospection:chasse', 'qualification:toutes', 'planning:tous', 'parc:tous'];
+const CONTACTS_DESCRIPTION = 'Clients, syndics, conseils syndicaux, gestionnaires';
 
 export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur' | 'backOffice' | 'direction', Espace>> = {
   commercial: {
@@ -83,18 +89,18 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
     vues: [
       { cle: 'a-appeler', emoji: '📞', libelle: "À appeler aujourd'hui", description: 'Prospects dont la date de rappel est aujourd’hui ou passée', href: '/interne/prospection?vue=a-appeler', source: 'prospection', vues: ['a-appeler'], urgent: true },
       { cle: 'chasse', emoji: '🚀', libelle: 'Pipeline chasse', description: 'Tous les prospects par étape, filtre LinkedIn', href: '/interne/prospection?vue=chasse', source: 'prospection', vues: ['chasse'] },
+      { cle: 'a-caler', emoji: '📅', libelle: 'Visites à caler', description: 'Appeler le client et fixer la date du relevé technique du chef de chantier', href: '/interne/fiches?vue=a-caler', source: 'qualification', vues: ['a-caler'], urgent: true },
       { cle: 'devis-a-chiffrer', emoji: '📝', libelle: 'Devis à chiffrer', description: 'Relevé finalisé par le chef de chantier, devis à faire dans Costructor', href: '/interne/fiches?vue=devis-a-chiffrer', source: 'qualification', vues: ['devis-a-chiffrer'] },
       { cle: 'relances-echues', emoji: '📩', libelle: 'Relances devis', description: 'Relance du jour ou en retard', href: '/interne/fiches?vue=relances-echues', source: 'qualification', vues: ['relances-echues'], urgent: true },
       { cle: 'en-negociation', emoji: '🔥', libelle: 'En négociation', description: 'Devis discutés avec le client', href: '/interne/fiches?vue=en-negociation', source: 'qualification', vues: ['en-negociation'] },
       { cle: 'toutes', emoji: '💰', libelle: 'Pipeline vente', description: 'Toutes les affaires, rangées par étape', href: '/interne/fiches?vue=toutes', source: 'qualification', vues: ['toutes'] },
-      { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: 'Syndics, conseils syndicaux, gestionnaires', href: '/interne/contacts', source: 'contacts', vues: ['tous'] },
+      { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: CONTACTS_DESCRIPTION, href: '/interne/contacts', source: 'contacts', vues: VUES_CONTACTS },
     ],
   },
   chargeOperation: {
     titre: 'Espace chef de chantier',
     vues: [
-      { cle: 'a-caler', emoji: '📅', libelle: 'Visites à caler', description: 'Fiches à visiter sans date : appeler le client', href: '/interne/fiches?vue=a-caler', source: 'qualification', vues: ['a-caler'] },
-      { cle: 'releves', emoji: '📋', libelle: 'Relevés à faire', description: 'Du jour, en retard et à venir, utilisables hors ligne (agenda et carte des audits à venir)', href: '/interne', source: 'qualification', vues: ['planifies', 'en-retard'], urgent: true },
+      { cle: 'releves', emoji: '📋', libelle: 'Relevés à faire', description: 'Visites calées par le commercial : du jour, en retard et à venir, utilisables hors ligne', href: '/interne', source: 'qualification', vues: ['planifies', 'en-retard'], urgent: true },
       { cle: 'feu-vert', emoji: '🚦', libelle: 'Feu vert à donner', description: 'Chantiers dont les 5 prérequis sont OK', href: '/interne/feu-vert', source: 'planning', vues: ['feu-vert'] },
       { cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Chantiers par date et répartition des techniciens', href: '/interne/bientot/planning', source: 'aucune', aConstruire: true },
       { cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux : à planifier, préparation, planifié, en cours', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
@@ -121,7 +127,7 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: `Compteur : dossiers en cours dont la date limite de réalisation tombe dans les 30 jours${CLICKUP}`, href: liste(LISTES.advenir), source: 'advenir', vues: ['alertes'], urgent: true, externe: true },
       { cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: `Échéance annuelle dans les 30 jours ou dépassée${CLICKUP}`, href: liste(LISTES.parc), source: 'parc', vues: ['contrats'], externe: true },
       { cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Préparation, validation, envoi au gestionnaire. Liste ClickUp à créer d’abord', href: '/interne/bientot/decomptes', source: 'aucune', aConstruire: true },
-      { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: 'Syndics, conseils syndicaux, gestionnaires', href: '/interne/contacts', source: 'contacts', vues: ['tous'] },
+      { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: CONTACTS_DESCRIPTION, href: '/interne/contacts', source: 'contacts', vues: VUES_CONTACTS },
       { cle: 'rh', emoji: '👔', libelle: 'RH et recrutement', description: `Compteur : demandes RH nouvelles ou en examen${CLICKUP}`, href: liste(LISTES.rh), source: 'rh', vues: ['demandes'], externe: true },
     ],
   },
@@ -213,6 +219,7 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
   },
   contacts: { tous: () => true },
   planning: {
+    tous: () => true,
     'feu-vert': (t) => feuVertADonner(t),
     'en-cours': (t) => enTravaux(t),
     receptions: (t) => statut(t).includes('realise'),
@@ -236,7 +243,10 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
   achats: { 'livraisons-retard': (t, a) => statut(t).includes('commande') && avant(champNomme(t, 'livraison prevue')?.value, a) },
   advenir: { alertes: (t, a) => advenirEnCours(t) && avant(champNomme(t, 'date limite')?.value, ajouterJours(a, 30)) },
   // Parc : mêmes règles que la carte « Contrats à renouveler » de Ma journée
-  parc: { contrats: (t, a) => !statut(t).includes('hors service') && avant(champNomme(t, 'echeance annuelle')?.value, ajouterJours(a, 30)) },
+  parc: {
+    tous: () => true,
+    contrats: (t, a) => !statut(t).includes('hors service') && avant(champNomme(t, 'echeance annuelle')?.value, ajouterJours(a, 30)),
+  },
   rh: { demandes: (t) => statutParmi(t, ['nouvelle demande', 'en examen']) },
   // Direction (statuts relus le 17/10/2026)
   codir: { 'a-venir': (t) => statutParmi(t, ['planifiee', 'en redaction']) },
