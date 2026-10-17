@@ -1,21 +1,19 @@
 "use client";
 
-// Mon espace (un espace par rôle, validé par Matthieu le 17/10/2026) : comme un espace ClickUp, les vues dont le rôle
-// a besoin, dans l'ordre de son travail, chacune avec son compteur. Une vue ouvre la liste des fiches ; une fiche ouvre
-// la fiche avec le bloc 📇 Contact. Espaces définis dans src/lib/espaces.ts (Commercial validé le 17/10 à 10 h 44,
-// Chef de chantier à 11 h 06, Installateur à 11 h 18, Back-office à 11 h 28, Direction à 11 h 37). Une vue sans écran
-// ouvre ClickUp (mention « ClickUp ») ou l'écran « à construire ».
+// À traiter (ex-Mon espace ; un espace par rôle, validé par Matthieu le 17/10/2026) : comme un espace ClickUp, les vues
+// dont le rôle a besoin, dans l'ordre de son travail, chacune avec son compteur. Une vue ouvre la liste des fiches ; une
+// fiche ouvre la fiche avec le bloc 📇 Contact. Espaces définis dans src/lib/espaces.ts (Commercial validé le 17/10 à
+// 10 h 44, Chef de chantier à 11 h 06, Installateur à 11 h 18, Back-office à 11 h 28, Direction à 11 h 37).
 // ?role=<rôle> : la direction peut encore ouvrir l'espace d'un autre rôle par l'adresse. La route vérifie les droits.
-// 17/10, 16 h 11 (Matthieu) : plus de raccourcis « Espaces des rôles » ; l'espace Direction montre directement les
-// écrans de tous les rôles, une rangée par rôle (intitulé de rangée = etape de la vue, 16 h 49).
-// 17/10, 17 h 24 (choix de Matthieu) : deux parties. « À traiter » = les vues avec compteur ; « À consulter » = ce qu'on
-// consulte sans compteur (MENUS[rôle].consulter dans src/lib/menusAppli.ts : Parc, Ressources, Agenda, Planning, Relevés).
+// 17/10, 16 h 11 et 16 h 49 (Matthieu) : l'espace Direction montre les écrans de tous les rôles, une rangée par rôle.
+// 17/10, 17 h 24 : deux parties, « À traiter » et « À consulter ».
+// 17/10, 20 h 17 (choix de Matthieu : barre à 4 onglets) : « À consulter » devient son propre onglet
+// (/interne/consulter) ; cet écran ne garde que les vues avec compteur.
 import { useEffect, useState } from 'react';
 import { ChevronRight, ExternalLink, Plus, RefreshCw } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
+import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, NAVY, ORANGE } from '@/components/charte/couleurs';
-import { ECRANS, LIBELLE_ROLE, MENUS, type RoleAppli } from '@/lib/menusAppli';
-import { ICONES } from '@/components/charte/iconesAppli';
+import { LIBELLE_ROLE, type RoleAppli } from '@/lib/menusAppli';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 
 type Vue = {
@@ -86,13 +84,10 @@ export default function EspacePage() {
   };
 
   const vues = donnees?.vues || [];
-  const parRole = vues.some((v) => !!v.etape);
-  // Partie « À consulter » du rôle affiché
-  const aConsulter = (roleVu ? MENUS[roleVu].consulter : []).map((c) => ECRANS[c]).filter(Boolean);
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre={roleVu ? LIBELLE_ROLE[roleVu] : 'Application équipe'} titre={donnees?.espace?.titre || 'Mon espace'} action={boutonActualiser} />
+      <EnTeteAppli surtitre={roleVu ? LIBELLE_ROLE[roleVu] : 'Application équipe'} titre="À traiter" action={boutonActualiser} />
       <ContenuAppli className="space-y-3">
         {donnees?.preview && <Alerte>Prévisualisation : affaires lues dans 🧪 Qualification TEST, le reste dans les vraies listes. Rien n&apos;est modifié.</Alerte>}
         {autreEspace && (
@@ -120,12 +115,6 @@ export default function EspacePage() {
           </a>
         )}
 
-        {donnees?.espace && vues.length > 0 && (
-          <div className="pt-1">
-            <Repere>À traiter</Repere>
-          </div>
-        )}
-
         {vues.map((v, i) => (
           <div key={v.cle}>
             {/* Rangée du rôle (espace Direction) */}
@@ -149,33 +138,6 @@ export default function EspacePage() {
             </a>
           </div>
         ))}
-
-        {donnees?.espace && aConsulter.length > 0 && (
-          <>
-            <div className={parRole || vues.length > 0 ? 'pt-5' : 'pt-1'}>
-              <Repere>À consulter</Repere>
-            </div>
-            {aConsulter.map((e) => {
-              const Icon = ICONES[e.icone];
-              return (
-                <a
-                  key={e.cle}
-                  href={e.href}
-                  className="flex items-center gap-3 rounded-[20px] bg-white p-5 ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
-                >
-                  <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
-                    <Icon size={20} color="#ffffff" strokeWidth={1.8} />
-                  </div>
-                  <div className="min-w-0 grow">
-                    <p className="text-[17px] font-bold leading-tight">{e.libelle}</p>
-                    <p className="mt-1 text-[13px]">{e.description}</p>
-                  </div>
-                  <ChevronRight size={20} className="shrink-0" color={CYAN} />
-                </a>
-              );
-            })}
-          </>
-        )}
       </ContenuAppli>
     </PageAppli>
   );

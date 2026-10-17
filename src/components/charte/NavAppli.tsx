@@ -1,17 +1,21 @@
 "use client";
 
-// Barre de navigation de l'application équipe, une par rôle (carte des menus validée par Matthieu le 17/10/2026) :
-// les menus les plus utilisés du rôle affiché, puis « Plus ». Menus définis dans src/lib/menusAppli.ts.
-// Libellés courts (champ court, ex. « Matériel » pour Matériel et achats) en 12 px minimum (recherche bonnes
-// pratiques du 17/10 : gants, plein soleil).
-// Sans rôle connu (première ouverture hors ligne), barre minimale : Ma journée, Relevés, Plus.
+// Barre de navigation de l'application équipe (carte des menus validée par Matthieu le 17/10/2026).
+// 17/10, 20 h 17 (choix de Matthieu : « Oui, ces 4 onglets ») : Ma journée · À traiter · Consulter · Créer pour tous
+// les rôles (MENUS[rôle].barre dans src/lib/menusAppli.ts) ; plus d'onglet « Plus » (la déconnexion est sous la
+// pastille du rôle). Un seul onglet actif : le plus précis quand deux correspondent.
+// Libellés courts en 12 px minimum (recherche bonnes pratiques du 17/10 : gants, plein soleil).
+// Sans rôle connu (première ouverture hors ligne), barre minimale : Ma journée, Relevés, Créer.
 // Masquée dans le relevé (/interne/metre/...), qui a ses propres boutons en bas d'écran.
 import { usePathname } from 'next/navigation';
-import { Menu } from 'lucide-react';
+import { BookOpen, ListTodo, PlusCircle } from 'lucide-react';
 import { CYAN, NAVY } from '@/components/charte/couleurs';
-import { ECRANS, MENUS, estActif, libelleBarre } from '@/lib/menusAppli';
+import { ECRANS, MENUS, libelleBarre, precisionActif } from '@/lib/menusAppli';
 import { ICONES } from '@/components/charte/iconesAppli';
 import { useRoleAppli } from '@/components/charte/roleAppli';
+
+// Icônes propres aux onglets de la barre
+const ICONES_BARRE: Record<string, any> = { espace: ListTodo, consulter: BookOpen, creer: PlusCircle };
 
 export default function NavAppli() {
   const chemin = usePathname() || '';
@@ -19,13 +23,17 @@ export default function NavAppli() {
 
   if (chemin.startsWith('/interne/metre')) return null;
 
-  const cles = role ? MENUS[role].barre : ['journee', 'releves'];
+  const cles = role ? MENUS[role].barre : ['journee', 'releves', 'creer'];
   const ecrans = cles.map((c) => ECRANS[c]).filter(Boolean);
-  const unActif = ecrans.some((e) => estActif(e, chemin));
-  const onglets = [
-    ...ecrans.map((e) => ({ cle: e.cle, href: e.href, libelle: libelleBarre(e), Icon: ICONES[e.icone], actif: estActif(e, chemin) })),
-    { cle: 'plus', href: '/interne/plus', libelle: 'Plus', Icon: Menu, actif: chemin.startsWith('/interne/plus') || !unActif },
-  ];
+  const precisions = ecrans.map((e) => precisionActif(e, chemin));
+  const meilleure = Math.max(0, ...precisions);
+  const onglets = ecrans.map((e, i) => ({
+    cle: e.cle,
+    href: e.href,
+    libelle: libelleBarre(e),
+    Icon: ICONES_BARRE[e.cle] || ICONES[e.icone],
+    actif: meilleure > 0 && precisions[i] === meilleure,
+  }));
 
   return (
     <>

@@ -2,38 +2,29 @@
 // 17/10/2026) », validée par Matthieu le 17/10/2026 (10 h 12) avec 2 correctifs :
 //   1. le SAV de l'installateur ne montre que ses tickets, sans Urgences et tri (retiré le 11/10) ;
 //   2. Carte du jour est aussi une pastille d'Interventions.
-// Principe : ClickUp est rangé par service, l'application par travail à faire. Barre du bas : Ma journée, Mon espace,
-// puis « Plus ». Un menu = une liste à traiter, avec ses pastilles (vues ClickUp existantes et leurs compteurs).
+// Principe : ClickUp est rangé par service, l'application par travail à faire. Un menu = une liste à traiter, avec ses
+// pastilles (vues ClickUp existantes et leurs compteurs).
 // court = libellé de barre (1 ou 2 mots) pour ne pas être tronqué en 12 px.
 // pret = écran déjà construit ; sinon l'onglet ouvre /interne/bientot/<clé>, qui affiche ce qui a été validé.
 // Pastille sans href = à brancher quand l'écran du menu sera construit.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit :
 // chaque route contrôle les rôles elle-même.
 // Historique du 17/10/2026 : un espace par rôle validé (Commercial 10 h 44, Chef de chantier 11 h 06, Installateur
-// 11 h 18, Back-office 11 h 28, Direction 11 h 37), barre Ma journée · Mon espace · Plus pour tous ; Nouveau projet
-// (14 h 08) ; écrans qui manquent (14 h 28) ; Visite de maintenance (14 h 50) ; Décomptes (15 h 22) ; en direction plus
-// de raccourcis vers les espaces des rôles (16 h 11) ; Plus sans doublon avec Mon espace (16 h 28) ; Ressources par
-// rôle (17 h 03, /interne/ressources, src/lib/ressources.ts).
-// 17/10/2026, 17 h 24 (choix de Matthieu : « Mon espace en deux parties ») : Mon espace = « À traiter » (les vues avec
-// compteur, src/lib/espaces.ts) puis « À consulter » (MENUS[rôle].consulter : Parc, Ressources, Agenda, Planning
-// selon le rôle). L'onglet Plus ne garde que les créations (CREER : Nouveau projet, Ticket SAV, Idée Kaizen, en
-// attendant le bouton + de l'en-tête, jamais construit) et la déconnexion.
-// 17/10/2026, 17 h 32 (Matthieu : « pourquoi l'installateur a accès au relevé ? ») : Relevés retiré de l'installateur.
-// Le relevé technique est fait par le chef de chantier ; l'installateur pose, il ne fait pas de relevé.
-// 17/10/2026, 18 h 02 (écrans qui manquent) : Parc installé retiré aussi de l'installateur, décision du 11/10 « pas
-// d'accès à la Base de données globale du Parc » ; il garde l'historique de la borne par ses tickets et ses visites.
-// Pastilles de Chantiers branchées (Prêts, En cours, Réserves à lever, Avancement, Carte).
-// 17/10/2026, 18 h 27 (Matthieu : « Oui, fais la carte du SAV ») : Carte du SAV (/interne/carte-sav) dans À consulter du
-// chef de chantier et de la direction.
-// 17/10/2026, 18 h 34 (Matthieu : « le planning c'est pour planifier avec les clients ») : plus de livraisons dans le
-// Planning (retirées, avec la pastille « Planning réceptions ») ; elles restent dans Matériel et achats (suivi
-// logistique, réceptions sous 7 jours). Pastille « Relevés techniques » ajoutée au Planning.
-// 17/10/2026, 18 h 48 (choix de Matthieu : la date de livraison seulement dans Commandes) : Livraisons en retard lue dans
-// Commandes Matériel ; pastille « Achats à valider » pour la dépense.
-// 17/10/2026, 19 h 10 (choix de Matthieu : « Salarié et candidat ») : + Salarié et + Candidat dans Plus du back-office
-// et de la direction ; RH et recrutement = demandes, salariés, candidatures.
-// 17/10/2026, 19 h 25 (Matthieu : voir tous les wikis depuis l'appli) : Wikis (/interne/wiki, src/lib/wikis.ts) dans À
-// consulter de tous les rôles ; chaque écran de liste a son lien « 📖 Mode d'emploi de la liste ».
+// 11 h 18, Back-office 11 h 28, Direction 11 h 37) ; Nouveau projet (14 h 08) ; écrans qui manquent (14 h 28) ; Visite
+// de maintenance (14 h 50) ; Décomptes (15 h 22) ; en direction plus de raccourcis vers les espaces des rôles
+// (16 h 11) ; Ressources par rôle (17 h 03, /interne/ressources, src/lib/ressources.ts).
+// 17 h 24 (choix de Matthieu : « Mon espace en deux parties ») : « À traiter » (les vues avec compteur,
+// src/lib/espaces.ts) puis « À consulter » (MENUS[rôle].consulter) ; Plus = les créations (CREER) et la déconnexion.
+// 17 h 32 : Relevés retiré de l'installateur. 18 h 02 : Parc installé retiré aussi de l'installateur (décision du
+// 11/10 « pas d'accès à la Base de données globale du Parc »). Pastilles de Chantiers branchées.
+// 18 h 27 : Carte du SAV dans À consulter du chef de chantier et de la direction.
+// 18 h 34 : plus de livraisons dans le Planning (elles restent dans Matériel et achats) ; pastille Relevés techniques.
+// 18 h 48 : Livraisons en retard lue dans Commandes Matériel ; pastille « Achats à valider » pour la dépense.
+// 19 h 10 : + Salarié et + Candidat pour le back-office et la direction. 19 h 25 : Wikis pour tous.
+// 17/10/2026, 20 h 17 (choix de Matthieu : « Oui, ces 4 onglets ») : la barre du bas a 4 onglets pour tous les rôles,
+// Ma journée · À traiter (l'ancien Mon espace, sans sa partie À consulter) · Consulter (/interne/consulter,
+// MENUS[rôle].consulter) · Créer (/interne/plus, CREER[rôle]). La déconnexion passe sous la pastille du rôle de
+// l'en-tête (src/components/charte/RoleActif.tsx). + Prospect (19 h 53) et + Tâche (20 h 14) ajoutés à Créer.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -56,7 +47,7 @@ export type Ecran = {
   pret: boolean;
   // Chemins où l'onglet est considéré comme actif
   actif: string[];
-  // Contenu validé (affiché sur l'écran « à construire », dans À consulter et dans Plus)
+  // Contenu validé (affiché sur l'écran « à construire », dans Consulter et dans Créer)
   description: string;
   pastilles?: Pastille[];
   // Pastille ouverte par défaut selon le rôle (Matériel et achats : À commander pour le chef, Livraisons en retard
@@ -74,17 +65,34 @@ const liste = (source: string, vue?: string) => `/interne/liste/${source}${vue ?
 const decomptes = (vue: string) => `/interne/decomptes?vue=${vue}`;
 const chantiersVue = (vue: string) => `/interne/chantiers?vue=${vue}`;
 
-// Espace d'un autre rôle (ouvert par l'adresse ?role= ; plus proposé dans Plus depuis le 17/10, 16 h 11)
+// Espace d'un autre rôle (ouvert par l'adresse ?role= ; plus proposé depuis le 17/10, 16 h 11)
 const espaceDe = (cle: string, role: RoleAppli, libelle: string, icone: CleIcone, description: string): Ecran => ({
   cle, libelle, icone, description, pret: true, href: `/interne/espace?role=${role}`, actif: [],
 });
 
 export const ECRANS: Record<string, Ecran> = {
-  // ── Écrans construits ──
+  // ── Onglets de la barre du bas (20 h 17) ──
   journee: {
     cle: 'journee', libelle: 'Ma journée', href: '/interne/journee', icone: 'journee', pret: true, actif: ['/interne/journee'],
     description: "Ce qui est en retard, puis ce qui est à faire aujourd'hui, selon le rôle",
   },
+  espace: {
+    cle: 'espace', libelle: 'À traiter', href: '/interne/espace', icone: 'pipeline', pret: true,
+    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne/maintenance', '/interne/decomptes', '/interne/pose', '/interne'],
+    description: 'Les vues du rôle avec leurs compteurs, dans l’ordre du travail.',
+  },
+  consulter: {
+    cle: 'consulter', libelle: 'À consulter', court: 'Consulter', href: '/interne/consulter', icone: 'ressources', pret: true,
+    actif: ['/interne/consulter', '/interne/ressources', '/interne/wiki', '/interne/carte-sav'],
+    description: 'Ce qu’on consulte sans compteur : Parc, Ressources, Wikis, cartes et plannings selon le rôle.',
+  },
+  creer: {
+    cle: 'creer', libelle: 'Créer', href: '/interne/plus', icone: 'lead', pret: true,
+    actif: ['/interne/plus', '/interne/creer', '/interne/projet/nouveau', '/interne/prospection/nouveau'],
+    description: 'Tous les boutons + du rôle : projet, prospect, tâche, ticket SAV, salarié, candidat, idée Kaizen.',
+  },
+
+  // ── Écrans construits ──
   pipeline: {
     cle: 'pipeline', libelle: 'Pipeline', href: '/interne/fiches', icone: 'pipeline', pret: true, actif: ['/interne/fiches'],
     description: 'Prospection (Chasse) et Qualification (Études) : appels, visites, devis, gagnées et perdues',
@@ -103,11 +111,6 @@ export const ECRANS: Record<string, Ecran> = {
       { cle: 'perdues', libelle: 'Perdues', groupe: 'Issue' },
       { cle: 'toutes', libelle: 'Toutes', groupe: 'Issue', href: fiches('toutes') },
     ],
-  },
-  espace: {
-    cle: 'espace', libelle: 'Mon espace', href: '/interne/espace', icone: 'pipeline', pret: true,
-    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne/maintenance', '/interne/decomptes', '/interne/ressources', '/interne/pose', '/interne/carte-sav', '/interne/wiki', '/interne'],
-    description: 'À traiter : les vues du rôle avec leurs compteurs. À consulter : Parc, Ressources, Wikis et outils.',
   },
   releves: {
     cle: 'releves', libelle: 'Relevés', href: '/interne', icone: 'releves', pret: true, actif: ['/interne', '/interne/metre'],
@@ -144,7 +147,7 @@ export const ECRANS: Record<string, Ecran> = {
   espacePoseur: espaceDe('espacePoseur', 'poseur', 'Espace installateur', 'interventions', 'Interventions, réception sur place, tickets SAV'),
   espaceBackOffice: espaceDe('espaceBackOffice', 'backOffice', 'Espace back-office', 'facturation', 'Factures, achats, ADVENIR, contrats, décomptes, contacts, RH'),
 
-  // Étapes et actions construites, ouvertes depuis une pastille ou une fiche (plus dans la barre ni dans Plus)
+  // Étapes et actions construites, ouvertes depuis une pastille ou une fiche (plus dans la barre)
   feuVert: { cle: 'feuVert', libelle: 'Feu vert', href: '/interne/feu-vert', icone: 'feuVert', pret: true, actif: ['/interne/feu-vert'], description: 'Pastille de Chantiers : prérequis par chantier et ce qui manque' },
   validation: { cle: 'validation', libelle: 'Réception', href: '/interne/validation', icone: 'validation', pret: true, actif: ['/interne/validation'], description: 'Pastille de Chantiers : fin de travaux, réserves bloquantes ou mineures, passage au Parc' },
   reception: { cle: 'reception', libelle: 'Rapport et signature', href: '/interne/reception', icone: 'reception', pret: true, actif: ['/interne/reception'], description: "Action de la fiche intervention : PV signé, rapport de mesures, photos et réserves, validé par le chef de chantier" },
@@ -209,8 +212,8 @@ export const ECRANS: Record<string, Ecran> = {
   },
 
   // ── Back-office ──
-  facturation: pret('facturation', 'Facturation', 'facturation', liste('factures', 'ouvertes'), 'Factures Clients (Costructor fait référence) : à suivre, en retard, pipeline par statut.', {
-    pastilles: [{ cle: 'retard', libelle: 'En retard J+3 / J+10 / J+15', href: liste('factures', 'retard') }, { cle: 'ouvertes', libelle: 'À suivre', href: liste('factures', 'ouvertes') }],
+  facturation: pret('facturation', 'Facturation', 'facturation', liste('factures', 'ouvertes'), 'Factures Clients (Costructor fait référence) : à relancer, non réglées, pipeline par statut.', {
+    pastilles: [{ cle: 'retard', libelle: 'À relancer (J+3 / J+10 / J+15)', href: liste('factures', 'retard') }, { cle: 'ouvertes', libelle: 'Non réglées', href: liste('factures', 'ouvertes') }],
   }),
   advenir: pret('advenir', 'Aides ADVENIR', 'advenir', liste('advenir'), 'Dossiers Advenir : alertes délais, suivi des dossiers, primes à encaisser.', {
     court: 'ADVENIR',
@@ -244,38 +247,41 @@ export const ECRANS: Record<string, Ecran> = {
     pastilles: [{ cle: 'codir', libelle: 'CODIR', href: liste('codir') }, { cle: 'okr', libelle: 'OKR', href: liste('okr') }, { cle: 'kaizen', libelle: 'Kaizen', href: liste('kaizen') }, { cle: 'todo', libelle: 'To-Do', href: liste('todo') }],
   }),
 
-  // ── Créations (onglet Plus, en attendant le bouton + de l'en-tête) ──
+  // ── Créations (onglet Créer) ──
   lead: {
     cle: 'lead', libelle: 'Nouveau projet', href: '/interne/projet/nouveau', icone: 'lead', pret: true, actif: ['/interne/projet/nouveau'],
-    description: 'Qui appelle (contact existant ou nouveau, avec son rôle), adresse du chantier, contrôle des doublons. Crée la fiche en Qualification.',
+    description: 'Un client avec un RDV ou une demande ferme : qui appelle, adresse du chantier, contrôle des doublons. Crée la fiche Projet en Qualification.',
   },
+  prospect: pret('prospect', 'Prospect', 'contacts', '/interne/prospection/nouveau', 'Un contact à chasser (LinkedIn, apporteur, appel entrant, salon) : type Prospect en Prospection, avec sa source et sa date de rappel. Il devient un projet au RDV.'),
+  tache: pret('tache', 'Tâche', 'pilotage', '/interne/creer/tache', 'Une tâche dans la To-Do : quoi faire, échéance, priorité, pour qui.'),
   ticketSav: pret('ticketSav', 'Ticket SAV', 'sav', '/interne/creer/sav', 'Créer un ticket SAV rattaché à l’installation du Parc : sévérité, type de panne, symptôme.'),
   kaizen: pret('kaizen', 'Idée Kaizen', 'pilotage', '/interne/creer/kaizen', 'Proposer une idée d’amélioration (liste Kaizen).'),
   salarie: pret('salarie', 'Salarié', 'rh', '/interne/creer/salarie', 'Créer la fiche d’un arrivant dans Vie des Salariés : poste, contrat, date d’entrée, habilitations, avec la checklist d’onboarding.'),
   candidat: pret('candidat', 'Candidat', 'rh', '/interne/creer/candidat', 'Saisir un candidat installateur (bouche-à-oreille, salon…) : mêmes champs que le formulaire du site.'),
 };
 
-// Barre du bas (« Plus » est ajouté après), partie « À consulter » de Mon espace, et écrans de l'onglet Plus, par rôle.
-// 17 h 24 : consulter = ce qu'on consulte sans compteur (le référentiel Parc, les Ressources, l'outil d'un autre rôle) ;
-// plus = vide, l'onglet Plus ne montre que les créations (CREER) et la déconnexion.
+// Barre du bas (4 onglets pour tous depuis 20 h 17), onglet Consulter et créations, par rôle.
+// consulter = ce qu'on consulte sans compteur (le référentiel Parc, les Ressources, les Wikis, l'outil d'un autre rôle).
 // 17 h 32 : plus de Relevés pour l'installateur. 18 h 02 : plus de Parc installé pour l'installateur (décision du 11/10).
 // 18 h 27 : Carte du SAV pour le chef de chantier et la direction. 19 h 25 : Wikis pour tous.
+const BARRE = ['journee', 'espace', 'consulter', 'creer'];
 export const MENUS: Record<RoleAppli, { barre: string[]; consulter: string[]; plus: string[] }> = {
-  commercial: { barre: ['journee', 'espace'], consulter: ['ressources', 'wikis'], plus: [] },
-  chargeOperation: { barre: ['journee', 'espace'], consulter: ['agenda', 'carteSav', 'parc', 'ressources', 'wikis'], plus: [] },
-  poseur: { barre: ['journee', 'espace'], consulter: ['ressources', 'wikis'], plus: [] },
-  backOffice: { barre: ['journee', 'espace'], consulter: ['planning', 'parc', 'ressources', 'wikis'], plus: [] },
-  direction: { barre: ['journee', 'espace'], consulter: ['carteSav', 'parc', 'ressources', 'wikis'], plus: [] },
+  commercial: { barre: BARRE, consulter: ['ressources', 'wikis'], plus: [] },
+  chargeOperation: { barre: BARRE, consulter: ['agenda', 'carteSav', 'parc', 'ressources', 'wikis'], plus: [] },
+  poseur: { barre: BARRE, consulter: ['ressources', 'wikis'], plus: [] },
+  backOffice: { barre: BARRE, consulter: ['planning', 'parc', 'ressources', 'wikis'], plus: [] },
+  direction: { barre: BARRE, consulter: ['carteSav', 'parc', 'ressources', 'wikis'], plus: [] },
 };
 
-// Créations possibles par rôle (nouveau projet, ticket SAV, idée Kaizen, salarié, candidat), dans l'onglet Plus.
+// Créations possibles par rôle, dans l'onglet Créer.
 // 19 h 10 : + Salarié et + Candidat pour le back-office et la direction (données RH sensibles).
+// 20 h 17 : + Prospect (commercial, direction) et + Tâche (direction, la To-Do est dans l'espace DIRECTION).
 export const CREER: Record<RoleAppli, string[]> = {
-  commercial: ['lead', 'kaizen'],
+  commercial: ['lead', 'prospect', 'kaizen'],
   chargeOperation: ['ticketSav', 'kaizen'],
   poseur: ['ticketSav', 'kaizen'],
   backOffice: ['ticketSav', 'salarie', 'candidat', 'kaizen'],
-  direction: ['lead', 'ticketSav', 'salarie', 'candidat', 'kaizen'],
+  direction: ['tache', 'lead', 'prospect', 'ticketSav', 'salarie', 'candidat', 'kaizen'],
 };
 
 // Actions de la fiche intervention (installateur), dans l'ordre du parcours
@@ -300,7 +306,16 @@ export function pastillesDe(ecran: Ecran, role: RoleAppli | null): Pastille[] {
   return (ecran.pastilles || []).filter((p) => !p.roles || role === 'direction' || (!!role && p.roles.includes(role)));
 }
 
-// Onglet actif : chemin exact pour /interne (planning terrain), sinon préfixe
+// Chemin correspondant : exact pour /interne (planning terrain), sinon préfixe
+const correspond = (p: string, chemin: string) => (p === '/interne' ? chemin === '/interne' : chemin === p || chemin.startsWith(`${p}/`) || chemin.startsWith(`${p}?`));
+
+// Onglet actif : un de ses chemins correspond
 export function estActif(ecran: Ecran, chemin: string): boolean {
-  return ecran.actif.some((p) => (p === '/interne' ? chemin === '/interne' : chemin === p || chemin.startsWith(`${p}/`) || chemin.startsWith(`${p}?`)));
+  return ecran.actif.some((p) => correspond(p, chemin));
+}
+
+// Longueur du chemin le plus précis qui correspond (0 si aucun) : quand deux onglets correspondent
+// (/interne/prospection/nouveau est dans À traiter et dans Créer), le plus précis gagne
+export function precisionActif(ecran: Ecran, chemin: string): number {
+  return ecran.actif.filter((p) => correspond(p, chemin)).reduce((m, p) => Math.max(m, p.length), 0);
 }
