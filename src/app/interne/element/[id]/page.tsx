@@ -5,6 +5,8 @@
 // un OKR, une idée Kaizen ou une tâche To-Do : statut, échéance, assignés, tous les champs remplis (téléphone, email
 // et liens cliquables, tâches reliées ouvertes dans l'application), description, sous-tâches, pièces jointes et
 // derniers commentaires. Une fiche affaire (Prospection à Parc) bascule sur /interne/fiches/<id>.
+// 17/10, 14 h 50 : une visite de maintenance a le bouton « Faire la visite » (/interne/maintenance/<id>, protocole
+// Sefram MW9665 avec l'adaptateur A1532-XA).
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, CalendarClock, ChevronRight, ExternalLink, MessageSquare, Paperclip, RefreshCw, Tag, User } from 'lucide-react';
@@ -102,6 +104,12 @@ export default function ElementPage() {
               </span>
               {element.tags.map((t) => <span key={t} className="inline-flex items-center gap-1 text-[12px] font-bold text-slate-500"><Tag size={12} /> {t}</span>)}
             </div>
+
+            {element.source === 'maintenance' && (
+              <a href={`/interne/maintenance/${element.id}`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 text-[15px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95">
+                🔧 Faire la visite (MW9665)
+              </a>
+            )}
 
             {(element.echeance || element.debut || element.assignes.length > 0) && (
               <Carte className="space-y-2">
