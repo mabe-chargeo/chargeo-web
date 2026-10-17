@@ -20,6 +20,9 @@
 // direction (données RH sensibles) ; creer = bouton de création en tête de l'écran.
 // 19 h 38 (choix de Matthieu) : la vue « ouvertes » des Factures s'appelle « Non réglées » (à émettre, émise,
 // partiellement payée, en litige) ; « Tous » y ajoute les payées et les annulées.
+// 19 h 42 (choix de Matthieu) : « En retard » des Factures devient « À relancer ». L'échéance de la tâche est la date
+// du rappel de relance (J+3, J+10, J+15, src/lib/controleReglements.ts), le champ 📅 Date d'échéance la date limite de
+// paiement : la carte les étiquette (libelleEcheance = « Relance le », etiquettes = « Paiement dû le »).
 // Fichier pur : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit : les routes
 // /api/interne/listes et /api/interne/elements contrôlent les rôles.
 import { LISTES, FILTRES, type Filtre, type SourceVue } from '@/lib/espaces';
@@ -38,6 +41,10 @@ export type ConfigListe = {
   vues: { cle: string; libelle: string }[];
   // Mots des champs montrés sur la carte (comparés au nom du champ, sans accents)
   champs: string[];
+  // Libellé affiché à la place du nom d'un champ sur la carte (clé = mot de champs)
+  etiquettes?: Record<string, string>;
+  // Libellé devant l'échéance de la tâche sur la carte (Factures : « Relance le »)
+  libelleEcheance?: string;
   // Champs monétaires additionnés en tête de la vue (mot du nom du champ, sans accents)
   totaux?: { mot: string; libelle: string }[];
   // Bouton de création en tête de l'écran
@@ -72,9 +79,12 @@ export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
   },
   factures: {
     titre: 'Factures clients', emoji: '💰', roles: ['backOffice'],
-    vues: [{ cle: 'retard', libelle: 'En retard' }, { cle: 'ouvertes', libelle: 'Non réglées' }], champs: ['type de piece', 'montant ht', 'echeance', 'n costructor'],
+    vues: [{ cle: 'retard', libelle: 'À relancer' }, { cle: 'ouvertes', libelle: 'Non réglées' }],
+    champs: ['type de piece', 'montant ht', "date d'echeance", 'facture costructor'],
+    etiquettes: { "date d'echeance": 'Paiement dû le' },
+    libelleEcheance: 'Relance le',
     totaux: [{ mot: 'montant ht', libelle: 'Montant HT' }],
-    note: 'Costructor fait référence pour les montants et les règlements. Non réglées : à émettre, émises, partiellement payées ou en litige ; Tous ajoute les payées et les annulées.',
+    note: 'Costructor fait référence pour les montants et les règlements. À relancer : la date de relance (J+3, J+10, J+15) est arrivée, le règlement est revérifié dans Costructor chaque matin. Non réglées : à émettre, émises, partiellement payées ou en litige ; Tous ajoute les payées et les annulées.',
   },
   achats: {
     titre: 'Achats fournisseurs', emoji: '🧾', roles: ['backOffice', 'chargeOperation'],

@@ -11,6 +11,7 @@
 // sans montant.
 // 17/10, 19 h 10 : bouton de création en tête quand la liste en a un (+ Salarié, + Candidat).
 // 17/10, 19 h 25 : lien « 📖 Mode d'emploi de la liste » vers son wiki, lu dans l'application (/interne/wiki/<clé>).
+// 17/10, 19 h 42 : l'échéance de la carte a son libellé quand la liste en donne un (Factures : « Relance le »).
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, BadgeEuro, BookOpen, CalendarClock, ChevronRight, ExternalLink, RefreshCw, Search, User } from 'lucide-react';
@@ -24,7 +25,7 @@ type Element = {
 };
 type Liste = {
   source: string; titre: string; emoji: string; note: string; vues: { cle: string; libelle: string }[]; totaux?: string[];
-  creer?: { libelle: string; href: string } | null; restreint: boolean; elements: Element[]; url: string;
+  creer?: { libelle: string; href: string } | null; libelleEcheance?: string; restreint: boolean; elements: Element[]; url: string;
 };
 
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -173,7 +174,7 @@ export default function ListePage() {
                   <p key={c.nom} className="mt-1 truncate text-[13px]"><span className="text-slate-500">{sansEmoji(c.nom)} : </span><span className="font-semibold">{c.texte}</span></p>
                 ))}
                 <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[13px] font-semibold">
-                  {e.echeance && <span className="flex items-center gap-1"><CalendarClock size={14} color={CYAN} /> {e.echeance}</span>}
+                  {e.echeance && <span className="flex items-center gap-1"><CalendarClock size={14} color={CYAN} /> {liste?.libelleEcheance ? `${liste.libelleEcheance} ` : ''}{e.echeance}</span>}
                   {e.assignes.length > 0 && <span className="flex items-center gap-1"><User size={14} color={CYAN} /> {e.assignes.join(', ')}</span>}
                 </div>
               </div>

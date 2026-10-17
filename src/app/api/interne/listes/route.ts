@@ -12,6 +12,8 @@ import { champsCles, dateCourte, estAMoiPartout } from '@/lib/champsGeneriques';
 // 17/10, 19 h 00 : montants = valeurs des champs monétaires de config.totaux (null si vide), que l'écran additionne
 // pour la vue affichée (trésorerie ADVENIR, factures, achats).
 // 17/10, 19 h 10 : creer = bouton de création de la liste (+ Salarié, + Candidat).
+// 17/10, 19 h 42 : config.etiquettes renomme un champ sur la carte (Factures : Date d'échéance → « Paiement dû le ») et
+// libelleEcheance précède l'échéance de la tâche (Factures : « Relance le »).
 // Droits : src/lib/listesAppli.ts (la direction lit tout). L'installateur ne reçoit que ses tâches.
 // Les listes sont lues pour de vrai en preview aussi (lecture seule), comme les autres écrans hors Qualification.
 
@@ -60,6 +62,13 @@ export async function GET(request: Request) {
     if (!peutLire(source, roles)) return json({ error: 'Cette liste n’est pas dans ton rôle.' }, 403);
     const config = CONFIG_LISTES[source];
     const totaux = config.totaux || [];
+    const etiquettes = config.etiquettes || {};
+    // Nom affiché d'un champ : l'étiquette du premier mot de config.champs qu'il contient, sinon son nom ClickUp
+    const nomAffiche = (nom: string) => {
+      const n = normal(nom);
+      const mot = Object.keys(etiquettes).find((m) => n.includes(normal(m)));
+      return mot ? etiquettes[mot] : nom;
+    };
     const moi = Number(session.id);
     const aujourdhui = aujourdhuiParis();
     const restreint = seulementMoi(source, roles);
@@ -76,7 +85,7 @@ export async function GET(request: Request) {
       echeance: dateCourte(t?.due_date),
       echeanceMs: Number(t?.due_date) || null,
       assignes: (Array.isArray(t?.assignees) ? t.assignees : []).map((u: any) => String(u?.username || u?.email || '')).filter(Boolean),
-      champs: champsCles(t, config.champs).map((c) => ({ nom: c.nom, texte: c.texte })),
+      champs: champsCles(t, config.champs).map((c) => ({ nom: nomAffiche(c.nom), texte: c.texte })),
       montants: totaux.map((x) => montantDe(t, x.mot)),
       vues: config.vues.filter((v) => { const f = filtreDe(source, v.cle); return !!f && f(t, aujourdhui, moi); }).map((v) => v.cle),
       aMoi: estAMoiPartout(t, moi),
@@ -91,6 +100,7 @@ export async function GET(request: Request) {
       vues: config.vues,
       totaux: totaux.map((x) => x.libelle),
       creer: config.creer || null,
+      libelleEcheance: config.libelleEcheance || '',
       restreint,
       elements,
       url: `https://app.clickup.com/${process.env.CLICKUP_TEAM_ID?.trim() || '90151325642'}/v/li/${idListe(source)}`,
