@@ -8,6 +8,8 @@
 // 17/10, 20 h 59 (Matthieu : « comment je fais pour caler un rendez-vous si je n'ai pas de vue sur le planning ? ») :
 // le chef d'abord, puis les jours avec sa charge (libre, 1 RDV, chantier…), puis sa journée (heure, type, nom, ville :
 // pour regrouper les visites d'un même secteur) et les créneaux, grisés quand un rendez-vous est à moins d'1 h 30.
+// 17/10, 21 h 16 : + le Google Agenda du chef (créneaux occupés, sans détail). Un créneau d'1 h est grisé s'il
+// chevauche un événement de l'agenda, avec 30 min de marge pour la route. Le RDV calé part dans l'agenda du chef.
 // Écrit par /api/interne/caler. Ouvert depuis « Visites à caler » et depuis la fiche affaire.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
@@ -20,9 +22,16 @@ type Chef = { id: number; nom: string };
 type Email = { a: string; sujet: string; texte: string; signature?: string };
 type Cale = { quand: string; chef: string; lienFiche: string };
 type Occupation = { jour: string; minutes: number | null; type: 'pose' | 'visite' | 'depannage' | 'releve'; nom: string; ville: string; techniciens: number[] };
+type CreneauAgenda = { chefId: number; jour: string; debut: number; fin: number; journee: boolean };
+type Agenda = { branche: boolean; creneaux: CreneauAgenda[]; erreurs: string[] };
+type StatutAgenda = 'cree' | 'deplace' | 'non-branche' | 'sans-chef' | 'erreur';
+type Ligne = { cle: string; tri: number; heure: string; titre: string; detail: string; ville: string; memeVille: boolean };
 
 const CRENEAUX = ['08:00', '09:00', '10:00', '11:00', '13:30', '14:30', '15:30', '16:30'];
 const ECART_MINUTES = 90;
+const DUREE_RELEVE = 60;
+const MARGE_ROUTE = 30;
+const VERT = '#16a34a';
 const TYPES: Record<Occupation['type'], string> = { pose: '🏗️ Pose', visite: '🔧 Maintenance', depannage: '🚨 Dépannage', releve: '📋 Relevé' };
 const jourIso = (decalage: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + decalage * 86400000));
 const libelleJour = (iso: string) => {
@@ -51,6 +60,7 @@ export default function CalerPage() {
   const [chefs, setChefs] = useState<Chef[]>([]);
   const [occupations, setOccupations] = useState<Occupation[]>([]);
   const [planningIncomplet, setPlanningIncomplet] = useState(false);
+  const [agenda, setAgenda] = useState<Agenda>({ branche: false, creneaux: [], erreurs: [] });
   const [preview, setPreview] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [date, setDate] = useState('');
@@ -64,6 +74,7 @@ export default function CalerPage() {
   const [dejaCale, setDejaCale] = useState<{ cale: Cale; email: Email } | null>(null);
   const [renvoi, setRenvoi] = useState(false);
   const [chefOk, setChefOk] = useState(true);
+  const [statutAgenda, setStatutAgenda] = useState<{ statut: StatutAgenda; erreur: string }>({ statut: 'non-branche', erreur: '' });
   const [copie, setCopie] = useState(false);
   const jours = prochainsJours();
 
@@ -80,6 +91,7 @@ export default function CalerPage() {
           setChefs(data.chefs || []);
           setOccupations(data.occupations || []);
           setPlanningIncomplet(!!data.planningIncomplet);
+          if (data.agenda) setAgenda({ branche: !!data.agenda.branche, creneaux: data.agenda.creneaux || [], erreurs: data.agenda.erreurs || [] });
           setPreview(!!data.preview);
           setChefId(data.chefAssigne || (data.chefs?.length === 1 ? data.chefs[0].id : null));
           if (data.cale && data.emailConfirmation) {
@@ -93,19 +105,35 @@ export default function CalerPage() {
     })();
   }, [id]);
 
-  // Planning du chef choisi
+  // Planning du chef choisi : ERP + Google Agenda
   const duChef = chefId === null ? [] : occupations.filter((o) => o.techniciens.includes(chefId));
   const duJour = (j: string) => duChef.filter((o) => o.jour === j);
+  const agendaDuJour = (j: string) => (chefId === null ? [] : agenda.creneaux.filter((c) => c.chefId === chefId && c.jour === j));
   const journee = date ? duJour(date) : [];
+  const agendaJour = date ? agendaDuJour(date) : [];
   const chantierSansHeure = journee.some((o) => o.type === 'pose' && o.minutes === null);
-  const pris = (h: string) => journee.some((o) => o.minutes !== null && Math.abs(o.minutes - enMinutes(h)) < ECART_MINUTES);
-  const memeVille = (o: Occupation) => !!fiche?.ville && normal(o.ville) === normal(fiche.ville);
+  const agendaJourneeEntiere = agendaJour.some((c) => c.journee);
+  const pris = (h: string) => {
+    const m = enMinutes(h);
+    return (
+      journee.some((o) => o.minutes !== null && Math.abs(o.minutes - m) < ECART_MINUTES) ||
+      agendaJour.some((c) => !c.journee && m < c.fin + MARGE_ROUTE && m + DUREE_RELEVE > c.debut - MARGE_ROUTE)
+    );
+  };
+  const memeVille = (ville: string) => !!fiche?.ville && !!ville && normal(ville) === normal(fiche.ville);
   const charge = (j: string) => {
     const l = duJour(j);
-    if (!l.length) return { texte: 'libre', alerte: false };
+    const g = agendaDuJour(j);
     if (l.some((o) => o.type === 'pose')) return { texte: 'chantier', alerte: true };
-    return { texte: `${l.length} RDV`, alerte: false };
+    if (g.some((c) => c.journee)) return { texte: 'agenda : journée', alerte: true };
+    const n = l.length + g.length;
+    if (!n) return { texte: 'libre', alerte: false };
+    return { texte: `${n} RDV`, alerte: false };
   };
+  const lignes: Ligne[] = journee
+    .map((o, i) => ({ cle: `e${i}`, tri: o.minutes === null ? -1 : o.minutes, heure: o.minutes === null ? 'journée' : heureDe(o.minutes), titre: TYPES[o.type], detail: o.nom, ville: o.ville, memeVille: memeVille(o.ville) }))
+    .concat(agendaJour.map((c, i) => ({ cle: `g${i}`, tri: c.journee ? -1 : c.debut, heure: c.journee ? 'journée' : heureDe(c.debut), titre: '📆 Agenda Google', detail: c.journee ? 'occupé toute la journée' : `occupé jusqu’à ${heureDe(c.fin)}`, ville: '', memeVille: false })))
+    .sort((a, b) => a.tri - b.tri);
 
   const pret = !!date && /^\d{2}:\d{2}$/.test(heure) && (chefs.length === 0 || chefId !== null);
   const envoyer = async () => {
@@ -120,7 +148,13 @@ export default function CalerPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) setErreur(data?.error || `Enregistrement impossible (${res.status})`);
-      else { setCale(data.cale); setEmail(data.emailConfirmation); setChefOk(data.chefOk !== false); setPreview(!!data.preview); }
+      else {
+        setCale(data.cale);
+        setEmail(data.emailConfirmation);
+        setChefOk(data.chefOk !== false);
+        setStatutAgenda({ statut: (data.agenda as StatutAgenda) || 'non-branche', erreur: String(data.agendaErreur || '') });
+        setPreview(!!data.preview);
+      }
     } catch {
       setErreur('Impossible de joindre le serveur. Rien n’a été enregistré.');
     } finally {
@@ -146,16 +180,24 @@ export default function CalerPage() {
     const copier = async () => {
       try { await navigator.clipboard.writeText(`${e.sujet}\n\n${e.texte}${e.signature ? `\n${e.signature}` : ''}`); setCopie(true); } catch { setCopie(false); }
     };
+    const s = statutAgenda.statut;
     return (
       <PageAppli>
         <EnTeteAppli surtitre="Relevé technique" titre={titre} retour={{ href: c.lienFiche, libelle: 'Fiche' }} />
         <ContenuAppli className="space-y-4">
           {preview && !renvoyee && <Alerte>Preview : seule la fiche « Test · … » a été modifiée.</Alerte>}
           {!renvoyee && !chefOk && <Alerte>La date est enregistrée, mais le chef de chantier n’a pas pu être assigné à la fiche.</Alerte>}
+          {!renvoyee && s === 'erreur' && <Alerte>La date est enregistrée, mais l’agenda Google du chef n’a pas pu être mis à jour : {statutAgenda.erreur}</Alerte>}
+          {!renvoyee && s === 'sans-chef' && <Alerte>La date est enregistrée, mais aucun agenda Google n’a été mis à jour (chef sans email dans ClickUp).</Alerte>}
           <Carte accent>
             <p className="text-[18px] font-bold">{fiche?.nom}</p>
             <p className="mt-1 flex items-center gap-1.5 text-[15px] font-bold" style={{ color: CYAN }}><CalendarCheck size={16} /> {c.quand}</p>
             {c.chef && <p className="mt-1 text-[14px]">Avec {c.chef}.{renvoyee ? '' : ' Il le voit dans ses Relevés planifiés.'}</p>}
+            {!renvoyee && (s === 'cree' || s === 'deplace') && (
+              <p className="mt-1 flex items-center gap-1.5 text-[14px] font-semibold" style={{ color: VERT }}>
+                <Check size={15} /> {s === 'cree' ? 'Ajouté à son agenda Google.' : 'Déplacé dans son agenda Google.'}
+              </p>
+            )}
           </Carte>
 
           <Repere>Email de confirmation</Repere>
@@ -215,6 +257,10 @@ export default function CalerPage() {
             ) : (
               <p className="px-1 text-[13px]">Aucun chef de chantier trouvé dans les équipes ClickUp : la date sera calée sans assignation, et sans planning.</p>
             )}
+            {agenda.branche
+              ? <p className="px-1 text-[12px] font-semibold" style={{ color: VERT }}>✓ Planning de l’ERP + Google Agenda du chef</p>
+              : <p className="px-1 text-[12px]" style={{ color: ORANGE }}>Google Agenda pas encore branché : seul le planning de l’ERP est affiché, vérifie l’agenda du chef.</p>}
+            {agenda.erreurs.map((x) => <p key={x} className="px-1 text-[12px]" style={{ color: ORANGE }}>{x}</p>)}
             {planningIncomplet && <p className="px-1 text-[12px]" style={{ color: ORANGE }}>Une partie du planning n’a pas pu être lue : vérifie avec le chef avant de confirmer.</p>}
 
             <Repere>2 · Le jour</Repere>
@@ -231,7 +277,7 @@ export default function CalerPage() {
                   >
                     <span className="block text-[14px] font-bold">{libelleJour(j)}</span>
                     {chefId !== null && (
-                      <span className="block text-[12px] font-semibold" style={actif ? undefined : { color: c.alerte ? ORANGE : c.texte === 'libre' ? '#16a34a' : CYAN }}>{c.texte}</span>
+                      <span className="block text-[12px] font-semibold" style={actif ? undefined : { color: c.alerte ? ORANGE : c.texte === 'libre' ? VERT : CYAN }}>{c.texte}</span>
                     )}
                   </button>
                 );
@@ -242,19 +288,24 @@ export default function CalerPage() {
             {date && chefId !== null && (
               <Carte className="space-y-2">
                 <p className="text-[13px] font-bold text-slate-500">Journée du chef, {libelleJour(date)}</p>
-                {!journee.length && <p className="text-[14px] font-semibold" style={{ color: '#16a34a' }}>Rien de prévu ce jour-là.</p>}
-                {journee.map((o, i) => (
-                  <p key={`${o.nom}-${i}`} className="flex items-start gap-2 text-[14px]">
-                    <span className="w-[52px] shrink-0 font-bold">{o.minutes === null ? 'journée' : heureDe(o.minutes)}</span>
+                {!lignes.length && <p className="text-[14px] font-semibold" style={{ color: VERT }}>Rien de prévu ce jour-là.</p>}
+                {lignes.map((l) => (
+                  <p key={l.cle} className="flex items-start gap-2 text-[14px]">
+                    <span className="w-[52px] shrink-0 font-bold">{l.heure}</span>
                     <span className="min-w-0">
-                      <span className="font-semibold">{TYPES[o.type]}</span> · {o.nom}
-                      {o.ville && <span className="font-semibold" style={{ color: memeVille(o) ? '#16a34a' : undefined }}> · {o.ville}{memeVille(o) ? ' (même ville)' : ''}</span>}
+                      <span className="font-semibold">{l.titre}</span> · {l.detail}
+                      {l.ville && <span className="font-semibold" style={{ color: l.memeVille ? VERT : undefined }}> · {l.ville}{l.memeVille ? ' (même ville)' : ''}</span>}
                     </span>
                   </p>
                 ))}
                 {chantierSansHeure && (
                   <p className="flex items-center gap-1.5 text-[13px] font-bold" style={{ color: ORANGE }}>
                     <AlertTriangle size={15} /> Chantier prévu ce jour-là sans heure : sans doute la journée entière, vérifie avec le chef.
+                  </p>
+                )}
+                {agendaJourneeEntiere && (
+                  <p className="flex items-center gap-1.5 text-[13px] font-bold" style={{ color: ORANGE }}>
+                    <AlertTriangle size={15} /> Événement sur toute la journée dans son agenda (congé, formation…) : vérifie avec le chef.
                   </p>
                 )}
               </Carte>
@@ -271,7 +322,7 @@ export default function CalerPage() {
                     onClick={() => setHeure(h)}
                     className={`rounded-full px-4 py-2 text-[14px] font-bold ${actif ? 'text-white' : occupe ? 'bg-[#eef1f4] text-slate-400 line-through' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'}`}
                     style={actif ? { backgroundColor: occupe ? ORANGE : CYAN } : undefined}
-                    title={occupe ? 'Le chef a déjà un rendez-vous à moins d’1 h 30' : undefined}
+                    title={occupe ? 'Le chef est déjà pris autour de ce créneau' : undefined}
                   >
                     {h.replace(':', 'h')}
                   </button>
@@ -281,7 +332,7 @@ export default function CalerPage() {
             <input type="time" className={CHAMP} value={heure} step={900} onChange={(e) => setHeure(e.target.value)} />
             {heure && pris(heure) && (
               <p className="flex items-center gap-1.5 px-1 text-[13px] font-bold" style={{ color: ORANGE }}>
-                <AlertTriangle size={15} /> Le chef a déjà un rendez-vous à moins d’1 h 30 de ce créneau.
+                <AlertTriangle size={15} /> Le chef est déjà pris autour de ce créneau (rendez-vous ou agenda).
               </p>
             )}
 
@@ -294,7 +345,7 @@ export default function CalerPage() {
               {envoi ? <RefreshCw size={20} className="animate-spin" /> : <CalendarCheck size={20} />}
               {fiche.dejaCale ? 'Décaler le relevé' : 'Caler le relevé'}
             </BoutonPrincipal>
-            <p className="text-center text-[12px] text-slate-500">Ensuite, l’email de confirmation au client est prêt à envoyer.</p>
+            <p className="text-center text-[12px] text-slate-500">Ensuite, le RDV part dans l’agenda du chef et l’email de confirmation au client est prêt à envoyer.</p>
           </>
         )}
       </ContenuAppli>
