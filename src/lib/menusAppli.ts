@@ -35,6 +35,8 @@
 // à valider, envoyés, fiches à compléter.
 // 17/10/2026, 16 h 11 (Matthieu) : en direction, plus de raccourcis vers les espaces des rôles (ni dans Plus, ni dans
 // Mon espace) : Mon espace montre directement tous les écrans dans l'ordre du parcours.
+// 17/10/2026, 16 h 28 (Matthieu : « il y a des doublons entre l'onglet Mon espace et l'onglet Plus ») : règle, Plus ne
+// contient que ce qui n'est pas déjà dans Mon espace du rôle (src/lib/espaces.ts).
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -230,13 +232,14 @@ export const ECRANS: Record<string, Ecran> = {
 };
 
 // Barre du bas (4 onglets au plus, « Plus » est ajouté après) et contenu de « Plus », par rôle (section 4 de la carte)
+// 16 h 28 : Plus = seulement ce qui n'est pas déjà dans Mon espace du rôle (Agenda, Planning, Décomptes, Relevés retirés
+// là où ils faisaient doublon). Parc complet et Ressources restent : Mon espace n'en montre qu'une vue (contrats) ou rien.
 export const MENUS: Record<RoleAppli, { barre: string[]; plus: string[] }> = {
-  commercial: { barre: ['journee', 'espace'], plus: ['agenda', 'ressources'] },
-  chargeOperation: { barre: ['journee', 'espace'], plus: ['planning', 'agenda', 'parc'] },
+  commercial: { barre: ['journee', 'espace'], plus: ['ressources'] },
+  chargeOperation: { barre: ['journee', 'espace'], plus: ['agenda', 'parc'] },
   poseur: { barre: ['journee', 'espace'], plus: ['releves', 'parc'] },
-  backOffice: { barre: ['journee', 'espace'], plus: ['decomptes', 'planning', 'parc'] },
-  // Direction (16 h 11) : plus de raccourcis vers les espaces des rôles ; Mon espace montre tous les écrans
-  direction: { barre: ['journee', 'espace'], plus: ['releves', 'planning', 'agenda', 'parc', 'decomptes', 'ressources'] },
+  backOffice: { barre: ['journee', 'espace'], plus: ['planning', 'parc'] },
+  direction: { barre: ['journee', 'espace'], plus: ['parc', 'ressources'] },
 };
 
 // Bouton + du cadre : créations possibles par rôle (nouveau projet, ticket SAV, idée Kaizen)
