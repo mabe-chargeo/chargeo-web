@@ -1,20 +1,20 @@
 import { createSign } from 'crypto';
 
-// Google Agenda des chefs de chantier (17/10/2026, 21 h 16, Matthieu : « il va falloir caler avec le Google agenda de
-// toute façon pour être sûr de ne pas avoir de conflit »). Compte de service Google Workspace (Business Standard) avec
-// délégation au niveau du domaine : le site agit au nom du chef.
+// Google Agenda des chefs de chantier et des installateurs (17/10/2026, 21 h 16, Matthieu : « il va falloir caler avec
+// le Google agenda de toute façon pour être sûr de ne pas avoir de conflit »). Compte de service Google Workspace
+// (Business Standard) avec délégation au niveau du domaine : le site agit au nom de la personne.
 // Configuration Vercel : GOOGLE_SERVICE_ACCOUNT_JSON = contenu entier du fichier de clé JSON du compte de service.
 // Délégation (admin.google.com, client 115771874577305581781) :
-// - https://www.googleapis.com/auth/calendar.events : lire les événements, créer et déplacer le relevé ;
-// - https://www.googleapis.com/auth/calendar.calendarlist.readonly : liste des agendas affichés du chef (17/10, 22 h 01,
-//   choix de Matthieu « lis tous ses agendas affichés » : Perso, agendas importés…). Sans cette autorisation, repli
-//   sur l'agenda principal seul, signalé.
-// Sans la variable : « non branché », l'écran Caler montre seulement le planning de l'ERP.
+// - https://www.googleapis.com/auth/calendar.events : lire les événements, créer et déplacer les rendez-vous ;
+// - https://www.googleapis.com/auth/calendar.calendarlist.readonly : liste des agendas affichés (17/10, 22 h 01, choix de
+//   Matthieu « lis tous ses agendas affichés »). Sans cette autorisation, repli sur l'agenda principal seul, signalé.
+// Sans la variable : « non branché », les écrans montrent seulement le planning de l'ERP.
 // Lecture : horaires des événements seulement (ni titre ni lieu : l'agenda perso reste privé). Ignorés : annulés,
-// « disponible », refusés, lieux de travail, nos propres relevés (déjà dans le planning ERP), agendas de jours fériés,
-// anniversaires et météo. Un agenda secondaire illisible est sauté (signalé), l'agenda principal doit être lisible.
-// Écriture : un événement par fiche dans l'agenda principal, d'identifiant fixe (« releve » + id de la fiche en
-// hexadécimal) : créé, puis déplacé au décalage, retiré de l'agenda d'un autre chef si le chef change.
+// « disponible », refusés, lieux de travail, nos propres rendez-vous (« releve… », « pose… », déjà dans le planning ERP),
+// agendas de jours fériés, anniversaires et météo. Un agenda secondaire illisible est sauté (signalé).
+// Écriture : dans l'agenda principal, identifiant fixe (préfixe + id de la fiche en hexadécimal, + « j<n> » par jour
+// pour une pose sur plusieurs jours) : créé, déplacé au décalage, retiré de l'agenda d'une personne qui n'y est plus.
+// 17/10, 22 h 49 : poserEvenement / retirerEvenement génériques pour les poses (src/app/api/interne/planifier).
 // Gratuit (doc Google « Usage limits », 11/09/2026) : 10 000 requêtes par minute par projet, 600 par utilisateur.
 
 const SCOPE_EVENEMENTS = 'https://www.googleapis.com/auth/calendar.events';
@@ -23,6 +23,7 @@ const RACINE = 'https://www.googleapis.com/calendar/v3';
 const API = `${RACINE}/calendars/primary/events`;
 const PAGES_MAX = 4;
 const AGENDAS_MAX = 12;
+const NOS_PREFIXES = ['releve', 'pose'];
 
 function compte(): { email: string; cle: string } | null {
   const brut = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
@@ -67,7 +68,9 @@ async function jetonPour(sujet: string, scopes: string[] = [SCOPE_EVENEMENTS]): 
   return String(j.access_token);
 }
 
-export const idEvenementReleve = (ficheId: string) => `releve${Buffer.from(String(ficheId)).toString('hex')}`;
+// Identifiant d'événement (caractères a à v et 0 à 9 seulement, exigés par Google)
+export const idEvenement = (prefixe: string, ficheId: string, n = 0) => `${prefixe}${Buffer.from(String(ficheId)).toString('hex')}${n ? `j${n}` : ''}`;
+export const idEvenementReleve = (ficheId: string) => idEvenement('releve', ficheId);
 
 // Jour (AAAA-MM-JJ) et minutes depuis minuit, heure de Paris
 function paris(ms: number): { jour: string; minutes: number } {
@@ -121,7 +124,8 @@ async function lireUnAgenda(jeton: string, agendaId: string, depuis: Date, jusqu
     if (!r.ok) throw new Error(`lecture refusée par Google (${j?.error?.message || r.status})`);
     for (const e of Array.isArray(j?.items) ? j.items : []) {
       if (e?.status === 'cancelled' || e?.transparency === 'transparent' || e?.eventType === 'workingLocation') continue;
-      if (String(e?.id || '').startsWith('releve')) continue;
+      const id = String(e?.id || '');
+      if (NOS_PREFIXES.some((p) => id.startsWith(p))) continue;
       const moi = (Array.isArray(e?.attendees) ? e.attendees : []).find((a: any) => a?.self);
       if (moi?.responseStatus === 'declined') continue;
       if (e?.start?.date) {
@@ -170,16 +174,15 @@ export async function occupationsAgenda(email: string, depuis: Date, jusque: Dat
   return { creneaux, agendas: ids.length - sautes, listeComplete: complet, sautes };
 }
 
-// Crée (ou déplace) le relevé dans l'agenda principal du chef
-export async function poserReleve(email: string, ficheId: string, e: { debutMs: number; dureeMin: number; titre: string; lieu: string; description: string }): Promise<'cree' | 'deplace'> {
+// Crée (ou déplace et réactive) un événement d'identifiant fixe dans l'agenda principal de la personne
+export async function poserEvenement(email: string, id: string, e: { debutMs: number; finMs: number; titre: string; lieu: string; description: string }): Promise<'cree' | 'deplace'> {
   const jeton = await jetonPour(email);
-  const id = idEvenementReleve(ficheId);
   const corps = {
     summary: e.titre,
     location: e.lieu || undefined,
     description: e.description,
     start: { dateTime: new Date(e.debutMs).toISOString(), timeZone: 'Europe/Paris' },
-    end: { dateTime: new Date(e.debutMs + e.dureeMin * 60000).toISOString(), timeZone: 'Europe/Paris' },
+    end: { dateTime: new Date(e.finMs).toISOString(), timeZone: 'Europe/Paris' },
     status: 'confirmed',
   };
   const entetes = { Authorization: `Bearer ${jeton}`, 'Content-Type': 'application/json' };
@@ -189,7 +192,6 @@ export async function poserReleve(email: string, ficheId: string, e: { debutMs: 
     const j = await r.json().catch(() => ({}));
     throw new Error(`événement refusé par Google (${j?.error?.message || r.status})`);
   }
-  // Déjà là (ou annulé avant) : on le déplace et on le réactive
   const p = await fetch(`${API}/${id}`, { method: 'PATCH', headers: entetes, body: JSON.stringify(corps), cache: 'no-store' });
   if (!p.ok) {
     const j = await p.json().catch(() => ({}));
@@ -198,9 +200,17 @@ export async function poserReleve(email: string, ficheId: string, e: { debutMs: 
   return 'deplace';
 }
 
-// Retire le relevé de l'agenda d'une personne (absent : rien à faire)
-export async function retirerReleve(email: string, ficheId: string): Promise<void> {
+// Retire un événement de l'agenda d'une personne (absent : rien à faire)
+export async function retirerEvenement(email: string, id: string): Promise<void> {
   const jeton = await jetonPour(email);
-  const r = await fetch(`${API}/${idEvenementReleve(ficheId)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${jeton}` }, cache: 'no-store' });
+  const r = await fetch(`${API}/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${jeton}` }, cache: 'no-store' });
   if (!r.ok && r.status !== 404 && r.status !== 410) throw new Error(`suppression refusée par Google (${r.status})`);
+}
+
+// Relevé technique (écran Caler) : 1 événement par fiche
+export async function poserReleve(email: string, ficheId: string, e: { debutMs: number; dureeMin: number; titre: string; lieu: string; description: string }): Promise<'cree' | 'deplace'> {
+  return poserEvenement(email, idEvenementReleve(ficheId), { debutMs: e.debutMs, finMs: e.debutMs + e.dureeMin * 60000, titre: e.titre, lieu: e.lieu, description: e.description });
+}
+export async function retirerReleve(email: string, ficheId: string): Promise<void> {
+  return retirerEvenement(email, idEvenementReleve(ficheId));
 }

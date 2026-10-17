@@ -3,18 +3,22 @@
 // Agenda de la semaine pour caler un rendez-vous (17/10/2026, 22 h 42, Matthieu : « est-ce qu'il ne serait pas possible
 // de faire une interface plutôt avec un tableau, un vrai agenda avec les créneaux, les jours, et on clique sur un
 // créneau libre pour le placer »). Lundi à vendredi en colonnes, 8 h à 18 h en lignes de 30 min.
-// - blocs : ce qui occupe déjà la personne (rendez-vous de l'ERP avec type, nom et ville ; agenda Google « Occupé »).
+// - blocs : ce qui occupe déjà les personnes (rendez-vous de l'ERP avec type, nom et ville ; agenda Google « Occupé »).
 //   « proche » = même ville que le rendez-vous à caler (vert), pour regrouper une tournée.
 // - journees : événements sur toute la journée (chantier sans heure, congé, garde…) : bandeau orange en tête de
 //   colonne, sans bloquer les créneaux (décision de Matthieu du 17/10, 22 h 18).
-// - Un créneau est libre si le rendez-vous (duree) tient sans chevaucher un bloc, marge de route comprise, et n'est pas
-//   déjà passé. Cliquer un créneau libre le choisit (bloc turquoise de la durée du rendez-vous).
-// Composant d'affichage, sans lecture réseau : réutilisable pour caler les chantiers et les interventions.
+// - Un créneau est libre si le rendez-vous tient sans chevaucher un bloc, marge de route comprise, et n'est pas déjà
+//   passé. Cliquer un créneau libre le choisit (blocs turquoise).
+// 17/10, 22 h 49 (poses) : departs = heures de départ possibles (8 h et 13 h 30 pour une pose) ; segments = ce que
+// le rendez-vous occupe s'il part de ce créneau (plusieurs demi-journées, sur plusieurs jours). Par défaut, un
+// rendez-vous de « duree » minutes à chaque demi-heure.
+// Composant d'affichage, sans lecture réseau.
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 
 export type BlocAgenda = { jour: string; debut: number; fin: number; titre: string; detail?: string; ton: 'erp' | 'agenda' | 'proche' };
 export type JourneeAgenda = { jour: string; titre: string };
+type Seg = { jour: string; debut: number; fin: number };
 
 const DEBUT = 8 * 60;
 const FIN = 18 * 60;
@@ -59,6 +63,8 @@ export default function AgendaSemaine({
   semaine,
   onSemaine,
   semainesMax = 3,
+  departs,
+  segments,
 }: {
   blocs: BlocAgenda[];
   journees: JourneeAgenda[];
@@ -69,6 +75,8 @@ export default function AgendaSemaine({
   semaine: number;
   onSemaine: (n: number) => void;
   semainesMax?: number;
+  departs?: number[];
+  segments?: (jour: string, minutes: number) => Seg[];
 }) {
   const debutSemaine = lundi(semaine);
   const jours = [0, 1, 2, 3, 4].map((i) => decaler(debutSemaine, i));
@@ -76,14 +84,18 @@ export default function AgendaSemaine({
   const lignes: number[] = [];
   for (let m = DEBUT; m < FIN; m += PAS) lignes.push(m);
   const hauteur = lignes.length * HAUTEUR;
+  const segs = (jour: string, m: number): Seg[] => (segments ? segments(jour, m) : [{ jour, debut: m, fin: m + duree }]);
+  const starts = departs && departs.length ? departs : lignes;
 
   const libre = (jour: string, m: number) => {
-    if (m + duree > FIN) return false;
+    const s = segs(jour, m);
+    if (!s.length) return false;
     if (jour < maintenant.jour || (jour === maintenant.jour && m <= maintenant.minutes)) return false;
-    return !blocs.some((b) => b.jour === jour && m < b.fin + marge && m + duree > b.debut - marge);
+    return s.every((x) => x.fin <= FIN && !blocs.some((b) => b.jour === x.jour && x.debut < b.fin + marge && x.fin > b.debut - marge));
   };
   const haut = (m: number) => ((Math.max(m, DEBUT) - DEBUT) / PAS) * HAUTEUR;
   const taille = (d: number, f: number) => Math.max(HAUTEUR - 2, ((Math.min(f, FIN) - Math.max(d, DEBUT)) / PAS) * HAUTEUR - 2);
+  const choisis = choix ? segs(choix.jour, choix.minutes) : [];
 
   return (
     <div className="rounded-[20px] bg-white p-2 ring-[1.5px] ring-[#dfe3e8]">
@@ -129,8 +141,12 @@ export default function AgendaSemaine({
         </div>
         {jours.map((j) => (
           <div key={`col-${j}`} className="relative rounded-[8px] bg-[#f4f6f8]" style={{ height: hauteur }}>
-            {lignes.map((m) => {
+            {lignes.map((m) => (
+              <div key={`l${m}`} className={`pointer-events-none absolute left-0 right-0 border-t ${m % 60 === 0 ? 'border-[#dfe3e8]' : 'border-dashed border-[#e8ebee]'}`} style={{ top: haut(m) }} />
+            ))}
+            {starts.map((m, i) => {
               const ok = libre(j, m);
+              const suivant = departs && departs.length ? (starts[i + 1] ?? FIN) : m + PAS;
               return (
                 <button
                   key={m}
@@ -138,9 +154,11 @@ export default function AgendaSemaine({
                   disabled={!ok}
                   onClick={() => onChoisir(j, m)}
                   aria-label={`${libelleJourCourt(j)} à ${heureDe(m)}${ok ? '' : ' (pris)'}`}
-                  className={`absolute left-0 right-0 border-t ${m % 60 === 0 ? 'border-[#dfe3e8]' : 'border-dashed border-[#e8ebee]'} ${ok ? 'bg-white active:bg-[#e6f6f9]' : 'cursor-default bg-transparent'}`}
-                  style={{ top: haut(m), height: HAUTEUR }}
-                />
+                  className={`absolute left-0 right-0 ${ok ? 'bg-white/90 active:bg-[#e6f6f9]' : 'cursor-default bg-transparent'} ${departs ? 'rounded-[6px] ring-1 ring-inset ring-[#dfe3e8]' : ''}`}
+                  style={{ top: haut(m) + (departs ? 1 : 0), height: ((Math.min(suivant, FIN) - m) / PAS) * HAUTEUR - (departs ? 2 : 0) }}
+                >
+                  {departs && ok && <span className="text-[10px] font-semibold text-slate-400">{m < 12 * 60 ? 'matin' : 'après-midi'}</span>}
+                </button>
               );
             })}
             {blocs.filter((b) => b.jour === j && b.fin > DEBUT && b.debut < FIN).map((b, i) => (
@@ -159,11 +177,11 @@ export default function AgendaSemaine({
                 {b.detail && <p className="truncate text-[9px] leading-tight">{b.detail}</p>}
               </div>
             ))}
-            {choix && choix.jour === j && (
-              <div className="pointer-events-none absolute left-0.5 right-0.5 rounded-[6px] px-1 py-0.5 text-white" style={{ top: haut(choix.minutes) + 1, height: taille(choix.minutes, choix.minutes + duree), backgroundColor: CYAN }}>
-                <p className="text-[10px] font-bold leading-tight">{heureDe(choix.minutes)}</p>
+            {choisis.filter((s) => s.jour === j).map((s, i) => (
+              <div key={`c${i}`} className="pointer-events-none absolute left-0.5 right-0.5 rounded-[6px] px-1 py-0.5 text-white" style={{ top: haut(s.debut) + 1, height: taille(s.debut, s.fin), backgroundColor: CYAN }}>
+                <p className="text-[10px] font-bold leading-tight">{heureDe(s.debut)}</p>
               </div>
-            )}
+            ))}
           </div>
         ))}
       </div>
