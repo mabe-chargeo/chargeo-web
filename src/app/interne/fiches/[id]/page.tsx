@@ -1,13 +1,17 @@
 "use client";
 
 // Fiche détaillée de l'application équipe (structure validée par Matthieu le 16/10/2026). LECTURE SEULE pour l'instant
-// (les actions viennent au lot 3) : statut, client, relevé (bouton Ouvrir le relevé), scénarios avec leurs éléments,
-// devis. Retour vers la vue d'où l'on vient (historique du navigateur), sinon vers Fiches.
+// (les actions viennent au lot 3) : statut, contact, relevé (bouton Ouvrir le relevé), scénarios avec leurs éléments,
+// devis. Retour vers la vue d'où l'on vient (historique du navigateur), sinon vers le Pipeline.
+// 17/10, 10 h 20 (Matthieu) : la carte Client est remplacée par le bloc 📇 Contact du relevé (src/components/ui/
+// BlocContact.tsx), ouvert d'office : Appeler, Google Voice, SMS, Gmail, contact sur place, gestionnaire, Waze et Google
+// Maps. Bouton retour renommé « Pipeline » (menu de la barre du bas).
 import { useEffect, useState, type ElementType, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CalendarClock, ClipboardList, ExternalLink, FileText, GitBranch, Mail, MapPin, Phone, RefreshCw, User } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ClipboardList, ExternalLink, FileText, GitBranch, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte } from '@/components/charte/Appli';
 import { CYAN } from '@/components/charte/couleurs';
+import { BlocContact } from '@/components/ui/BlocContact';
 
 type Scenario = { id: string; nom: string; statut: string; couleurStatut: string; segment: string; elements: number; natures: { nature: string; n: number }[] };
 type Fiche = {
@@ -61,7 +65,7 @@ export default function FichePage() {
 
   const boutonRetour = (
     <button onClick={retour} className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Fiches
+      <ArrowLeft size={16} /> Pipeline
     </button>
   );
 
@@ -96,17 +100,7 @@ export default function FichePage() {
               {fiche.projet.places !== null && <span className="text-[13px] font-bold text-slate-500">· {fiche.projet.places} places</span>}
             </div>
 
-            <Carte className="space-y-2.5">
-              <TitreCarte icon={User}>Client</TitreCarte>
-              <div className="space-y-2 pt-1">
-                {fiche.passeport.telephone && ligne(Phone, <a href={`tel:${fiche.passeport.telephone}`} className="font-semibold underline">{fiche.passeport.telephone}</a>)}
-                {fiche.passeport.email && ligne(Mail, <a href={`mailto:${fiche.passeport.email}`} className="font-semibold underline">{fiche.passeport.email}</a>)}
-                {fiche.passeport.adresse && ligne(MapPin, (
-                  <a href={`https://maps.google.com/?q=${encodeURIComponent(fiche.passeport.adresse)}`} target="_blank" rel="noopener noreferrer" className="underline">{fiche.passeport.adresse}</a>
-                ))}
-                {!fiche.passeport.telephone && !fiche.passeport.email && !fiche.passeport.adresse && <p className="text-[14px]">Coordonnées non renseignées.</p>}
-              </div>
-            </Carte>
+            <BlocContact affaireId={fiche.id} ouvertParDefaut />
 
             <Carte className="space-y-3">
               <TitreCarte icon={ClipboardList}>Relevé</TitreCarte>
