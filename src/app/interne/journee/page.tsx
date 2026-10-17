@@ -2,15 +2,19 @@
 
 // Accueil « Ma journée » de l'application équipe (Phase 6, maquette du 13/10/2026 jointe à la tâche Phase 6).
 // Lecture seule : les compteurs viennent de /api/interne/journee (rôles contrôlés côté serveur).
-// Direction : toutes les cartes, avec les filtres par rôle en haut. Autres rôles : seulement leurs cartes.
 // 16/10/2026, 23 h 22 (structure validée par Matthieu) : les cartes ouvrent les vues de l'écran Fiches ou les écrans
 // Chantiers ; les relevés du jour et en retard ouvrent leur fiche. Navigation par la barre du bas (src/components/charte/
 // NavAppli.tsx), qui remplace les raccourcis et le lien de déconnexion (onglet Plus).
+// 17/10/2026, 13 h 40 (sélecteur de rôle unique, décision de Matthieu) : plus de filtres propres à cette page. Les cartes
+// suivent le rôle choisi dans la pastille de l'en-tête : « Direction » montre tout, un autre rôle seulement ses cartes.
+// Libellés uniques : Commercial, Chef de chantier, Installateur, Back-office, Direction.
 // La date du titre est calculée sur le téléphone après chargement (la page est pré-générée au build).
 import { useEffect, useState } from 'react';
 import { CalendarClock, ChevronRight, ExternalLink, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
+import { LIBELLE_ROLE } from '@/lib/menusAppli';
+import { useRoleAppli } from '@/components/charte/roleAppli';
 
 type Role = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 type Exemple = { nom: string; url: string };
@@ -39,32 +43,16 @@ type Journee = {
   avertissements: string[];
   preview: boolean;
 };
-type Filtre = 'tout' | Exclude<Role, 'direction'>;
-
-const FILTRES: { cle: Filtre; libelle: string }[] = [
-  { cle: 'tout', libelle: 'Tout' },
-  { cle: 'commercial', libelle: 'Commercial' },
-  { cle: 'chargeOperation', libelle: "Chargé d'op." },
-  { cle: 'poseur', libelle: 'Poseur' },
-  { cle: 'backOffice', libelle: 'Back-office' },
-];
-const LIBELLE_ROLE: Record<Role, string> = {
-  direction: 'Direction',
-  commercial: 'Commercial',
-  chargeOperation: "Chargé d'opération",
-  backOffice: 'Back-office',
-  poseur: 'Poseur',
-};
 
 // « ven. 16/10 »
 const jourCourt = () =>
   new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: '2-digit', month: '2-digit' }).format(new Date());
 
 export default function JourneePage() {
+  const { role } = useRoleAppli();
   const [donnees, setDonnees] = useState<Journee | null>(null);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [filtre, setFiltre] = useState<Filtre>('tout');
   const [jour, setJour] = useState('');
 
   const charger = async () => {
@@ -87,16 +75,14 @@ export default function JourneePage() {
     charger();
   }, []);
 
-  const garde = (role: Role) => filtre === 'tout' || role === filtre;
+  // Rôle du sélecteur unique : direction (ou pas encore connu) = tout ; sinon les cartes de ce rôle
+  const tout = !role || role === 'direction';
+  const garde = (r: Role) => tout || r === role;
   const cartes = (donnees?.cartes || []).filter((c) => garde(c.role));
   const releves = garde('chargeOperation') ? donnees?.releves || [] : [];
   const aFaire = cartes.filter((c) => c.section === 'aFaire');
   const aDebloquer = cartes.filter((c) => c.section === 'aDebloquer');
-  const surtitre = donnees
-    ? donnees.direction
-      ? 'Direction · tous les rôles'
-      : donnees.roles.map((r) => LIBELLE_ROLE[r]).join(' · ') || 'Application équipe'
-    : 'Application équipe';
+  const surtitre = role === 'direction' ? 'Direction · tous les rôles' : role ? LIBELLE_ROLE[role] : 'Application équipe';
 
   const boutonActualiser = (
     <button
@@ -167,7 +153,7 @@ export default function JourneePage() {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-slate-500">
-              {r.retard ? "Relevé en retard · Chargé d'opération" : "Relevé du jour · Chargé d'opération"}
+              {r.retard ? 'Relevé en retard · Chef de chantier' : 'Relevé du jour · Chef de chantier'}
             </p>
             <p className="mt-1 text-[17px] font-bold leading-tight">{r.nom}</p>
             <p className="mt-1.5 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: couleur }}>
@@ -204,21 +190,6 @@ export default function JourneePage() {
         )}
         {(donnees?.avertissements || []).map((a) => <Alerte key={a}>{a}</Alerte>)}
 
-        {donnees?.direction && (
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-            {FILTRES.map((f) => (
-              <button
-                key={f.cle}
-                onClick={() => setFiltre(f.cle)}
-                className={`shrink-0 rounded-full px-4 py-2 text-[14px] font-bold transition-transform active:scale-95 ${filtre === f.cle ? 'text-white' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'}`}
-                style={filtre === f.cle ? { backgroundColor: CYAN } : undefined}
-              >
-                {f.libelle}
-              </button>
-            ))}
-          </div>
-        )}
-
         {loading && !donnees && (
           <Carte className="p-8 text-center">
             <RefreshCw className="mx-auto animate-spin" size={28} color={CYAN} />
@@ -232,7 +203,7 @@ export default function JourneePage() {
             <Repere>À faire aujourd'hui</Repere>
             {releves.map(carteReleve)}
             {aFaire.map(carteCompteur)}
-            {!releves.length && !aFaire.length && vide(filtre === 'poseur' ? 'Écran « Mes interventions » du poseur : prochain lot.' : "Rien de prévu aujourd'hui.")}
+            {!releves.length && !aFaire.length && vide("Rien de prévu aujourd'hui.")}
 
             <div className="h-2" />
             <Repere>À débloquer</Repere>
