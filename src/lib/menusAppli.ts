@@ -23,6 +23,8 @@
 // 17/10/2026, 18 h 02 (écrans qui manquent) : Parc installé retiré aussi de l'installateur, décision du 11/10 « pas
 // d'accès à la Base de données globale du Parc » ; il garde l'historique de la borne par ses tickets et ses visites.
 // Pastilles de Chantiers branchées (Prêts, En cours, Réserves à lever, Avancement, Carte).
+// 17/10/2026, 18 h 27 (Matthieu : « Oui, fais la carte du SAV ») : Carte du SAV (/interne/carte-sav) dans À consulter du
+// chef de chantier et de la direction ; Livraisons ajoutées au Planning (18 h 22).
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -95,7 +97,7 @@ export const ECRANS: Record<string, Ecran> = {
   },
   espace: {
     cle: 'espace', libelle: 'Mon espace', href: '/interne/espace', icone: 'pipeline', pret: true,
-    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne/maintenance', '/interne/decomptes', '/interne/ressources', '/interne/pose', '/interne'],
+    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne/maintenance', '/interne/decomptes', '/interne/ressources', '/interne/pose', '/interne/carte-sav', '/interne'],
     description: 'À traiter : les vues du rôle avec leurs compteurs. À consulter : Parc, Ressources et outils.',
   },
   releves: {
@@ -104,7 +106,7 @@ export const ECRANS: Record<string, Ecran> = {
     pastilles: [
       { cle: 'aujourdhui', libelle: "Aujourd'hui" },
       { cle: 'a-venir', libelle: 'À venir' },
-      { cle: 'carte', libelle: 'Carte des audits' },
+      { cle: 'carte', libelle: 'Carte des audits', href: '/interne/agenda?vue=carte' },
     ],
   },
   chantiers: {
@@ -139,7 +141,7 @@ export const ECRANS: Record<string, Ecran> = {
   reception: { cle: 'reception', libelle: 'Rapport et signature', href: '/interne/reception', icone: 'reception', pret: true, actif: ['/interne/reception'], description: "Action de la fiche intervention : PV signé, rapport de mesures, photos et réserves, validé par le chef de chantier" },
 
   // ── Commercial ──
-  agenda: pret('agenda', 'Agenda des visites', 'agenda', '/interne/agenda', 'Relevés techniques calés par le commercial : jour (avec itinéraire), semaine, carte des visites.', {
+  agenda: pret('agenda', 'Agenda des visites', 'agenda', '/interne/agenda', 'Relevés techniques calés par le commercial : jour (avec itinéraire), semaine, carte des visites (carte des audits).', {
     court: 'Agenda',
     pastilles: [{ cle: 'jour', libelle: 'Jour', href: '/interne/agenda' }, { cle: 'semaine', libelle: 'Semaine', href: '/interne/agenda?vue=semaine' }, { cle: 'carte', libelle: 'Carte des visites', href: '/interne/agenda?vue=carte' }],
   }),
@@ -150,17 +152,21 @@ export const ECRANS: Record<string, Ecran> = {
   ressources: pret('ressources', 'Ressources', 'ressources', '/interne/ressources', 'Les dossiers Drive de ton rôle : supports de vente, notices des bornes par marque, normes, modèles, administratif.'),
 
   // ── Chef de chantier ──
-  planning: pret('planning', 'Planning', 'planning', '/interne/planning', 'Master planning (par jour) et Planning techs (par installateur) : poses, dépannages, visites de maintenance.', {
+  planning: pret('planning', 'Planning', 'planning', '/interne/planning', 'Master planning (par jour) et Planning techs (par installateur) : poses, dépannages, visites de maintenance, livraisons.', {
     pastilles: [
       { cle: 'master', libelle: 'Master planning', href: '/interne/planning' },
       { cle: 'techs', libelle: 'Planning techs', href: '/interne/planning?vue=techs' },
+      { cle: 'livraisons', libelle: 'Planning réceptions', href: '/interne/planning?types=livraison' },
+      { cle: 'depannages', libelle: 'Planning dépannage', href: '/interne/planning?types=depannage' },
     ],
   }),
+  carteSav: pret('carteSav', 'Carte du SAV', 'carte', '/interne/carte-sav', 'Tickets SAV ouverts sur la carte, à l’adresse de l’installation du Parc, avec tous les dépannages dans Google Maps.'),
   sav: pret('sav', 'SAV et maintenance', 'sav', liste('sav', 'a-traiter'), 'Tickets SAV (urgences et tri, planning dépannage) et visites de maintenance (J-30), avec la fiche du ticket.', {
     court: 'SAV',
     pastilles: [
       { cle: 'urgences', libelle: 'Urgences et tri', href: liste('sav', 'a-traiter') },
       { cle: 'depannage', libelle: 'Planning dépannage', href: liste('sav', 'planning-depannage') },
+      { cle: 'carte', libelle: 'Carte du SAV', href: '/interne/carte-sav' },
       { cle: 'j-30', libelle: 'Visites à préparer (J-30)', href: liste('maintenance', 'j-30') },
     ],
   }),
@@ -170,6 +176,7 @@ export const ECRANS: Record<string, Ecran> = {
       { cle: 'a-commander', libelle: 'À commander', href: liste('commandes', 'a-commander') },
       { cle: 'logistique', libelle: 'Suivi logistique', href: liste('commandes', 'suivi-logistique') },
       { cle: 'receptions', libelle: 'Réceptions sous 7 jours', href: liste('commandes', 'receptions-7j') },
+      { cle: 'planning', libelle: 'Planning réceptions', href: '/interne/planning?types=livraison' },
       { cle: 'retards', libelle: 'Livraisons en retard', href: liste('achats', 'livraisons-retard') },
     ],
   }),
@@ -231,12 +238,13 @@ export const ECRANS: Record<string, Ecran> = {
 // 17 h 24 : consulter = ce qu'on consulte sans compteur (le référentiel Parc, les Ressources, l'outil d'un autre rôle) ;
 // plus = vide, l'onglet Plus ne montre que les créations (CREER) et la déconnexion.
 // 17 h 32 : plus de Relevés pour l'installateur. 18 h 02 : plus de Parc installé pour l'installateur (décision du 11/10).
+// 18 h 27 : Carte du SAV pour le chef de chantier et la direction.
 export const MENUS: Record<RoleAppli, { barre: string[]; consulter: string[]; plus: string[] }> = {
   commercial: { barre: ['journee', 'espace'], consulter: ['ressources'], plus: [] },
-  chargeOperation: { barre: ['journee', 'espace'], consulter: ['agenda', 'parc', 'ressources'], plus: [] },
+  chargeOperation: { barre: ['journee', 'espace'], consulter: ['agenda', 'carteSav', 'parc', 'ressources'], plus: [] },
   poseur: { barre: ['journee', 'espace'], consulter: ['ressources'], plus: [] },
   backOffice: { barre: ['journee', 'espace'], consulter: ['planning', 'parc', 'ressources'], plus: [] },
-  direction: { barre: ['journee', 'espace'], consulter: ['parc', 'ressources'], plus: [] },
+  direction: { barre: ['journee', 'espace'], consulter: ['carteSav', 'parc', 'ressources'], plus: [] },
 };
 
 // Créations possibles par rôle (nouveau projet, ticket SAV, idée Kaizen), dans l'onglet Plus
