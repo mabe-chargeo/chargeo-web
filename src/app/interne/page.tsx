@@ -7,13 +7,12 @@
 // Lot 3.3 et point 21 : compteur de scénarios ou d'emplacements sur la carte de la fiche.
 // 13/10/2026 : le commercial cale le relevé (📅 Date Visite Technique). « Relevés planifiés » triés par date, avec
 // le jour et l'heure ; « Pas encore calées » ensuite (le commercial doit fixer le rendez-vous), toujours ouvrables.
-// 13/10/2026 (Phase 6) : accès à l'écran Feu vert chantiers du chargé d'opération (/interne/feu-vert), et lien de
-// déconnexion (connexion avec le compte ClickUp, src/proxy.ts). Réception en deux temps : le poseur collecte
-// (/interne/reception), le chargé d'opération valide (/interne/validation).
-// 16/10/2026 (Phase 6) : la barre de navigation du bas (src/components/charte/NavAppli.tsx) mène à Ma journée, Fiches,
-// Chantiers et Plus ; cette page reste le planning terrain hors ligne (onglet Plus).
+// 13/10/2026 (Phase 6) : lien de déconnexion (connexion avec le compte ClickUp, src/proxy.ts).
+// 17/10/2026, 13 h 13 (Matthieu : les trois boutons du haut « n'ont pas lieu d'être ») : Feu vert, Réception sur place et
+// Valider les réceptions sont retirés. Ils sont dans Mon espace (chef de chantier, installateur). Cette page est la vue
+// « Relevés à faire » du chef de chantier, utilisable hors ligne.
 import { useEffect, useState } from 'react';
-import { CalendarClock, Camera, ChevronRight, ClipboardCheck, ClipboardList, GitBranch, History, MapPin, RefreshCw, TrafficCone, Zap } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ChevronRight, ClipboardList, GitBranch, History, MapPin, RefreshCw, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { relevesATerminer } from '@/lib/releveLocal';
@@ -133,52 +132,12 @@ export default function InternePage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Espace technique" titre="Mon planning" action={boutonActualiser} />
+      <EnTeteAppli surtitre="Chef de chantier" titre="Relevés à faire" action={boutonActualiser} />
 
       <ContenuAppli className="space-y-4">
-        <a
-          href="/interne/feu-vert"
-          className="flex w-full items-center gap-4 rounded-[20px] bg-white p-5 text-left ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
-          style={{ boxShadow: `inset 5px 0 0 ${CYAN}` }}
-        >
-          <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
-            <TrafficCone size={22} color="#ffffff" strokeWidth={1.8} />
-          </div>
-          <div className="min-w-0 grow">
-            <p className="text-[17px] font-bold leading-tight">Feu vert chantiers</p>
-            <p className="mt-1.5 text-[13px]">Prérequis et feu vert, pour le chargé d'opération</p>
-          </div>
-          <ChevronRight size={22} className="shrink-0" color={CYAN} />
+        <a href="/interne/espace" className="inline-flex items-center gap-1.5 text-[14px] font-semibold" style={{ color: CYAN }}>
+          <ArrowLeft size={15} /> Mon espace
         </a>
-        <a
-          href="/interne/reception"
-          className="flex w-full items-center gap-4 rounded-[20px] bg-white p-5 text-left ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
-          style={{ boxShadow: `inset 5px 0 0 ${CYAN}` }}
-        >
-          <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
-            <Camera size={22} color="#ffffff" strokeWidth={1.8} />
-          </div>
-          <div className="min-w-0 grow">
-            <p className="text-[17px] font-bold leading-tight">Réception sur place</p>
-            <p className="mt-1.5 text-[13px]">Pour le poseur : PV signé, photos et réserves</p>
-          </div>
-          <ChevronRight size={22} className="shrink-0" color={CYAN} />
-        </a>
-        <a
-          href="/interne/validation"
-          className="flex w-full items-center gap-4 rounded-[20px] bg-white p-5 text-left ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
-          style={{ boxShadow: `inset 5px 0 0 ${CYAN}` }}
-        >
-          <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
-            <ClipboardCheck size={22} color="#ffffff" strokeWidth={1.8} />
-          </div>
-          <div className="min-w-0 grow">
-            <p className="text-[17px] font-bold leading-tight">Valider les réceptions</p>
-            <p className="mt-1.5 text-[13px]">Pour le chargé d'opération : contrôle et passage au Parc</p>
-          </div>
-          <ChevronRight size={22} className="shrink-0" color={CYAN} />
-        </a>
-        <div className="h-2" />
 
         {aReprendre.length > 0 && (
           <>
