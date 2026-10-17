@@ -7,13 +7,15 @@
 // chantier ») : Visites à caler revient au commercial et sort de l'espace du chef de chantier.
 // 17/10, 13 h 13 aussi : Contacts montre tous les contacts, clients compris (pas seulement syndics, conseils syndicaux
 // et gestionnaires) ; son compteur additionne la liste Contacts et les fiches clients (Prospection à Parc).
-// Espace Chef de chantier validé le 17/10 à 11 h 06. Les vues dont l'écran n'existe pas encore ouvrent la liste
-// ClickUp (externe) ou l'écran « à construire », avec leur compteur réel quand il est calculable.
+// Espace Chef de chantier validé le 17/10 à 11 h 06.
 // Espace Installateur validé le 17/10 à 11 h 18 (3 vues) : il ne voit que son travail (« moi » = la personne connectée,
 // comme la vue ClickUp 📱 MODE TECH), lisible hors ligne.
 // Espace Back-office validé le 17/10 à 11 h 28 (8 vues). Costructor reste la référence des factures et règlements :
-// les vues lisent ce que ClickUp en reçoit. Écrans de l'application à construire : en attendant, ouverture de ClickUp.
+// les vues lisent ce que ClickUp en reçoit.
 // Espace Direction validé le 17/10 à 11 h 37 (6 vues) ; Plus ouvre l'espace de chaque rôle (/interne/espace?role=…).
+// 17/10, 14 h 28 (lot « écrans qui manquent ») : les vues qui ouvraient ClickUp ouvrent l'écran de liste de
+// l'application (/interne/liste/<source>?vue=<clé>, src/lib/listesAppli.ts), avec la fiche générique. Le bouton de
+// création du commercial ouvre Nouveau projet.
 // Clé de vue : « cle » dans la source de la vue, ou « source:cle » pour additionner une autre liste.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit.
 import type { Jour } from '@/lib/joursOuvres';
@@ -43,9 +45,6 @@ export type VueEspace = {
 };
 
 export type Espace = { titre: string; creer?: { libelle: string; href: string }; vues: VueEspace[] };
-
-const EQUIPE = '90151325642';
-const liste = (id: string) => `https://app.clickup.com/${EQUIPE}/v/li/${id}`;
 
 // Listes ClickUp lues par les espaces (identifiants relus le 17/10/2026)
 export const LISTES: Record<Exclude<SourceVue, 'qualification' | 'aucune'>, string> = {
@@ -77,7 +76,8 @@ export const CHAMPS_INTERVENTION = {
   severite: 'c2ae4e08-6903-4698-af96-a40082c11b39', // 🔥 Sévérité (Tickets SAV)
 };
 
-const CLICKUP = ' (ouvre ClickUp en attendant l’écran)';
+// Écran de liste de l'application (src/app/interne/liste/[source])
+const ecran = (source: string, vue: string) => `/interne/liste/${source}?vue=${vue}`;
 // Contacts : la liste Contacts + les fiches clients, de la Prospection au Parc (même périmètre que /api/interne/contacts)
 const VUES_CONTACTS = ['tous', 'prospection:chasse', 'qualification:toutes', 'planning:tous', 'parc:tous'];
 const CONTACTS_DESCRIPTION = 'Clients, syndics, conseils syndicaux, gestionnaires';
@@ -85,7 +85,7 @@ const CONTACTS_DESCRIPTION = 'Clients, syndics, conseils syndicaux, gestionnaire
 export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur' | 'backOffice' | 'direction', Espace>> = {
   commercial: {
     titre: 'Espace commercial',
-    creer: { libelle: 'Nouveau lead', href: '/interne/bientot/lead' },
+    creer: { libelle: 'Nouveau projet', href: '/interne/projet/nouveau' },
     vues: [
       { cle: 'a-appeler', emoji: '📞', libelle: "À appeler aujourd'hui", description: 'Prospects dont la date de rappel est aujourd’hui ou passée', href: '/interne/prospection?vue=a-appeler', source: 'prospection', vues: ['a-appeler'], urgent: true },
       { cle: 'chasse', emoji: '🚀', libelle: 'Pipeline chasse', description: 'Tous les prospects par étape, filtre LinkedIn', href: '/interne/prospection?vue=chasse', source: 'prospection', vues: ['chasse'] },
@@ -105,9 +105,9 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Chantiers par date et répartition des techniciens', href: '/interne/bientot/planning', source: 'aucune', aConstruire: true },
       { cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux : à planifier, préparation, planifié, en cours', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
       { cle: 'receptions', emoji: '✅', libelle: 'Réceptions à valider', description: 'PV, rapport de mesures et photos déposés par le poseur', href: '/interne/validation', source: 'planning', vues: ['receptions'], urgent: true },
-      { cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: `Commandes en « à commander »${CLICKUP}`, href: liste(LISTES.commandes), source: 'commandes', vues: ['a-commander'], externe: true },
-      { cle: 'sav', emoji: '🚨', libelle: 'SAV urgences et tri', description: `Tickets pas encore résolus${CLICKUP}`, href: liste(LISTES.sav), source: 'sav', vues: ['a-traiter'], urgent: true, externe: true },
-      { cle: 'maintenance', emoji: '🔧', libelle: 'Visites de maintenance (J-30)', description: `À planifier, échéance dans les 30 jours ou dépassée${CLICKUP}`, href: liste(LISTES.maintenance), source: 'maintenance', vues: ['j-30'], externe: true },
+      { cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: 'Commandes en « à commander »', href: ecran('commandes', 'a-commander'), source: 'commandes', vues: ['a-commander'] },
+      { cle: 'sav', emoji: '🚨', libelle: 'SAV urgences et tri', description: 'Tickets pas encore résolus', href: ecran('sav', 'a-traiter'), source: 'sav', vues: ['a-traiter'], urgent: true },
+      { cle: 'maintenance', emoji: '🔧', libelle: 'Visites de maintenance (J-30)', description: 'À planifier, échéance dans les 30 jours ou dépassée', href: ecran('maintenance', 'j-30'), source: 'maintenance', vues: ['j-30'] },
     ],
   },
   poseur: {
@@ -121,14 +121,14 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
   backOffice: {
     titre: 'Espace back-office',
     vues: [
-      { cle: 'factures-retard', emoji: '⏰', libelle: 'Factures en retard', description: `Émises ou partiellement payées, échéance passée (relances J+3, J+10, J+15)${CLICKUP}`, href: liste(LISTES.factures), source: 'factures', vues: ['retard'], urgent: true, externe: true },
-      { cle: 'factures', emoji: '💰', libelle: 'Suivi des factures', description: `À émettre, émises, partiellement payées, en litige (Costructor fait référence)${CLICKUP}`, href: liste(LISTES.factures), source: 'factures', vues: ['ouvertes'], externe: true },
-      { cle: 'achats', emoji: '🚚', libelle: 'Achats et livraisons', description: `Compteur : commandés dont la livraison prévue est dépassée${CLICKUP}`, href: liste(LISTES.achats), source: 'achats', vues: ['livraisons-retard'], urgent: true, externe: true },
-      { cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: `Compteur : dossiers en cours dont la date limite de réalisation tombe dans les 30 jours${CLICKUP}`, href: liste(LISTES.advenir), source: 'advenir', vues: ['alertes'], urgent: true, externe: true },
-      { cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: `Échéance annuelle dans les 30 jours ou dépassée${CLICKUP}`, href: liste(LISTES.parc), source: 'parc', vues: ['contrats'], externe: true },
+      { cle: 'factures-retard', emoji: '⏰', libelle: 'Factures en retard', description: 'Émises ou partiellement payées, échéance passée (relances J+3, J+10, J+15)', href: ecran('factures', 'retard'), source: 'factures', vues: ['retard'], urgent: true },
+      { cle: 'factures', emoji: '💰', libelle: 'Suivi des factures', description: 'À émettre, émises, partiellement payées, en litige (Costructor fait référence)', href: ecran('factures', 'ouvertes'), source: 'factures', vues: ['ouvertes'] },
+      { cle: 'achats', emoji: '🚚', libelle: 'Achats et livraisons', description: 'Compteur : commandés dont la livraison prévue est dépassée', href: ecran('achats', 'livraisons-retard'), source: 'achats', vues: ['livraisons-retard'], urgent: true },
+      { cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: 'Compteur : dossiers en cours dont la date limite de réalisation tombe dans les 30 jours', href: ecran('advenir', 'alertes'), source: 'advenir', vues: ['alertes'], urgent: true },
+      { cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: 'Échéance annuelle dans les 30 jours ou dépassée', href: ecran('parc', 'contrats'), source: 'parc', vues: ['contrats'] },
       { cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Préparation, validation, envoi au gestionnaire. Liste ClickUp à créer d’abord', href: '/interne/bientot/decomptes', source: 'aucune', aConstruire: true },
       { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: CONTACTS_DESCRIPTION, href: '/interne/contacts', source: 'contacts', vues: VUES_CONTACTS },
-      { cle: 'rh', emoji: '👔', libelle: 'RH et recrutement', description: `Compteur : demandes RH nouvelles ou en examen${CLICKUP}`, href: liste(LISTES.rh), source: 'rh', vues: ['demandes'], externe: true },
+      { cle: 'rh', emoji: '👔', libelle: 'RH et recrutement', description: 'Compteur : demandes RH nouvelles ou en examen', href: ecran('rh', 'demandes'), source: 'rh', vues: ['demandes'] },
     ],
   },
   direction: {
@@ -136,10 +136,10 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
     vues: [
       { cle: 'toutes', emoji: '💰', libelle: 'Pipeline vente', description: 'Toutes les affaires, rangées par étape', href: '/interne/fiches?vue=toutes', source: 'qualification', vues: ['toutes'] },
       { cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux : à planifier, préparation, planifié, en cours', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
-      { cle: 'codir', emoji: '🗣️', libelle: 'Réunions CODIR', description: `Réunions planifiées ou en rédaction${CLICKUP}`, href: liste(LISTES.codir), source: 'codir', vues: ['a-venir'], externe: true },
-      { cle: 'okr', emoji: '🎯', libelle: 'Stratégie et OKR', description: `Objectifs à définir ou en cours${CLICKUP}`, href: liste(LISTES.okr), source: 'okr', vues: ['en-cours'], externe: true },
-      { cle: 'kaizen', emoji: '💡', libelle: 'Kaizen', description: `Idées proposées ou en étude, à trier${CLICKUP}`, href: liste(LISTES.kaizen), source: 'kaizen', vues: ['a-trier'], externe: true },
-      { cle: 'todo', emoji: '📝', libelle: 'To-Do', description: `Tâches à faire ou en cours ; compteur orange s’il y a du retard${CLICKUP}`, href: liste(LISTES.todo), source: 'todo', vues: ['en-retard'], urgent: true, externe: true },
+      { cle: 'codir', emoji: '🗣️', libelle: 'Réunions CODIR', description: 'Réunions planifiées ou en rédaction', href: ecran('codir', 'a-venir'), source: 'codir', vues: ['a-venir'] },
+      { cle: 'okr', emoji: '🎯', libelle: 'Stratégie et OKR', description: 'Objectifs à définir ou en cours', href: ecran('okr', 'en-cours'), source: 'okr', vues: ['en-cours'] },
+      { cle: 'kaizen', emoji: '💡', libelle: 'Kaizen', description: 'Idées proposées ou en étude, à trier', href: ecran('kaizen', 'a-trier'), source: 'kaizen', vues: ['a-trier'] },
+      { cle: 'todo', emoji: '📝', libelle: 'To-Do', description: 'Tâches à faire ou en cours ; compteur orange s’il y a du retard', href: ecran('todo', 'en-retard'), source: 'todo', vues: ['en-retard'], urgent: true },
     ],
   },
 };
