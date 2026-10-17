@@ -12,6 +12,7 @@
 //   la route existante ; ce qui est administratif part au back-office.
 // 17/10, 10 h 26 (Matthieu) : bloc 📇 Contact sur chaque chantier (Appeler, Google Voice, SMS, Gmail, Waze, Maps), lu au
 // premier appui.
+// 17/10, 12 h 33 : le nom du chantier ouvre la fiche affaire unique ; retour vers Mon espace / Mon travail.
 import { useEffect, useState } from 'react';
 import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Plus, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
@@ -153,7 +154,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
           icon={ClipboardCheck}
           extra={<a href={c.url} target="_blank" rel="noreferrer" aria-label="Ouvrir dans ClickUp" className="shrink-0"><ExternalLink size={18} color={CYAN} /></a>}
         >
-          <span className="leading-tight">{c.nom}</span>
+          <a href={`/interne/fiches/${c.id}`} className="leading-tight underline decoration-[#dfe3e8] underline-offset-4">{c.nom}</a>
         </TitreCarte>
         <p className="text-[13px] font-semibold">
           <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ backgroundColor: c.couleurStatut || CYAN }} />
@@ -307,7 +308,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
       <EnTeteAppli
         surtitre={poseur ? 'Technicien poseur' : 'Chargé d\'opération'}
         titre={poseur ? 'Réception sur place' : 'Valider les réceptions'}
-        retour={{ href: '/interne', libelle: 'Planning' }}
+        retour={{ href: '/interne/espace', libelle: poseur ? 'Mon travail' : 'Mon espace' }}
       />
       <ContenuAppli className="space-y-4">
         <div className="flex items-center justify-between gap-3">
