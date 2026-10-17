@@ -1,6 +1,6 @@
 "use client";
 
-// Fiche affaire unique (étape 1 de l'ordre de construction, lancée par Matthieu le 17/10/2026 à 12 h 25). LECTURE SEULE.
+// Fiche affaire unique (étape 1 de l'ordre de construction, lancée par Matthieu le 17/10/2026 à 12 h 25).
 // Une seule fiche suit la tâche voyageuse de Prospection à Qualification, Planning Chantiers puis Parc (section 3 de la
 // carte des menus) : les sections apparaissent au fil de l'avancement, avec l'action de l'étape.
 //   Toujours : statut, étape (frise), bloc 📇 Contact complet (Appeler, Google Voice, SMS, Gmail, Waze, Maps).
@@ -19,6 +19,8 @@
 // visites, factures et dossiers ADVENIR s'ouvrent dans la fiche de l'application (/interne/element/<id>). Le lien
 // « Ouvrir dans ClickUp » reste pour le back-office et la direction (MasqueClickUp le cache aux autres rôles). En vente,
 // gros bouton « 💼 Préparer le devis dans Costructor » (🔗 Lien Costructor du client) pour chiffrer depuis la fiche.
+// 17/10, 20 h 53 (Matthieu) : carte Relevé d'une fiche à visiter : « 📅 Caler le relevé » tant qu'il n'y a pas de date ;
+// ensuite « ✉️ Renvoyer la confirmation » (email du rendez-vous, /interne/caler/<id>?confirmation=1) et « 📅 Décaler ».
 // Structure de départ validée le 16/10 ; bloc Contact le 17/10 à 10 h 20. Retour vers la vue d'où l'on vient, sinon
 // vers Mon espace.
 import { useEffect, useState, type ElementType, type ReactNode } from 'react';
@@ -79,6 +81,7 @@ const ETAPES: { cle: Etape; libelle: string }[] = [
 ];
 
 const euros = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 // Fiche d'un SAV, d'une visite, d'une facture ou d'un dossier ADVENIR dans l'application (plus de lien ClickUp)
 const ficheElement = (id: string) => `/interne/element/${encodeURIComponent(id)}`;
 
@@ -184,6 +187,26 @@ export default function FichePage() {
           </div>
         ))}
       </div>
+    );
+  };
+
+  // Relevé (Qualification) : caler le rendez-vous tant qu'il n'y a pas de date, puis renvoyer la confirmation ou décaler
+  const carteReleve = (f: Fiche) => {
+    const aVisiter = normal(f.statut).includes('visiter') && !f.sansPrix;
+    const cale = !!f.releve.visite;
+    return (
+      <Carte className="space-y-3">
+        <TitreCarte icon={ClipboardList}>Relevé</TitreCarte>
+        {ligne(CalendarClock, cale ? `Visite ${f.releve.visite}` : 'Visite pas encore calée', cale ? CYAN : ORANGE)}
+        {aVisiter && !cale && boutonAction(`/interne/caler/${encodeURIComponent(f.id)}`, '📅 Caler le relevé')}
+        {f.releve.lien && !f.sansPrix && (aVisiter && !cale ? boutonSecondaire(f.releve.lien, 'Ouvrir le relevé') : boutonAction(f.releve.lien, 'Ouvrir le relevé'))}
+        {aVisiter && cale && (
+          <div className="grid grid-cols-2 gap-2">
+            {boutonSecondaire(`/interne/caler/${encodeURIComponent(f.id)}?confirmation=1`, '✉️ Renvoyer la confirmation')}
+            {boutonSecondaire(`/interne/caler/${encodeURIComponent(f.id)}`, '📅 Décaler')}
+          </div>
+        )}
+      </Carte>
     );
   };
 
@@ -348,7 +371,7 @@ export default function FichePage() {
       <EnTeteAppli surtitre={fiche ? [fiche.passeport.typeClient, fiche.projet.segment].filter(Boolean).join(' · ') || fiche.liste || 'Fiche' : 'Fiche'} titre={fiche?.nom || 'Fiche'} action={boutonRetour} />
 
       <ContenuAppli className="space-y-4">
-        {preview && <Alerte>Prévisualisation : en vente, fiche lue dans 🧪 Qualification TEST ; au chantier et au Parc, dans les vraies listes. Rien n&apos;est modifié.</Alerte>}
+        {preview && <Alerte>Prévisualisation : en vente, fiche lue dans 🧪 Qualification TEST ; au chantier et au Parc, dans les vraies listes. Seules les fiches « Test · … » sont modifiées.</Alerte>}
         {erreur && <Alerte>{erreur}</Alerte>}
         {loading && !fiche && (
           <Carte className="p-8 text-center">
@@ -381,11 +404,7 @@ export default function FichePage() {
 
             {fiche.etape === 'qualification' && (
               <>
-                <Carte className="space-y-3">
-                  <TitreCarte icon={ClipboardList}>Relevé</TitreCarte>
-                  {ligne(CalendarClock, fiche.releve.visite ? `Visite ${fiche.releve.visite}` : 'Visite pas encore calée')}
-                  {fiche.releve.lien && !fiche.sansPrix && boutonAction(fiche.releve.lien, 'Ouvrir le relevé')}
-                </Carte>
+                {carteReleve(fiche)}
                 {carteDevis(fiche, 'Devis', true)}
                 {carteScenarios(fiche)}
               </>
