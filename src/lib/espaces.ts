@@ -10,6 +10,7 @@
 // comme la vue ClickUp 📱 MODE TECH), lisible hors ligne.
 // Espace Back-office validé le 17/10 à 11 h 28 (8 vues). Costructor reste la référence des factures et règlements :
 // les vues lisent ce que ClickUp en reçoit. Écrans de l'application à construire : en attendant, ouverture de ClickUp.
+// Espace Direction validé le 17/10 à 11 h 37 (6 vues) ; Plus ouvre l'espace de chaque rôle (/interne/espace?role=…).
 // Clé de vue : « cle » dans la source de la vue, ou « source:cle » pour additionner une autre liste.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit.
 import type { Jour } from '@/lib/joursOuvres';
@@ -18,7 +19,7 @@ import { champ, nomOption } from '@/lib/vuesFiches';
 
 export type SourceVue =
   | 'qualification' | 'prospection' | 'contacts' | 'planning' | 'commandes' | 'sav' | 'maintenance'
-  | 'factures' | 'achats' | 'advenir' | 'parc' | 'rh' | 'aucune';
+  | 'factures' | 'achats' | 'advenir' | 'parc' | 'rh' | 'codir' | 'okr' | 'kaizen' | 'todo' | 'aucune';
 export type Filtre = (t: any, a: Jour, moi: number) => boolean;
 
 export type VueEspace = {
@@ -56,6 +57,10 @@ export const LISTES: Record<Exclude<SourceVue, 'qualification' | 'aucune'>, stri
   advenir: '901520038271', // Dossiers Advenir 📄
   parc: '901520038290', // Parc Installé (Maintenance) 🔄
   rh: '1200630000003868', // Gestion RH Quotidienne ☕ (v2)
+  codir: '1200630000003872', // Réunions CODIR 🗣️
+  okr: '1200630000003869', // Stratégie & OKR 🎯
+  kaizen: '1200630000003873', // Kaizen (Amélioration) 💡
+  todo: '901525143427', // To-Do 📝
 };
 
 // Champs des interventions (relus le 17/10/2026)
@@ -120,7 +125,21 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { cle: 'rh', emoji: '👔', libelle: 'RH et recrutement', description: `Compteur : demandes RH nouvelles ou en examen${CLICKUP}`, href: liste(LISTES.rh), source: 'rh', vues: ['demandes'], externe: true },
     ],
   },
+  direction: {
+    titre: 'Espace direction',
+    vues: [
+      { cle: 'toutes', emoji: '💰', libelle: 'Pipeline vente', description: 'Toutes les affaires, rangées par étape', href: '/interne/fiches?vue=toutes', source: 'qualification', vues: ['toutes'] },
+      { cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux : à planifier, préparation, planifié, en cours', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
+      { cle: 'codir', emoji: '🗣️', libelle: 'Réunions CODIR', description: `Réunions planifiées ou en rédaction${CLICKUP}`, href: liste(LISTES.codir), source: 'codir', vues: ['a-venir'], externe: true },
+      { cle: 'okr', emoji: '🎯', libelle: 'Stratégie et OKR', description: `Objectifs à définir ou en cours${CLICKUP}`, href: liste(LISTES.okr), source: 'okr', vues: ['en-cours'], externe: true },
+      { cle: 'kaizen', emoji: '💡', libelle: 'Kaizen', description: `Idées proposées ou en étude, à trier${CLICKUP}`, href: liste(LISTES.kaizen), source: 'kaizen', vues: ['a-trier'], externe: true },
+      { cle: 'todo', emoji: '📝', libelle: 'To-Do', description: `Tâches à faire ou en cours ; compteur orange s’il y a du retard${CLICKUP}`, href: liste(LISTES.todo), source: 'todo', vues: ['en-retard'], urgent: true, externe: true },
+    ],
+  },
 };
+
+// Espaces que la direction ouvre depuis Plus (dans cet ordre)
+export const ESPACES_DES_ROLES = ['commercial', 'chargeOperation', 'poseur', 'backOffice'] as const;
 
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const jourDe = (ms: unknown): Jour | null => {
@@ -130,6 +149,7 @@ const jourDe = (ms: unknown): Jour | null => {
 const statut = (t: any) => normal(t?.status?.status);
 const champNomme = (t: any, mot: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => normal(c?.name).includes(mot));
 const avant = (ms: unknown, limite: Jour) => { const j = jourDe(ms); return !!j && comparer(j, limite) <= 0; };
+const statutParmi = (t: any, mots: string[]) => { const s = statut(t); return mots.some((m) => s.includes(m)); };
 // La personne fait partie d'un champ Personnes (ou des assignés si champId est vide)
 export const estAMoi = (t: any, champId: string | null, moi: number): boolean => {
   const v = champId ? champ(t, champId)?.value : t?.assignees;
@@ -183,7 +203,7 @@ export const VUES_PROSPECTION: Record<string, { libelle: string; filtre: (t: any
 };
 
 // Dossier ADVENIR encore en cours (ni validé, ni prime payée, ni annulé / expiré, ni archivé)
-const advenirEnCours = (t: any) => { const s = statut(t); return !['valide', 'prime payee', 'annule', 'archive'].some((m) => s.includes(m)); };
+const advenirEnCours = (t: any) => !statutParmi(t, ['valide', 'prime payee', 'annule', 'archive']);
 
 // Filtres des sources autres que Qualification, par clé de vue
 export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
@@ -211,13 +231,19 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
   // Factures Clients : mêmes règles que la carte « Factures en retard » de Ma journée
   factures: {
     retard: (t, a) => { const s = statut(t); return !s.includes('litige') && (s.includes('emise') || s.includes('partiel')) && avant(t?.due_date, a); },
-    ouvertes: (t) => { const s = statut(t); return ['a emettre', 'emise', 'partiel', 'litige'].some((m) => s.includes(m)); },
+    ouvertes: (t) => statutParmi(t, ['a emettre', 'emise', 'partiel', 'litige']),
   },
   achats: { 'livraisons-retard': (t, a) => statut(t).includes('commande') && avant(champNomme(t, 'livraison prevue')?.value, a) },
   advenir: { alertes: (t, a) => advenirEnCours(t) && avant(champNomme(t, 'date limite')?.value, ajouterJours(a, 30)) },
   // Parc : mêmes règles que la carte « Contrats à renouveler » de Ma journée
   parc: { contrats: (t, a) => !statut(t).includes('hors service') && avant(champNomme(t, 'echeance annuelle')?.value, ajouterJours(a, 30)) },
-  rh: { demandes: (t) => statut(t).includes('nouvelle demande') || statut(t).includes('en examen') },
+  rh: { demandes: (t) => statutParmi(t, ['nouvelle demande', 'en examen']) },
+  // Direction (statuts relus le 17/10/2026)
+  codir: { 'a-venir': (t) => statutParmi(t, ['planifiee', 'en redaction']) },
+  okr: { 'en-cours': (t) => statutParmi(t, ['a definir', 'en cours']) },
+  kaizen: { 'a-trier': (t) => statutParmi(t, ['propose', 'en etude']) },
+  // To-Do : tâches à faire ou en cours dont l'échéance est passée
+  todo: { 'en-retard': (t, a) => statutParmi(t, ['to do', 'in progress']) && avant(t?.due_date, ajouterJours(a, -1)) },
 };
 
 export const etapeProspect = (t: any): number => {
