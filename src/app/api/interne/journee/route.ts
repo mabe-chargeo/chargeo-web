@@ -14,7 +14,8 @@ import { CHAMPS_INTERVENTION, chantierAMoi } from '@/lib/espaces';
 // Fiches (/interne/fiches?vue=…), plus ClickUp ; elles comptent avec les règles de src/lib/vuesFiches.ts (mêmes
 // chiffres que le sous-menu des vues). Relevés du jour et en retard : une carte chacun, qui ouvre la fiche détaillée.
 // Chantiers : feu vert à donner (5 prérequis OK, pas de feu vert) et réceptions à valider (réalisé), vers leurs écrans.
-// Back-office : factures en retard et contrats à renouveler, encore vers ClickUp (écrans du lot back-office à venir).
+// Back-office : factures en retard et contrats à renouveler. Depuis le 17/10 à 14 h 28 (lot « écrans qui manquent »),
+// elles ouvrent les écrans de liste de l'application (/interne/liste/factures et /interne/liste/parc), plus ClickUp.
 // 17/10, 11 h 01 (Matthieu : « ce n'est pas le commercial qui fait les relevés techniques ») : les relevés planifiés et
 // en retard sont au chargé d'opération / chef de chantier.
 // 17/10, 13 h 13 (Matthieu : « c'est le commercial qui planifie le relevé technique pour le chef de chantier ») : la
@@ -26,7 +27,6 @@ import { CHAMPS_INTERVENTION, chantierAMoi } from '@/lib/espaces';
 
 export const dynamic = 'force-dynamic';
 
-const EQUIPE = process.env.CLICKUP_TEAM_ID?.trim() || '90151325642';
 const PLANNING_CHANTIERS_ID = '901520038258';
 const PARC_ID = '901520038290';
 const FACTURES_ID = process.env.CLICKUP_FACTURES_LIST_ID || '1200630000003863';
@@ -62,8 +62,7 @@ type CarteJournee = {
 type Releve = { id: string; nom: string; quand: string; retard: boolean; typeClient: string; adresse: string; lien: string };
 
 const champNomme = (t: any, mot: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => normal(c?.name).includes(mot));
-const urlTache = (t: any) => String(t?.url || `https://app.clickup.com/t/${t?.id}`);
-const urlListe = (id: string) => `https://app.clickup.com/${EQUIPE}/v/li/${id}`;
+const urlTache = (t: any) => `/interne/element/${t?.id}`;
 
 // « 14h30 » à Paris. Date sans heure dans ClickUp (enregistrée à 0 h ou 4 h) : heure non précisée
 function heureDe(ms: number): string {
@@ -194,14 +193,14 @@ export async function GET(request: Request) {
     }, planning, (t) => statut(t).includes('realise'));
     ajouter({
       cle: 'factures', role: 'backOffice', section: 'aDebloquer', surtitre: 'Back-office', titre: 'Factures en retard',
-      detail: 'Rappel du jour ou dépassé (relances J+3, J+10, J+15)', urgent: true, lien: urlListe(FACTURES_ID), externe: true,
+      detail: 'Rappel du jour ou dépassé (relances J+3, J+10, J+15)', urgent: true, lien: '/interne/liste/factures?vue=retard', externe: false,
     }, factures, (t) => {
       const s = statut(t);
       return !s.includes('litige') && (s.includes('emise') || s.includes('partiel')) && echu(t?.due_date);
     });
     ajouter({
       cle: 'contrats', role: 'backOffice', section: 'aDebloquer', surtitre: 'Back-office', titre: 'Contrats à renouveler',
-      detail: `Échéance annuelle dans les ${JOURS_CONTRAT} jours ou dépassée`, urgent: false, lien: urlListe(PARC_ID), externe: true,
+      detail: `Échéance annuelle dans les ${JOURS_CONTRAT} jours ou dépassée`, urgent: false, lien: '/interne/liste/parc?vue=contrats', externe: false,
     }, parc, (t) => {
       if (statut(t).includes('hors service')) return false;
       const j = jourDe(champNomme(t, 'echeance annuelle')?.value);
