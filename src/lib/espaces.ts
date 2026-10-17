@@ -8,13 +8,17 @@
 // liste ClickUp (externe) ou l'écran « à construire », avec leur compteur réel quand il est calculable.
 // Espace Installateur validé le 17/10 à 11 h 18 (3 vues) : il ne voit que son travail (« moi » = la personne connectée,
 // comme la vue ClickUp 📱 MODE TECH), lisible hors ligne.
+// Espace Back-office validé le 17/10 à 11 h 28 (8 vues). Costructor reste la référence des factures et règlements :
+// les vues lisent ce que ClickUp en reçoit. Écrans de l'application à construire : en attendant, ouverture de ClickUp.
 // Clé de vue : « cle » dans la source de la vue, ou « source:cle » pour additionner une autre liste.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit.
 import type { Jour } from '@/lib/joursOuvres';
 import { aujourdhuiParis, ajouterJours, comparer } from '@/lib/joursOuvres';
 import { champ, nomOption } from '@/lib/vuesFiches';
 
-export type SourceVue = 'qualification' | 'prospection' | 'contacts' | 'planning' | 'commandes' | 'sav' | 'maintenance' | 'aucune';
+export type SourceVue =
+  | 'qualification' | 'prospection' | 'contacts' | 'planning' | 'commandes' | 'sav' | 'maintenance'
+  | 'factures' | 'achats' | 'advenir' | 'parc' | 'rh' | 'aucune';
 export type Filtre = (t: any, a: Jour, moi: number) => boolean;
 
 export type VueEspace = {
@@ -47,6 +51,11 @@ export const LISTES: Record<Exclude<SourceVue, 'qualification' | 'aucune'>, stri
   commandes: '901520038249', // Commandes Matériel 🚚
   sav: '901520038282', // Tickets SAV 🔧
   maintenance: '1200630000008492', // Maintenance 🛠️ (visites)
+  factures: '1200630000003863', // Factures Clients 💰 (v2)
+  achats: '1200630000003864', // Achats Fournisseurs 🧾 (v2)
+  advenir: '901520038271', // Dossiers Advenir 📄
+  parc: '901520038290', // Parc Installé (Maintenance) 🔄
+  rh: '1200630000003868', // Gestion RH Quotidienne ☕ (v2)
 };
 
 // Champs des interventions (relus le 17/10/2026)
@@ -59,6 +68,8 @@ export const CHAMPS_INTERVENTION = {
   installationTicket: '3804df6e-a2e1-4058-913c-447189c73d35', // 🔗 Fiche Installation (Tickets SAV → Parc)
   severite: 'c2ae4e08-6903-4698-af96-a40082c11b39', // 🔥 Sévérité (Tickets SAV)
 };
+
+const CLICKUP = ' (ouvre ClickUp en attendant l’écran)';
 
 export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur' | 'backOffice' | 'direction', Espace>> = {
   commercial: {
@@ -83,9 +94,9 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Chantiers par date et répartition des techniciens', href: '/interne/bientot/planning', source: 'aucune', aConstruire: true },
       { cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux : à planifier, préparation, planifié, en cours', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
       { cle: 'receptions', emoji: '✅', libelle: 'Réceptions à valider', description: 'PV, rapport de mesures et photos déposés par le poseur', href: '/interne/validation', source: 'planning', vues: ['receptions'], urgent: true },
-      { cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: 'Commandes en « à commander » (ouvre ClickUp en attendant l’écran)', href: liste(LISTES.commandes), source: 'commandes', vues: ['a-commander'], externe: true },
-      { cle: 'sav', emoji: '🚨', libelle: 'SAV urgences et tri', description: 'Tickets pas encore résolus (ouvre ClickUp en attendant l’écran)', href: liste(LISTES.sav), source: 'sav', vues: ['a-traiter'], urgent: true, externe: true },
-      { cle: 'maintenance', emoji: '🔧', libelle: 'Visites de maintenance (J-30)', description: 'À planifier, échéance dans les 30 jours ou dépassée (ouvre ClickUp en attendant l’écran)', href: liste(LISTES.maintenance), source: 'maintenance', vues: ['j-30'], externe: true },
+      { cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: `Commandes en « à commander »${CLICKUP}`, href: liste(LISTES.commandes), source: 'commandes', vues: ['a-commander'], externe: true },
+      { cle: 'sav', emoji: '🚨', libelle: 'SAV urgences et tri', description: `Tickets pas encore résolus${CLICKUP}`, href: liste(LISTES.sav), source: 'sav', vues: ['a-traiter'], urgent: true, externe: true },
+      { cle: 'maintenance', emoji: '🔧', libelle: 'Visites de maintenance (J-30)', description: `À planifier, échéance dans les 30 jours ou dépassée${CLICKUP}`, href: liste(LISTES.maintenance), source: 'maintenance', vues: ['j-30'], externe: true },
     ],
   },
   poseur: {
@@ -94,6 +105,19 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { cle: 'interventions', emoji: '📱', libelle: 'Mes interventions', description: 'Poses et visites de maintenance : aujourd’hui, demain, la semaine, avec l’itinéraire du jour', href: '/interne/interventions', source: 'planning', vues: ['mes-interventions', 'maintenance:mes-visites'] },
       { cle: 'reception', emoji: '📸', libelle: 'Réception sur place', description: 'PV signé, rapport de mesures, photos et réserves', href: '/interne/reception', source: 'planning', vues: ['mes-receptions'], urgent: true },
       { cle: 'sav', emoji: '🔧', libelle: 'Mes tickets SAV', description: 'Tickets qui me sont affectés, pas encore résolus', href: '/interne/interventions?vue=sav', source: 'sav', vues: ['mes-tickets'], urgent: true },
+    ],
+  },
+  backOffice: {
+    titre: 'Espace back-office',
+    vues: [
+      { cle: 'factures-retard', emoji: '⏰', libelle: 'Factures en retard', description: `Émises ou partiellement payées, échéance passée (relances J+3, J+10, J+15)${CLICKUP}`, href: liste(LISTES.factures), source: 'factures', vues: ['retard'], urgent: true, externe: true },
+      { cle: 'factures', emoji: '💰', libelle: 'Suivi des factures', description: `À émettre, émises, partiellement payées, en litige (Costructor fait référence)${CLICKUP}`, href: liste(LISTES.factures), source: 'factures', vues: ['ouvertes'], externe: true },
+      { cle: 'achats', emoji: '🚚', libelle: 'Achats et livraisons', description: `Compteur : commandés dont la livraison prévue est dépassée${CLICKUP}`, href: liste(LISTES.achats), source: 'achats', vues: ['livraisons-retard'], urgent: true, externe: true },
+      { cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: `Compteur : dossiers en cours dont la date limite de réalisation tombe dans les 30 jours${CLICKUP}`, href: liste(LISTES.advenir), source: 'advenir', vues: ['alertes'], urgent: true, externe: true },
+      { cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: `Échéance annuelle dans les 30 jours ou dépassée${CLICKUP}`, href: liste(LISTES.parc), source: 'parc', vues: ['contrats'], externe: true },
+      { cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Préparation, validation, envoi au gestionnaire. Liste ClickUp à créer d’abord', href: '/interne/bientot/decomptes', source: 'aucune', aConstruire: true },
+      { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: 'Syndics, conseils syndicaux, gestionnaires', href: '/interne/contacts', source: 'contacts', vues: ['tous'] },
+      { cle: 'rh', emoji: '👔', libelle: 'RH et recrutement', description: `Compteur : demandes RH nouvelles ou en examen${CLICKUP}`, href: liste(LISTES.rh), source: 'rh', vues: ['demandes'], externe: true },
     ],
   },
 };
@@ -105,6 +129,7 @@ const jourDe = (ms: unknown): Jour | null => {
 };
 const statut = (t: any) => normal(t?.status?.status);
 const champNomme = (t: any, mot: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => normal(c?.name).includes(mot));
+const avant = (ms: unknown, limite: Jour) => { const j = jourDe(ms); return !!j && comparer(j, limite) <= 0; };
 // La personne fait partie d'un champ Personnes (ou des assignés si champId est vide)
 export const estAMoi = (t: any, champId: string | null, moi: number): boolean => {
   const v = champId ? champ(t, champId)?.value : t?.assignees;
@@ -157,6 +182,9 @@ export const VUES_PROSPECTION: Record<string, { libelle: string; filtre: (t: any
   chasse: { libelle: 'Pipeline chasse', filtre: () => true },
 };
 
+// Dossier ADVENIR encore en cours (ni validé, ni prime payée, ni annulé / expiré, ni archivé)
+const advenirEnCours = (t: any) => { const s = statut(t); return !['valide', 'prime payee', 'annule', 'archive'].some((m) => s.includes(m)); };
+
 // Filtres des sources autres que Qualification, par clé de vue
 export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
   prospection: {
@@ -177,13 +205,19 @@ export const FILTRES: Partial<Record<SourceVue, Record<string, Filtre>>> = {
     'mes-tickets': (t, _a, moi) => ticketAMoi(t, moi),
   },
   maintenance: {
-    'j-30': (t, a) => {
-      if (!statut(t).includes('a planifier')) return false;
-      const j = jourDe(champNomme(t, 'echeance')?.value);
-      return !!j && comparer(j, ajouterJours(a, 30)) <= 0;
-    },
+    'j-30': (t, a) => statut(t).includes('a planifier') && avant(champNomme(t, 'echeance')?.value, ajouterJours(a, 30)),
     'mes-visites': (t, _a, moi) => visiteAMoi(t, moi),
   },
+  // Factures Clients : mêmes règles que la carte « Factures en retard » de Ma journée
+  factures: {
+    retard: (t, a) => { const s = statut(t); return !s.includes('litige') && (s.includes('emise') || s.includes('partiel')) && avant(t?.due_date, a); },
+    ouvertes: (t) => { const s = statut(t); return ['a emettre', 'emise', 'partiel', 'litige'].some((m) => s.includes(m)); },
+  },
+  achats: { 'livraisons-retard': (t, a) => statut(t).includes('commande') && avant(champNomme(t, 'livraison prevue')?.value, a) },
+  advenir: { alertes: (t, a) => advenirEnCours(t) && avant(champNomme(t, 'date limite')?.value, ajouterJours(a, 30)) },
+  // Parc : mêmes règles que la carte « Contrats à renouveler » de Ma journée
+  parc: { contrats: (t, a) => !statut(t).includes('hors service') && avant(champNomme(t, 'echeance annuelle')?.value, ajouterJours(a, 30)) },
+  rh: { demandes: (t) => statut(t).includes('nouvelle demande') || statut(t).includes('en examen') },
 };
 
 export const etapeProspect = (t: any): number => {
