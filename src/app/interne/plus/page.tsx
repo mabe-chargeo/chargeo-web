@@ -1,20 +1,23 @@
 "use client";
 
-// Onglet Plus de l'application équipe (barre par rôle validée par Matthieu le 17/10/2026) : les écrans du rôle affiché
-// qui ne sont pas dans la barre, le choix du rôle affiché (direction ou personne ayant plusieurs rôles), le planning
-// terrain et la déconnexion.
+// Onglet Plus de l'application équipe (carte des menus validée par Matthieu le 17/10/2026) : les menus du rôle
+// affiché qui ne sont pas dans la barre, les créations du bouton + (CREER : nouveau lead, ticket SAV, idée Kaizen, ici
+// en attendant le bouton + de l'en-tête), le choix du rôle affiché (direction ou personne ayant plusieurs rôles), le
+// planning terrain et la déconnexion.
 import { ChevronRight, ClipboardList, LogOut } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli } from '@/components/charte/Appli';
 import { CYAN, NAVY, ORANGE } from '@/components/charte/couleurs';
-import { ECRANS, LIBELLE_ROLE, MENUS } from '@/lib/menusAppli';
+import { CREER, ECRANS, LIBELLE_ROLE, MENUS } from '@/lib/menusAppli';
 import { ICONES } from '@/components/charte/iconesAppli';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 
 export default function PlusPage() {
   const { role, possibles, choisir } = useRoleAppli();
   const ecrans = (role ? MENUS[role].plus : []).map((c) => ECRANS[c]).filter(Boolean);
+  const creations = (role ? CREER[role] : []).map((c) => ECRANS[c]).filter(Boolean);
   const liens = [
     ...ecrans.map((e) => ({ href: e.href, titre: e.libelle, detail: e.description, Icon: ICONES[e.icone], couleur: e.pret ? CYAN : '#9aa5b1', bientot: !e.pret })),
+    ...creations.map((e) => ({ href: e.href, titre: `+ ${e.libelle}`, detail: e.description, Icon: ICONES[e.icone], couleur: e.pret ? CYAN : '#9aa5b1', bientot: !e.pret })),
     { href: '/interne', titre: 'Planning terrain', detail: 'Relevés à faire, utilisables hors ligne en sous-sol', Icon: ClipboardList, couleur: CYAN, bientot: false },
     { href: '/api/auth/deconnexion', titre: 'Se déconnecter', detail: 'Fermer la session sur ce téléphone', Icon: LogOut, couleur: ORANGE, bientot: false },
   ].filter((l, i, t) => t.findIndex((x) => x.href === l.href) === i);
