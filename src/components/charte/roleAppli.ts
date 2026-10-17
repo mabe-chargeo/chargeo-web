@@ -4,11 +4,13 @@
 // Les rôles viennent de /api/interne/moi et sont gardés sur le téléphone pour fonctionner hors ligne.
 // La direction peut afficher l'appli de n'importe quel rôle (choix gardé sur le téléphone). L'affichage ne donne aucun
 // droit : chaque route contrôle les rôles elle-même.
+// 17/10, 20 h 26 : le nom de la personne connectée est gardé aussi (menu de la pastille du rôle, « Connecté : … »).
 import { useCallback, useEffect, useState } from 'react';
 import { ORDRE_ROLES, type RoleAppli } from '@/lib/menusAppli';
 
 const CLE_ROLES = 'chargeo_roles';
 const CLE_ROLE_AFFICHE = 'chargeo_role_affiche';
+const CLE_NOM = 'chargeo_nom';
 const EVENEMENT = 'chargeo-role-change';
 
 function estRole(x: unknown): x is RoleAppli {
@@ -34,6 +36,11 @@ function lireChoix(): RoleAppli | null {
   return null;
 }
 
+function lireNom(): string {
+  try { return localStorage.getItem(CLE_NOM) || ''; } catch {}
+  return '';
+}
+
 export function rolesPossibles(roles: RoleAppli[] | null): RoleAppli[] {
   if (!roles || !roles.length) return [];
   if (roles.includes('direction')) return [...ORDRE_ROLES];
@@ -43,10 +50,12 @@ export function rolesPossibles(roles: RoleAppli[] | null): RoleAppli[] {
 export function useRoleAppli() {
   const [roles, setRoles] = useState<RoleAppli[] | null>(null);
   const [choix, setChoix] = useState<RoleAppli | null>(null);
+  const [nom, setNom] = useState('');
 
   useEffect(() => {
     setRoles(lireRoles());
     setChoix(lireChoix());
+    setNom(lireNom());
     const surChangement = () => setChoix(lireChoix());
     window.addEventListener(EVENEMENT, surChangement);
     fetch('/api/interne/moi', { cache: 'no-store' })
@@ -58,6 +67,10 @@ export function useRoleAppli() {
             setRoles(lus);
             try { localStorage.setItem(CLE_ROLES, JSON.stringify(lus)); } catch {}
           }
+        }
+        if (typeof j?.nom === 'string' && j.nom.trim()) {
+          setNom(j.nom.trim());
+          try { localStorage.setItem(CLE_NOM, j.nom.trim()); } catch {}
         }
       })
       .catch(() => {});
@@ -73,5 +86,5 @@ export function useRoleAppli() {
     window.dispatchEvent(new Event(EVENEMENT));
   }, []);
 
-  return { roles, possibles, role, choisir };
+  return { roles, possibles, role, choisir, nom };
 }
