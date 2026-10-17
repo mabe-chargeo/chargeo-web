@@ -17,6 +17,8 @@
 // Barre du commercial : Ma journée · Mon espace · Plus. Les autres rôles gardent leur barre en attendant leur validation.
 // 17/10/2026, 11 h 06 : espace Chef de chantier validé, même barre Ma journée · Mon espace · Plus (remplace la barre
 // Ma journée · Relevés · Chantiers · Planning de la carte des menus).
+// 17/10/2026, 11 h 18 : espace Installateur validé, même barre (l'espace s'intitule « Mon travail ») ; Mes interventions
+// construit (/interne/interventions).
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -80,7 +82,7 @@ export const ECRANS: Record<string, Ecran> = {
   },
   espace: {
     cle: 'espace', libelle: 'Mon espace', href: '/interne/espace', icone: 'pipeline', pret: true,
-    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne'],
+    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne'],
     description: 'Les vues du rôle, dans l’ordre de son travail, avec leurs compteurs',
   },
   releves: {
@@ -105,6 +107,11 @@ export const ECRANS: Record<string, Ecran> = {
       { cle: 'avancement', libelle: 'Avancement' },
       { cle: 'carte', libelle: 'Carte des chantiers' },
     ],
+  },
+  interventions: {
+    cle: 'interventions', libelle: 'Mes interventions', court: 'Interventions', href: '/interne/interventions', icone: 'interventions', pret: true,
+    actif: ['/interne/interventions', '/interne/reception'],
+    description: 'Poses et visites de maintenance affectées à l’installateur, par jour, avec l’itinéraire du jour, lisibles hors ligne',
   },
 
   // Étapes et actions construites, ouvertes depuis une pastille ou une fiche (plus dans la barre ni dans Plus)
@@ -161,20 +168,8 @@ export const ECRANS: Record<string, Ecran> = {
   }),
 
   // ── Installateur ──
-  interventions: bientot('interventions', 'Interventions', 'interventions', 'Ses interventions (poses, dépannages, visites de maintenance), filtrées sur « moi ». Fiche intervention : accès, contact sur place, relevé, photos, matériel prévu, et ses actions (saisie à la pose, rapport et signature, visite de maintenance), hors ligne.', {
-    actif: ['/interne/bientot/interventions', '/interne/reception', '/interne/bientot/saisiePose', '/interne/bientot/maintenance'],
-    pastilles: [
-      { cle: 'aujourdhui', libelle: "Aujourd'hui" },
-      { cle: 'demain', libelle: 'Demain' },
-      { cle: 'semaine', libelle: 'Semaine' },
-      { cle: 'carte', libelle: 'Carte du jour', href: '/interne/bientot/carteDuJour' },
-      { cle: 'a-synchroniser', libelle: 'À synchroniser' },
-    ],
-  }),
   carteDuJour: bientot('carteDuJour', 'Carte du jour', 'carte', 'Itinéraire des interventions du jour (aussi en pastille d’Interventions).', { court: 'Carte' }),
-  savSite: bientot('savSite', 'SAV', 'sav', 'Ses tickets SAV sur site, avec l’historique de la borne. Pas d’accès à Urgences et tri (chef de chantier).', {
-    pastilles: [{ cle: 'mes-tickets', libelle: 'Mes tickets' }],
-  }),
+  savSite: { cle: 'savSite', libelle: 'Mes tickets SAV', court: 'SAV', href: '/interne/interventions?vue=sav', icone: 'sav', pret: true, actif: [], description: 'Ses tickets SAV pas encore résolus, avec l’historique de la borne. Pas d’accès à Urgences et tri (chef de chantier).' },
   saisiePose: bientot('saisiePose', 'Saisie à la pose', 'reception', 'Action de la fiche intervention : matériel posé, n° de série, puissance configurée, mesures (terre, protections), photos, hors ligne.'),
   maintenance: bientot('maintenance', 'Visite de maintenance', 'maintenance', 'Action de la fiche intervention : mesures par point de charge (point 18).'),
 
@@ -214,7 +209,7 @@ export const ECRANS: Record<string, Ecran> = {
 export const MENUS: Record<RoleAppli, { barre: string[]; plus: string[] }> = {
   commercial: { barre: ['journee', 'espace'], plus: ['ressources'] },
   chargeOperation: { barre: ['journee', 'espace'], plus: ['parc'] },
-  poseur: { barre: ['interventions', 'carteDuJour', 'savSite'], plus: ['releves', 'parc'] },
+  poseur: { barre: ['journee', 'espace'], plus: ['releves', 'parc'] },
   backOffice: { barre: ['journee', 'facturation', 'materielAchats', 'parc'], plus: ['advenir', 'decomptes', 'contacts', 'rh'] },
   direction: {
     barre: ['journee', 'pipeline', 'chantiers', 'pilotage'],
