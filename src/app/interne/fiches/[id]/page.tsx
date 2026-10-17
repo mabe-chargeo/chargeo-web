@@ -5,7 +5,8 @@
 // carte des menus) : les sections apparaissent au fil de l'avancement, avec l'action de l'étape.
 //   Toujours : statut, étape (frise), bloc 📇 Contact complet (Appeler, Google Voice, SMS, Gmail, Waze, Maps).
 //   Qualification : relevé (bouton Ouvrir le relevé), scénarios, devis et relance.
-//   Planning Chantiers : feu vert (5 prérequis), chantier (date, technicien), réception, devis signé, scénarios.
+//   Planning Chantiers : feu vert (5 prérequis), chantier (date, technicien) avec les actions de la fiche intervention
+//   (Saisie à la pose, Rapport et signature : étape 2 validée le 17/10 à 13 h), réception, devis signé, scénarios.
 //   Parc : contrat, échéances, borne, SAV et visites liés, réception.
 //   Dès qu'ils existent (17/10, 12 h 47) : factures (Costructor fait référence) et dossiers ADVENIR, qui s'ouvrent dans
 //   ClickUp en attendant leurs écrans.
@@ -73,6 +74,15 @@ const boutonAction = (href: string, libelle: string) => (
   <a
     href={href}
     className="flex w-full items-center justify-center gap-3 rounded-full bg-[#FF6B00] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95"
+  >
+    {libelle}
+  </a>
+);
+const boutonSecondaire = (href: string, libelle: string) => (
+  <a
+    href={href}
+    className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full px-6 text-[16px] font-semibold ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95"
+    style={{ color: CYAN }}
   >
     {libelle}
   </a>
@@ -200,11 +210,16 @@ export default function FichePage() {
     </Carte>
   );
 
+  // Chantier, avec les actions de la fiche intervention (étape 2) : saisie à la pose, puis rapport et signature
   const carteChantier = (f: Fiche) => f.chantier && (
     <Carte className="space-y-2.5">
       <TitreCarte icon={HardHat}>Chantier</TitreCarte>
       {ligne(CalendarClock, f.chantier.intervention ? `Intervention ${f.chantier.intervention}` : 'Date d’intervention à fixer', f.chantier.intervention ? CYAN : ORANGE)}
       {ligne(HardHat, f.chantier.techniciens.length ? f.chantier.techniciens.join(', ') : 'Technicien à affecter', f.chantier.techniciens.length ? CYAN : ORANGE)}
+      <div className="space-y-2 pt-1">
+        {boutonAction(`/interne/pose/${f.id}`, '📸 Saisie à la pose')}
+        {boutonSecondaire('/interne/reception', 'Rapport et signature')}
+      </div>
     </Carte>
   );
 
