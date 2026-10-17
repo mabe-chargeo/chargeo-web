@@ -1,7 +1,9 @@
 // Un espace par rôle (page « Un espace par rôle (proposition du 17/10/2026, 10 h 30) » du Doc de la carte des menus).
 // Principe validé par Matthieu le 17/10/2026 : 3 niveaux seulement. Mon espace = les vues du rôle dans l'ordre de son
 // travail, chacune avec son compteur ; une vue = la liste des fiches ; la fiche, toujours la même, avec le bloc 📇 Contact.
-// Espace Commercial validé le 17/10 à 10 h 44 (9 vues + bouton Nouveau lead). Les autres rôles restent à valider.
+// Espace Commercial validé le 17/10 à 10 h 44, corrigé à 11 h 01 (Matthieu : « ce n'est pas le commercial qui fait les
+// relevés techniques ») : Visites à caler et Agenda des visites retirées, elles vont au chef de chantier. Le commercial
+// reçoit le relevé finalisé (Devis à chiffrer), chiffre, envoie et relance. Les autres rôles restent à valider.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit.
 import type { Jour } from '@/lib/joursOuvres';
 import { aujourdhuiParis, comparer } from '@/lib/joursOuvres';
@@ -30,12 +32,10 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
     vues: [
       { cle: 'a-appeler', emoji: '📞', libelle: "À appeler aujourd'hui", description: 'Prospects dont la date de rappel est aujourd’hui ou passée', href: '/interne/prospection?vue=a-appeler', source: 'prospection', vue: 'a-appeler', urgent: true },
       { cle: 'chasse', emoji: '🚀', libelle: 'Pipeline chasse', description: 'Tous les prospects par étape, filtre LinkedIn', href: '/interne/prospection?vue=chasse', source: 'prospection', vue: 'chasse' },
-      { cle: 'a-caler', emoji: '📅', libelle: 'Visites à caler', description: 'Relevés sans date de visite : appeler le client', href: '/interne/fiches?vue=a-caler', source: 'qualification', vue: 'a-caler' },
-      { cle: 'devis-a-chiffrer', emoji: '📝', libelle: 'Devis à chiffrer', description: 'Relevé reçu, devis à faire dans Costructor', href: '/interne/fiches?vue=devis-a-chiffrer', source: 'qualification', vue: 'devis-a-chiffrer' },
+      { cle: 'devis-a-chiffrer', emoji: '📝', libelle: 'Devis à chiffrer', description: 'Relevé finalisé par le chef de chantier, devis à faire dans Costructor', href: '/interne/fiches?vue=devis-a-chiffrer', source: 'qualification', vue: 'devis-a-chiffrer' },
       { cle: 'relances-echues', emoji: '📩', libelle: 'Relances devis', description: 'Relance du jour ou en retard', href: '/interne/fiches?vue=relances-echues', source: 'qualification', vue: 'relances-echues', urgent: true },
       { cle: 'en-negociation', emoji: '🔥', libelle: 'En négociation', description: 'Devis discutés avec le client', href: '/interne/fiches?vue=en-negociation', source: 'qualification', vue: 'en-negociation' },
       { cle: 'toutes', emoji: '💰', libelle: 'Pipeline vente', description: 'Toutes les affaires, rangées par étape', href: '/interne/fiches?vue=toutes', source: 'qualification', vue: 'toutes' },
-      { cle: 'planifies', emoji: '🗺️', libelle: 'Agenda des visites', description: 'Visites calées, aujourd’hui et à venir (carte à venir)', href: '/interne/fiches?vue=planifies', source: 'qualification', vue: 'planifies' },
       { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: 'Syndics, conseils syndicaux, gestionnaires', href: '/interne/contacts', source: 'contacts' },
     ],
   },
