@@ -21,6 +21,8 @@ import { agendaBranche, occupationsAgenda, poserReleve, retirerReleve } from '@/
 //   Google Agenda de chaque chef (horaires seulement) ; POST crée ou déplace le relevé dans l'agenda du chef et le
 //   retire de l'agenda d'un autre chef s'il change (src/lib/googleAgenda.ts). Sans GOOGLE_SERVICE_ACCOUNT_JSON :
 //   « non branché », rien ne bloque. Un échec Google n'annule jamais la date ClickUp : il est signalé.
+// 17/10, 22 h 01 : tous les agendas affichés du chef (Perso, importés…), avec un avertissement si seul l'agenda
+//   principal a pu être lu (autorisation calendarlist.readonly absente) ou si un agenda est illisible.
 // POST { id, date (AAAA-MM-JJ), heure (HH:MM), chefId?, note? } → 📅 Date Visite Technique avec l'heure (Paris), chef
 //   assigné à la fiche, commentaire de trace avec le texte de l'email. Renvoie l'email de confirmation prêt à envoyer.
 //   Le commercial l'ouvre dans sa messagerie, le relit et l'envoie lui-même (rien n'est envoyé par le site).
@@ -149,7 +151,7 @@ async function occupationsDes(token: string, chefs: number[], saufId: string): P
   return { occupations, incomplet: lus.some((r) => r.status !== 'fulfilled') };
 }
 
-// Créneaux occupés des Google Agendas des chefs (horaires seulement)
+// Créneaux occupés des Google Agendas des chefs (tous leurs agendas affichés, horaires seulement)
 async function lireAgendas(chefs: Chef[]) {
   const creneaux: { chefId: number; jour: string; debut: number; fin: number; journee: boolean }[] = [];
   const erreurs: string[] = [];
@@ -157,13 +159,17 @@ async function lireAgendas(chefs: Chef[]) {
   const depuis = new Date();
   const jusque = new Date(Date.now() + JOURS_PLANNING * 86400000);
   const lus = await Promise.allSettled(chefs.map((c) => (c.email ? occupationsAgenda(c.email, depuis, jusque) : Promise.reject(new Error('pas d’email dans ClickUp')))));
+  const principalSeul: string[] = [];
   lus.forEach((r, i) => {
     if (r.status === 'fulfilled') {
-      for (const x of r.value) creneaux.push({ chefId: chefs[i].id, jour: x.jour, debut: x.debut, fin: x.fin, journee: x.journee });
+      for (const x of r.value.creneaux) creneaux.push({ chefId: chefs[i].id, jour: x.jour, debut: x.debut, fin: x.fin, journee: x.journee });
+      if (!r.value.listeComplete) principalSeul.push(chefs[i].nom);
+      if (r.value.sautes) erreurs.push(`${r.value.sautes} agenda(s) de ${chefs[i].nom} illisible(s) : vérifie avec lui.`);
     } else {
       erreurs.push(`Agenda Google de ${chefs[i].nom} illisible : ${texte((r.reason as any)?.message || r.reason, 160)}`);
     }
   });
+  if (principalSeul.length) erreurs.push(`Seul l’agenda principal est lu pour ${principalSeul.join(', ')} : ses autres agendas (Perso…) ne sont pas encore pris en compte.`);
   return { branche: true, creneaux, erreurs };
 }
 
