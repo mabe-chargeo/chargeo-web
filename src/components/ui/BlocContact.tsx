@@ -17,9 +17,9 @@
 // inconnu ; il est masqué pour un fixe français ou suisse.
 // 17/10, Matthieu : « partout où on a la fiche contact, il faut tous les boutons qu'on a codés » (10 h 20), « tu ajoutes
 // le bloc contact partout » (10 h 26). Le même bloc sert à la fiche du Pipeline (ouvertParDefaut) et aux cartes de
-// chantier (Feu vert, Réception). Dans une liste de chantiers, differe : rien n'est lu avant le premier appui, pour ne
-// pas lancer une lecture ClickUp par carte (quota de l'API). Le relevé garde la lecture immédiate, faite avec du
-// réseau avant de descendre au sous-sol.
+// chantier et de prospect (differe). Dans une liste, differe : rien n'est lu avant le premier appui, pour ne pas lancer
+// une lecture ClickUp par carte (quota de l'API). Le relevé garde la lecture immédiate, faite avec du réseau avant de
+// descendre au sous-sol. BoutonsContact : les mêmes boutons pour une personne déjà lue (annuaire Contacts).
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Headphones, Mail, MapPin, MessageSquare, Navigation, Phone, Users } from 'lucide-react';
 import { Carte, TitreCarte } from '@/components/charte/Appli';
@@ -80,6 +80,21 @@ function Lien({ href, children }: { href: string; children: ReactNode }) {
     >
       {children}
     </a>
+  );
+}
+
+// Les boutons d'une personne déjà lue : Appeler, Google Voice, SMS (portables), Gmail
+export function BoutonsContact({ tel, email, moi = '' }: { tel: string; email: string; moi?: string }) {
+  const [ios, setIos] = useState(false);
+  useEffect(() => { setIos(estIOS()); }, []);
+  if (!tel && !email) return <p className="text-[13px]">Ni téléphone ni email sur la fiche.</p>;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {tel && <Lien href={`tel:${international(tel)}`}><Phone size={14} /> Appeler</Lien>}
+      {tel && <Lien href={lienVoice(tel, moi)}><Headphones size={14} /> Google Voice</Lien>}
+      {tel && recoitSms(tel) && <Lien href={`sms:${international(tel)}`}><MessageSquare size={14} /> SMS</Lien>}
+      {email && <Lien href={lienGmail(email, moi, ios)}><Mail size={14} /> Gmail</Lien>}
+    </div>
   );
 }
 
@@ -160,7 +175,7 @@ export function BlocContact({
     <p className="text-[14px]">Chargement du contact...</p>
   );
 
-  // Dans une carte de chantier (differe), bloc blanc pour se détacher du fond gris de la carte
+  // Dans une carte de liste (differe), bloc blanc pour se détacher du fond gris de la carte
   const corps = (
     <>
       <button type="button" onClick={() => setOuvert(!ouvert)} className="w-full text-left">
