@@ -4,10 +4,13 @@
 // Une carte par chantier ouvert de Planning Chantiers : les 5 prérequis à régler d'un geste (✅ Confirmé, ➖ Non applicable,
 // ❌ Manquant), le blocage borne résident, puis le bouton Donner le feu vert, actif seulement quand tout est OK.
 // Le commentaire « Feu vert donné » et le retrait automatique restent faits par la route existante (automatisations).
+// 17/10, 10 h 26 (Matthieu) : bloc 📇 Contact sur chaque chantier (Appeler, Google Voice, SMS, Gmail, Waze, Maps), lu au
+// premier appui.
 import { useEffect, useState } from 'react';
 import { ExternalLink, RefreshCw, ShieldCheck, TrafficCone } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, TitreCarte, Alerte, BoutonPrincipal } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
+import { BlocContact } from '@/components/ui/BlocContact';
 
 interface Prerequis { id: string; libelle: string; optionId: string | null; valeur: string | null; ok: boolean }
 interface Option { id: string; nom: string; orderindex: number }
@@ -97,6 +100,8 @@ export default function FeuVertPage() {
             {c.statut}
           </p>
         )}
+
+        <BlocContact affaireId={c.id} differe />
 
         <div className="space-y-3">
           {c.prerequis.map((p) => (
