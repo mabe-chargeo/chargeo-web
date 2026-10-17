@@ -6,11 +6,12 @@ import { CONFIG_LISTES, estSourceListe, filtreDe, idListe, peutLire, seulementMo
 import { champsCles, dateCourte, estAMoiPartout } from '@/lib/champsGeneriques';
 
 // Écrans de liste (lot « écrans qui manquent » du 17/10/2026, 14 h 28). LECTURE SEULE.
-// GET ?source=<commandes|sav|maintenance|factures|achats|advenir|parc|rh|codir|okr|kaizen|todo>
+// GET ?source=<commandes|sav|maintenance|factures|achats|advenir|parc|rh|salaries|recrutement|codir|okr|kaizen|todo>
 // Renvoie les tâches principales ouvertes de la liste, avec pour chacune les vues de l'espace qui la comptent (mêmes
 // règles que Mon espace, src/lib/espaces.ts), son statut, son échéance, ses assignés et ses champs clés.
 // 17/10, 19 h 00 : montants = valeurs des champs monétaires de config.totaux (null si vide), que l'écran additionne
 // pour la vue affichée (trésorerie ADVENIR, factures, achats).
+// 17/10, 19 h 10 : creer = bouton de création de la liste (+ Salarié, + Candidat).
 // Droits : src/lib/listesAppli.ts (la direction lit tout). L'installateur ne reçoit que ses tâches.
 // Les listes sont lues pour de vrai en preview aussi (lecture seule), comme les autres écrans hors Qualification.
 
@@ -89,6 +90,7 @@ export async function GET(request: Request) {
       note: config.note || '',
       vues: config.vues,
       totaux: totaux.map((x) => x.libelle),
+      creer: config.creer || null,
       restreint,
       elements,
       url: `https://app.clickup.com/${process.env.CLICKUP_TEAM_ID?.trim() || '90151325642'}/v/li/${idListe(source)}`,

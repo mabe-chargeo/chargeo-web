@@ -4,6 +4,7 @@ import { rolesDe } from '@/lib/roles';
 import { LISTES } from '@/lib/espaces';
 
 // Créations RH depuis l'application (17/10/2026, 19 h 10, choix de Matthieu : « Salarié et candidat »).
+// GET : options des listes déroulantes (dans l'ordre de ClickUp).
 // POST { type: 'salarie', nom, poste, contrat, entree?, habilitations?, expiration?, telephone?, email?, notes? }
 //   → Vie des Salariés 👥, statut de départ (👋 nouvel arrivant), champs créés le 17/10 à 19 h 10, et la checklist
 //   ONBOARDING du wiki de la liste (12 points).
@@ -11,6 +12,7 @@ import { LISTES } from '@/lib/espaces';
 //   → Recrutement Installateurs 👷, mêmes champs que le formulaire chargeo.fr/recrutement (/api/recrutement).
 // ATTENTION : les listes déroulantes sont écrites PAR INDEX (ordre des options dans ClickUp). Ne jamais réordonner.
 // Droits : back-office et direction (données RH sensibles). Preview : nom préfixé « Test · ».
+// Le fichier n'exporte que les handlers (règle des routes Next).
 
 export const dynamic = 'force-dynamic';
 const json = (corps: any, status = 200) => NextResponse.json(corps, { status });
@@ -26,8 +28,8 @@ const SALARIE = {
   habilitations: 'd1e7bfc7-11e7-4ffd-ae20-945fdf60a36b', // 🛡️ Habilitations (texte)
   expiration: 'dea742f9-abdf-4c52-a662-035bad156a99', // 📅 Expiration habilitation
 };
-export const POSTES_SALARIE = ['Installateur', 'Chef de chantier', 'Commercial', 'Back-office', 'Direction'];
-export const CONTRATS = ['CDI', 'CDD', 'Alternance', 'Freelance', 'Intérim'];
+const POSTES_SALARIE = ['Installateur', 'Chef de chantier', 'Commercial', 'Back-office', 'Direction'];
+const CONTRATS = ['CDI', 'CDD', 'Alternance', 'Freelance', 'Intérim'];
 // Checklist ONBOARDING du wiki « Vie des Salariés »
 const ONBOARDING = [
   'Contrat signé des deux côtés',
@@ -54,9 +56,9 @@ const CANDIDAT = {
   permis: '9f2afed1-03d9-4cff-aa8b-a8649cc9fda9', // Permis B (case)
   habilitation: '0cb446e3-55f1-44a3-85c4-d9efa0ada758', // Aucune 0, Faite en formation 1, Titre déjà délivré 2
 };
-export const POSTES_CANDIDAT = ['Électricien', 'Poseur', 'Chef d’équipe'];
-export const DIPLOMES = ['CAP', 'Bac pro', 'BTS', 'Autre'];
-export const HABILITATIONS = ['Aucune', 'Faite en formation', 'Titre déjà délivré'];
+const POSTES_CANDIDAT = ['Électricien', 'Poseur', 'Chef d’équipe'];
+const DIPLOMES = ['CAP', 'Bac pro', 'BTS', 'Autre'];
+const HABILITATIONS = ['Aucune', 'Faite en formation', 'Titre déjà délivré'];
 
 // « AAAA-MM-JJ » → horodatage (8 h, comme le formulaire du site), null si invalide
 function dateMs(v: unknown): number | null {

@@ -1,13 +1,15 @@
 "use client";
 
 // Écran de liste générique (lot « écrans qui manquent », 17/10/2026, 14 h 28) : Commandes, SAV, Maintenance, Factures,
-// Achats, ADVENIR, Parc, RH, CODIR, OKR, Kaizen, To-Do. Remplace l'ouverture de ClickUp depuis Mon espace.
+// Achats, ADVENIR, Parc, RH, Salariés, Recrutement, CODIR, OKR, Kaizen, To-Do. Remplace l'ouverture de ClickUp depuis Mon
+// espace.
 // Pastilles : les vues de l'espace (mêmes compteurs que Mon espace), « Tous », puis une par statut. Recherche par nom.
 // Une carte ouvre la fiche générique /interne/element/<id> (ou la fiche affaire pour Prospection à Parc).
 // ?vue=<clé> ouvre directement la vue (liens de Mon espace).
 // 17/10, 19 h 00 : carte « Totaux » sous les pastilles quand la liste a des montants (ADVENIR : primes estimées et
 // réelles ; factures ; achats), calculée sur les fiches affichées (vue, statut et recherche), avec le nombre de fiches
 // sans montant.
+// 17/10, 19 h 10 : bouton de création en tête quand la liste en a un (+ Salarié, + Candidat).
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, BadgeEuro, CalendarClock, ChevronRight, ExternalLink, RefreshCw, Search, User } from 'lucide-react';
@@ -20,7 +22,7 @@ type Element = {
 };
 type Liste = {
   source: string; titre: string; emoji: string; note: string; vues: { cle: string; libelle: string }[]; totaux?: string[];
-  restreint: boolean; elements: Element[]; url: string;
+  creer?: { libelle: string; href: string } | null; restreint: boolean; elements: Element[]; url: string;
 };
 
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -102,6 +104,11 @@ export default function ListePage() {
       <EnTeteAppli surtitre={liste ? `${liste.emoji} ${liste.restreint ? 'Mes tâches' : 'Liste'}` : 'Liste'} titre={liste?.titre || 'Liste'} action={boutonRetour} />
       <ContenuAppli className="space-y-4">
         {liste?.note && <p className="px-1 text-[13px]">{liste.note}</p>}
+        {liste?.creer && (
+          <a href={liste.creer.href} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95">
+            {liste.creer.libelle}
+          </a>
+        )}
         <div className="relative">
           <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2" color={CYAN} />
           <input className={`${CHAMP} pl-11`} placeholder="Rechercher" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
