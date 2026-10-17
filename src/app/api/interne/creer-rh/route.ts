@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { sessionDeRequete } from '@/lib/session';
 import { rolesDe } from '@/lib/roles';
 import { LISTES } from '@/lib/espaces';
+import { champType } from '@/lib/typesTaches';
 
 // Créations RH depuis l'application (17/10/2026, 19 h 10, choix de Matthieu : « Salarié et candidat »).
 // GET : options des listes déroulantes (dans l'ordre de ClickUp).
@@ -10,6 +11,7 @@ import { LISTES } from '@/lib/espaces';
 //   ONBOARDING du wiki de la liste (12 points).
 // POST { type: 'candidat', nom, telephone, email?, poste, disponibilite?, diplome?, permis?, habilitation?, notes? }
 //   → Recrutement Installateurs 👷, mêmes champs que le formulaire chargeo.fr/recrutement (/api/recrutement).
+// 17/10, 20 h 01 : type de tâche Salarié ou Candidat posé à la création (src/lib/typesTaches.ts).
 // ATTENTION : les listes déroulantes sont écrites PAR INDEX (ordre des options dans ClickUp). Ne jamais réordonner.
 // Droits : back-office et direction (données RH sensibles). Preview : nom préfixé « Test · ».
 // Le fichier n'exporte que les handlers (règle des routes Next).
@@ -155,7 +157,8 @@ export async function POST(request: Request) {
         email ? `Email : ${email}` : '',
         notes ? `\n${notes}` : '',
       ].filter(Boolean).join('\n');
-      const r = await creerTache(token, LISTES.salaries, { name: prefixe(nom), description, custom_fields: champs });
+      const type = await champType(token, 'salarie');
+      const r = await creerTache(token, LISTES.salaries, { name: prefixe(nom), description, ...type, custom_fields: champs });
       if (!r.ok) return json({ error: `ClickUp a refusé la création (${r.status})` }, 502);
       const checklist = await poserChecklist(token, String(r.tache.id), 'ONBOARDING', ONBOARDING);
       return json({ success: true, preview, checklist, cree: { id: String(r.tache.id), nom: String(r.tache.name), lien: `/interne/element/${r.tache.id}` } });
@@ -179,7 +182,8 @@ export async function POST(request: Request) {
         `Poste : ${POSTES_CANDIDAT[poste]}`,
         notes ? `\n${notes}` : '',
       ].filter(Boolean).join('\n');
-      const r = await creerTache(token, LISTES.recrutement, { name: prefixe(nom), description, custom_fields: champs });
+      const type = await champType(token, 'candidat');
+      const r = await creerTache(token, LISTES.recrutement, { name: prefixe(nom), description, ...type, custom_fields: champs });
       if (!r.ok) return json({ error: `ClickUp a refusé la création (${r.status})` }, 502);
       return json({ success: true, preview, cree: { id: String(r.tache.id), nom: String(r.tache.name), lien: `/interne/element/${r.tache.id}` } });
     }
