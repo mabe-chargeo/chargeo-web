@@ -1,42 +1,29 @@
 "use client";
 
-// Barre de navigation de l'application équipe (structure validée par Matthieu le 16/10/2026) : fixe en bas de chaque
-// écran de /interne, 4 onglets. Chacun ne voit que les onglets de ses rôles (lus sur /api/interne/moi) ; sans réponse
-// (hors ligne, session expirée), tous les onglets restent affichés : l'affichage ne donne aucun droit.
+// Barre de navigation de l'application équipe, une par rôle (validée par Matthieu le 17/10/2026, écrans du 11/10) :
+// les écrans les plus utilisés du rôle affiché, puis « Plus ». Menus définis dans src/lib/menusAppli.ts.
+// Sans rôle connu (première ouverture hors ligne), barre minimale : Ma journée, Relevés, Plus.
 // Masquée dans le relevé (/interne/metre/...), qui a ses propres boutons en bas d'écran.
-import { useEffect, useState, type ElementType } from 'react';
 import { usePathname } from 'next/navigation';
-import { FolderOpen, HardHat, Menu, Sun } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { CYAN, NAVY } from '@/components/charte/couleurs';
-
-type Role = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
-
-const ONGLETS: { href: string; libelle: string; icon: ElementType; roles: Role[] | null; actif: (p: string) => boolean }[] = [
-  { href: '/interne/journee', libelle: 'Ma journée', icon: Sun, roles: null, actif: (p) => p.startsWith('/interne/journee') },
-  {
-    href: '/interne/fiches', libelle: 'Fiches', icon: FolderOpen, roles: ['direction', 'commercial', 'chargeOperation', 'backOffice'],
-    actif: (p) => p.startsWith('/interne/fiches'),
-  },
-  {
-    href: '/interne/chantiers', libelle: 'Chantiers', icon: HardHat, roles: ['direction', 'chargeOperation', 'poseur'],
-    actif: (p) => ['/interne/chantiers', '/interne/feu-vert', '/interne/reception', '/interne/validation'].some((x) => p.startsWith(x)),
-  },
-  { href: '/interne/plus', libelle: 'Plus', icon: Menu, roles: null, actif: (p) => p === '/interne' || p.startsWith('/interne/plus') },
-];
+import { ECRANS, MENUS, estActif } from '@/lib/menusAppli';
+import { ICONES } from '@/components/charte/iconesAppli';
+import { useRoleAppli } from '@/components/charte/roleAppli';
 
 export default function NavAppli() {
   const chemin = usePathname() || '';
-  const [roles, setRoles] = useState<Role[] | null>(null);
-
-  useEffect(() => {
-    fetch('/api/interne/moi', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (Array.isArray(j?.roles) && j.roles.length) setRoles(j.roles as Role[]); })
-      .catch(() => {});
-  }, []);
+  const { role } = useRoleAppli();
 
   if (chemin.startsWith('/interne/metre')) return null;
-  const onglets = ONGLETS.filter((o) => !o.roles || !roles || o.roles.some((r) => roles.includes(r)));
+
+  const cles = role ? MENUS[role].barre : ['journee', 'releves'];
+  const ecrans = cles.map((c) => ECRANS[c]).filter(Boolean);
+  const unActif = ecrans.some((e) => estActif(e, chemin));
+  const onglets = [
+    ...ecrans.map((e) => ({ cle: e.cle, href: e.href, libelle: e.libelle, Icon: ICONES[e.icone], actif: estActif(e, chemin) })),
+    { cle: 'plus', href: '/interne/plus', libelle: 'Plus', Icon: Menu, actif: chemin.startsWith('/interne/plus') || !unActif },
+  ];
 
   return (
     <>
@@ -47,26 +34,23 @@ export default function NavAppli() {
         aria-label="Navigation de l'application"
       >
         <div className="mx-auto flex max-w-lg">
-          {onglets.map(({ href, libelle, icon: Icon, actif }) => {
-            const estActif = actif(chemin);
-            return (
-              <a
-                key={href}
-                href={href}
-                aria-current={estActif ? 'page' : undefined}
-                className="flex flex-1 flex-col items-center gap-1 py-2.5 text-[12px] font-bold transition-transform active:scale-95"
-                style={{ color: estActif ? CYAN : NAVY }}
+          {onglets.map(({ cle, href, libelle, Icon, actif }) => (
+            <a
+              key={cle}
+              href={href}
+              aria-current={actif ? 'page' : undefined}
+              className="flex min-w-0 flex-1 flex-col items-center gap-1 px-0.5 py-2.5 text-center text-[11px] font-bold leading-tight transition-transform active:scale-95"
+              style={{ color: actif ? CYAN : NAVY }}
+            >
+              <span
+                className="flex h-8 w-12 items-center justify-center rounded-full"
+                style={actif ? { backgroundColor: '#e3f4f7' } : undefined}
               >
-                <span
-                  className="flex h-8 w-14 items-center justify-center rounded-full"
-                  style={estActif ? { backgroundColor: '#e3f4f7' } : undefined}
-                >
-                  <Icon size={21} strokeWidth={estActif ? 2.2 : 1.8} />
-                </span>
-                {libelle}
-              </a>
-            );
-          })}
+                <Icon size={21} strokeWidth={actif ? 2.2 : 1.8} />
+              </span>
+              <span className="w-full truncate">{libelle}</span>
+            </a>
+          ))}
         </div>
       </nav>
     </>
