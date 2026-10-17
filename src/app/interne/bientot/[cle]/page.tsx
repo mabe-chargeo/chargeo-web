@@ -1,6 +1,8 @@
 "use client";
 
 // Écran pas encore construit : affiche ce qui a été validé avec Matthieu le 11/10/2026 (src/lib/menusAppli.ts).
+// 17/10/2026, 22 h 20 : plus de lien « Retour au menu Plus » (Plus est devenu Créer) ; le bouton Retour de l'en-tête
+// ramène à l'écran d'où l'on vient.
 import { useParams } from 'next/navigation';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte } from '@/components/charte/Appli';
 import { CYAN, NAVY } from '@/components/charte/couleurs';
@@ -16,7 +18,7 @@ export default function BientotPage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="À construire" titre={ecran ? ecran.libelle : 'Écran inconnu'} />
+      <EnTeteAppli surtitre="À construire" titre={ecran ? ecran.libelle : 'Écran inconnu'} retour={{ href: '/interne/espace', libelle: 'À traiter' }} />
       <ContenuAppli className="space-y-3">
         <Carte>
           <div className="flex items-start gap-4">
@@ -31,9 +33,6 @@ export default function BientotPage() {
             </div>
           </div>
         </Carte>
-        <a href="/interne/plus" className="block text-center text-[14px] font-bold underline" style={{ color: CYAN }}>
-          Retour au menu Plus
-        </a>
       </ContenuAppli>
     </PageAppli>
   );

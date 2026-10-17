@@ -9,10 +9,12 @@
 // le jour et l'heure ; « Pas encore calées » ensuite (le commercial doit fixer le rendez-vous), toujours ouvrables.
 // 13/10/2026 (Phase 6) : lien de déconnexion (connexion avec le compte ClickUp, src/proxy.ts).
 // 17/10/2026, 13 h 13 (Matthieu : les trois boutons du haut « n'ont pas lieu d'être ») : Feu vert, Réception sur place et
-// Valider les réceptions sont retirés. Ils sont dans Mon espace (chef de chantier, installateur). Cette page est la vue
+// Valider les réceptions sont retirés. Ils sont dans À traiter (chef de chantier, installateur). Cette page est la vue
 // « Relevés à faire » du chef de chantier, utilisable hors ligne.
+// 17/10, 22 h 20 : plus de lien « ← Mon espace » dans la page (le bouton Retour de l'en-tête ramène à À traiter) ni de
+// « Se déconnecter » (la déconnexion est sous la pastille du rôle depuis 20 h 17).
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarClock, ChevronRight, ClipboardList, GitBranch, History, MapPin, RefreshCw, Zap } from 'lucide-react';
+import { CalendarClock, ChevronRight, ClipboardList, GitBranch, History, MapPin, RefreshCw, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { relevesATerminer } from '@/lib/releveLocal';
@@ -135,10 +137,6 @@ export default function InternePage() {
       <EnTeteAppli surtitre="Chef de chantier" titre="Relevés à faire" action={boutonActualiser} />
 
       <ContenuAppli className="space-y-4">
-        <a href="/interne/espace" className="inline-flex items-center gap-1.5 text-[14px] font-semibold" style={{ color: CYAN }}>
-          <ArrowLeft size={15} /> Mon espace
-        </a>
-
         {aReprendre.length > 0 && (
           <>
             <Repere>Relevés à terminer sur ce téléphone</Repere>
@@ -191,10 +189,6 @@ export default function InternePage() {
             {aCaler.map((c) => carteChantier(c, false))}
           </>
         )}
-
-        <div className="pt-6 text-center">
-          <a href="/api/auth/deconnexion" className="text-[13px] font-semibold underline" style={{ color: CYAN }}>Se déconnecter</a>
-        </div>
       </ContenuAppli>
     </PageAppli>
   );

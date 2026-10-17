@@ -2,6 +2,7 @@
 
 // Wikis (17/10/2026, 19 h 25) : le guide de l'entreprise (Portail de l'ERP) et le mode d'emploi de chaque liste,
 // lisibles dans l'application, selon le rôle. Chaque carte ouvre /interne/wiki/<clé>.
+// 22 h 20 : ouvert depuis l'onglet Consulter, le retour y ramène.
 import { useEffect, useState } from 'react';
 import { BookOpen, ChevronRight, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
@@ -28,7 +29,7 @@ export default function WikisPage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Modes d’emploi" titre="Wikis" retour={{ href: '/interne/espace', libelle: 'Mon espace' }} />
+      <EnTeteAppli surtitre="Modes d’emploi" titre="Wikis" retour={{ href: '/interne/consulter', libelle: 'Consulter' }} />
       <ContenuAppli className="space-y-3">
         {erreur && <Alerte>{erreur}</Alerte>}
         {!index && !erreur && (

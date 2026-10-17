@@ -5,12 +5,13 @@
 // Revient à l'écran précédent de l'application (historique du navigateur) quand on y est arrivé depuis l'application ;
 // sinon (lien ouvert depuis ClickUp, un mail, un favori) ouvre l'écran parent « repli ». Sans JavaScript, le lien
 // mène aussi à l'écran parent.
-// Pas de bouton sur les écrans racines de la barre du bas (Ma journée, Mon espace, Plus) quand rien n'est imposé.
+// Pas de bouton sur les écrans racines de la barre du bas quand rien n'est imposé : Ma journée, À traiter, Consulter
+// (ajouté le 17/10, 22 h 20 : la barre a 4 onglets depuis 20 h 17) et Créer.
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 
-const RACINES = ['/interne/journee', '/interne/espace', '/interne/plus'];
+const RACINES = ['/interne/journee', '/interne/espace', '/interne/consulter', '/interne/plus'];
 const CLE_PAGES = 'chargeo_pages_vues';
 
 export default function BoutonRetour({ repli = '/interne/espace', force = false }: { repli?: string; force?: boolean }) {
@@ -26,7 +27,7 @@ export default function BoutonRetour({ repli = '/interne/espace', force = false 
     } catch { /* navigation privée */ }
   }, [chemin]);
 
-  // Écran racine sans paramètre (ex. Mon espace d'un autre rôle garde son retour)
+  // Écran racine sans paramètre (ex. l'espace d'un autre rôle garde son retour)
   if (!force && RACINES.includes(chemin) && !avecRequete) return null;
 
   const revenir = (e: React.MouseEvent<HTMLAnchorElement>) => {
