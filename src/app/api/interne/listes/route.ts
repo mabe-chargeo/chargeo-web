@@ -9,12 +9,15 @@ import { champsCles, dateCourte, estAMoiPartout } from '@/lib/champsGeneriques';
 // GET ?source=<commandes|sav|maintenance|factures|achats|advenir|parc|rh|codir|okr|kaizen|todo>
 // Renvoie les tâches principales ouvertes de la liste, avec pour chacune les vues de l'espace qui la comptent (mêmes
 // règles que Mon espace, src/lib/espaces.ts), son statut, son échéance, ses assignés et ses champs clés.
+// 17/10, 19 h 00 : montants = valeurs des champs monétaires de config.totaux (null si vide), que l'écran additionne
+// pour la vue affichée (trésorerie ADVENIR, factures, achats).
 // Droits : src/lib/listesAppli.ts (la direction lit tout). L'installateur ne reçoit que ses tâches.
 // Les listes sont lues pour de vrai en preview aussi (lecture seule), comme les autres écrans hors Qualification.
 
 export const dynamic = 'force-dynamic';
 const PAGES_MAX = 10;
 const json = (corps: any, status = 200) => NextResponse.json(corps, { status });
+const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 async function lister(token: string, listId: string): Promise<any[]> {
   const toutes: any[] = [];
@@ -32,6 +35,17 @@ async function lister(token: string, listId: string): Promise<any[]> {
   return toutes;
 }
 
+// Valeur d'un champ monétaire ou numérique trouvé par un mot de son nom, null s'il est vide
+function montantDe(t: any, mot: string): number | null {
+  const c = (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find(
+    (x: any) => (x?.type === 'currency' || x?.type === 'number' || x?.type === 'formula') && normal(x?.name).includes(normal(mot)),
+  );
+  const v = c?.value;
+  if (v === undefined || v === null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function GET(request: Request) {
   const token = process.env.CLICKUP_API_KEY;
   if (!token) return json({ error: 'Configuration serveur incomplète' }, 500);
@@ -44,6 +58,7 @@ export async function GET(request: Request) {
     const roles = await rolesDe(token, session.id);
     if (!peutLire(source, roles)) return json({ error: 'Cette liste n’est pas dans ton rôle.' }, 403);
     const config = CONFIG_LISTES[source];
+    const totaux = config.totaux || [];
     const moi = Number(session.id);
     const aujourdhui = aujourdhuiParis();
     const restreint = seulementMoi(source, roles);
@@ -61,6 +76,7 @@ export async function GET(request: Request) {
       echeanceMs: Number(t?.due_date) || null,
       assignes: (Array.isArray(t?.assignees) ? t.assignees : []).map((u: any) => String(u?.username || u?.email || '')).filter(Boolean),
       champs: champsCles(t, config.champs).map((c) => ({ nom: c.nom, texte: c.texte })),
+      montants: totaux.map((x) => montantDe(t, x.mot)),
       vues: config.vues.filter((v) => { const f = filtreDe(source, v.cle); return !!f && f(t, aujourdhui, moi); }).map((v) => v.cle),
       aMoi: estAMoiPartout(t, moi),
     }));
@@ -72,6 +88,7 @@ export async function GET(request: Request) {
       emoji: config.emoji,
       note: config.note || '',
       vues: config.vues,
+      totaux: totaux.map((x) => x.libelle),
       restreint,
       elements,
       url: `https://app.clickup.com/${process.env.CLICKUP_TEAM_ID?.trim() || '90151325642'}/v/li/${idListe(source)}`,

@@ -5,20 +5,27 @@
 // Pastilles : les vues de l'espace (mêmes compteurs que Mon espace), « Tous », puis une par statut. Recherche par nom.
 // Une carte ouvre la fiche générique /interne/element/<id> (ou la fiche affaire pour Prospection à Parc).
 // ?vue=<clé> ouvre directement la vue (liens de Mon espace).
+// 17/10, 19 h 00 : carte « Totaux » sous les pastilles quand la liste a des montants (ADVENIR : primes estimées et
+// réelles ; factures ; achats), calculée sur les fiches affichées (vue, statut et recherche), avec le nombre de fiches
+// sans montant.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CalendarClock, ChevronRight, ExternalLink, RefreshCw, Search, User } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, CHAMP } from '@/components/charte/Appli';
+import { ArrowLeft, BadgeEuro, CalendarClock, ChevronRight, ExternalLink, RefreshCw, Search, User } from 'lucide-react';
+import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, CHAMP, TitreCarte } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 
 type Element = {
   id: string; nom: string; statut: string; couleurStatut: string; echeance: string; echeanceMs: number | null;
-  assignes: string[]; champs: { nom: string; texte: string }[]; vues: string[]; aMoi: boolean;
+  assignes: string[]; champs: { nom: string; texte: string }[]; montants?: (number | null)[]; vues: string[]; aMoi: boolean;
 };
-type Liste = { source: string; titre: string; emoji: string; note: string; vues: { cle: string; libelle: string }[]; restreint: boolean; elements: Element[]; url: string };
+type Liste = {
+  source: string; titre: string; emoji: string; note: string; vues: { cle: string; libelle: string }[]; totaux?: string[];
+  restreint: boolean; elements: Element[]; url: string;
+};
 
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const sansEmoji = (s: string) => s.replace(/^[^A-Za-z0-9\u00C0-\u017F]+/, '').trim();
+const euros = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
 export default function ListePage() {
   const params = useParams<{ source: string }>();
@@ -61,6 +68,14 @@ export default function ListePage() {
   const q = normal(recherche.trim());
   const visibles = elements.filter((e) => garde(e) && (!q || normal(`${e.nom} ${e.champs.map((c) => c.texte).join(' ')}`).includes(q)));
 
+  // Totaux des fiches affichées, un par champ monétaire de la liste
+  const libellesTotaux = liste?.totaux || [];
+  const totaux = libellesTotaux.map((libelle, i) => {
+    const valeurs = visibles.map((e) => (e.montants || [])[i]);
+    const remplis = valeurs.filter((v): v is number => typeof v === 'number');
+    return { libelle, somme: remplis.reduce((s, v) => s + v, 0), sansMontant: valeurs.length - remplis.length };
+  });
+
   const pastille = (cle: string, libelle: string, n: number, couleur?: string, urgent = false) => {
     const actif = filtre === cle;
     return (
@@ -101,6 +116,21 @@ export default function ListePage() {
               <RefreshCw size={16} color={CYAN} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
+        )}
+
+        {liste && visibles.length > 0 && totaux.length > 0 && (
+          <Carte accent className="space-y-2">
+            <TitreCarte icon={BadgeEuro} extra={<span className="text-[13px] font-bold">{visibles.length} fiche{visibles.length > 1 ? 's' : ''}</span>}>Totaux</TitreCarte>
+            {totaux.map((t) => (
+              <div key={t.libelle} className="flex items-baseline justify-between gap-3 pt-1">
+                <span className="text-[14px] font-semibold">{t.libelle}</span>
+                <span className="text-right">
+                  <span className="text-[18px] font-extrabold">{euros(t.somme)}</span>
+                  {t.sansMontant > 0 && <span className="block text-[12px] font-semibold text-slate-500">{t.sansMontant} sans montant</span>}
+                </span>
+              </div>
+            ))}
+          </Carte>
         )}
 
         {erreur && <Alerte>{erreur}</Alerte>}

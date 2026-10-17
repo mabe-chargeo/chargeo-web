@@ -12,6 +12,9 @@
 // globale du Parc »). Il garde l'historique de la borne par ses tickets et ses visites.
 // 18 h 48 (choix de Matthieu : la date de livraison seulement dans Commandes) : Livraisons en retard passe dans
 // Matériel et commandes ; Achats fournisseurs = la dépense (à valider, commandés et reçus, montants, échéance).
+// 19 h 00 (écrans qui restent) : totaux de la vue affichée (totaux : champs monétaires additionnés), pour la
+// trésorerie des aides ADVENIR (primes estimées et réelles, « Primes à encaisser »), des factures et des achats.
+// Champs ADVENIR corrigés : les mots sont comparés sans accents, « prime estimee » ne trouvait pas « Prime Estimé ».
 // Fichier pur : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit : les routes
 // /api/interne/listes et /api/interne/elements contrôlent les rôles.
 import { LISTES, FILTRES, type Filtre, type SourceVue } from '@/lib/espaces';
@@ -30,6 +33,8 @@ export type ConfigListe = {
   vues: { cle: string; libelle: string }[];
   // Mots des champs montrés sur la carte (comparés au nom du champ, sans accents)
   champs: string[];
+  // Champs monétaires additionnés en tête de la vue (mot du nom du champ, sans accents)
+  totaux?: { mot: string; libelle: string }[];
   // Phrase de rappel en tête d'écran
   note?: string;
 };
@@ -61,6 +66,7 @@ export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
   factures: {
     titre: 'Factures clients', emoji: '💰', roles: ['backOffice'],
     vues: [{ cle: 'retard', libelle: 'En retard' }, { cle: 'ouvertes', libelle: 'À suivre' }], champs: ['type de piece', 'montant ht', 'echeance', 'n costructor'],
+    totaux: [{ mot: 'montant ht', libelle: 'Montant HT' }],
     note: 'Costructor fait référence pour les montants et les règlements. Les pastilles de statut donnent le pipeline de facturation.',
   },
   achats: {
@@ -70,6 +76,11 @@ export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
       { cle: 'en-cours', libelle: 'Commandés et reçus' },
     ],
     champs: ['fournisseur', 'montant ht', 'echeance de paiement', 'chantier'],
+    totaux: [
+      { mot: 'montant ht', libelle: 'Engagé HT' },
+      { mot: 'ttc a payer', libelle: 'TTC à payer' },
+      { mot: 'deja paye', libelle: 'Déjà payé TTC' },
+    ],
     note: 'La dépense : montant engagé, facture fournisseur, paiement. La livraison se suit dans Matériel et commandes.',
   },
   advenir: {
@@ -79,7 +90,11 @@ export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
       { cle: 'suivi', libelle: 'Suivi des dossiers' },
       { cle: 'a-encaisser', libelle: 'Primes à encaisser' },
     ],
-    champs: ['date limite', 'prime estimee', 'prime reelle', 'numero'],
+    champs: ['date limite', 'prime estime', 'prime reel', 'offre advenir'],
+    totaux: [
+      { mot: 'prime estime', libelle: 'Primes estimées' },
+      { mot: 'prime reel', libelle: 'Primes réelles' },
+    ],
   },
   parc: {
     titre: 'Parc installé', emoji: '🔋', roles: ['chargeOperation', 'backOffice', 'commercial'],
