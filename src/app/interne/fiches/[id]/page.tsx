@@ -7,13 +7,15 @@
 //   Qualification : relevé (bouton Ouvrir le relevé), scénarios, devis et relance.
 //   Planning Chantiers : feu vert (5 prérequis), chantier (date, technicien), réception, devis signé, scénarios.
 //   Parc : contrat, échéances, borne, SAV et visites liés, réception.
+//   Dès qu'ils existent (17/10, 12 h 47) : factures (Costructor fait référence) et dossiers ADVENIR, qui s'ouvrent dans
+//   ClickUp en attendant leurs écrans.
 // Structure de départ validée le 16/10 ; bloc Contact le 17/10 à 10 h 20. Retour vers la vue d'où l'on vient, sinon
 // vers Mon espace.
 import { useEffect, useState, type ElementType, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  ArrowLeft, BatteryCharging, CalendarClock, CheckCircle2, ClipboardList, ExternalLink, FileText, GitBranch, HardHat,
-  RefreshCw, ShieldCheck, TrafficCone, Wrench, XCircle,
+  BadgeEuro, BatteryCharging, CalendarClock, CheckCircle2, ClipboardList, ExternalLink, FileText, GitBranch, HardHat,
+  ArrowLeft, Landmark, RefreshCw, ShieldCheck, TrafficCone, Wrench, XCircle,
 } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
@@ -22,6 +24,14 @@ import { BlocContact } from '@/components/ui/BlocContact';
 type Etape = 'prospection' | 'qualification' | 'chantier' | 'parc';
 type Scenario = { id: string; nom: string; statut: string; couleurStatut: string; segment: string; elements: number; natures: { nature: string; n: number }[] };
 type Lien = { id: string; nom: string };
+type Facture = {
+  id: string; nom: string; statut: string; couleurStatut: string; type: string; numero: string; montantHT: number | null;
+  echeance: string; enRetard: boolean; lienCostructor: string; url: string;
+};
+type Dossier = {
+  id: string; nom: string; statut: string; couleurStatut: string; dateLimite: string;
+  primeEstimee: number | null; primeReelle: number | null; url: string;
+};
 type Fiche = {
   id: string;
   nom: string;
@@ -44,6 +54,9 @@ type Fiche = {
     contrat: string; echeance: string; miseEnService: string; finGarantie: string; modele: string; numeroSerie: string;
     pointsDeCharge: number | null; lienChargeUnix: string; sav: Lien[]; visites: Lien[];
   } | null;
+  // null = liste illisible ; [] = rien de lié
+  factures: Facture[] | null;
+  advenir: Dossier[] | null;
 };
 
 const ETAPES: { cle: Etape; libelle: string }[] = [
@@ -63,6 +76,12 @@ const boutonAction = (href: string, libelle: string) => (
   >
     {libelle}
   </a>
+);
+
+const pastilleStatut = (statut: string, couleur: string) => (
+  <span className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-white" style={{ backgroundColor: couleur || '#9aa3ad' }}>
+    {statut}
+  </span>
 );
 
 export default function FichePage() {
@@ -156,9 +175,7 @@ export default function FichePage() {
       {f.scenarios.map((s) => (
         <div key={s.id} className="rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-white" style={{ backgroundColor: s.couleurStatut || '#9aa3ad' }}>
-              {s.statut}
-            </span>
+            {pastilleStatut(s.statut, s.couleurStatut)}
             {s.segment && <span className="text-[12px] font-bold text-slate-500">{s.segment}</span>}
           </div>
           <p className="mt-1.5 text-[16px] font-bold leading-tight">{s.nom}</p>
@@ -224,6 +241,57 @@ export default function FichePage() {
     </>
   );
 
+  // Factures : au chantier et au Parc toujours (même vide), en vente seulement s'il y en a
+  const carteFactures = (f: Fiche) => {
+    const toujours = f.etape === 'chantier' || f.etape === 'parc';
+    if (f.factures !== null && !f.factures.length && !toujours) return null;
+    const retard = (f.factures || []).filter((x) => x.enRetard).length;
+    return (
+      <Carte className="space-y-3">
+        <TitreCarte icon={BadgeEuro} extra={<span className="text-[14px] font-bold" style={{ color: retard ? ORANGE : undefined }}>{f.factures ? f.factures.length : '?'}</span>}>Factures</TitreCarte>
+        {f.factures === null && <p className="text-[14px]" style={{ color: ORANGE }}>Factures illisibles pour l’instant : réessaie dans un moment.</p>}
+        {f.factures !== null && !f.factures.length && <p className="text-[14px]">Aucune facture liée pour l’instant.</p>}
+        {(f.factures || []).map((x) => (
+          <a key={x.id} href={x.url} target="_blank" rel="noopener noreferrer" className="block rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
+            <div className="flex flex-wrap items-center gap-2">
+              {pastilleStatut(x.statut, x.couleurStatut)}
+              {x.type && <span className="text-[12px] font-bold text-slate-500">{x.type}</span>}
+            </div>
+            <p className="mt-1.5 text-[15px] font-bold leading-tight">
+              {[x.numero ? `N° ${x.numero}` : '', x.montantHT !== null ? `${euros(x.montantHT)} HT` : ''].filter(Boolean).join(' · ') || x.nom}
+            </p>
+            {x.echeance && (
+              <p className="mt-1 text-[13px] font-semibold" style={{ color: x.enRetard ? ORANGE : undefined }}>
+                {x.enRetard ? `En retard : échéance ${x.echeance}` : `Échéance ${x.echeance}`}
+              </p>
+            )}
+          </a>
+        ))}
+        {(f.factures || []).length > 0 && <p className="text-[12px]">Costructor fait référence pour les montants et les règlements.</p>}
+      </Carte>
+    );
+  };
+
+  // Dossiers ADVENIR : seulement quand il y en a un (ou si la lecture a échoué)
+  const carteAdvenir = (f: Fiche) => {
+    if (f.advenir !== null && !f.advenir.length) return null;
+    return (
+      <Carte className="space-y-3">
+        <TitreCarte icon={Landmark} extra={<span className="text-[14px] font-bold">{f.advenir ? f.advenir.length : '?'}</span>}>Aides ADVENIR</TitreCarte>
+        {f.advenir === null && <p className="text-[14px]" style={{ color: ORANGE }}>Dossier ADVENIR illisible pour l’instant : réessaie dans un moment.</p>}
+        {(f.advenir || []).map((d) => (
+          <a key={d.id} href={d.url} target="_blank" rel="noopener noreferrer" className="block rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
+            <div className="flex flex-wrap items-center gap-2">{pastilleStatut(d.statut, d.couleurStatut)}</div>
+            <p className="mt-1.5 text-[15px] font-bold leading-tight">
+              {d.primeReelle !== null ? `Prime ${euros(d.primeReelle)}` : d.primeEstimee !== null ? `Prime estimée ${euros(d.primeEstimee)}` : d.nom}
+            </p>
+            {d.dateLimite && <p className="mt-1 text-[13px] font-semibold">Date limite de réalisation {d.dateLimite}</p>}
+          </a>
+        ))}
+      </Carte>
+    );
+  };
+
   return (
     <PageAppli>
       <EnTeteAppli surtitre={fiche ? [fiche.passeport.typeClient, fiche.projet.segment].filter(Boolean).join(' · ') || fiche.liste || 'Fiche' : 'Fiche'} titre={fiche?.nom || 'Fiche'} action={boutonRetour} />
@@ -286,6 +354,13 @@ export default function FichePage() {
                 {carteParc(fiche)}
                 {carteReception(fiche)}
                 {fiche.scenarios.length > 0 && carteScenarios(fiche)}
+              </>
+            )}
+
+            {fiche.etape !== 'prospection' && (
+              <>
+                {carteFactures(fiche)}
+                {carteAdvenir(fiche)}
               </>
             )}
 
