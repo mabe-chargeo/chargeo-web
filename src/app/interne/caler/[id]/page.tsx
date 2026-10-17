@@ -1,59 +1,55 @@
 "use client";
 
 // Caler le relevé technique (17/10/2026, 20 h 44, choix de Matthieu : « Caler + email de confirmation prêt à
-// envoyer »). Le commercial a le client au téléphone : chef de chantier, jour, heure, note d'accès. Ensuite l'email
-// de confirmation s'ouvre dans sa messagerie, déjà rédigé, qu'il relit et envoie (ou qu'il copie).
-// 17/10, 20 h 53 : la messagerie ajoute sa signature ; ?confirmation=1 (« Renvoyer la confirmation » de la fiche)
-// ouvre directement l'email du rendez-vous déjà calé, sans recaler.
-// 17/10, 20 h 59 (Matthieu : « comment je fais pour caler un rendez-vous si je n'ai pas de vue sur le planning ? ») :
-// le chef d'abord, puis les jours avec sa charge (libre, 1 RDV, chantier…), puis sa journée (heure, type, nom, ville :
-// pour regrouper les visites d'un même secteur) et les créneaux, grisés quand un rendez-vous est à moins d'1 h 30.
-// 17/10, 21 h 16 : + le Google Agenda du chef (créneaux occupés, sans détail). Un créneau d'1 h est grisé s'il
-// chevauche un événement de l'agenda, avec 30 min de marge pour la route. Le RDV calé part dans l'agenda du chef.
-// 17/10, 22 h 35 (Matthieu : « il ne se passe pas grand-chose quand j'appuie sur caler le relevé ») : l'erreur
-// d'enregistrement s'affiche juste sous le bouton (elle était en haut de page, hors de vue).
+// envoyer »). Le commercial a le client au téléphone : chef de chantier, créneau, note d'accès. Ensuite l'email de
+// confirmation s'ouvre déjà rédigé, il le relit et l'envoie (ou le copie).
+// 17/10, 20 h 53 : ?confirmation=1 (« Renvoyer la confirmation » de la fiche) ouvre directement l'email du rendez-vous
+// déjà calé, sans recaler.
+// 17/10, 20 h 59 et 21 h 16 : planning du chef (ERP) + son Google Agenda (tous ses agendas affichés, horaires seulement).
+// 17/10, 22 h 35 : l'erreur d'enregistrement s'affiche juste au-dessus du bouton.
+// 17/10, 22 h 42 (Matthieu : « un vrai agenda avec les créneaux, les jours, et on clique sur un créneau libre ») :
+//   agenda de la semaine (src/components/ui/AgendaSemaine.tsx) au lieu des pastilles de jours et d'heures. Durées
+//   supposées des rendez-vous de l'ERP (ils n'ont qu'une heure de début) : relevé 1 h, maintenance et dépannage 1 h 30,
+//   pose avec heure 4 h ; pose sans heure = bandeau « chantier » sur la journée. Marge de route 30 min.
+//   Email (Matthieu : « il faudrait que ça ouvre l'application Gmail ») : comme les boutons des fiches contact, sur
+//   iPhone et iPad l'application Gmail (googlegmail://co), ailleurs Gmail web sur le compte CHARGéO (authuser). La
+//   signature dépend des réglages Gmail du compte (signature par défaut des nouveaux messages, signature mobile).
 // Écrit par /api/interne/caler. Ouvert depuis « Visites à caler » et depuis la fiche affaire.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, CalendarCheck, Check, ChevronRight, Copy, Mail, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
+import AgendaSemaine, { heureDe, libelleJourCourt, type BlocAgenda, type JourneeAgenda } from '@/components/ui/AgendaSemaine';
 
 type Fiche = { id: string; nom: string; statut: string; aVisiter: boolean; adresse: string; ville?: string; email: string; telephone: string; dejaCale: string };
 type Chef = { id: number; nom: string };
 type Email = { a: string; sujet: string; texte: string; signature?: string };
 type Cale = { quand: string; chef: string; lienFiche: string };
-type Occupation = { jour: string; minutes: number | null; type: 'pose' | 'visite' | 'depannage' | 'releve'; nom: string; ville: string; techniciens: number[] };
+type TypeRdv = 'pose' | 'visite' | 'depannage' | 'releve';
+type Occupation = { jour: string; minutes: number | null; type: TypeRdv; nom: string; ville: string; techniciens: number[] };
 type CreneauAgenda = { chefId: number; jour: string; debut: number; fin: number; journee: boolean };
 type Agenda = { branche: boolean; creneaux: CreneauAgenda[]; erreurs: string[] };
 type StatutAgenda = 'cree' | 'deplace' | 'non-branche' | 'sans-chef' | 'erreur';
-type Ligne = { cle: string; tri: number; heure: string; titre: string; detail: string; ville: string; memeVille: boolean };
 
-const CRENEAUX = ['08:00', '09:00', '10:00', '11:00', '13:30', '14:30', '15:30', '16:30'];
-const ECART_MINUTES = 90;
 const DUREE_RELEVE = 60;
 const MARGE_ROUTE = 30;
+const DUREE_ERP: Record<TypeRdv, number> = { releve: 60, visite: 90, depannage: 90, pose: 240 };
 const VERT = '#16a34a';
-const TYPES: Record<Occupation['type'], string> = { pose: '🏗️ Pose', visite: '🔧 Maintenance', depannage: '🚨 Dépannage', releve: '📋 Relevé' };
-const jourIso = (decalage: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + decalage * 86400000));
-const libelleJour = (iso: string) => {
-  const [a, m, j] = iso.split('-').map(Number);
-  return new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(a, m - 1, j, 12)));
-};
-const enMinutes = (h: string) => { const [a, b] = h.split(':').map(Number); return a * 60 + b; };
-const heureDe = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}h${String(min % 60).padStart(2, '0')}`;
+const TYPES: Record<TypeRdv, string> = { pose: '🏗️ Pose', visite: '🔧 Maintenance', depannage: '🚨 Dépannage', releve: '📋 Relevé' };
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-// Les 10 prochains jours ouvrés (lundi à vendredi), à partir de demain
-const prochainsJours = () => {
-  const jours: string[] = [];
-  for (let i = 1; jours.length < 10 && i < 20; i++) {
-    const iso = jourIso(i);
-    const [a, m, j] = iso.split('-').map(Number);
-    const w = new Date(Date.UTC(a, m - 1, j, 12)).getUTCDay();
-    if (w !== 0 && w !== 6) jours.push(iso);
-  }
-  return jours;
-};
+
+// iPhone, iPad (y compris iPadOS qui se présente comme un Mac tactile), comme src/components/ui/BlocContact.tsx
+function estIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && (navigator as any).maxTouchPoints > 1);
+}
+// Nouveau message Gmail déjà rédigé : application Gmail sur iPhone et iPad, Gmail web sur le compte CHARGéO ailleurs
+const lienGmail = (e: Email, moi: string, ios: boolean) =>
+  ios
+    ? `googlegmail://co?to=${encodeURIComponent(e.a)}&subject=${encodeURIComponent(e.sujet)}&body=${encodeURIComponent(e.texte)}`
+    : `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(e.a)}&su=${encodeURIComponent(e.sujet)}&body=${encodeURIComponent(e.texte)}${moi ? `&authuser=${encodeURIComponent(moi)}` : ''}`;
 
 export default function CalerPage() {
   const params = useParams<{ id: string }>();
@@ -67,6 +63,7 @@ export default function CalerPage() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [date, setDate] = useState('');
   const [heure, setHeure] = useState('');
+  const [semaine, setSemaine] = useState(0);
   const [chefId, setChefId] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [envoi, setEnvoi] = useState(false);
@@ -78,7 +75,13 @@ export default function CalerPage() {
   const [chefOk, setChefOk] = useState(true);
   const [statutAgenda, setStatutAgenda] = useState<{ statut: StatutAgenda; erreur: string }>({ statut: 'non-branche', erreur: '' });
   const [copie, setCopie] = useState(false);
-  const jours = prochainsJours();
+  const [ios, setIos] = useState(false);
+  const [moi, setMoi] = useState('');
+
+  useEffect(() => {
+    setIos(estIOS());
+    fetch('/api/interne/moi', { cache: 'no-store' }).then((r) => r.json()).then((j) => setMoi(String(j?.email || ''))).catch(() => null);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -107,37 +110,26 @@ export default function CalerPage() {
     })();
   }, [id]);
 
-  // Planning du chef choisi : ERP + Google Agenda
-  const duChef = chefId === null ? [] : occupations.filter((o) => o.techniciens.includes(chefId));
-  const duJour = (j: string) => duChef.filter((o) => o.jour === j);
-  const agendaDuJour = (j: string) => (chefId === null ? [] : agenda.creneaux.filter((c) => c.chefId === chefId && c.jour === j));
-  const journee = date ? duJour(date) : [];
-  const agendaJour = date ? agendaDuJour(date) : [];
-  const chantierSansHeure = journee.some((o) => o.type === 'pose' && o.minutes === null);
-  const agendaJourneeEntiere = agendaJour.some((c) => c.journee);
-  const pris = (h: string) => {
-    const m = enMinutes(h);
-    return (
-      journee.some((o) => o.minutes !== null && Math.abs(o.minutes - m) < ECART_MINUTES) ||
-      agendaJour.some((c) => !c.journee && m < c.fin + MARGE_ROUTE && m + DUREE_RELEVE > c.debut - MARGE_ROUTE)
-    );
-  };
+  // Planning du chef choisi (ERP + Google Agenda) mis en forme pour l'agenda de la semaine
   const memeVille = (ville: string) => !!fiche?.ville && !!ville && normal(ville) === normal(fiche.ville);
-  const charge = (j: string) => {
-    const l = duJour(j);
-    const g = agendaDuJour(j);
-    if (l.some((o) => o.type === 'pose')) return { texte: 'chantier', alerte: true };
-    if (g.some((c) => c.journee)) return { texte: 'agenda : journée', alerte: true };
-    const n = l.length + g.length;
-    if (!n) return { texte: 'libre', alerte: false };
-    return { texte: `${n} RDV`, alerte: false };
+  const duChef = chefId === null ? [] : occupations.filter((o) => o.techniciens.includes(chefId));
+  const agendaDuChef = chefId === null ? [] : agenda.creneaux.filter((c) => c.chefId === chefId);
+  const blocs: BlocAgenda[] = duChef
+    .filter((o) => o.minutes !== null)
+    .map((o) => ({ jour: o.jour, debut: o.minutes as number, fin: (o.minutes as number) + DUREE_ERP[o.type], titre: TYPES[o.type], detail: [o.nom, o.ville].filter(Boolean).join(' · '), ton: (memeVille(o.ville) ? 'proche' : 'erp') as BlocAgenda['ton'] }))
+    .concat(agendaDuChef.filter((c) => !c.journee).map((c) => ({ jour: c.jour, debut: c.debut, fin: c.fin, titre: 'Occupé', detail: 'Agenda Google', ton: 'agenda' as BlocAgenda['ton'] })));
+  const journees: JourneeAgenda[] = duChef
+    .filter((o) => o.minutes === null)
+    .map((o) => ({ jour: o.jour, titre: o.type === 'pose' ? `🏗️ Chantier ${o.ville || o.nom}` : `${TYPES[o.type]} ${o.nom}` }))
+    .concat(agendaDuChef.filter((c) => c.journee).map((c) => ({ jour: c.jour, titre: '📆 Journée' })));
+  const choix = date && /^\d{2}:\d{2}$/.test(heure) ? { jour: date, minutes: Number(heure.slice(0, 2)) * 60 + Number(heure.slice(3, 5)) } : null;
+  const journeeDuChoix = choix ? journees.filter((x) => x.jour === choix.jour) : [];
+  const choisir = (jour: string, minutes: number) => {
+    setDate(jour);
+    setHeure(`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`);
   };
-  const lignes: Ligne[] = journee
-    .map((o, i) => ({ cle: `e${i}`, tri: o.minutes === null ? -1 : o.minutes, heure: o.minutes === null ? 'journée' : heureDe(o.minutes), titre: TYPES[o.type], detail: o.nom, ville: o.ville, memeVille: memeVille(o.ville) }))
-    .concat(agendaJour.map((c, i) => ({ cle: `g${i}`, tri: c.journee ? -1 : c.debut, heure: c.journee ? 'journée' : heureDe(c.debut), titre: '📆 Agenda Google', detail: c.journee ? 'occupé toute la journée' : `occupé jusqu’à ${heureDe(c.fin)}`, ville: '', memeVille: false })))
-    .sort((a, b) => a.tri - b.tri);
 
-  const pret = !!date && /^\d{2}:\d{2}$/.test(heure) && (chefs.length === 0 || chefId !== null);
+  const pret = !!choix && (chefs.length === 0 || chefId !== null);
   const envoyer = async () => {
     if (!pret || envoi) return;
     setEnvoi(true);
@@ -169,16 +161,15 @@ export default function CalerPage() {
       {libelle}
     </button>
   );
-  const retour = '/interne/fiches?vue=a-caler';
   const boutonRetour = (
-    <a href={retour} className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
+    <a href="/interne/fiches?vue=a-caler" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
       <ArrowLeft size={16} /> Visites à caler
     </a>
   );
 
   // Écran de confirmation : juste après avoir calé, ou « Renvoyer la confirmation »
   const confirmation = (c: Cale, e: Email, titre: string, renvoyee: boolean) => {
-    const mailto = e.a ? `mailto:${encodeURIComponent(e.a)}?subject=${encodeURIComponent(e.sujet)}&body=${encodeURIComponent(e.texte)}` : '';
+    const gmail = e.a ? lienGmail(e, moi, ios) : '';
     const copier = async () => {
       try { await navigator.clipboard.writeText(`${e.sujet}\n\n${e.texte}${e.signature ? `\n${e.signature}` : ''}`); setCopie(true); } catch { setCopie(false); }
     };
@@ -203,14 +194,14 @@ export default function CalerPage() {
           </Carte>
 
           <Repere>Email de confirmation</Repere>
-          {mailto ? (
-            <a href={mailto} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)]">
-              <Mail size={20} /> Ouvrir l’email pour {e.a}
+          {gmail ? (
+            <a href={gmail} target={ios ? undefined : '_blank'} rel="noopener noreferrer" className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)]">
+              <Mail size={20} /> Ouvrir dans Gmail pour {e.a}
             </a>
           ) : (
             <Alerte>Pas d’email sur la fiche du client : copie le texte et envoie-le par le moyen de ton choix.</Alerte>
           )}
-          <p className="px-1 text-[12px] text-slate-500">Ta messagerie ajoute ta signature sous le texte. Le texte est aussi gardé dans les commentaires de la fiche.</p>
+          <p className="px-1 text-[12px] text-slate-500">Sur iPhone et iPad, l’application Gmail s’ouvre ; ailleurs, Gmail sur ton compte CHARGéO. Ta signature Gmail s’ajoute si elle est réglée pour les nouveaux messages. Le texte est aussi gardé dans les commentaires de la fiche.</p>
           <Carte className="space-y-2">
             <p className="text-[13px] font-bold text-slate-500">{e.sujet}</p>
             <p className="whitespace-pre-line text-[14px] leading-relaxed">{e.texte}</p>
@@ -265,77 +256,32 @@ export default function CalerPage() {
             {agenda.erreurs.map((x) => <p key={x} className="px-1 text-[12px]" style={{ color: ORANGE }}>{x}</p>)}
             {planningIncomplet && <p className="px-1 text-[12px]" style={{ color: ORANGE }}>Une partie du planning n’a pas pu être lue : vérifie avec le chef avant de confirmer.</p>}
 
-            <Repere>2 · Le jour</Repere>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {jours.map((j) => {
-                const actif = date === j;
-                const c = charge(j);
-                return (
-                  <button
-                    key={j}
-                    onClick={() => { setDate(j); setHeure(''); }}
-                    className={`rounded-[16px] px-3 py-2.5 text-left ${actif ? 'text-white' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'}`}
-                    style={actif ? { backgroundColor: CYAN } : undefined}
-                  >
-                    <span className="block text-[14px] font-bold">{libelleJour(j)}</span>
-                    {chefId !== null && (
-                      <span className="block text-[12px] font-semibold" style={actif ? undefined : { color: c.alerte ? ORANGE : c.texte === 'libre' ? VERT : CYAN }}>{c.texte}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <input type="date" className={CHAMP} value={date} min={jourIso(0)} onChange={(e) => { setDate(e.target.value); setHeure(''); }} />
-
-            {date && chefId !== null && (
-              <Carte className="space-y-2">
-                <p className="text-[13px] font-bold text-slate-500">Journée du chef, {libelleJour(date)}</p>
-                {!lignes.length && <p className="text-[14px] font-semibold" style={{ color: VERT }}>Rien de prévu ce jour-là.</p>}
-                {lignes.map((l) => (
-                  <p key={l.cle} className="flex items-start gap-2 text-[14px]">
-                    <span className="w-[52px] shrink-0 font-bold">{l.heure}</span>
-                    <span className="min-w-0">
-                      <span className="font-semibold">{l.titre}</span> · {l.detail}
-                      {l.ville && <span className="font-semibold" style={{ color: l.memeVille ? VERT : undefined }}> · {l.ville}{l.memeVille ? ' (même ville)' : ''}</span>}
-                    </span>
+            <Repere>2 · Le créneau</Repere>
+            {chefId === null && chefs.length > 0 ? (
+              <p className="px-1 text-[14px] font-semibold">Choisis d’abord le chef de chantier pour voir son agenda.</p>
+            ) : (
+              <AgendaSemaine
+                blocs={blocs}
+                journees={journees}
+                duree={DUREE_RELEVE}
+                marge={MARGE_ROUTE}
+                choix={choix}
+                onChoisir={choisir}
+                semaine={semaine}
+                onSemaine={setSemaine}
+              />
+            )}
+            {choix ? (
+              <Carte accent>
+                <p className="flex items-center gap-1.5 text-[16px] font-bold"><CalendarCheck size={17} color={CYAN} /> {libelleJourCourt(choix.jour)} à {heureDe(choix.minutes)} · 1 h</p>
+                {journeeDuChoix.map((x, i) => (
+                  <p key={i} className="mt-1 flex items-center gap-1.5 text-[13px] font-bold" style={{ color: ORANGE }}>
+                    <AlertTriangle size={14} /> {x.titre} ce jour-là : vérifie avec le chef.
                   </p>
                 ))}
-                {chantierSansHeure && (
-                  <p className="flex items-center gap-1.5 text-[13px] font-bold" style={{ color: ORANGE }}>
-                    <AlertTriangle size={15} /> Chantier prévu ce jour-là sans heure : sans doute la journée entière, vérifie avec le chef.
-                  </p>
-                )}
-                {agendaJourneeEntiere && (
-                  <p className="flex items-center gap-1.5 text-[13px] font-bold" style={{ color: ORANGE }}>
-                    <AlertTriangle size={15} /> Événement sur toute la journée dans son agenda (congé, formation…) : vérifie avec le chef.
-                  </p>
-                )}
               </Carte>
-            )}
-
-            <Repere>3 · L&apos;heure</Repere>
-            <div className="flex flex-wrap gap-2">
-              {CRENEAUX.map((h) => {
-                const occupe = pris(h);
-                const actif = heure === h;
-                return (
-                  <button
-                    key={h}
-                    onClick={() => setHeure(h)}
-                    className={`rounded-full px-4 py-2 text-[14px] font-bold ${actif ? 'text-white' : occupe ? 'bg-[#eef1f4] text-slate-400 line-through' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'}`}
-                    style={actif ? { backgroundColor: occupe ? ORANGE : CYAN } : undefined}
-                    title={occupe ? 'Le chef est déjà pris autour de ce créneau' : undefined}
-                  >
-                    {h.replace(':', 'h')}
-                  </button>
-                );
-              })}
-            </div>
-            <input type="time" className={CHAMP} value={heure} step={900} onChange={(e) => setHeure(e.target.value)} />
-            {heure && pris(heure) && (
-              <p className="flex items-center gap-1.5 px-1 text-[13px] font-bold" style={{ color: ORANGE }}>
-                <AlertTriangle size={15} /> Le chef est déjà pris autour de ce créneau (rendez-vous ou agenda).
-              </p>
+            ) : (
+              <p className="px-1 text-[13px] text-slate-500">Touche un créneau blanc pour placer le relevé (1 h, 30 min de route comprises autour des autres rendez-vous).</p>
             )}
 
             <div>

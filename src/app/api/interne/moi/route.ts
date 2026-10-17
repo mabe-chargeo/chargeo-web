@@ -4,6 +4,7 @@ import { rolesDe } from '@/lib/roles';
 
 // Personne connectée et ses rôles (src/lib/roles.ts), pour afficher les bons onglets de la barre de navigation.
 // L'affichage ne donne aucun droit : chaque route contrôle les rôles elle-même.
+// 17/10/2026, 22 h 42 : + son email CHARGéO (pour ouvrir Gmail sur le bon compte depuis l'écran Caler).
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
@@ -12,5 +13,5 @@ export async function GET(request: Request) {
   const session = await sessionDeRequete(request);
   if (!session?.id) return NextResponse.json({ error: 'Connexion requise : reconnecte-toi.' }, { status: 401 });
   const roles = await rolesDe(token, session.id);
-  return NextResponse.json({ nom: session.nom || '', roles });
+  return NextResponse.json({ nom: session.nom || '', email: session.email || '', roles });
 }
