@@ -8,10 +8,14 @@ import { DATE_VISITE_ID, adresseDe, champ, dateVisiteDe, libelleDate } from '@/l
 // Caler le relevé technique depuis l'application (17/10/2026, 20 h 44, choix de Matthieu : « Caler + email de
 // confirmation prêt à envoyer »). Le commercial appelle le client et fixe le rendez-vous du chef de chantier.
 // GET ?id=<fiche> : la fiche (nom, adresse, email et téléphone du passeport, date déjà calée), les chefs de chantier
-//   (groupe ClickUp du rôle) et le chef déjà assigné.
+//   (groupe ClickUp du rôle), le chef déjà assigné et, si la visite est déjà calée, l'email de confirmation à
+//   renvoyer (note d'accès reprise du dernier commentaire « 📅 Relevé technique »).
 // POST { id, date (AAAA-MM-JJ), heure (HH:MM), chefId?, note? } → 📅 Date Visite Technique avec l'heure (Paris), chef
-//   assigné à la fiche, commentaire de trace. Renvoie l'email de confirmation prêt à envoyer (à, objet, texte) : le
-//   commercial l'ouvre dans sa messagerie, le relit et l'envoie lui-même (rien n'est envoyé par le site).
+//   assigné à la fiche, commentaire de trace avec le texte de l'email. Renvoie l'email de confirmation prêt à envoyer.
+//   Le commercial l'ouvre dans sa messagerie, le relit et l'envoie lui-même (rien n'est envoyé par le site).
+// 17/10, 20 h 53 (Matthieu : « est-ce que ça reprend ma signature d'e-mail ? ») : le texte s'arrête à « Bien
+//   cordialement, », la messagerie ajoute la signature de son compte ; nom et CHARGéO sont ajoutés seulement au texte
+//   copié (signature). Le texte est gardé dans le commentaire de la fiche.
 // La fiche passe d'elle-même de « Visites à caler » à « Agenda des visites » et « Relevés planifiés » (vuesFiches).
 // Droits : commercial, chef de chantier et direction. Fiche de la Qualification de l'environnement (🧪 TEST en preview,
 // où seules les fiches « Test … » sont modifiées), au statut 📍 à visiter.
@@ -22,6 +26,8 @@ const API = 'https://api.clickup.com/api/v2';
 const json = (corps: any, status = 200) => NextResponse.json(corps, { status });
 const texte = (v: unknown, max = 200) => (v === undefined || v === null ? '' : String(v).trim().slice(0, max));
 const AUTORISES = ['direction', 'commercial', 'chargeOperation'];
+const MARQUE_COMMENTAIRE = '📅 Relevé technique';
+const MARQUE_NOTE = 'Accès / remarques : ';
 
 // « 2026-10-22 » + « 14:30 », heure de Paris → horodatage
 function parisVersMs(date: string, heure: string): number {
@@ -44,6 +50,42 @@ function libelleLong(ms: number): string {
 }
 const prenom = (nom: string) => nom.split(/\s+/)[0] || nom;
 
+// Email de confirmation (sans signature : la messagerie ajoute celle du compte qui envoie)
+function emailDe(t: any, ms: number, chefNom: string, note: string, auteur: string) {
+  const quand = libelleLong(ms);
+  const adresse = adresseDe(t);
+  const lignes = [
+    'Bonjour,',
+    '',
+    `Je vous confirme notre rendez-vous pour le relevé technique de votre projet de recharge, le ${quand}${adresse ? `, au ${adresse}` : ''}.`,
+    '',
+    `${chefNom ? `${prenom(chefNom)}, notre chef de chantier,` : 'Notre chef de chantier'} viendra sur place pour environ une heure. Il aura besoin d’accéder au tableau électrique (ou au local compteurs) et aux emplacements prévus pour les bornes.`,
+  ];
+  if (note) lignes.push('', `Noté pour l’accès : ${note}`);
+  lignes.push('', 'En cas d’empêchement, il suffit de répondre à ce message pour convenir d’un autre créneau.', '', 'Bien cordialement,');
+  return {
+    a: texte(champ(t, CHAMPS.email)?.value, 120),
+    sujet: `Confirmation de votre rendez-vous de relevé technique le ${quand.replace(/ à .*/, '')}`,
+    texte: lignes.join('\n'),
+    signature: `${auteur}\nCHARGéO`,
+    quand,
+  };
+}
+
+// Note d'accès du dernier rendez-vous calé depuis l'application (commentaire de trace)
+async function derniereNote(token: string, id: string): Promise<string> {
+  try {
+    const res = await fetch(`${API}/task/${encodeURIComponent(id)}/comment`, { headers: { Authorization: token }, cache: 'no-store' });
+    if (!res.ok) return '';
+    const corps = await res.json().catch(() => ({}));
+    const c = (Array.isArray(corps?.comments) ? corps.comments : []).find((x: any) => String(x?.comment_text || '').startsWith(MARQUE_COMMENTAIRE));
+    const ligne = String(c?.comment_text || '').split('\n').find((l) => l.startsWith(MARQUE_NOTE));
+    return ligne ? ligne.slice(MARQUE_NOTE.length).trim() : '';
+  } catch {
+    return '';
+  }
+}
+
 async function autoriser(request: Request, token: string) {
   const session = await sessionDeRequete(request);
   if (!session?.id) return { ok: false as const, reponse: json({ success: false, error: 'Connexion requise : reconnecte-toi.' }, 401) };
@@ -57,6 +99,7 @@ export async function GET(request: Request) {
   if (!token) return json({ success: false, error: 'Configuration serveur incomplète' }, 500);
   const a = await autoriser(request, token);
   if (!a.ok) return a.reponse;
+  const auteur = texte((a.session as any).nom) || texte((a.session as any).email) || 'CHARGéO';
   try {
     const lu = await lireTacheQualification(texte(new URL(request.url).searchParams.get('id'), 30), token);
     if (!lu.ok) return json({ success: false, error: lu.erreur }, lu.status);
@@ -64,7 +107,9 @@ export async function GET(request: Request) {
     if (t?.parent) return json({ success: false, error: 'Ouvre la fiche principale, pas un scénario' }, 400);
     const chefs = await membresDuRole(token, 'chargeOperation');
     const assignes = (Array.isArray(t?.assignees) ? t.assignees : []).map((u: any) => Number(u?.id));
+    const chefAssigne = chefs.find((c) => assignes.includes(c.id)) || null;
     const visite = dateVisiteDe(t);
+    const email = visite ? emailDe(t, visite, chefAssigne?.nom || '', await derniereNote(token, String(t.id)), auteur) : null;
     return json({
       success: true,
       preview: process.env.VERCEL_ENV !== 'production',
@@ -79,7 +124,10 @@ export async function GET(request: Request) {
         dejaCale: visite ? libelleDate(visite) : '',
       },
       chefs,
-      chefAssigne: chefs.find((c) => assignes.includes(c.id))?.id || null,
+      chefAssigne: chefAssigne?.id || null,
+      // Visite déjà calée : de quoi renvoyer la confirmation sans recaler
+      cale: email ? { quand: email.quand, chef: chefAssigne?.nom || '', lienFiche: `/interne/fiches/${t.id}` } : null,
+      emailConfirmation: email ? { a: email.a, sujet: email.sujet, texte: email.texte, signature: email.signature } : null,
     });
   } catch (e) {
     console.error('Caler le relevé (lecture)', e);
@@ -115,7 +163,7 @@ export async function POST(request: Request) {
     const chefId = Number(corps?.chefId) || 0;
     const chef = chefId ? chefs.find((c) => c.id === chefId) : undefined;
     if (chefId && !chef) return json({ success: false, error: 'Ce chef de chantier est inconnu' }, 400);
-    const note = texte(corps?.note, 1000);
+    const note = texte(corps?.note, 1000).replace(/\s*\n\s*/g, ' ');
 
     // 1. Date et heure du relevé
     const r = await fetch(`${API}/task/${encodeURIComponent(String(t.id))}/field/${DATE_VISITE_ID}`, {
@@ -139,48 +187,33 @@ export async function POST(request: Request) {
       });
       chefOk = ra.ok;
     }
-    const quand = libelleLong(ms);
-    const adresse = adresseDe(t);
-    // 3. Commentaire de trace
+    const email = emailDe(t, ms, chef?.nom || '', note, auteur);
+    // 3. Commentaire de trace, avec le texte de l'email préparé
     const ancien = dateVisiteDe(t);
     await fetch(`${API}/task/${encodeURIComponent(String(t.id))}/comment`, {
       method: 'POST',
       headers: { Authorization: token, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         comment_text: [
-          `📅 Relevé technique ${ancien ? 'décalé' : 'calé'} depuis l'application par ${auteur} : ${quand}${chef ? `, avec ${chef.nom}` : ''}.`,
+          `${MARQUE_COMMENTAIRE} ${ancien ? 'décalé' : 'calé'} depuis l'application par ${auteur} : ${email.quand}${chef ? `, avec ${chef.nom}` : ''}.`,
           ancien ? `Ancienne date : ${libelleDate(ancien)}.` : '',
-          note ? `Accès / remarques : ${note}` : '',
-        ].filter(Boolean).join('\n'),
+          note ? `${MARQUE_NOTE}${note}` : '',
+          '',
+          `✉️ Email de confirmation préparé${email.a ? ` pour ${email.a}` : ' (pas d’email sur la fiche)'} :`,
+          `Objet : ${email.sujet}`,
+          email.texte,
+        ].filter((l, i) => l !== '' || i === 3).join('\n'),
         notify_all: false,
       }),
       cache: 'no-store',
     }).catch(() => null);
 
-    // 4. Email de confirmation prêt à envoyer (le commercial le relit et l'envoie de sa messagerie)
-    const email = texte(champ(t, CHAMPS.email)?.value, 120);
-    const sujet = `Confirmation de votre rendez-vous de relevé technique ${quand.replace(/ à .*/, '')}`;
-    const texteEmail = [
-      'Bonjour,',
-      '',
-      `Je vous confirme notre rendez-vous pour le relevé technique de votre projet de recharge, le ${quand}${adresse ? `, au ${adresse}` : ''}.`,
-      '',
-      `${chef ? `${prenom(chef.nom)}, notre chef de chantier,` : 'Notre chef de chantier'} viendra sur place pour environ une heure. Il aura besoin d’accéder au tableau électrique (ou au local compteurs) et aux emplacements prévus pour les bornes.`,
-      note ? `\nNoté pour l’accès : ${note}` : '',
-      '',
-      'En cas d’empêchement, il suffit de répondre à ce message pour convenir d’un autre créneau.',
-      '',
-      'Bien cordialement,',
-      auteur,
-      'CHARGéO',
-    ].filter((l) => l !== null).join('\n');
-
     return json({
       success: true,
       preview,
       chefOk,
-      cale: { quand, chef: chef?.nom || '', lienFiche: `/interne/fiches/${t.id}` },
-      emailConfirmation: { a: email, sujet, texte: texteEmail },
+      cale: { quand: email.quand, chef: chef?.nom || '', lienFiche: `/interne/fiches/${t.id}` },
+      emailConfirmation: { a: email.a, sujet: email.sujet, texte: email.texte, signature: email.signature },
     });
   } catch (e) {
     console.error('Caler le relevé (écriture)', e);
