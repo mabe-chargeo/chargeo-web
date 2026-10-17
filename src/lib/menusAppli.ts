@@ -27,10 +27,12 @@
 // 17/10/2026, 14 h 28 (lot « écrans qui manquent ») : construits Planning (/interne/planning), Agenda (/interne/agenda),
 // les listes (/interne/liste/<source> : SAV, matériel, Parc, factures, ADVENIR, RH) avec la fiche générique, Ticket SAV
 // et Idée Kaizen (/interne/creer/sav et /interne/creer/kaizen). Carte du jour ouvre Mes interventions (itinéraire du
-// jour). Restent à décider : Ressources (lien du Drive), Décomptes.
+// jour). Reste à décider : Ressources (lien du Drive, reporté par Matthieu à 15 h 10).
 // 17/10/2026, 14 h 50 : Visite de maintenance construite (/interne/maintenance/<id>) selon le protocole du contrôleur
 // Sefram MW9665 avec l'adaptateur A1532-XA, point de charge par point de charge, hors ligne. Ouverte depuis Mes
 // interventions et depuis la fiche d'une visite.
+// 17/10/2026, 15 h 22 : Décomptes construit depuis le Parc, sans nouvelle liste (/interne/decomptes) : à préparer,
+// à valider, envoyés, fiches à compléter.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -72,6 +74,7 @@ const pret = (cle: string, libelle: string, icone: CleIcone, href: string, descr
 
 const fiches = (vue: string) => `/interne/fiches?vue=${vue}`;
 const liste = (source: string, vue?: string) => `/interne/liste/${source}${vue ? `?vue=${vue}` : ''}`;
+const decomptes = (vue: string) => `/interne/decomptes?vue=${vue}`;
 
 // Espace d'un autre rôle, ouvert par la direction depuis Plus
 const espaceDe = (cle: string, role: RoleAppli, libelle: string, icone: CleIcone, description: string): Ecran => ({
@@ -105,7 +108,7 @@ export const ECRANS: Record<string, Ecran> = {
   },
   espace: {
     cle: 'espace', libelle: 'Mon espace', href: '/interne/espace', icone: 'pipeline', pret: true,
-    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne/maintenance', '/interne'],
+    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne/maintenance', '/interne/decomptes', '/interne'],
     description: 'Les vues du rôle, dans l’ordre de son travail, avec leurs compteurs',
   },
   releves: {
@@ -200,8 +203,13 @@ export const ECRANS: Record<string, Ecran> = {
     court: 'ADVENIR',
     pastilles: [{ cle: 'alertes', libelle: 'Alertes délais', href: liste('advenir', 'alertes') }],
   }),
-  decomptes: bientot('decomptes', 'Décomptes', 'decomptes', 'Décomptes énergétiques : à préparer, à valider, envoyés au gestionnaire (points 6 et 9). Liste ClickUp à créer avant de construire ce menu.', {
-    pastilles: [{ cle: 'a-preparer', libelle: 'À préparer' }, { cle: 'a-valider', libelle: 'À valider' }, { cle: 'envoyes', libelle: 'Envoyés' }],
+  decomptes: pret('decomptes', 'Décomptes', 'decomptes', '/interne/decomptes', 'Décomptes énergétiques des bornes du Parc suivies en relevé : à préparer (PDF), à valider, envoyés au gestionnaire. Jamais en refacturation (Charge Unix).', {
+    pastilles: [
+      { cle: 'a-preparer', libelle: 'À préparer', href: decomptes('a-preparer') },
+      { cle: 'a-valider', libelle: 'À valider', href: decomptes('a-valider') },
+      { cle: 'envoyes', libelle: 'Envoyés', href: decomptes('envoyes') },
+      { cle: 'a-completer', libelle: 'Fiches à compléter', href: decomptes('a-completer') },
+    ],
   }),
   rh: pret('rh', 'RH et recrutement', 'rh', liste('rh'), 'Gestion RH : demandes à traiter.', { court: 'RH' }),
 
@@ -224,10 +232,10 @@ export const MENUS: Record<RoleAppli, { barre: string[]; plus: string[] }> = {
   commercial: { barre: ['journee', 'espace'], plus: ['agenda', 'ressources'] },
   chargeOperation: { barre: ['journee', 'espace'], plus: ['planning', 'agenda', 'parc'] },
   poseur: { barre: ['journee', 'espace'], plus: ['releves', 'parc'] },
-  backOffice: { barre: ['journee', 'espace'], plus: ['planning', 'parc'] },
+  backOffice: { barre: ['journee', 'espace'], plus: ['decomptes', 'planning', 'parc'] },
   direction: {
     barre: ['journee', 'espace'],
-    plus: ['espaceCommercial', 'espaceChef', 'espacePoseur', 'espaceBackOffice', 'releves', 'planning', 'agenda', 'parc', 'ressources'],
+    plus: ['espaceCommercial', 'espaceChef', 'espacePoseur', 'espaceBackOffice', 'releves', 'planning', 'agenda', 'parc', 'decomptes', 'ressources'],
   },
 };
 
