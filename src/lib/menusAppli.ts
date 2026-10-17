@@ -1,6 +1,7 @@
 // Menus de l'application équipe par rôle. Source : section « Écrans par rôle (revue du 11/10/2026 avec Matthieu) » de la
 // tâche Phase 6. Barre du bas par rôle validée par Matthieu le 17/10/2026 (9 h 05) : les écrans les plus utilisés dans
 // la barre, le reste dans « Plus » ; la direction choisit le rôle affiché et a un onglet Pilotage.
+// Libellés de barre courts (1 ou 2 mots) pour ne pas être tronqués : « Mes interventions » devient « Interventions » (17/10).
 // pret = écran déjà construit ; sinon l'onglet ouvre /interne/bientot/<clé>, qui affiche ce qui a été validé le 11/10.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit :
 // chaque route contrôle les rôles elle-même.
@@ -51,7 +52,7 @@ export const ECRANS: Record<string, Ecran> = {
   sav: bientot('sav', 'SAV', 'sav', 'Urgences et tri, Planning dépannage, Suivi des visites de maintenance.'),
 
   // Installateur
-  interventions: bientot('interventions', 'Mes interventions', 'interventions', 'Une liste par jour : poses, dépannages, visites de maintenance. Fiche intervention : adresse, contact sur place, relevé et photos, matériel prévu. Saisie à la pose et rapport de pose, hors ligne.'),
+  interventions: bientot('interventions', 'Interventions', 'interventions', 'Mes interventions, une liste par jour : poses, dépannages, visites de maintenance. Fiche intervention : adresse, contact sur place, relevé et photos, matériel prévu. Saisie à la pose et rapport de pose, hors ligne.'),
   carteDuJour: bientot('carteDuJour', 'Carte du jour', 'carte', 'Itinéraire des chantiers du jour.'),
   savSite: bientot('savSite', 'SAV', 'sav', 'Ses tickets SAV sur site, avec l’historique de la borne.'),
   maintenance: bientot('maintenance', 'Visite de maintenance', 'maintenance', 'Mesures par point de charge (point 18).'),
