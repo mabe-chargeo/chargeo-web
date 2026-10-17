@@ -3,12 +3,15 @@
 // Écran Pipeline de l'application équipe (ex-« Fiches », structure validée par Matthieu le 16/10/2026, renommé le 17/10
 // selon les écrans par rôle du 11/10) : la fiche voyageuse, avec un sous-menu de vues comme dans ClickUp (À caler,
 // Relevés planifiés, Devis à chiffrer…), chacune avec son compteur.
-// Adresse /interne/fiches?vue=<clé> : Ma journée ouvre directement la bonne vue. Une fiche ouvre sa fiche détaillée.
-// La vue est lue dans l'adresse après chargement (page pré-générée, pas de useSearchParams).
+// Adresse /interne/fiches?vue=<clé> : Ma journée et Mon espace ouvrent directement la bonne vue. Une fiche ouvre sa
+// fiche détaillée. La vue est lue dans l'adresse après chargement (page pré-générée, pas de useSearchParams).
+// 17/10, 10 h 44 (espace Commercial validé) : la vue Toutes sert de « Pipeline vente », rangée par étape comme les
+// colonnes de la vue ClickUp PIPELINE VENTE 💰 (colonnes empilées sur téléphone).
 import { useEffect, useState } from 'react';
 import { CalendarClock, ChevronRight, GitBranch, MapPin, RefreshCw } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte } from '@/components/charte/Appli';
+import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
 import { CYAN, GRIS } from '@/components/charte/couleurs';
+import { etapeQualification } from '@/lib/espaces';
 
 type VueMenu = { cle: string; libelle: string; n: number };
 type Fiche = {
@@ -109,9 +112,23 @@ export default function FichesPage() {
     </a>
   );
 
+  const fiches = donnees?.fiches || [];
+  // Pipeline vente : rangé par étape (à visiter, devis à faire, devis envoyé, négociation, gagné, perdu)
+  const parEtape = vue === 'toutes';
+  const etapes: { statut: string; liste: Fiche[] }[] = [];
+  if (parEtape) {
+    const triees = [...fiches].sort((a, b) => etapeQualification(a.statut) - etapeQualification(b.statut));
+    for (const f of triees) {
+      const g = etapes.find((e) => e.statut === f.statut);
+      if (g) g.liste.push(f);
+      else etapes.push({ statut: f.statut, liste: [f] });
+    }
+  }
+  const titre = parEtape ? 'Pipeline vente' : donnees?.vue?.libelle || 'Pipeline';
+
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Pipeline" titre={donnees?.vue?.libelle || 'Pipeline'} action={boutonActualiser} />
+      <EnTeteAppli surtitre="Pipeline" titre={titre} action={boutonActualiser} />
 
       <ContenuAppli className="space-y-4">
         {donnees?.preview && <Alerte>Prévisualisation : fiches lues dans 🧪 Qualification TEST. Rien n'est modifié.</Alerte>}
@@ -146,12 +163,22 @@ export default function FichesPage() {
         )}
 
         {donnees && !donnees.vues.length && <Alerte>Aucune vue de fiches pour ton rôle.</Alerte>}
-        {donnees && !!donnees.vues.length && !donnees.fiches.length && !loading && (
+        {donnees && !!donnees.vues.length && !fiches.length && !loading && (
           <Carte className="text-center">
             <p className="text-[15px] font-semibold">Aucune fiche dans cette vue.</p>
           </Carte>
         )}
-        <div className={`space-y-3 ${loading && donnees ? 'opacity-50' : ''}`}>{donnees?.fiches.map(carteFiche)}</div>
+        <div className={`space-y-3 ${loading && donnees ? 'opacity-50' : ''}`}>
+          {parEtape
+            ? etapes.map((e) => (
+              <div key={e.statut || 'sans'} className="space-y-3">
+                <div className="h-1" />
+                <Repere>{e.statut || 'sans statut'} ({e.liste.length})</Repere>
+                {e.liste.map(carteFiche)}
+              </div>
+            ))
+            : fiches.map(carteFiche)}
+        </div>
       </ContenuAppli>
     </PageAppli>
   );
