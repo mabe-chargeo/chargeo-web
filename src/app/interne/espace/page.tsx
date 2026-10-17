@@ -2,15 +2,19 @@
 
 // Mon espace (un espace par rôle, validé par Matthieu le 17/10/2026) : comme un espace ClickUp, les vues dont le rôle
 // a besoin, dans l'ordre de son travail, chacune avec son compteur. Une vue ouvre la liste des fiches ; une fiche ouvre
-// la fiche avec le bloc 📇 Contact. Espaces définis dans src/lib/espaces.ts (Commercial validé le 17/10 à 10 h 44).
+// la fiche avec le bloc 📇 Contact. Espaces définis dans src/lib/espaces.ts (Commercial validé le 17/10 à 10 h 44,
+// Chef de chantier à 11 h 06). Une vue sans écran ouvre ClickUp (mention « ClickUp ») ou l'écran « à construire ».
 import { useEffect, useState } from 'react';
-import { ChevronRight, Plus, RefreshCw } from 'lucide-react';
+import { ChevronRight, ExternalLink, Plus, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte } from '@/components/charte/Appli';
-import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
+import { CYAN, GRIS, NAVY, ORANGE } from '@/components/charte/couleurs';
 import { LIBELLE_ROLE } from '@/lib/menusAppli';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 
-type Vue = { cle: string; emoji: string; libelle: string; description: string; href: string; urgent?: boolean; n: number | null };
+type Vue = {
+  cle: string; emoji: string; libelle: string; description: string; href: string;
+  urgent?: boolean; externe?: boolean; aConstruire?: boolean; n: number | null;
+};
 type Reponse = { espace: { titre: string; creer: { libelle: string; href: string } | null } | null; vues: Vue[]; preview: boolean };
 
 export default function EspacePage() {
@@ -49,6 +53,9 @@ export default function EspacePage() {
   );
 
   const pastille = (v: Vue) => {
+    if (v.aConstruire) {
+      return <span className="shrink-0 rounded-full bg-[#eef1f4] px-2.5 py-1 text-[11px] font-bold" style={{ color: NAVY }}>à construire</span>;
+    }
     const fond = v.n === null ? '#9aa3ad' : v.n > 0 && v.urgent ? ORANGE : CYAN;
     return (
       <span className="shrink-0 rounded-full px-3 py-1 text-[15px] font-bold text-white" style={{ backgroundColor: fond }}>
@@ -61,7 +68,7 @@ export default function EspacePage() {
     <PageAppli>
       <EnTeteAppli surtitre={role ? LIBELLE_ROLE[role] : 'Application équipe'} titre={donnees?.espace?.titre || 'Mon espace'} action={boutonActualiser} />
       <ContenuAppli className="space-y-3">
-        {donnees?.preview && <Alerte>Prévisualisation : affaires lues dans 🧪 Qualification TEST, prospects et contacts dans les vraies listes. Rien n&apos;est modifié.</Alerte>}
+        {donnees?.preview && <Alerte>Prévisualisation : affaires lues dans 🧪 Qualification TEST, le reste dans les vraies listes. Rien n&apos;est modifié.</Alerte>}
         {erreur && <Alerte>{erreur}</Alerte>}
         {loading && !donnees && (
           <Carte className="p-8 text-center">
@@ -88,6 +95,8 @@ export default function EspacePage() {
           <a
             key={v.cle}
             href={v.href}
+            target={v.externe ? '_blank' : undefined}
+            rel={v.externe ? 'noopener noreferrer' : undefined}
             className={`flex items-center gap-3 rounded-[20px] p-5 transition-transform active:scale-[0.98] ${v.n === 0 ? 'opacity-60' : ''}`}
             style={{ backgroundColor: GRIS }}
           >
@@ -97,7 +106,7 @@ export default function EspacePage() {
               <p className="mt-1 text-[13px]">{v.description}</p>
             </div>
             {pastille(v)}
-            <ChevronRight size={20} className="shrink-0" color={CYAN} />
+            {v.externe ? <ExternalLink size={18} className="shrink-0" color={CYAN} /> : <ChevronRight size={20} className="shrink-0" color={CYAN} />}
           </a>
         ))}
       </ContenuAppli>
