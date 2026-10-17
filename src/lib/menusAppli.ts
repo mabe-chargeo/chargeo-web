@@ -15,6 +15,8 @@
 // chaque route contrôle les rôles elle-même.
 // 17/10/2026, 10 h 44 : « un espace par rôle » validé pour le Commercial (src/lib/espaces.ts, écran /interne/espace).
 // Barre du commercial : Ma journée · Mon espace · Plus. Les autres rôles gardent leur barre en attendant leur validation.
+// 17/10/2026, 11 h 06 : espace Chef de chantier validé, même barre Ma journée · Mon espace · Plus (remplace la barre
+// Ma journée · Relevés · Chantiers · Planning de la carte des menus).
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -78,7 +80,7 @@ export const ECRANS: Record<string, Ecran> = {
   },
   espace: {
     cle: 'espace', libelle: 'Mon espace', href: '/interne/espace', icone: 'pipeline', pret: true,
-    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts'],
+    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne'],
     description: 'Les vues du rôle, dans l’ordre de son travail, avec leurs compteurs',
   },
   releves: {
@@ -93,7 +95,7 @@ export const ECRANS: Record<string, Ecran> = {
   chantiers: {
     cle: 'chantiers', libelle: 'Chantiers', href: '/interne/chantiers', icone: 'chantiers', pret: true,
     actif: ['/interne/chantiers', '/interne/feu-vert', '/interne/validation'],
-    description: 'Planning Chantiers : feu vert à donner, prêts, en cours, à réceptionner, réserves à lever, avancement et carte',
+    description: 'Planning Chantiers : chantiers en cours par étape, avec feu vert et réception',
     pastilles: [
       { cle: 'feu-vert', libelle: 'Feu vert à donner', href: '/interne/feu-vert' },
       { cle: 'prets', libelle: 'Prêts' },
@@ -211,7 +213,7 @@ export const ECRANS: Record<string, Ecran> = {
 // Barre du bas (4 onglets au plus, « Plus » est ajouté après) et contenu de « Plus », par rôle (section 4 de la carte)
 export const MENUS: Record<RoleAppli, { barre: string[]; plus: string[] }> = {
   commercial: { barre: ['journee', 'espace'], plus: ['ressources'] },
-  chargeOperation: { barre: ['journee', 'releves', 'chantiers', 'planning'], plus: ['sav', 'materielAchats', 'parc'] },
+  chargeOperation: { barre: ['journee', 'espace'], plus: ['parc'] },
   poseur: { barre: ['interventions', 'carteDuJour', 'savSite'], plus: ['releves', 'parc'] },
   backOffice: { barre: ['journee', 'facturation', 'materielAchats', 'parc'], plus: ['advenir', 'decomptes', 'contacts', 'rh'] },
   direction: {
