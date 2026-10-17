@@ -30,6 +30,8 @@
 // logistique, réceptions sous 7 jours). Pastille « Relevés techniques » ajoutée au Planning.
 // 17/10/2026, 18 h 48 (choix de Matthieu : la date de livraison seulement dans Commandes) : Livraisons en retard lue dans
 // Commandes Matériel ; pastille « Achats à valider » pour la dépense.
+// 17/10/2026, 19 h 10 (choix de Matthieu : « Salarié et candidat ») : + Salarié et + Candidat dans Plus du back-office
+// et de la direction ; RH et recrutement = demandes, salariés, candidatures.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -87,7 +89,7 @@ export const ECRANS: Record<string, Ecran> = {
     pastilles: [
       { cle: 'a-appeler', libelle: "À appeler aujourd'hui", groupe: 'Prospection', href: '/interne/prospection?vue=a-appeler' },
       { cle: 'chasse', libelle: 'Pipeline chasse', groupe: 'Prospection', href: '/interne/prospection?vue=chasse' },
-      { cle: 'linkedin', libelle: 'LinkedIn', groupe: 'Prospection' },
+      { cle: 'linkedin', libelle: 'LinkedIn', groupe: 'Prospection', href: '/interne/prospection?vue=chasse&linkedin=1' },
       { cle: 'a-caler', libelle: 'À caler', groupe: 'Visites', href: fiches('a-caler') },
       { cle: 'planifies', libelle: 'Relevés planifiés', groupe: 'Visites', href: fiches('planifies') },
       { cle: 'en-retard', libelle: 'En retard', groupe: 'Visites', href: fiches('en-retard') },
@@ -223,7 +225,16 @@ export const ECRANS: Record<string, Ecran> = {
       { cle: 'a-completer', libelle: 'Fiches à compléter', href: decomptes('a-completer') },
     ],
   }),
-  rh: pret('rh', 'RH et recrutement', 'rh', liste('rh'), 'Gestion RH : demandes à traiter.', { court: 'RH' }),
+  rh: pret('rh', 'RH et recrutement', 'rh', liste('rh'), 'Demandes RH, salariés (arrivées, départs, habilitations) et candidatures (dont chargeo.fr/recrutement).', {
+    court: 'RH',
+    pastilles: [
+      { cle: 'demandes', libelle: 'Demandes à traiter', href: liste('rh', 'demandes') },
+      { cle: 'salaries', libelle: 'Salariés à suivre', href: liste('salaries', 'a-suivre') },
+      { cle: 'habilitations', libelle: 'Habilitations à recycler', href: liste('salaries', 'habilitations') },
+      { cle: 'candidatures', libelle: 'Candidatures reçues', href: liste('recrutement', 'a-traiter') },
+      { cle: 'pipeline', libelle: 'Pipeline recrutement', href: liste('recrutement', 'pipeline') },
+    ],
+  }),
 
   // ── Direction ──
   pilotage: pret('pilotage', 'Pilotage', 'pilotage', '/interne/espace?role=direction', 'Réunions CODIR, Stratégie & OKR, Kaizen, To-Do. Tableaux de bord prévus en Phase 7.', {
@@ -237,6 +248,8 @@ export const ECRANS: Record<string, Ecran> = {
   },
   ticketSav: pret('ticketSav', 'Ticket SAV', 'sav', '/interne/creer/sav', 'Créer un ticket SAV rattaché à l’installation du Parc : sévérité, type de panne, symptôme.'),
   kaizen: pret('kaizen', 'Idée Kaizen', 'pilotage', '/interne/creer/kaizen', 'Proposer une idée d’amélioration (liste Kaizen).'),
+  salarie: pret('salarie', 'Salarié', 'rh', '/interne/creer/salarie', 'Créer la fiche d’un arrivant dans Vie des Salariés : poste, contrat, date d’entrée, habilitations, avec la checklist d’onboarding.'),
+  candidat: pret('candidat', 'Candidat', 'rh', '/interne/creer/candidat', 'Saisir un candidat installateur (bouche-à-oreille, salon…) : mêmes champs que le formulaire du site.'),
 };
 
 // Barre du bas (« Plus » est ajouté après), partie « À consulter » de Mon espace, et écrans de l'onglet Plus, par rôle.
@@ -252,13 +265,14 @@ export const MENUS: Record<RoleAppli, { barre: string[]; consulter: string[]; pl
   direction: { barre: ['journee', 'espace'], consulter: ['carteSav', 'parc', 'ressources'], plus: [] },
 };
 
-// Créations possibles par rôle (nouveau projet, ticket SAV, idée Kaizen), dans l'onglet Plus
+// Créations possibles par rôle (nouveau projet, ticket SAV, idée Kaizen, salarié, candidat), dans l'onglet Plus.
+// 19 h 10 : + Salarié et + Candidat pour le back-office et la direction (données RH sensibles).
 export const CREER: Record<RoleAppli, string[]> = {
   commercial: ['lead', 'kaizen'],
   chargeOperation: ['ticketSav', 'kaizen'],
   poseur: ['ticketSav', 'kaizen'],
-  backOffice: ['ticketSav', 'kaizen'],
-  direction: ['lead', 'ticketSav', 'kaizen'],
+  backOffice: ['ticketSav', 'salarie', 'candidat', 'kaizen'],
+  direction: ['lead', 'ticketSav', 'salarie', 'candidat', 'kaizen'],
 };
 
 // Actions de la fiche intervention (installateur), dans l'ordre du parcours
