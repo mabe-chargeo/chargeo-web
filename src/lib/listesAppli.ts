@@ -18,6 +18,8 @@
 // 19 h 10 (choix de Matthieu : salarié et candidat créés depuis l'application) : Salariés (Vie des Salariés) et
 // Recrutement (Recrutement Installateurs, alimentée par chargeo.fr/recrutement), lus par le back-office et la
 // direction (données RH sensibles) ; creer = bouton de création en tête de l'écran.
+// 19 h 38 (choix de Matthieu) : la vue « ouvertes » des Factures s'appelle « Non réglées » (à émettre, émise,
+// partiellement payée, en litige) ; « Tous » y ajoute les payées et les annulées.
 // Fichier pur : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit : les routes
 // /api/interne/listes et /api/interne/elements contrôlent les rôles.
 import { LISTES, FILTRES, type Filtre, type SourceVue } from '@/lib/espaces';
@@ -70,9 +72,9 @@ export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
   },
   factures: {
     titre: 'Factures clients', emoji: '💰', roles: ['backOffice'],
-    vues: [{ cle: 'retard', libelle: 'En retard' }, { cle: 'ouvertes', libelle: 'À suivre' }], champs: ['type de piece', 'montant ht', 'echeance', 'n costructor'],
+    vues: [{ cle: 'retard', libelle: 'En retard' }, { cle: 'ouvertes', libelle: 'Non réglées' }], champs: ['type de piece', 'montant ht', 'echeance', 'n costructor'],
     totaux: [{ mot: 'montant ht', libelle: 'Montant HT' }],
-    note: 'Costructor fait référence pour les montants et les règlements. Les pastilles de statut donnent le pipeline de facturation.',
+    note: 'Costructor fait référence pour les montants et les règlements. Non réglées : à émettre, émises, partiellement payées ou en litige ; Tous ajoute les payées et les annulées.',
   },
   achats: {
     titre: 'Achats fournisseurs', emoji: '🧾', roles: ['backOffice', 'chargeOperation'],
