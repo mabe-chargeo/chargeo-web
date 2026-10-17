@@ -15,6 +15,8 @@
 // 16/10, 15 h 38 (Matthieu : « SMS pour tous les portables ») : le bouton SMS ne dépend plus du rôle (le gestionnaire
 // n'en avait pas). Il s'affiche pour tout portable (France 06 / 07, Suisse 075 à 079) et pour un numéro de format
 // inconnu ; il est masqué pour un fixe français ou suisse.
+// 17/10, 10 h 20 (Matthieu : « partout où on a la fiche contact, il faut tous les boutons qu'on a codés ») : le même
+// bloc sert aussi à la fiche détaillée du Pipeline (/interne/fiches/[id]), ouvert d'office (ouvertParDefaut).
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Headphones, Mail, MapPin, MessageSquare, Navigation, Phone, Users } from 'lucide-react';
 import { Carte, TitreCarte } from '@/components/charte/Appli';
@@ -78,9 +80,9 @@ function Lien({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-export function BlocContact({ affaireId }: { affaireId: string }) {
+export function BlocContact({ affaireId, ouvertParDefaut = false }: { affaireId: string; ouvertParDefaut?: boolean }) {
   const [c, setC] = useState<FicheContact | null>(null);
-  const [ouvert, setOuvert] = useState(false);
+  const [ouvert, setOuvert] = useState(ouvertParDefaut);
   const [ios, setIos] = useState(false);
 
   useEffect(() => {
