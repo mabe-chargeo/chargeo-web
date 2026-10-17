@@ -27,7 +27,10 @@
 // 17/10/2026, 14 h 28 (lot « écrans qui manquent ») : construits Planning (/interne/planning), Agenda (/interne/agenda),
 // les listes (/interne/liste/<source> : SAV, matériel, Parc, factures, ADVENIR, RH) avec la fiche générique, Ticket SAV
 // et Idée Kaizen (/interne/creer/sav et /interne/creer/kaizen). Carte du jour ouvre Mes interventions (itinéraire du
-// jour). Restent à décider : Ressources (lien du Drive), Visite de maintenance, Décomptes.
+// jour). Restent à décider : Ressources (lien du Drive), Décomptes.
+// 17/10/2026, 14 h 50 : Visite de maintenance construite (/interne/maintenance/<id>) selon le protocole du contrôleur
+// Sefram MW9665 avec l'adaptateur A1532-XA, point de charge par point de charge, hors ligne. Ouverte depuis Mes
+// interventions et depuis la fiche d'une visite.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -102,7 +105,7 @@ export const ECRANS: Record<string, Ecran> = {
   },
   espace: {
     cle: 'espace', libelle: 'Mon espace', href: '/interne/espace', icone: 'pipeline', pret: true,
-    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne'],
+    actif: ['/interne/espace', '/interne/fiches', '/interne/prospection', '/interne/contacts', '/interne/chantiers', '/interne/feu-vert', '/interne/validation', '/interne/interventions', '/interne/reception', '/interne/liste', '/interne/element', '/interne/planning', '/interne/agenda', '/interne/maintenance', '/interne'],
     description: 'Les vues du rôle, dans l’ordre de son travail, avec leurs compteurs',
   },
   releves: {
@@ -184,7 +187,10 @@ export const ECRANS: Record<string, Ecran> = {
   carteDuJour: pret('carteDuJour', 'Carte du jour', 'carte', '/interne/interventions', 'Itinéraire des interventions du jour (dans Mes interventions).', { court: 'Carte' }),
   savSite: { cle: 'savSite', libelle: 'Mes tickets SAV', court: 'SAV', href: '/interne/interventions?vue=sav', icone: 'sav', pret: true, actif: [], description: 'Ses tickets SAV pas encore résolus, avec l’historique de la borne. Pas d’accès à Urgences et tri (chef de chantier).' },
   saisiePose: { cle: 'saisiePose', libelle: 'Saisie à la pose', icone: 'reception', pret: true, href: '/interne/interventions', actif: ['/interne/pose'], description: 'Action de la fiche intervention : n° de série, puissance configurée, photos, hors ligne.' },
-  maintenance: bientot('maintenance', 'Visite de maintenance', 'maintenance', 'Action de la fiche intervention : mesures par point de charge (point 18).'),
+  maintenance: {
+    cle: 'maintenance', libelle: 'Visite de maintenance', icone: 'maintenance', pret: true, href: '/interne/interventions', actif: ['/interne/maintenance'],
+    description: 'Action de la fiche intervention : protocole Sefram MW9665 (adaptateur A1532-XA) point de charge par point de charge, 10 étapes, photos, hors ligne. Résultats en commentaire sur la visite.',
+  },
 
   // ── Back-office ──
   facturation: pret('facturation', 'Facturation', 'facturation', liste('factures', 'ouvertes'), 'Factures Clients (Costructor fait référence) : à suivre, en retard.', {
