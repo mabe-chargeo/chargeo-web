@@ -8,14 +8,17 @@
 //   Planning Chantiers : feu vert (5 prérequis), chantier (date, technicien) avec les actions de la fiche intervention
 //   (Saisie à la pose, Rapport et signature : étape 2 validée le 17/10 à 13 h), réception, devis signé, scénarios.
 //   Parc : contrat, échéances, borne, SAV et visites liés, réception.
-//   Dès qu'ils existent (17/10, 12 h 47) : factures (Costructor fait référence) et dossiers ADVENIR, qui s'ouvrent dans
-//   ClickUp en attendant leurs écrans.
+//   Dès qu'ils existent (17/10, 12 h 47) : factures (Costructor fait référence) et dossiers ADVENIR.
 // 17/10, 14 h 08 (parcours Nouveau projet validé) : en vente, bouton « + Ajouter un contact » sous le bloc Contact
 // (contact existant ou nouveau, avec son rôle), qui ouvre /interne/projet/nouveau?fiche=<id>. Les champs relation
 // 📍 Contact sur place et 👔 Gestionnaire n'existent qu'en Qualification.
 // 17/10, 18 h 10 (« sans prix » pour l'installateur, décision du 17 h 37) : le rôle de la pastille part avec la lecture
 // (?role=) ; quand la route répond sansPrix, ni devis, ni factures, ni ADVENIR, et le chantier propose « 📋 Ce qui est
 // prévu » (éléments du scénario retenu, sans prix).
+// 17/10, 18 h 34 (Matthieu : « je ne veux plus qu'il y ait de lien vers ClickUp », inutilisable au téléphone) : SAV,
+// visites, factures et dossiers ADVENIR s'ouvrent dans la fiche de l'application (/interne/element/<id>). Le lien
+// « Ouvrir dans ClickUp » reste pour le back-office et la direction (MasqueClickUp le cache aux autres rôles). En vente,
+// gros bouton « 💼 Préparer le devis dans Costructor » (🔗 Lien Costructor du client) pour chiffrer depuis la fiche.
 // Structure de départ validée le 16/10 ; bloc Contact le 17/10 à 10 h 20. Retour vers la vue d'où l'on vient, sinon
 // vers Mon espace.
 import { useEffect, useState, type ElementType, type ReactNode } from 'react';
@@ -76,7 +79,8 @@ const ETAPES: { cle: Etape; libelle: string }[] = [
 ];
 
 const euros = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
-const tacheClickUp = (id: string) => `https://app.clickup.com/t/${id}`;
+// Fiche d'un SAV, d'une visite, d'une facture ou d'un dossier ADVENIR dans l'application (plus de lien ClickUp)
+const ficheElement = (id: string) => `/interne/element/${encodeURIComponent(id)}`;
 
 const boutonAction = (href: string, libelle: string) => (
   <a
@@ -93,6 +97,17 @@ const boutonSecondaire = (href: string, libelle: string) => (
     style={{ color: CYAN }}
   >
     {libelle}
+  </a>
+);
+// Costructor s'ouvre dans un nouvel onglet : la fiche reste ouverte derrière
+const boutonCostructor = (href: string) => (
+  <a
+    href={href}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="flex w-full items-center justify-center gap-3 rounded-full bg-[#FF6B00] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95"
+  >
+    💼 Préparer le devis dans Costructor <ExternalLink size={16} />
   </a>
 );
 
@@ -154,6 +169,9 @@ export default function FichePage() {
   const lienExterne = (href: string, libelle: string) => (
     <a href={href} target="_blank" rel="noopener noreferrer" className="font-semibold underline">{libelle}</a>
   );
+  const lienInterne = (href: string, libelle: string) => (
+    <a href={href} className="font-semibold underline">{libelle}</a>
+  );
 
   const frise = (f: Fiche) => {
     const i = ETAPES.findIndex((e) => e.cle === f.etape);
@@ -169,7 +187,8 @@ export default function FichePage() {
     );
   };
 
-  const carteDevis = (f: Fiche, titre: string) => {
+  // preparer = en vente : gros bouton « Préparer le devis dans Costructor »
+  const carteDevis = (f: Fiche, titre: string, preparer = false) => {
     if (f.sansPrix) return null;
     const d = f.devis;
     const vide = !d.numero && d.montantHT === null && !d.lienDevis;
@@ -181,9 +200,12 @@ export default function FichePage() {
           {!d.numero && d.montantHT !== null && ligne(FileText, `${euros(d.montantHT)} HT`)}
           {f.relance && ligne(CalendarClock, `Prochaine relance ${f.relance}`)}
           {d.lienDevis && ligne(ExternalLink, lienExterne(d.lienDevis, 'Voir le devis'))}
-          {d.lienCostructor && ligne(ExternalLink, lienExterne(d.lienCostructor, 'Client dans Costructor'))}
+          {!preparer && d.lienCostructor && ligne(ExternalLink, lienExterne(d.lienCostructor, 'Client dans Costructor'))}
           {vide && <p className="text-[14px]">Pas encore de devis.</p>}
         </div>
+        {preparer && (d.lienCostructor
+          ? <div className="pt-1">{boutonCostructor(d.lienCostructor)}</div>
+          : <p className="text-[13px] font-semibold" style={{ color: ORANGE }}>Client pas encore créé dans Costructor : le bouton « Préparer le devis » apparaîtra ici dès qu&apos;il le sera.</p>)}
       </Carte>
     );
   };
@@ -257,13 +279,13 @@ export default function FichePage() {
         {(f.parc.modele || f.parc.pointsDeCharge !== null) && ligne(BatteryCharging, [f.parc.modele, f.parc.pointsDeCharge !== null ? `${f.parc.pointsDeCharge} point${f.parc.pointsDeCharge > 1 ? 's' : ''} de charge` : ''].filter(Boolean).join(' · '))}
         {f.parc.numeroSerie && ligne(FileText, `N° de série ${f.parc.numeroSerie}`)}
         {f.parc.lienChargeUnix && ligne(ExternalLink, lienExterne(f.parc.lienChargeUnix, 'Supervision Charge Unix'))}
-        {f.devis.lienCostructor && ligne(ExternalLink, lienExterne(f.devis.lienCostructor, 'Client dans Costructor'))}
+        {!f.sansPrix && f.devis.lienCostructor && ligne(ExternalLink, lienExterne(f.devis.lienCostructor, 'Client dans Costructor'))}
       </Carte>
       <Carte className="space-y-2.5">
         <TitreCarte icon={Wrench} extra={<span className="text-[14px] font-bold">{f.parc.sav.length + f.parc.visites.length}</span>}>SAV et visites</TitreCarte>
         {!f.parc.sav.length && !f.parc.visites.length && <p className="text-[14px]">Aucun ticket SAV ni visite de maintenance lié.</p>}
-        {f.parc.sav.map((x) => <div key={x.id}>{ligne(Wrench, lienExterne(tacheClickUp(x.id), `SAV : ${x.nom}`))}</div>)}
-        {f.parc.visites.map((x) => <div key={x.id}>{ligne(CalendarClock, lienExterne(tacheClickUp(x.id), `Visite : ${x.nom}`))}</div>)}
+        {f.parc.sav.map((x) => <div key={x.id}>{ligne(Wrench, lienInterne(ficheElement(x.id), `SAV : ${x.nom}`))}</div>)}
+        {f.parc.visites.map((x) => <div key={x.id}>{ligne(CalendarClock, lienInterne(ficheElement(x.id), `Visite : ${x.nom}`))}</div>)}
       </Carte>
     </>
   );
@@ -280,7 +302,7 @@ export default function FichePage() {
         {f.factures === null && <p className="text-[14px]" style={{ color: ORANGE }}>Factures illisibles pour l’instant : réessaie dans un moment.</p>}
         {f.factures !== null && !f.factures.length && <p className="text-[14px]">Aucune facture liée pour l’instant.</p>}
         {(f.factures || []).map((x) => (
-          <a key={x.id} href={x.url} target="_blank" rel="noopener noreferrer" className="block rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
+          <a key={x.id} href={ficheElement(x.id)} className="block rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
             <div className="flex flex-wrap items-center gap-2">
               {pastilleStatut(x.statut, x.couleurStatut)}
               {x.type && <span className="text-[12px] font-bold text-slate-500">{x.type}</span>}
@@ -309,7 +331,7 @@ export default function FichePage() {
         <TitreCarte icon={Landmark} extra={<span className="text-[14px] font-bold">{f.advenir ? f.advenir.length : '?'}</span>}>Aides ADVENIR</TitreCarte>
         {f.advenir === null && <p className="text-[14px]" style={{ color: ORANGE }}>Dossier ADVENIR illisible pour l’instant : réessaie dans un moment.</p>}
         {(f.advenir || []).map((d) => (
-          <a key={d.id} href={d.url} target="_blank" rel="noopener noreferrer" className="block rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
+          <a key={d.id} href={ficheElement(d.id)} className="block rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
             <div className="flex flex-wrap items-center gap-2">{pastilleStatut(d.statut, d.couleurStatut)}</div>
             <p className="mt-1.5 text-[15px] font-bold leading-tight">
               {d.primeReelle !== null ? `Prime ${euros(d.primeReelle)}` : d.primeEstimee !== null ? `Prime estimée ${euros(d.primeEstimee)}` : d.nom}
@@ -364,8 +386,8 @@ export default function FichePage() {
                   {ligne(CalendarClock, fiche.releve.visite ? `Visite ${fiche.releve.visite}` : 'Visite pas encore calée')}
                   {fiche.releve.lien && !fiche.sansPrix && boutonAction(fiche.releve.lien, 'Ouvrir le relevé')}
                 </Carte>
+                {carteDevis(fiche, 'Devis', true)}
                 {carteScenarios(fiche)}
-                {carteDevis(fiche, 'Devis')}
               </>
             )}
 

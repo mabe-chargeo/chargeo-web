@@ -24,7 +24,10 @@
 // d'accès à la Base de données globale du Parc » ; il garde l'historique de la borne par ses tickets et ses visites.
 // Pastilles de Chantiers branchées (Prêts, En cours, Réserves à lever, Avancement, Carte).
 // 17/10/2026, 18 h 27 (Matthieu : « Oui, fais la carte du SAV ») : Carte du SAV (/interne/carte-sav) dans À consulter du
-// chef de chantier et de la direction ; Livraisons ajoutées au Planning (18 h 22).
+// chef de chantier et de la direction.
+// 17/10/2026, 18 h 34 (Matthieu : « le planning c'est pour planifier avec les clients ») : plus de livraisons dans le
+// Planning (retirées, avec la pastille « Planning réceptions ») ; elles restent dans Matériel et achats (suivi
+// logistique, réceptions sous 7 jours). Pastille « Relevés techniques » ajoutée au Planning.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -152,12 +155,12 @@ export const ECRANS: Record<string, Ecran> = {
   ressources: pret('ressources', 'Ressources', 'ressources', '/interne/ressources', 'Les dossiers Drive de ton rôle : supports de vente, notices des bornes par marque, normes, modèles, administratif.'),
 
   // ── Chef de chantier ──
-  planning: pret('planning', 'Planning', 'planning', '/interne/planning', 'Master planning (par jour) et Planning techs (par installateur) : poses, dépannages, visites de maintenance, livraisons.', {
+  planning: pret('planning', 'Planning', 'planning', '/interne/planning', 'Master planning (par jour) et Planning techs (par installateur) : poses, dépannages, visites de maintenance et relevés techniques, tout ce qui se planifie avec le client.', {
     pastilles: [
       { cle: 'master', libelle: 'Master planning', href: '/interne/planning' },
       { cle: 'techs', libelle: 'Planning techs', href: '/interne/planning?vue=techs' },
-      { cle: 'livraisons', libelle: 'Planning réceptions', href: '/interne/planning?types=livraison' },
       { cle: 'depannages', libelle: 'Planning dépannage', href: '/interne/planning?types=depannage' },
+      { cle: 'releves', libelle: 'Relevés techniques', href: '/interne/planning?types=releve' },
     ],
   }),
   carteSav: pret('carteSav', 'Carte du SAV', 'carte', '/interne/carte-sav', 'Tickets SAV ouverts sur la carte, à l’adresse de l’installation du Parc, avec tous les dépannages dans Google Maps.'),
@@ -176,7 +179,6 @@ export const ECRANS: Record<string, Ecran> = {
       { cle: 'a-commander', libelle: 'À commander', href: liste('commandes', 'a-commander') },
       { cle: 'logistique', libelle: 'Suivi logistique', href: liste('commandes', 'suivi-logistique') },
       { cle: 'receptions', libelle: 'Réceptions sous 7 jours', href: liste('commandes', 'receptions-7j') },
-      { cle: 'planning', libelle: 'Planning réceptions', href: '/interne/planning?types=livraison' },
       { cle: 'retards', libelle: 'Livraisons en retard', href: liste('achats', 'livraisons-retard') },
     ],
   }),
