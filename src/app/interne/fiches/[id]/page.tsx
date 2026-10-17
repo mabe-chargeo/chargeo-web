@@ -10,6 +10,9 @@
 //   Parc : contrat, échéances, borne, SAV et visites liés, réception.
 //   Dès qu'ils existent (17/10, 12 h 47) : factures (Costructor fait référence) et dossiers ADVENIR, qui s'ouvrent dans
 //   ClickUp en attendant leurs écrans.
+// 17/10, 14 h 08 (parcours Nouveau projet validé) : en vente, bouton « + Ajouter un contact » sous le bloc Contact
+// (contact existant ou nouveau, avec son rôle), qui ouvre /interne/projet/nouveau?fiche=<id>. Les champs relation
+// 📍 Contact sur place et 👔 Gestionnaire n'existent qu'en Qualification.
 // Structure de départ validée le 16/10 ; bloc Contact le 17/10 à 10 h 20. Retour vers la vue d'où l'on vient, sinon
 // vers Mon espace.
 import { useEffect, useState, type ElementType, type ReactNode } from 'react';
@@ -333,6 +336,7 @@ export default function FichePage() {
             </div>
 
             <BlocContact affaireId={fiche.id} ouvertParDefaut />
+            {fiche.etape === 'qualification' && boutonSecondaire(`/interne/projet/nouveau?fiche=${encodeURIComponent(fiche.id)}`, '+ Ajouter un contact')}
 
             {fiche.etape === 'prospection' && (
               <Carte className="space-y-2.5">
