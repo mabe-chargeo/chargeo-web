@@ -15,7 +15,8 @@
 // Espace Direction validé le 17/10 à 11 h 37 (6 vues) ; Plus ouvre l'espace de chaque rôle (/interne/espace?role=…).
 // 17/10, 14 h 28 (lot « écrans qui manquent ») : les vues qui ouvraient ClickUp ouvrent l'écran de liste de
 // l'application (/interne/liste/<source>?vue=<clé>, src/lib/listesAppli.ts), avec la fiche générique. Le bouton de
-// création du commercial ouvre Nouveau projet.
+// création du commercial ouvre Nouveau projet. Planning construit (/interne/planning, compteur = chantiers en travaux)
+// et Agenda des visites ajouté au commercial (/interne/agenda, compteur = relevés planifiés).
 // Clé de vue : « cle » dans la source de la vue, ou « source:cle » pour additionner une autre liste.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit.
 import type { Jour } from '@/lib/joursOuvres';
@@ -90,6 +91,7 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { cle: 'a-appeler', emoji: '📞', libelle: "À appeler aujourd'hui", description: 'Prospects dont la date de rappel est aujourd’hui ou passée', href: '/interne/prospection?vue=a-appeler', source: 'prospection', vues: ['a-appeler'], urgent: true },
       { cle: 'chasse', emoji: '🚀', libelle: 'Pipeline chasse', description: 'Tous les prospects par étape, filtre LinkedIn', href: '/interne/prospection?vue=chasse', source: 'prospection', vues: ['chasse'] },
       { cle: 'a-caler', emoji: '📅', libelle: 'Visites à caler', description: 'Appeler le client et fixer la date du relevé technique du chef de chantier', href: '/interne/fiches?vue=a-caler', source: 'qualification', vues: ['a-caler'], urgent: true },
+      { cle: 'agenda', emoji: '🗓️', libelle: 'Agenda des visites', description: 'Relevés calés : jour, semaine, carte et itinéraire', href: '/interne/agenda', source: 'qualification', vues: ['planifies'] },
       { cle: 'devis-a-chiffrer', emoji: '📝', libelle: 'Devis à chiffrer', description: 'Relevé finalisé par le chef de chantier, devis à faire dans Costructor', href: '/interne/fiches?vue=devis-a-chiffrer', source: 'qualification', vues: ['devis-a-chiffrer'] },
       { cle: 'relances-echues', emoji: '📩', libelle: 'Relances devis', description: 'Relance du jour ou en retard', href: '/interne/fiches?vue=relances-echues', source: 'qualification', vues: ['relances-echues'], urgent: true },
       { cle: 'en-negociation', emoji: '🔥', libelle: 'En négociation', description: 'Devis discutés avec le client', href: '/interne/fiches?vue=en-negociation', source: 'qualification', vues: ['en-negociation'] },
@@ -102,7 +104,7 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
     vues: [
       { cle: 'releves', emoji: '📋', libelle: 'Relevés à faire', description: 'Visites calées par le commercial : du jour, en retard et à venir, utilisables hors ligne', href: '/interne', source: 'qualification', vues: ['planifies', 'en-retard'], urgent: true },
       { cle: 'feu-vert', emoji: '🚦', libelle: 'Feu vert à donner', description: 'Chantiers dont les 5 prérequis sont OK', href: '/interne/feu-vert', source: 'planning', vues: ['feu-vert'] },
-      { cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Chantiers par date et répartition des techniciens', href: '/interne/bientot/planning', source: 'aucune', aConstruire: true },
+      { cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Poses, dépannages et visites par jour et par technicien', href: '/interne/planning', source: 'planning', vues: ['en-cours'] },
       { cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux : à planifier, préparation, planifié, en cours', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
       { cle: 'receptions', emoji: '✅', libelle: 'Réceptions à valider', description: 'PV, rapport de mesures et photos déposés par le poseur', href: '/interne/validation', source: 'planning', vues: ['receptions'], urgent: true },
       { cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: 'Commandes en « à commander »', href: ecran('commandes', 'a-commander'), source: 'commandes', vues: ['a-commander'] },
