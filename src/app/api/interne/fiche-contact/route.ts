@@ -6,13 +6,13 @@ import { CHAMPS } from '@/lib/champsClickUp';
 // Bloc 📇 Contact (étape 4 du plan du 15/10/2026, synthèse du 14/10, section 10). LECTURE SEULE.
 // GET ?affaireId=… (la fiche, ou un scénario : on remonte à la fiche) : adresse, téléphone et email du passeport,
 // 📍 Contact sur place et 👔 Gestionnaire (fiches de la liste Contacts 👥 reliées à la fiche). Rien à ressaisir.
-// Les deux champs relation existent sur Qualification ; sur 🧪 TEST, au Planning et au Parc ils sont absents, le bloc
-// montre alors le passeport.
+// Les deux champs relation existent sur Qualification ; sur 🧪 TEST, au Planning, au Parc et en Prospection ils sont
+// absents, le bloc montre alors le passeport.
 // 15/10, 15 h 23 : renvoie aussi l'email de la personne connectée (« moi »), pour ouvrir Google Voice et Gmail sur le
 // compte CHARGéO (et pas sur le premier compte Google du navigateur ni sur Apple Mail).
-// 17/10, 10 h 26 (Matthieu : « tu ajoutes le bloc contact partout ») : la tâche voyageuse est aussi lue au Planning
-// Chantiers et au Parc Installé, qui portent les mêmes champs 📞 Telephone, 📧 Email et 📍 Adresse (mêmes
-// identifiants, vérifiés le 17/10). Qualification reste lue dans 🧪 TEST en preview ; Planning et Parc sont lus dans
+// 17/10, 10 h 26 (Matthieu : « tu ajoutes le bloc contact partout ») : la tâche voyageuse est aussi lue en Prospection,
+// au Planning Chantiers et au Parc Installé, qui portent les mêmes champs 📞 Telephone, 📧 Email et 📍 Adresse (mêmes
+// identifiants, vérifiés le 17/10). Qualification reste lue dans 🧪 TEST en preview ; les autres listes sont lues dans
 // les vraies listes, en lecture seule, comme les écrans Feu vert et Réception.
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +21,8 @@ const GESTIONNAIRE = '0a6a88d4-1d1a-4034-8e7b-bf6213b1d9c3';
 // Liste Contacts 👥
 const TEL_CONTACT = '9f8e22e3-656d-4d9b-b923-cfff21366e8f';
 const EMAIL_CONTACT = 'fe270c78-ce53-427c-ad4f-73090f7c3252';
-// Planning Chantiers 🚧 et Parc Installé (Maintenance) 🔄
+// Prospection (Chasse) ❄️, Planning Chantiers 🚧 et Parc Installé (Maintenance) 🔄
+const PROSPECTION_ID = '901519675281';
 const PLANNING_CHANTIERS_ID = '901520038258';
 const PARC_ID = '901520038290';
 
@@ -35,10 +36,10 @@ async function lire(token: string, id: string): Promise<any | null> {
   return res.ok ? res.json() : null;
 }
 
-// Fiche d'une liste autorisée (Qualification de l'environnement, Planning Chantiers, Parc)
+// Fiche d'une liste autorisée (Qualification de l'environnement, Prospection, Planning Chantiers, Parc)
 async function lireAffaire(token: string, id: string): Promise<{ ok: true; tache: any } | { ok: false; status: number; erreur: string }> {
   if (!id || !/^[a-z0-9]+$/i.test(id)) return { ok: false, status: 400, erreur: 'Identifiant de fiche invalide' };
-  const autorisees = [getQualificationListId(), PLANNING_CHANTIERS_ID, PARC_ID].filter(Boolean).map(String);
+  const autorisees = [getQualificationListId(), PROSPECTION_ID, PLANNING_CHANTIERS_ID, PARC_ID].filter(Boolean).map(String);
   const tache = await lire(token, id);
   if (!tache) return { ok: false, status: 404, erreur: 'Fiche introuvable' };
   if (!autorisees.includes(String(tache?.list?.id ?? ''))) return { ok: false, status: 403, erreur: 'Fiche hors des listes autorisées' };
