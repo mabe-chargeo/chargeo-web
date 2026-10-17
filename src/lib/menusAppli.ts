@@ -15,9 +15,11 @@
 // de raccourcis vers les espaces des rôles (16 h 11) ; Plus sans doublon avec Mon espace (16 h 28) ; Ressources par
 // rôle (17 h 03, /interne/ressources, src/lib/ressources.ts).
 // 17/10/2026, 17 h 24 (choix de Matthieu : « Mon espace en deux parties ») : Mon espace = « À traiter » (les vues avec
-// compteur, src/lib/espaces.ts) puis « À consulter » (MENUS[rôle].consulter : Parc, Ressources, Agenda, Planning,
-// Relevés selon le rôle). L'onglet Plus ne garde que les créations (CREER : Nouveau projet, Ticket SAV, Idée Kaizen,
-// en attendant le bouton + de l'en-tête, jamais construit) et la déconnexion.
+// compteur, src/lib/espaces.ts) puis « À consulter » (MENUS[rôle].consulter : Parc, Ressources, Agenda, Planning
+// selon le rôle). L'onglet Plus ne garde que les créations (CREER : Nouveau projet, Ticket SAV, Idée Kaizen, en
+// attendant le bouton + de l'en-tête, jamais construit) et la déconnexion.
+// 17/10/2026, 17 h 32 (Matthieu : « pourquoi l'installateur a accès au relevé ? ») : Relevés retiré de l'installateur.
+// Le relevé technique est fait par le chef de chantier ; l'installateur pose, il ne fait pas de relevé.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -213,10 +215,11 @@ export const ECRANS: Record<string, Ecran> = {
 // Barre du bas (« Plus » est ajouté après), partie « À consulter » de Mon espace, et écrans de l'onglet Plus, par rôle.
 // 17 h 24 : consulter = ce qu'on consulte sans compteur (le référentiel Parc, les Ressources, l'outil d'un autre rôle) ;
 // plus = vide, l'onglet Plus ne montre que les créations (CREER) et la déconnexion.
+// 17 h 32 : plus de Relevés pour l'installateur (le relevé est fait par le chef de chantier).
 export const MENUS: Record<RoleAppli, { barre: string[]; consulter: string[]; plus: string[] }> = {
   commercial: { barre: ['journee', 'espace'], consulter: ['ressources'], plus: [] },
   chargeOperation: { barre: ['journee', 'espace'], consulter: ['agenda', 'parc', 'ressources'], plus: [] },
-  poseur: { barre: ['journee', 'espace'], consulter: ['releves', 'parc', 'ressources'], plus: [] },
+  poseur: { barre: ['journee', 'espace'], consulter: ['parc', 'ressources'], plus: [] },
   backOffice: { barre: ['journee', 'espace'], consulter: ['planning', 'parc', 'ressources'], plus: [] },
   direction: { barre: ['journee', 'espace'], consulter: ['parc', 'ressources'], plus: [] },
 };
