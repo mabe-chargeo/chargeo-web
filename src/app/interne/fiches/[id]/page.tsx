@@ -13,6 +13,9 @@
 // 17/10, 14 h 08 (parcours Nouveau projet validé) : en vente, bouton « + Ajouter un contact » sous le bloc Contact
 // (contact existant ou nouveau, avec son rôle), qui ouvre /interne/projet/nouveau?fiche=<id>. Les champs relation
 // 📍 Contact sur place et 👔 Gestionnaire n'existent qu'en Qualification.
+// 17/10, 18 h 10 (« sans prix » pour l'installateur, décision du 17 h 37) : le rôle de la pastille part avec la lecture
+// (?role=) ; quand la route répond sansPrix, ni devis, ni factures, ni ADVENIR, et le chantier propose « 📋 Ce qui est
+// prévu » (éléments du scénario retenu, sans prix).
 // Structure de départ validée le 16/10 ; bloc Contact le 17/10 à 10 h 20. Retour vers la vue d'où l'on vient, sinon
 // vers Mon espace.
 import { useEffect, useState, type ElementType, type ReactNode } from 'react';
@@ -24,6 +27,7 @@ import {
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
+import { useRoleAppli } from '@/components/charte/roleAppli';
 
 type Etape = 'prospection' | 'qualification' | 'chantier' | 'parc';
 type Scenario = { id: string; nom: string; statut: string; couleurStatut: string; segment: string; elements: number; natures: { nature: string; n: number }[] };
@@ -50,6 +54,7 @@ type Fiche = {
   relance: string;
   rappel: string;
   devis: { numero: string; montantHT: number | null; lienDevis: string; lienCostructor: string };
+  sansPrix?: boolean;
   scenarios: Scenario[];
   feuVert: { donne: boolean; prerequis: { libelle: string; valeur: string; ok: boolean }[] } | null;
   chantier: { intervention: string; techniciens: string[]; realise: boolean } | null;
@@ -100,6 +105,7 @@ const pastilleStatut = (statut: string, couleur: string) => (
 export default function FichePage() {
   const params = useParams<{ id: string }>();
   const id = String(params?.id || '');
+  const { role } = useRoleAppli();
   const [fiche, setFiche] = useState<Fiche | null>(null);
   const [preview, setPreview] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -110,7 +116,7 @@ export default function FichePage() {
     setLoading(true);
     setErreur(null);
     try {
-      const res = await fetch(`/api/interne/fiches/${encodeURIComponent(id)}`, { cache: 'no-store' });
+      const res = await fetch(`/api/interne/fiches/${encodeURIComponent(id)}?role=${encodeURIComponent(role || '')}`, { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
         // Scénario ou élément ouvert par erreur : on bascule sur la fiche principale
@@ -126,7 +132,7 @@ export default function FichePage() {
 
   useEffect(() => {
     charger();
-  }, [id]);
+  }, [id, role]);
 
   const retour = () => {
     if (window.history.length > 1 && document.referrer.includes('/interne/')) window.history.back();
@@ -164,6 +170,7 @@ export default function FichePage() {
   };
 
   const carteDevis = (f: Fiche, titre: string) => {
+    if (f.sansPrix) return null;
     const d = f.devis;
     const vide = !d.numero && d.montantHT === null && !d.lienDevis;
     return (
@@ -209,17 +216,19 @@ export default function FichePage() {
         : f.feuVert.prerequis.map((p) => (
             <div key={p.libelle}>{ligne(p.ok ? CheckCircle2 : XCircle, `${p.libelle} : ${p.valeur}`, p.ok ? '#16a34a' : ORANGE)}</div>
           ))}
-      {!f.feuVert.donne && f.feuVert.prerequis.every((p) => p.ok) && boutonAction('/interne/feu-vert', 'Donner le feu vert')}
+      {!f.feuVert.donne && !f.sansPrix && f.feuVert.prerequis.every((p) => p.ok) && boutonAction('/interne/feu-vert', 'Donner le feu vert')}
     </Carte>
   );
 
-  // Chantier, avec les actions de la fiche intervention (étape 2) : saisie à la pose, puis rapport et signature
+  // Chantier, avec les actions de la fiche intervention (étape 2) : ce qui est prévu, saisie à la pose, puis rapport et
+  // signature
   const carteChantier = (f: Fiche) => f.chantier && (
     <Carte className="space-y-2.5">
       <TitreCarte icon={HardHat}>Chantier</TitreCarte>
       {ligne(CalendarClock, f.chantier.intervention ? `Intervention ${f.chantier.intervention}` : 'Date d’intervention à fixer', f.chantier.intervention ? CYAN : ORANGE)}
       {ligne(HardHat, f.chantier.techniciens.length ? f.chantier.techniciens.join(', ') : 'Technicien à affecter', f.chantier.techniciens.length ? CYAN : ORANGE)}
       <div className="space-y-2 pt-1">
+        {boutonSecondaire(`/interne/pose/${f.id}#prevu`, '📋 Ce qui est prévu')}
         {boutonAction(`/interne/pose/${f.id}`, '📸 Saisie à la pose')}
         {boutonSecondaire('/interne/reception', 'Rapport et signature')}
       </div>
@@ -233,7 +242,7 @@ export default function FichePage() {
       {ligne(ClipboardList, f.reception.rapport ? 'Rapport de mesures déposé' : 'Rapport de mesures pas encore déposé', f.reception.rapport ? '#16a34a' : ORANGE)}
       {ligne(ClipboardList, `${f.reception.photos} photo${f.reception.photos > 1 ? 's' : ''} de chantier`)}
       {f.reception.reserves && ligne(Wrench, `Réserves : ${f.reception.reserves}`)}
-      {f.etape === 'chantier' && f.chantier?.realise && boutonAction('/interne/validation', 'Valider la réception')}
+      {f.etape === 'chantier' && f.chantier?.realise && !f.sansPrix && boutonAction('/interne/validation', 'Valider la réception')}
     </Carte>
   );
 
@@ -259,8 +268,9 @@ export default function FichePage() {
     </>
   );
 
-  // Factures : au chantier et au Parc toujours (même vide), en vente seulement s'il y en a
+  // Factures : au chantier et au Parc toujours (même vide), en vente seulement s'il y en a ; jamais pour l'installateur
   const carteFactures = (f: Fiche) => {
+    if (f.sansPrix) return null;
     const toujours = f.etape === 'chantier' || f.etape === 'parc';
     if (f.factures !== null && !f.factures.length && !toujours) return null;
     const retard = (f.factures || []).filter((x) => x.enRetard).length;
@@ -290,8 +300,9 @@ export default function FichePage() {
     );
   };
 
-  // Dossiers ADVENIR : seulement quand il y en a un (ou si la lecture a échoué)
+  // Dossiers ADVENIR : seulement quand il y en a un (ou si la lecture a échoué) ; jamais pour l'installateur
   const carteAdvenir = (f: Fiche) => {
+    if (f.sansPrix) return null;
     if (f.advenir !== null && !f.advenir.length) return null;
     return (
       <Carte className="space-y-3">
@@ -336,7 +347,7 @@ export default function FichePage() {
             </div>
 
             <BlocContact affaireId={fiche.id} ouvertParDefaut />
-            {fiche.etape === 'qualification' && boutonSecondaire(`/interne/projet/nouveau?fiche=${encodeURIComponent(fiche.id)}`, '+ Ajouter un contact')}
+            {fiche.etape === 'qualification' && !fiche.sansPrix && boutonSecondaire(`/interne/projet/nouveau?fiche=${encodeURIComponent(fiche.id)}`, '+ Ajouter un contact')}
 
             {fiche.etape === 'prospection' && (
               <Carte className="space-y-2.5">
@@ -351,7 +362,7 @@ export default function FichePage() {
                 <Carte className="space-y-3">
                   <TitreCarte icon={ClipboardList}>Relevé</TitreCarte>
                   {ligne(CalendarClock, fiche.releve.visite ? `Visite ${fiche.releve.visite}` : 'Visite pas encore calée')}
-                  {fiche.releve.lien && boutonAction(fiche.releve.lien, 'Ouvrir le relevé')}
+                  {fiche.releve.lien && !fiche.sansPrix && boutonAction(fiche.releve.lien, 'Ouvrir le relevé')}
                 </Carte>
                 {carteScenarios(fiche)}
                 {carteDevis(fiche, 'Devis')}

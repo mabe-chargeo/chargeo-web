@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getQualificationListId } from '@/lib/listesClickUp';
 import { sessionDeRequete } from '@/lib/session';
+import { rolesDe } from '@/lib/roles';
 import { chargerTypes, estScenario } from '@/lib/typesTaches';
 import { CHAMPS } from '@/lib/champsClickUp';
 import { aujourdhuiParis, comparer } from '@/lib/joursOuvres';
@@ -17,6 +18,9 @@ import { CHAMP_FEU_VERT, CHAMPS_INTERVENTION, LISTES, PREREQUIS_FEU_VERT } from 
 // 17/10, 12 h 47 : factures = Factures Clients dont le champ 🔗 Affaire pointe sur la fiche (relu le 17/10 sur la facture
 // de solde de test) ; dossiers ADVENIR = tâches de Dossiers Advenir liées à la fiche (lien de tâche posé à la création du
 // dossier quand l'affaire est gagnée, relu le 17/10). Une liste illisible n'empêche pas la fiche de s'afficher.
+// 17/10, 18 h 10 (décision de Matthieu à 17 h 37 : l'installateur voit « ce qui est prévu, sans prix ») : pour un
+// installateur (aucun autre rôle), et pour toute personne en vue Installateur (?role=poseur), la fiche part sans prix :
+// devis vidé (n°, montant, lien du devis, lien Costructor), ni factures ni dossiers ADVENIR (sansPrix: true).
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +53,8 @@ const FACTURE = {
 const LIBELLES_PREREQUIS = ['Devis signé', 'Acompte', 'Autorisations et aides', 'Matériel reçu conforme', 'Équipe, date et accès'];
 const PAGES_FACTURES = 5;
 const LIENS_MAX = 10;
+// Rôles qui voient les prix (le poseur seul ne les voit pas)
+const ROLES_AVEC_PRIX = ['direction', 'commercial', 'chargeOperation', 'backOffice'];
 
 const texte = (t: any, id: string): string => {
   const v = champ(t, id)?.value;
@@ -127,6 +133,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const tid = String(id || '');
     if (!/^[a-z0-9]+$/i.test(tid)) return NextResponse.json({ error: 'Identifiant de fiche invalide' }, { status: 400 });
+    // Sans prix : installateur seul, ou vue Installateur choisie dans la pastille de l'en-tête
+    const roles = await rolesDe(token, session.id).catch(() => [] as string[]);
+    const sansPrix = new URL(request.url).searchParams.get('role') === 'poseur' || !ROLES_AVEC_PRIX.some((r) => roles.includes(r as any));
     const t = await lire(token, tid, true);
     if (!t) return NextResponse.json({ error: 'Fiche introuvable' }, { status: 404 });
     const etape = etapeDe(String(t?.list?.id ?? ''));
@@ -137,6 +146,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const { carte } = await chargerTypes(token);
     const directes = (Array.isArray(t?.subtasks) ? t.subtasks : []).filter((s: any) => !s?.archived && (!s?.parent || String(s.parent) === String(t.id)));
     const enVente = etape === 'prospection';
+    // Ni factures ni dossiers en prospection, ni pour l'installateur
+    const sansFinances = enVente || sansPrix;
     const [scenarios, facturesLues, dossiersLus] = await Promise.all([
       Promise.all(
         directes.filter((s: any) => estScenario(s, carte)).map(async (s: any) => {
@@ -159,9 +170,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           };
         })
       ),
-      // Pas de facture ni de dossier en prospection
-      enVente ? Promise.resolve([] as any[]) : facturesDe(token, String(t.id)).catch((e) => { console.error('Fiche affaire, factures :', e); return null; }),
-      enVente ? Promise.resolve([] as any[]) : dossiersAdvenirDe(token, t).catch((e) => { console.error('Fiche affaire, ADVENIR :', e); return null; }),
+      sansFinances ? Promise.resolve([] as any[]) : facturesDe(token, String(t.id)).catch((e) => { console.error('Fiche affaire, factures :', e); return null; }),
+      sansFinances ? Promise.resolve([] as any[]) : dossiersAdvenirDe(token, t).catch((e) => { console.error('Fiche affaire, ADVENIR :', e); return null; }),
     ]);
 
     const aujourdhui = aujourdhuiParis();
@@ -272,12 +282,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         },
         relance: etape === 'qualification' && echeance ? libelleDate(echeance, false) : '',
         rappel: etape === 'prospection' && echeance ? libelleDate(echeance, false) : '',
-        devis: {
-          numero: texte(t, CHAMPS.numeroDevis),
-          montantHT: nombre(t, CHAMPS.montantDevisHT),
-          lienDevis: texte(t, CHAMPS.lienDevis),
-          lienCostructor: texte(t, CHAMPS.lienCostructor),
-        },
+        devis: sansPrix
+          ? { numero: '', montantHT: null, lienDevis: '', lienCostructor: '' }
+          : {
+              numero: texte(t, CHAMPS.numeroDevis),
+              montantHT: nombre(t, CHAMPS.montantDevisHT),
+              lienDevis: texte(t, CHAMPS.lienDevis),
+              lienCostructor: texte(t, CHAMPS.lienCostructor),
+            },
+        sansPrix,
         scenarios,
         feuVert,
         chantier,
