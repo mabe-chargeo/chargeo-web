@@ -15,8 +15,10 @@ import { CHAMPS_INTERVENTION, chantierAMoi } from '@/lib/espaces';
 // chiffres que le sous-menu des vues). Relevés du jour et en retard : une carte chacun, qui ouvre la fiche détaillée.
 // Chantiers : feu vert à donner (5 prérequis OK, pas de feu vert) et réceptions à valider (réalisé), vers leurs écrans.
 // Back-office : factures en retard et contrats à renouveler, encore vers ClickUp (écrans du lot back-office à venir).
-// 17/10, 11 h 01 (Matthieu : « ce n'est pas le commercial qui fait les relevés techniques ») : la carte « À caler »
-// passe au chargé d'opération / chef de chantier. Le commercial garde ses cartes devis et relances.
+// 17/10, 11 h 01 (Matthieu : « ce n'est pas le commercial qui fait les relevés techniques ») : les relevés planifiés et
+// en retard sont au chargé d'opération / chef de chantier.
+// 17/10, 13 h 13 (Matthieu : « c'est le commercial qui planifie le relevé technique pour le chef de chantier ») : la
+// carte « Visites à caler » revient au commercial, avec ses cartes devis et relances.
 // 17/10, 11 h 18 (espace Installateur validé) : carte « Mes interventions du jour » (chantiers dont je suis le
 // 👷 Technicien, date d'intervention aujourd'hui ou passée et pas encore réalisés), vers /interne/interventions.
 // Preview : fiches lues dans 🧪 Qualification TEST, le reste dans les listes réelles, en lecture seule.
@@ -162,7 +164,7 @@ export async function GET(request: Request) {
     };
 
     carteVue('planifies', 'chargeOperation', "Relevés · Chargé d'opération", false);
-    carteVue('a-caler', 'chargeOperation', "Relevés · Chargé d'opération", false);
+    carteVue('a-caler', 'commercial', 'Commercial', false);
     carteVue('relances-echues', 'commercial', 'Commercial', true);
     carteVue('devis-a-chiffrer', 'commercial', 'Commercial', false);
 
@@ -205,7 +207,7 @@ export async function GET(request: Request) {
     });
 
     const avertissements: string[] = [];
-    if (qualif.erreur && visible('chargeOperation')) avertissements.push(`Relevés : ${qualif.erreur}`);
+    if (qualif.erreur && (visible('chargeOperation') || visible('commercial'))) avertissements.push(`Fiches : ${qualif.erreur}`);
     if (!roles.length) avertissements.push("Aucun rôle trouvé pour ton compte : demande à Matthieu de t'ajouter au bon groupe ClickUp.");
 
     return NextResponse.json({
