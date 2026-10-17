@@ -14,6 +14,8 @@ import { adresseDe, champ, dateVisiteDe, jourDe, libelleDate, nomOption, normal,
 // chiffres que le sous-menu des vues). Relevés du jour et en retard : une carte chacun, qui ouvre la fiche détaillée.
 // Chantiers : feu vert à donner (5 prérequis OK, pas de feu vert) et réceptions à valider (réalisé), vers leurs écrans.
 // Back-office : factures en retard et contrats à renouveler, encore vers ClickUp (écrans du lot back-office à venir).
+// 17/10, 11 h 01 (Matthieu : « ce n'est pas le commercial qui fait les relevés techniques ») : la carte « À caler »
+// passe au chargé d'opération / chef de chantier. Le commercial garde ses cartes devis et relances.
 // Preview : fiches lues dans 🧪 Qualification TEST, le reste dans les listes réelles, en lecture seule.
 
 export const dynamic = 'force-dynamic';
@@ -157,7 +159,7 @@ export async function GET(request: Request) {
     };
 
     carteVue('planifies', 'chargeOperation', "Relevés · Chargé d'opération", false);
-    carteVue('a-caler', 'commercial', 'Commercial', false);
+    carteVue('a-caler', 'chargeOperation', "Relevés · Chargé d'opération", false);
     carteVue('relances-echues', 'commercial', 'Commercial', true);
     carteVue('devis-a-chiffrer', 'commercial', 'Commercial', false);
 
