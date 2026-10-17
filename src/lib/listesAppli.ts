@@ -23,6 +23,7 @@
 // 19 h 42 (choix de Matthieu) : « En retard » des Factures devient « À relancer ». L'échéance de la tâche est la date
 // du rappel de relance (J+3, J+10, J+15, src/lib/controleReglements.ts), le champ 📅 Date d'échéance la date limite de
 // paiement : la carte les étiquette (libelleEcheance = « Relance le », etiquettes = « Paiement dû le »).
+// 20 h 14 (Matthieu) : + Tâche en tête de la To-Do (/interne/creer/tache).
 // Fichier pur : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit : les routes
 // /api/interne/listes et /api/interne/elements contrôlent les rôles.
 import { LISTES, FILTRES, type Filtre, type SourceVue } from '@/lib/espaces';
@@ -154,7 +155,10 @@ export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
     titre: 'Kaizen', emoji: '💡', roles: ['commercial', 'chargeOperation', 'backOffice', 'poseur'],
     vues: [{ cle: 'a-trier', libelle: 'À trier' }], champs: ['impact', 'service', 'auteur'],
   },
-  todo: { titre: 'To-Do', emoji: '📝', roles: [], vues: [{ cle: 'en-retard', libelle: 'En retard' }], champs: [] },
+  todo: {
+    titre: 'To-Do', emoji: '📝', roles: [], vues: [{ cle: 'en-retard', libelle: 'En retard' }], champs: [],
+    creer: { libelle: '+ Tâche', href: '/interne/creer/tache' },
+  },
 };
 
 export const SOURCES_LISTE = Object.keys(CONFIG_LISTES) as SourceListe[];
