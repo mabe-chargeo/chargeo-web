@@ -4,16 +4,16 @@ import { aujourdhuiParis } from '@/lib/joursOuvres';
 import { sessionDeRequete } from '@/lib/session';
 import { rolesDe } from '@/lib/roles';
 import { vueDe } from '@/lib/vuesFiches';
-import { ESPACES, PROSPECTION_ID, VUES_PROSPECTION } from '@/lib/espaces';
+import { ESPACES, FILTRES, LISTES, type SourceVue, type VueEspace } from '@/lib/espaces';
 
 // Mon espace (un espace par rôle, validé par Matthieu le 17/10/2026). LECTURE SEULE.
-// GET ?role=<rôle> : les vues de l'espace du rôle (src/lib/espaces.ts) avec leur compteur réel.
+// GET ?role=<rôle> : les vues de l'espace du rôle (src/lib/espaces.ts) avec leur compteur réel. Chaque liste ClickUp
+// nécessaire n'est lue qu'une fois, toutes en parallèle ; une liste illisible donne « ? » sans bloquer les autres.
 // Droits : la personne doit avoir ce rôle, ou être direction (qui peut voir l'espace de chaque rôle).
-// Preview : Qualification lue dans 🧪 Qualification TEST ; Prospection et Contacts lus dans les vraies listes.
+// Preview : Qualification lue dans 🧪 Qualification TEST ; les autres listes dans les vraies listes, en lecture seule.
 
 export const dynamic = 'force-dynamic';
 const PAGES_MAX = 10;
-const CONTACTS_ID = '1200630000008493';
 
 async function lister(token: string, listId: string): Promise<any[]> {
   const toutes: any[] = [];
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   if (!session?.id) return NextResponse.json({ error: 'Connexion requise : reconnecte-toi.' }, { status: 401 });
 
   const role = new URL(request.url).searchParams.get('role') || '';
-  const espace = (ESPACES as Record<string, any>)[role];
+  const espace = (ESPACES as Record<string, { titre: string; creer?: { libelle: string; href: string }; vues: VueEspace[] } | undefined>)[role];
   const preview = process.env.VERCEL_ENV !== 'production';
   if (!espace) return NextResponse.json({ espace: null, vues: [], preview });
 
@@ -47,24 +47,28 @@ export async function GET(request: Request) {
     if (!roles.includes('direction') && !(roles as string[]).includes(role)) {
       return NextResponse.json({ error: 'Cet espace ne correspond pas à ton rôle.' }, { status: 403 });
     }
-    const besoin = new Set<string>(espace.vues.map((v: any) => v.source));
+
+    // Listes à lire, une seule fois chacune
+    const sources: SourceVue[] = [];
+    for (const v of espace.vues) if (v.source !== 'aucune' && !sources.includes(v.source)) sources.push(v.source);
     const qualifId = getQualificationListId();
-    const [rQualif, rProspection, rContacts] = await Promise.allSettled([
-      besoin.has('qualification') ? (qualifId ? lister(token, qualifId) : Promise.reject(new Error('liste Qualification non configurée'))) : Promise.resolve([]),
-      besoin.has('prospection') ? lister(token, PROSPECTION_ID) : Promise.resolve([]),
-      besoin.has('contacts') ? lister(token, CONTACTS_ID) : Promise.resolve([]),
-    ]);
-    const lu = (r: PromiseSettledResult<any[]>) => (r.status === 'fulfilled' ? r.value : null);
-    const sources: Record<string, any[] | null> = { qualification: lu(rQualif), prospection: lu(rProspection), contacts: lu(rContacts) };
+    const idDe = (s: SourceVue): string | undefined => (s === 'qualification' ? qualifId : (LISTES as Record<string, string>)[s]);
+    const lus = await Promise.allSettled(sources.map((s) => {
+      const id = idDe(s);
+      return id ? lister(token, id) : Promise.reject(new Error(`liste ${s} non configurée`));
+    }));
+    const taches: Partial<Record<SourceVue, any[] | null>> = {};
+    sources.forEach((s, i) => { const r = lus[i]; taches[s] = r.status === 'fulfilled' ? r.value : null; });
     const aujourdhui = aujourdhuiParis();
 
-    const vues = espace.vues.map((v: any) => {
-      const taches = sources[v.source];
+    const vues = espace.vues.map((v) => {
+      const liste = taches[v.source];
       let n: number | null = null;
-      if (taches) {
-        if (v.source === 'qualification') { const f = vueDe(v.vue); n = f ? taches.filter((t) => f.filtre(t, aujourdhui)).length : null; }
-        else if (v.source === 'prospection') { const f = VUES_PROSPECTION[v.vue]; n = f ? taches.filter((t) => f.filtre(t, aujourdhui)).length : null; }
-        else if (v.source === 'contacts') n = taches.length;
+      if (liste && v.vues?.length) {
+        const filtres = v.vues
+          .map((cle) => (v.source === 'qualification' ? vueDe(cle)?.filtre : FILTRES[v.source]?.[cle]))
+          .filter((f): f is (t: any, a: any) => boolean => typeof f === 'function');
+        if (filtres.length === v.vues.length) n = liste.filter((t) => filtres.some((f) => f(t, aujourdhui))).length;
       }
       return { ...v, n };
     });
