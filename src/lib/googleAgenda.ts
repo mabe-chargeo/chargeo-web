@@ -18,6 +18,11 @@ import { createSign } from 'crypto';
 // 18/10, 8 h 31 : visites de maintenance (« visite… ») et dépannages SAV (« depan… »), src/app/api/interne/rdv.
 // 18/10, 11 h 30 : nosEvenementsAVenir et ficheDeEvenement (retrouver la tâche d'un de nos rendez-vous) pour retirer
 //   les rendez-vous devenus caducs (src/lib/rdvOrphelins.ts) ; retirerEvenement dit si l'événement existait.
+// 18/10, 12 h 55 (Matthieu : « mon rendez-vous visite technique du lundi 19 n'apparaît pas dans le planning ») : la
+//   fiche était passée en gagné, l'ERP ne comptait plus son relevé, et l'agenda l'ignorait comme « déjà dans l'ERP » :
+//   invisible des deux côtés. occupationsAgenda accepte garderNos(ficheId) : un de nos rendez-vous n'est ignoré que si
+//   l'écran le montre déjà depuis l'ERP ; sinon il compte comme un créneau occupé de l'agenda. Sans garderNos, ancien
+//   fonctionnement (tous ignorés).
 // Gratuit (doc Google « Usage limits », 11/09/2026) : 10 000 requêtes par minute par projet, 600 par utilisateur.
 
 const SCOPE_EVENEMENTS = 'https://www.googleapis.com/auth/calendar.events';
@@ -117,9 +122,11 @@ async function agendasAffiches(email: string): Promise<{ ids: string[]; complet:
 
 export type CreneauAgenda = { jour: string; debut: number; fin: number; journee: boolean };
 export type LectureAgenda = { creneaux: CreneauAgenda[]; agendas: number; listeComplete: boolean; sautes: number };
+// Garder un de nos rendez-vous (à compter comme occupé) : true si l'écran ne le montre pas déjà depuis l'ERP
+export type GarderNos = (ficheId: string) => boolean;
 
 // Créneaux occupés d'un agenda, découpés par jour
-async function lireUnAgenda(jeton: string, agendaId: string, depuis: Date, jusque: Date): Promise<CreneauAgenda[]> {
+async function lireUnAgenda(jeton: string, agendaId: string, depuis: Date, jusque: Date, garderNos?: GarderNos): Promise<CreneauAgenda[]> {
   const creneaux: CreneauAgenda[] = [];
   let page = '';
   for (let n = 0; n < PAGES_MAX; n++) {
@@ -138,7 +145,11 @@ async function lireUnAgenda(jeton: string, agendaId: string, depuis: Date, jusqu
     for (const e of Array.isArray(j?.items) ? j.items : []) {
       if (e?.status === 'cancelled' || e?.transparency === 'transparent' || e?.eventType === 'workingLocation') continue;
       const id = String(e?.id || '');
-      if (NOS_PREFIXES.some((p) => id.startsWith(p))) continue;
+      if (NOS_PREFIXES.some((p) => id.startsWith(p))) {
+        // Un de nos rendez-vous : ignoré s'il est déjà montré par l'ERP (ou sans garderNos, ancien fonctionnement)
+        const f = ficheDeEvenement(id);
+        if (!garderNos || !f || !garderNos(f.ficheId)) continue;
+      }
       const moi = (Array.isArray(e?.attendees) ? e.attendees : []).find((a: any) => a?.self);
       if (moi?.responseStatus === 'declined') continue;
       if (e?.start?.date) {
@@ -167,10 +178,10 @@ async function lireUnAgenda(jeton: string, agendaId: string, depuis: Date, jusqu
 }
 
 // Créneaux occupés de tous les agendas affichés de la personne (sans doublon)
-export async function occupationsAgenda(email: string, depuis: Date, jusque: Date): Promise<LectureAgenda> {
+export async function occupationsAgenda(email: string, depuis: Date, jusque: Date, garderNos?: GarderNos): Promise<LectureAgenda> {
   const jeton = await jetonPour(email);
   const { ids, complet } = await agendasAffiches(email);
-  const lus = await Promise.allSettled(ids.map((id) => lireUnAgenda(jeton, id, depuis, jusque)));
+  const lus = await Promise.allSettled(ids.map((id) => lireUnAgenda(jeton, id, depuis, jusque, garderNos)));
   if (lus[0].status !== 'fulfilled') throw (lus[0] as PromiseRejectedResult).reason;
   const vus = new Set<string>();
   const creneaux: CreneauAgenda[] = [];
