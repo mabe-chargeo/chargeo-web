@@ -18,8 +18,11 @@
 // 18/10, 14 h 41 et 15 h 08 : bloc ⚡ Mise en service, un contrôle par élément, bouton vers /interne/mise-en-service.
 // 18/10, 15 h 36 (Matthieu : « L'appli génère le rapport ») : 📊 Rapport de mise en service créé par l'appli quand tous
 // les éléments sont conformes (bouton de secours « Créer le rapport ») ; le PDF du contrôleur devient facultatif.
+// 18/10, 16 h 04 (Matthieu : « le PV de réception, que ce soit l'appli qui le génère, au doigt sur le téléphone ») :
+// bouton « Faire signer le PV sur le téléphone » (/interne/pv/<chantier>), le PV papier photographié reste en secours.
+// Ordre de la carte : mise en service, réserves, puis PV (le PV reprend les réserves déclarées), rapport et photos.
 import { useEffect, useState } from 'react';
-import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Lock, Plus, RefreshCw, Zap } from 'lucide-react';
+import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Lock, PenLine, Plus, RefreshCw, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
@@ -228,62 +231,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
 
         {blocMiseEnService(c)}
 
-        {/* PV, rapport et photos */}
-        {([['pv', '📂 PV Réception', c.pv, FileText, 'image/*,application/pdf'], ['rapport', libelleRapport, (c.rapport || []) as Fichier[], Gauge, 'application/pdf,image/*'], ['photos', '📸 Photos Chantier', c.photos, Camera, 'image/*']] as const).map(([cible, libelle, liste, Icone, accept]) => {
-          const fige = cible === 'pv' && pvFige;
-          const rapportAuto = cible === 'rapport' && avecMes;
-          return (
-            <div key={cible} className="rounded-[14px] bg-white p-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[14px] font-bold">{libelle}{cible === 'pv' && verrou ? ' 🔒' : ''}</p>
-                <span className="text-[12px] font-semibold" style={{ color: liste.length ? '#16a34a' : ORANGE }}>
-                  {liste.length ? `${liste.length} fichier${liste.length > 1 ? 's' : ''}` : rapportAuto ? 'créé à la fin des mesures' : 'aucun fichier'}
-                </span>
-              </div>
-              {rapportAuto && !liste.length && <p className="mt-1 text-[13px]">L’appli le crée toute seule quand tous les éléments sont conformes.</p>}
-              {/* Aperçu : vignette pour les images, icône pour les PDF, ouverture en grand dans un nouvel onglet */}
-              {liste.length > 0 && (
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {liste.map((f, i) => {
-                    const lien = `/api/interne/fichier?taskId=${encodeURIComponent(c.id)}&cible=${cible}&id=${encodeURIComponent(f.id)}`;
-                    return (
-                      <a key={f.id || i} href={lien} target="_blank" rel="noreferrer" title={f.nom} className="block overflow-hidden rounded-[10px] ring-[1.5px] ring-[#dfe3e8]">
-                        {f.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={`${lien}&mini=1`} alt={f.nom} loading="lazy" className="aspect-square w-full object-cover" />
-                        ) : (
-                          <div className="flex aspect-square flex-col items-center justify-center gap-1 p-2 text-center">
-                            <FileText size={22} color={CYAN} />
-                            <span className="line-clamp-2 break-all text-[11px]">{f.nom}</span>
-                          </div>
-                        )}
-                      </a>
-                    );
-                  })}
-                </div>
-              )}
-              {rapportAuto && c.miseEnServiceComplete && !liste.length && (
-                <button
-                  disabled={bloque || occupe}
-                  onClick={() => envoyer(c, { action: 'rapport' }, `${c.id}:rapport-auto`, '📊 Rapport de mise en service créé.')}
-                  className={`mt-2 flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold text-white ${bloque || occupe ? 'opacity-50' : ''}`}
-                  style={{ backgroundColor: CYAN }}
-                >
-                  <Gauge size={16} /> {enCours === `${c.id}:rapport-auto` ? 'Création...' : 'Créer le rapport de mise en service'}
-                </button>
-              )}
-              {!(cible === 'pv' && verrouPoseur) && (
-                <label className={`mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8] ${bloque || occupe || fige ? 'pointer-events-none opacity-50' : ''}`}>
-                  <Icone size={16} color={CYAN} />
-                  {enCours === `${c.id}:${cible}` ? 'Envoi...' : cible === 'pv' ? (verrou ? 'Corriger : déposer un nouveau PV' : 'Ajouter le PV signé') : cible === 'rapport' ? (rapportAuto ? 'Joindre un PDF du contrôleur (facultatif)' : 'Ajouter le rapport de mesures') : 'Ajouter des photos'}
-                  <input type="file" accept={accept} multiple={cible === 'photos'} className="hidden" onChange={(e) => { deposer(c, cible, e.target.files); e.target.value = ''; }} />
-                </label>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Réserves */}
+        {/* Réserves (avant le PV : il les reprend) */}
         <div className="rounded-[14px] bg-white p-3">
           <p className="text-[14px] font-bold">🧾 Réserves{verrou ? ' 🔒' : ''}</p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -345,6 +293,71 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
           )}
         </div>
 
+        {/* PV, rapport et photos */}
+        {([['pv', '📂 PV Réception', c.pv, FileText, 'image/*,application/pdf'], ['rapport', libelleRapport, (c.rapport || []) as Fichier[], Gauge, 'application/pdf,image/*'], ['photos', '📸 Photos Chantier', c.photos, Camera, 'image/*']] as const).map(([cible, libelle, liste, Icone, accept]) => {
+          const fige = cible === 'pv' && pvFige;
+          const rapportAuto = cible === 'rapport' && avecMes;
+          return (
+            <div key={cible} className="rounded-[14px] bg-white p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[14px] font-bold">{libelle}{cible === 'pv' && verrou ? ' 🔒' : ''}</p>
+                <span className="text-[12px] font-semibold" style={{ color: liste.length ? '#16a34a' : ORANGE }}>
+                  {liste.length ? `${liste.length} fichier${liste.length > 1 ? 's' : ''}` : rapportAuto ? 'créé à la fin des mesures' : cible === 'pv' ? 'à faire signer' : 'aucun fichier'}
+                </span>
+              </div>
+              {rapportAuto && !liste.length && <p className="mt-1 text-[13px]">L’appli le crée toute seule quand tous les éléments sont conformes.</p>}
+              {cible === 'pv' && !liste.length && <p className="mt-1 text-[13px]">Le client signe au doigt sur le téléphone, l’appli crée le PV avec les réserves déclarées plus haut.</p>}
+              {/* Aperçu : vignette pour les images, icône pour les PDF, ouverture en grand dans un nouvel onglet */}
+              {liste.length > 0 && (
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {liste.map((f, i) => {
+                    const lien = `/api/interne/fichier?taskId=${encodeURIComponent(c.id)}&cible=${cible}&id=${encodeURIComponent(f.id)}`;
+                    return (
+                      <a key={f.id || i} href={lien} target="_blank" rel="noreferrer" title={f.nom} className="block overflow-hidden rounded-[10px] ring-[1.5px] ring-[#dfe3e8]">
+                        {f.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={`${lien}&mini=1`} alt={f.nom} loading="lazy" className="aspect-square w-full object-cover" />
+                        ) : (
+                          <div className="flex aspect-square flex-col items-center justify-center gap-1 p-2 text-center">
+                            <FileText size={22} color={CYAN} />
+                            <span className="line-clamp-2 break-all text-[11px]">{f.nom}</span>
+                          </div>
+                        )}
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+              {cible === 'pv' && !verrouPoseur && !bloque && (
+                <a
+                  href={`/interne/pv/${c.id}`}
+                  className="mt-2 flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold text-white"
+                  style={{ backgroundColor: CYAN }}
+                >
+                  <PenLine size={16} /> {verrou ? 'Corriger : refaire signer le PV' : liste.length ? 'Refaire signer le PV' : 'Faire signer le PV sur le téléphone'}
+                </a>
+              )}
+              {rapportAuto && c.miseEnServiceComplete && !liste.length && (
+                <button
+                  disabled={bloque || occupe}
+                  onClick={() => envoyer(c, { action: 'rapport' }, `${c.id}:rapport-auto`, '📊 Rapport de mise en service créé.')}
+                  className={`mt-2 flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold text-white ${bloque || occupe ? 'opacity-50' : ''}`}
+                  style={{ backgroundColor: CYAN }}
+                >
+                  <Gauge size={16} /> {enCours === `${c.id}:rapport-auto` ? 'Création...' : 'Créer le rapport de mise en service'}
+                </button>
+              )}
+              {!(cible === 'pv' && verrouPoseur) && (
+                <label className={`mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8] ${bloque || occupe || fige ? 'pointer-events-none opacity-50' : ''}`}>
+                  <Icone size={16} color={CYAN} />
+                  {enCours === `${c.id}:${cible}` ? 'Envoi...' : cible === 'pv' ? (verrou ? 'Corriger : déposer un PV papier' : 'Joindre un PV papier signé (secours)') : cible === 'rapport' ? (rapportAuto ? 'Joindre un PDF du contrôleur (facultatif)' : 'Ajouter le rapport de mesures') : 'Ajouter des photos'}
+                  <input type="file" accept={accept} multiple={cible === 'photos'} className="hidden" onChange={(e) => { deposer(c, cible, e.target.files); e.target.value = ''; }} />
+                </label>
+              )}
+            </div>
+          );
+        })}
+
         {c.motifs.length > 0 && (
           <Alerte>Avant la réception : {c.motifs.join(' ; ')}.</Alerte>
         )}
@@ -396,7 +409,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
         <div className="flex items-center justify-between gap-3">
           <p className="text-[13px]">
             {poseur
-              ? 'Fais la mise en service de chaque élément, fais signer le PV, dépose PV et photos, déclare les réserves, puis envoie au chargé d\'opération. Le rapport de mise en service se crée tout seul.'
+              ? 'Fais la mise en service de chaque élément, déclare les réserves, fais signer le PV au client sur le téléphone, ajoute des photos, puis envoie au chargé d\'opération. Rapport et PV se créent tout seuls.'
               : 'Contrôle la mise en service et son rapport, le PV, les photos et les réserves, puis valide : le chantier passe au Parc.'}
           </p>
           <button onClick={charger} aria-label="Actualiser" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95">
