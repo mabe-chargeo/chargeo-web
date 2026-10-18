@@ -1,11 +1,11 @@
 // Rapport de mise en service généré par l'application (décision de Matthieu du 18/10/2026, 15 h 36 : « L'appli génère le
 // rapport », à la place du PDF du contrôleur). Quand tous les éléments du scénario retenu sont mesurés et conformes,
-// un PDF reprend, élément par élément, les mesures saisies (dernier commentaire « ⚡ Mise en service · … » de chaque
+// un PDF reprend, élément par élément, les mesures saisies (dernière mesure valide « ⚡ Mise en service · … » de chaque
 // élément) et se dépose dans 📊 Rapport de mesures du chantier. Ce champ reste celui que contrôlent la réception et le
 // passage au Parc : leurs règles ne changent pas. Un PDF du contrôleur peut encore y être ajouté, il devient facultatif.
 // Une mesure refaite après correction produit une nouvelle version (la plus récente fait foi, les anciennes restent).
 import { adresseDe } from '@/lib/vuesFiches';
-import { ENTETE_MES, commentairesDe, type EtatMes } from '@/lib/miseEnService';
+import { mesuresDe, type EtatMes } from '@/lib/miseEnService';
 import { genererPdf, type Ligne } from '@/lib/pdfSimple';
 
 const WORKSPACE_ID = process.env.CLICKUP_TEAM_ID?.trim() || '90151325642';
@@ -25,12 +25,12 @@ function maintenant() {
   return { lisible: f({ day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }), jour };
 }
 
-// Lignes du rapport pour un élément, à partir de son dernier commentaire de mise en service
+// Lignes du rapport pour un élément, à partir de sa dernière mesure valide
 function lignesElement(n: number, nom: string, texte: string): Ligne[] {
   const lignes = texte.split('\n');
   const entete = lignes[0] || '';
   const qui = entete.match(/\(([^)]*)\)\s*$/)?.[1] || '';
-  const sortie: Ligne[] = [{ texte: `${n}. ${nom}`, taille: 12, gras: true, espace: 12 }];
+  const sortie: Ligne[] = [{ texte: `Élément ${n} : ${nom}`, taille: 12, gras: true, espace: 12 }];
   if (qui) sortie.push({ texte: `Mesuré par ${qui}`, taille: 9 });
   for (const l of lignes.slice(1)) {
     if (/^réf\./.test(l.trim())) continue;
@@ -59,12 +59,7 @@ async function deposer(token: string, taskId: string, nom: string, octets: Uint8
 
 export async function genererRapportMiseEnService(token: string, chantier: any, points: EtatMes[]): Promise<{ ok: boolean; nom?: string; erreur?: string }> {
   if (!complet(points)) return { ok: false, erreur: 'mise en service incomplète ou avec un défaut' };
-  const textes = await Promise.all(points.map(async (p) => {
-    const c = (await commentairesDe(token, p.id))
-      .filter((x: any) => String(x?.comment_text || '').startsWith(ENTETE_MES))
-      .sort((a: any, b: any) => Number(b?.date || 0) - Number(a?.date || 0))[0];
-    return String(c?.comment_text || '');
-  }));
+  const textes = await Promise.all(points.map(async (p) => String((await mesuresDe(token, p.id))[0]?.comment_text || '')));
   const quand = maintenant();
   const adresse = adresseDe(chantier);
   const lignes: Ligne[] = [

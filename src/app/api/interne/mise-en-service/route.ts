@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { sessionDeRequete } from '@/lib/session';
 import { LISTES } from '@/lib/espaces';
 import { adresseDe } from '@/lib/vuesFiches';
-import { appareilDe, defauts, etapesDe, texteResultats, type Resultats } from '@/lib/protocoleMaintenance';
-import { ENTETE_MES, commentairesDe, etatMiseEnService, pointsDuChantier } from '@/lib/miseEnService';
+import { appareilDe, defauts, etapesDe, manquants, texteResultats, type Resultats } from '@/lib/protocoleMaintenance';
+import { ENTETE_MES, commentairesDe, etatMiseEnService, mesuresDe, pointsDuChantier } from '@/lib/miseEnService';
 import { genererRapportMiseEnService } from '@/lib/rapportMiseEnService';
 
 // Mise en service à la réception (décision de Matthieu du 18/10/2026, 14 h 41), protocole par élément (15 h 08).
@@ -12,6 +12,8 @@ import { genererRapportMiseEnService } from '@/lib/rapportMiseEnService';
 //   (il suit jusqu'au Parc) et copie sur le chantier ; notification si un défaut est noté. 15 h 36 (Matthieu : « L'appli
 //   génère le rapport ») : quand tous les éléments sont conformes, le rapport de mise en service PDF est créé et déposé
 //   dans 📊 Rapport de mesures (src/lib/rapportMiseEnService.ts).
+// 15 h 56 (test) : refus si un contrôle n'est pas rempli (une mesure vide ne peut plus passer pour conforme) ; la même
+//   mesure renvoyée dans les 15 minutes (double appui) est ignorée, sans nouveau commentaire ni nouveau rapport.
 // POST multipart { cle, chantierId, elementId, etape, fichier } : photo en pièce jointe de l'élément.
 // Rejouable (file d'envoi hors ligne) : la clé est écrite dans le commentaire et le nom de la photo.
 // Preview : écriture seulement sur les chantiers « Test … ».
@@ -21,6 +23,8 @@ const json = (corps: any, status = 200) => NextResponse.json(corps, { status });
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const ecritureAutorisee = (t: any) => process.env.VERCEL_ENV === 'production' || normal(t?.name).trim().startsWith('test');
 const cleValide = (c: string) => /^[a-z0-9]{6,40}$/i.test(c);
+const sansEspaces = (s: string) => String(s || '').replace(/\s+/g, '');
+const DOUBLON_MS = 15 * 60 * 1000;
 const ETAPES_PHOTO: Record<string, string> = { visuel: 'contrôle visuel', synthese: 'synthèse MW9665', materiel: 'matériel', cable: 'câble', autre: 'photo' };
 
 async function api(token: string, chemin: string, methode = 'GET', corps?: any): Promise<Response> {
@@ -118,16 +122,19 @@ export async function POST(request: Request) {
     } catch {
       return json({ error: 'Mesures illisibles' }, 400);
     }
-    const deja = (await commentairesDe(token, p.id)).some((x: any) => String(x?.comment_text || '').includes(`réf. ${cle}`));
-    if (deja) return json({ success: true, deja: true });
     const etapes = etapesDe(p.mode);
+    const reste = manquants(resultats, etapes);
+    if (reste > 0) return json({ error: `${p.nom} : ${reste} contrôle${reste > 1 ? 's' : ''} pas rempli${reste > 1 ? 's' : ''}, rien n’est enregistré.` }, 400);
+    if ((await commentairesDe(token, p.id)).some((x: any) => String(x?.comment_text || '').includes(`réf. ${cle}`))) return json({ success: true, deja: true });
+    const corpsMesure = texteResultats(resultats, etapes, appareilDe(p.mode));
+    // Même mesure renvoyée juste après (double appui) : ignorée
+    const derniere = (await mesuresDe(token, p.id))[0];
+    if (derniere && Date.now() - Number(derniere.date || 0) < DOUBLON_MS && sansEspaces(derniere.comment_text).includes(sansEspaces(corpsMesure))) {
+      return json({ success: true, deja: true });
+    }
     const d = defauts(resultats, etapes);
     const quand = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date());
-    const texte = [
-      `${ENTETE_MES} ${p.nom} (${session.nom || 'installateur'}, ${quand})`,
-      texteResultats(resultats, etapes, appareilDe(p.mode)),
-      `réf. ${cle}`,
-    ].join('\n');
+    const texte = [`${ENTETE_MES} ${p.nom} (${session.nom || 'installateur'}, ${quand})`, corpsMesure, `réf. ${cle}`].join('\n');
     const r = await api(token, `/task/${p.id}/comment`, 'POST', { comment_text: texte, notify_all: false });
     if (!r.ok) return json({ error: `ClickUp a refusé l’enregistrement (${r.status})` }, 502);
     await api(token, `/task/${t.id}/comment`, 'POST', { comment_text: texte, notify_all: d.length > 0 }).catch(() => null);

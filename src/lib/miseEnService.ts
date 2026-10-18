@@ -5,6 +5,8 @@
 // (src/lib/protocoleMaintenance.ts). Nature « Autre » : rien à mesurer.
 // Chaque mesure est un commentaire « ⚡ Mise en service · <élément> » sur l'élément (il suit jusqu'au Parc) et une copie
 // sur le chantier. Le dernier commentaire de l'élément fait foi : une mesure refaite après correction remplace l'autre.
+// 18/10, 15 h 56 (test : Communication enregistrée vide et comptée conforme) : un commentaire sans aucune valeur
+// mesurée ne compte pas, l'élément reste « à faire ».
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Nature } from '@/lib/champsClickUp';
 import { chargerTypes, estScenario } from '@/lib/typesTaches';
 import { PREFIXE_RETENU } from '@/lib/scenarioRetenu';
@@ -18,6 +20,9 @@ export const ENTETE_MES = '⚡ Mise en service ·';
 // Ordre de mise en service : de l'arrivée du courant jusqu'aux points de charge
 const RANG: Record<ModeMes, number> = { raccordement: 0, alimentation: 1, td: 2, artere: 3, derivation: 4, communication: 5, data: 6, prise: 7, borne: 8 };
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+// Une mesure contient au moins une ligne de valeur («    Libellé : valeur »)
+export const aDesValeurs = (texte: string) => /\n {2,}\S[^\n]* : \S/.test(String(texte || ''));
 
 async function lire(token: string, id: string, sousTaches = false): Promise<any | null> {
   const res = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(id)}${sousTaches ? '?include_subtasks=true' : ''}`, {
@@ -72,13 +77,17 @@ export async function commentairesDe(token: string, id: string): Promise<any[]> 
   return res.ok ? (await res.json().catch(() => ({})))?.comments || [] : [];
 }
 
+// Mesures valides d'un élément, la plus récente d'abord
+export async function mesuresDe(token: string, id: string): Promise<any[]> {
+  return (await commentairesDe(token, id))
+    .filter((c: any) => String(c?.comment_text || '').startsWith(ENTETE_MES) && aDesValeurs(String(c?.comment_text || '')))
+    .sort((a: any, b: any) => Number(b?.date || 0) - Number(a?.date || 0));
+}
+
 export async function etatMiseEnService(token: string, chantierId: string, directes: any[]): Promise<EtatMes[]> {
   const points = await pointsDuChantier(token, chantierId, directes);
   return Promise.all(points.map(async (p) => {
-    const mesures = (await commentairesDe(token, p.id))
-      .filter((c: any) => String(c?.comment_text || '').startsWith(ENTETE_MES))
-      .sort((a: any, b: any) => Number(b?.date || 0) - Number(a?.date || 0));
-    const dernier = mesures[0];
+    const dernier = (await mesuresDe(token, p.id))[0];
     return {
       ...p,
       fait: !!dernier,
