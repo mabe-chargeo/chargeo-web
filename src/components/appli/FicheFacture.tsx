@@ -5,7 +5,9 @@
 // dates utiles, parcours À émettre · Émise · Relances · Payée, alerte en encadré orange, prochaine étape (à émettre :
 // saisie du n° de facture, du montant et du paiement dû puis « Marquer comme émise », back-office et direction),
 // relances J+3 / J+10 / J+15 datées, liens vers le chantier et les autres factures du même devis.
-import { useState } from 'react';
+// 18/10, 18 h 57 : à l'ouverture d'une facture à émettre sans n°, l'écran demande au site de la retrouver dans
+// Costructor (src/lib/factureAuto.ts) ; trouvée, la fiche se recharge déjà émise. Rien ne change à l'affichage sinon.
+import { useEffect, useState } from 'react';
 import { Check, ChevronRight, Euro, ExternalLink, Link2, Bell, RefreshCw } from 'lucide-react';
 import { Carte, TitreCarte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
 import { CYAN } from '@/components/charte/couleurs';
@@ -66,6 +68,17 @@ export default function FicheFacture({ id, facture: f, peutEcrire, onEmise }: { 
   const precision = t.startsWith('solde') ? " (total du devis moins l'acompte et les situations)" : t.startsWith('acompte') ? ' (montant selon les conditions du devis)' : '';
   const ouverte = f.etat === 'emise' || f.etat === 'partielle';
   const prochaine = f.relances.find((r) => r.etat === 'prochaine');
+
+  // Facture à émettre sans n° : on regarde si elle existe déjà dans Costructor (une fois par ouverture)
+  useEffect(() => {
+    if (!peutEcrire || f.etat !== 'a_emettre' || f.numero) return;
+    let fini = false;
+    fetch('/api/interne/facture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'retrouver' }) })
+      .then((r) => r.json().catch(() => ({})))
+      .then((d) => { if (!fini && String(d?.action || '').startsWith('associee')) onEmise(); })
+      .catch(() => {});
+    return () => { fini = true; };
+  }, [id, peutEcrire, f.etat, f.numero]);
 
   const emettre = async () => {
     if (envoi) return;
