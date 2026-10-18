@@ -18,6 +18,7 @@ import { CHAMP_RESULTAT_APPEL, PROSPECTION_ID, traiterProspection, type Declench
 import { apresReceptionResident, avantReceptionResident, controlerResident, suggererInfra } from '@/lib/residentInfra';
 import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
 import { traiterEmbauche } from '@/lib/embauche';
+import { retirerReleveCaduc } from '@/lib/rdvOrphelins';
 
 // Aiguillage des changements ClickUp (bascule du 12/10/2026) : remplace les automatisations « Appeler le webhook »
 // et les Super Agents de synchro. ClickUp prévient le site (src/app/api/webhooks/clickup), l'aiguillage choisit
@@ -33,6 +34,9 @@ import { traiterEmbauche } from '@/lib/embauche';
 // Qualification : 📝 devis à faire → client Costructor ; 📩 devis envoyé → relance J+3 ouvrés + montant du devis ;
 //   🏆 gagné → scénario retenu (src/lib/scenarioRetenu.ts, 14/10 : bloque la suite s'il n'est pas trouvé), montant +
 //   facture d'acompte, arrêt des relances, puis Planning Chantiers, commande matériel, ADVENIR (src/lib/passageGagne.ts) ; 🔁 Suivi relance ou 📅 Date AG ou RDV → suivi des relances.
+//   18/10/2026, 11 h 30 (Matthieu : « quand la fiche calée est archivée ou perdue, son rendez-vous Google disparaît ») :
+//   ❌ perdu ou 🏁 archivé → relevé retiré de l'agenda Google des chefs de chantier (src/lib/rdvOrphelins.ts). L'archivage
+//   et la suppression d'une tâche ne sont pas signalés par ClickUp : le contrôle quotidien les rattrape.
 // Planning Chantiers : 🟢 Feu vert, un des 5 prérequis, 🚧 en cours → feu vert ; ✅ réalisé, 🏁 terminé → réception.
 // Commandes Matériel : tâche créée (après 15 s, le temps de relier le chantier) ou 🏗️ Chantier modifié → réception
 //   matériel ; statut → validation des achats puis réception matériel.
@@ -128,6 +132,7 @@ export function planifier(listeId: string, ch: Changement): Etape[] {
       if (s.includes('devis a faire')) return [{ cle: 'costructor' }, { cle: 'residentControle' }];
       if (s.includes('devis envoy')) return [{ cle: 'devisEnvoye' }, { cle: 'montant', params: { evenement: 'envoye' } }];
       if (s.includes('gagn')) return [{ cle: 'scenarios' }, { cle: 'montant', params: { evenement: 'gagne' } }, { cle: 'devisEnvoye' }, { cle: 'gagne' }];
+      if (s.includes('perdu') || s.includes('archiv')) return [{ cle: 'rdvCaduc' }];
     }
     if (ch.type === 'champ' && [CHAMP_SUIVI, CHAMP_DATE_AG].includes(ch.champId)) return [{ cle: 'suivi' }];
     return [];
@@ -215,6 +220,7 @@ export async function executer(taskId: string, etapes: Etape[], simulation: bool
       else if (e.cle === 'residentAvantParc') r = await avantReceptionResident(taskId, simulation);
       else if (e.cle === 'residentParc') r = await apresReceptionResident(taskId, simulation, libelleJour(aujourdhuiParis()));
       else if (e.cle === 'embauche') r = await traiterEmbauche(taskId, simulation);
+      else if (e.cle === 'rdvCaduc') r = await retirerReleveCaduc(taskId, simulation);
       else r = await appelerRoute(e.cle, taskId, e.params || {}, simulation);
     } catch (erreur) {
       console.error(`Aiguillage : ${libelle(e)} en erreur sur ${taskId}`, erreur);
