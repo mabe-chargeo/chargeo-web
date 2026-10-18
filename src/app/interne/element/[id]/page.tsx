@@ -19,13 +19,17 @@
 // back-office seulement.
 // 18/10, 19 h 50 (maquette MAQUETTE_GABARIT-FICHES_2026-10-18.png validée par Matthieu : « la page des factures est plus
 // travaillée… j'aimerais bien qu'il y ait ce genre de lien un peu sur toutes les pages ») : même gabarit que la facture
-// pour toutes les fiches. Carte du haut (statut, 3 infos clés, parcours par statuts, Appeler / Itinéraire / Écrire),
+// pour toutes les fiches. Carte du haut (statut, 3 infos clés, parcours par statuts), contact,
 // prochaine étape (Caler, Faire la visite), détails, liens (src/lib/ficheGabarit.ts), historique replié.
+// 18/10, 20 h 00 (Matthieu : « ton bouton… FaceTime, on avait travaillé là-dessus ») : plus de raccourcis tel: bruts.
+// Le contact passe par le bloc 📇 Contact validé : celui de l'affaire reliée (Parc, chantier, vente), et les mêmes
+// boutons (BoutonsContact : Appeler, Google Voice, SMS, Gmail ; Waze et Google Maps) sur les coordonnées de la fiche.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlignLeft, ArrowLeft, CalendarPlus, Check, ChevronDown, ChevronRight, ExternalLink, Link2, ListChecks, Mail, Navigation, Paperclip, Phone, RefreshCw } from 'lucide-react';
+import { AlignLeft, ArrowLeft, CalendarPlus, Check, ChevronDown, ChevronRight, ExternalLink, Link2, ListChecks, Mail, MapPin, Navigation, Paperclip, Phone, RefreshCw, Users } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte } from '@/components/charte/Appli';
-import { CYAN } from '@/components/charte/couleurs';
+import { CYAN, LABEL } from '@/components/charte/couleurs';
+import { BlocContact, BoutonsContact } from '@/components/ui/BlocContact';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 import FicheFacture from '@/components/appli/FicheFacture';
 import type { Facture } from '@/lib/factureFiche';
@@ -107,7 +111,20 @@ function Parcours({ etapes, courante }: { etapes: string[]; courante: number }) 
   );
 }
 
-const GABARIT_VIDE: Gabarit = { cles: [], parcours: null, contact: { tel: '', email: '', adresse: '', carte: '', depuis: '' }, liens: [], ailleurs: [] };
+const GABARIT_VIDE: Gabarit = { cles: [], parcours: null, affaire: '', contact: { tel: '', email: '', adresse: '', lat: null, lng: null, autres: [] }, moi: '', liens: [], ailleurs: [] };
+
+// Même pastille que le bloc Contact (src/components/ui/BlocContact.tsx)
+function LienContact({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[13px] font-semibold ring-[1.5px] ring-[#dfe3e8]" style={{ color: LABEL }}>
+      {children}
+    </a>
+  );
+}
+// Waze : adresse écrite, cherchée autour du point GPS quand il existe (règle du bloc Contact, 15/10)
+const lienWaze = (texte: string, lat: number | null, lng: number | null) =>
+  `https://waze.com/ul?q=${encodeURIComponent(texte)}${lat !== null && lng !== null ? `&ll=${lat},${lng}` : ''}&navigate=yes`;
+const lienMaps = (texte: string) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(texte)}`;
 
 // Bouton Caler / Décaler d'une visite ou d'un dépannage (ou rien)
 function actionCaler(e: Element): { href: string; libelle: string } | null {
@@ -220,11 +237,8 @@ export default function ElementPage() {
   const cles = g.cles.map((id) => champsFiche.find((c) => c.id === id)).filter((c): c is Champ => !!c);
   const details = champsFiche.filter((c) => !g.cles.includes(c.id) && !g.ailleurs.includes(c.id));
   const montrerEcheance = !!element?.echeance && !cles.some((c) => normal(c.nom).includes('echeance'));
-  const raccourcis = [
-    g.contact.tel ? { libelle: 'Appeler', href: g.contact.tel, icone: Phone, externe: false } : null,
-    g.contact.carte ? { libelle: 'Itinéraire', href: g.contact.carte, icone: Navigation, externe: true } : null,
-    g.contact.email ? { libelle: 'Écrire', href: g.contact.email, icone: Mail, externe: false } : null,
-  ].filter((r): r is { libelle: string; href: string; icone: any; externe: boolean } => !!r);
+  const ct = g.contact;
+  const contactPropre = !!(ct.tel || ct.email || ct.adresse || ct.autres.length);
   const etapes: { texte: string; libelle: string; href: string; couleur: string }[] = [];
   if (element && caler) {
     etapes.push({
@@ -281,7 +295,7 @@ export default function ElementPage() {
 
         {element && !facture && (
           <>
-            {/* En haut : statut, infos clés, parcours, raccourcis */}
+            {/* En haut : statut, infos clés, parcours */}
             <div className="rounded-[20px] bg-white p-5 ring-[1.5px] ring-[#dfe3e8]">
               <div className="flex flex-wrap items-center gap-2">
                 <Pastille couleur={element.couleurStatut || '#87909e'}>{element.statut}</Pastille>
@@ -296,17 +310,33 @@ export default function ElementPage() {
                 </div>
               )}
               {g.parcours && <Parcours etapes={g.parcours.etapes} courante={g.parcours.courante} />}
-              {raccourcis.length > 0 && (
-                <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: `repeat(${raccourcis.length}, minmax(0, 1fr))` }}>
-                  {raccourcis.map((r) => (
-                    <a key={r.libelle} href={r.href} target={r.externe ? '_blank' : undefined} rel={r.externe ? 'noopener noreferrer' : undefined} className="flex flex-col items-center gap-1 rounded-[14px] bg-white py-2.5 text-[12px] font-bold ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95" style={{ color: CYAN }}>
-                      <r.icone size={18} /> {r.libelle}
-                    </a>
-                  ))}
-                </div>
-              )}
-              {raccourcis.length > 0 && g.contact.depuis && <p className="mt-2 text-center text-[11px] text-slate-500">Contact de la fiche {g.contact.depuis.replace(/^\s*test\s*·\s*/i, '')}</p>}
             </div>
+
+            {/* Contact : bloc de l'affaire reliée, sinon les mêmes boutons sur les coordonnées de la fiche */}
+            {g.affaire && <BlocContact affaireId={g.affaire} ouvertParDefaut />}
+            {contactPropre && (
+              <Carte className="space-y-3">
+                <TitreCarte icon={Users}>{g.affaire ? '📇 Contact de cette fiche' : '📇 Contact'}</TitreCarte>
+                <div className="space-y-4">
+                  {(ct.tel || ct.email) && <BoutonsContact tel={ct.tel} email={ct.email} moi={g.moi} />}
+                  {ct.autres.map((x, i) => (
+                    <div key={`${x.libelle}-${i}`} className="space-y-2">
+                      <p className="text-[14px]"><strong>{x.libelle} :</strong> {x.tel || x.email}</p>
+                      <BoutonsContact tel={x.tel} email={x.email} moi={g.moi} />
+                    </div>
+                  ))}
+                  {ct.adresse && (
+                    <div className="space-y-2">
+                      <p className="flex items-start gap-2 text-[14px]"><MapPin size={16} className="mt-0.5 shrink-0" /> {ct.adresse}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <LienContact href={lienWaze(ct.adresse, ct.lat, ct.lng)}><Navigation size={14} /> Waze</LienContact>
+                        <LienContact href={lienMaps(ct.adresse)}><MapPin size={14} /> Google Maps</LienContact>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Carte>
+            )}
 
             {/* Prochaine étape : caler, faire la visite */}
             {etapes.length > 0 && (

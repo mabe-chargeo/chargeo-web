@@ -67,7 +67,7 @@ export async function GET(request: Request) {
       points: (Array.isArray(c?.items) ? c.items.slice() : []).sort(parOrdre).map((i: any) => ({ id: String(i.id), nom: String(i.name || ''), fait: !!i.resolved })),
     }));
     const facture = source === 'factures' ? await lireFacture(token, t).catch((e) => { console.error('Écran facture :', e); return undefined; }) : undefined;
-    const gabarit = source !== 'factures' ? await lireGabarit(token, t, CONFIG_LISTES[source].champs || []).catch((e) => { console.error('Gabarit de fiche :', e); return undefined; }) : undefined;
+    const gabarit = source !== 'factures' ? await lireGabarit(token, t, CONFIG_LISTES[source].champs || [], String((session as any)?.email || '')).catch((e) => { console.error('Gabarit de fiche :', e); return undefined; }) : undefined;
 
     return json({
       element: {

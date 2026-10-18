@@ -1,4 +1,6 @@
-import { champsCles, champsLus, type ChampLu } from '@/lib/champsGeneriques';
+import { champsCles, champsLus } from '@/lib/champsGeneriques';
+import { getQualificationListId } from '@/lib/listesClickUp';
+import { LISTES } from '@/lib/espaces';
 
 // Gabarit commun des fiches génériques (maquette MAQUETTE_GABARIT-FICHES_2026-10-18.png validée par Matthieu le
 // 18/10/2026, 19 h 50, après « la page des factures est plus travaillée que toutes les autres pages… j'aimerais bien
@@ -6,10 +8,14 @@ import { champsCles, champsLus, type ChampLu } from '@/lib/champsGeneriques';
 // Calculé par /api/interne/fiche-generique pour toutes les listes sauf Factures (écran propre) :
 // - cles : 3 champs clés de la carte du haut (mots « champs » de la liste, src/lib/listesAppli.ts) ;
 // - parcours : statuts ouverts de la liste ClickUp, dans leur ordre, avec l'étape en cours ;
-// - contact : Appeler / Itinéraire / Écrire, champs de la fiche, sinon ceux de la première fiche reliée qui en a ;
-// - liens : fiches reliées (ouvertes dans l'application), liens web, autres téléphones, emails et adresses, pièces
-//   jointes, tâche parente.
-// Lecture seule. Un échec réseau ne casse pas la fiche : parcours ou contact repris absents.
+// - affaire : première fiche reliée qui est une affaire (Prospection, Qualification, Planning, Parc) : l'écran y affiche
+//   le bloc 📇 Contact validé (src/components/ui/BlocContact.tsx) ;
+// - contact : téléphone, email et adresse de la fiche elle-même (en plus de l'affaire s'il y en a), montrés avec les mêmes boutons
+//   (BoutonsContact : Appeler, Google Voice, SMS, Gmail ; Waze et Google Maps pour l'adresse) ;
+// - liens : fiches reliées (ouvertes dans l'application), liens web, autres adresses, pièces jointes, tâche parente.
+// 18/10, 20 h 00 (Matthieu : « ton bouton… qui ouvre FaceTime, on avait travaillé là-dessus ») : plus de raccourcis tel: /
+// mailto: bruts, les boutons de contact sont ceux du bloc Contact validé les 15 et 17/10.
+// Lecture seule. Un échec réseau ne casse pas la fiche : parcours ou affaire absents.
 
 const API = 'https://api.clickup.com/api/v2';
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -23,7 +29,10 @@ export type LienFiche = { nom: string; sous: string; href: string; genre: 'fiche
 export type Gabarit = {
   cles: string[];
   parcours: { etapes: string[]; courante: number } | null;
-  contact: { tel: string; email: string; adresse: string; carte: string; depuis: string };
+  affaire: string;
+  contact: { tel: string; email: string; adresse: string; lat: number | null; lng: number | null; autres: { libelle: string; tel: string; email: string }[] };
+  // Email CHARGéO de la personne connectée (Google Voice et Gmail sur le bon compte)
+  moi: string;
   liens: LienFiche[];
   // Champs déjà montrés ailleurs (contact, liens) : absents des Détails
   ailleurs: string[];
@@ -62,7 +71,6 @@ export async function parcoursDe(token: string, listId: string, statut: string) 
 }
 
 const carteDe = (adresse: string) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(adresse)}`;
-const telDe = (c: ChampLu) => c.lien || `tel:${c.texte.replace(/\s+/g, '')}`;
 
 function genreWeb(url: string): string {
   const u = normal(url);
@@ -72,26 +80,29 @@ function genreWeb(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return 'Lien'; }
 }
 
-export async function lireGabarit(token: string, t: any, motsCles: string[]): Promise<Gabarit> {
+export async function lireGabarit(token: string, t: any, motsCles: string[], moi = ''): Promise<Gabarit> {
   const champs = champsLus(t);
   const cles = champsCles(t, motsCles, 3).filter((c) => !RELATIONS.includes(c.type)).map((c) => c.id);
   const ailleurs: string[] = [];
   const liens: LienFiche[] = [];
-  const contact = { tel: '', email: '', adresse: '', carte: '', depuis: '' };
+  const contact: Gabarit['contact'] = { tel: '', email: '', adresse: '', lat: null, lng: null, autres: [] };
+  const brut = (id: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((x: any) => String(x?.id) === id)?.value;
 
-  // Contact de la fiche : le premier de chaque sorte en raccourci, les autres dans les liens
+  // Contact de la fiche : le premier de chaque sorte, puis les autres numéros et emails avec leur nom ; les autres adresses dans les liens
   for (const c of champs.filter((x) => CONTACTS.includes(x.type))) {
     ailleurs.push(c.id);
     const nom = sansEmoji(c.nom) || c.nom;
     if (c.type === 'phone') {
-      if (!contact.tel) contact.tel = telDe(c);
-      else liens.push({ nom: c.texte, sous: `Appeler · ${nom}`, href: telDe(c), genre: 'tel' });
+      if (!contact.tel) contact.tel = c.texte;
+      else contact.autres.push({ libelle: nom, tel: c.texte, email: '' });
     } else if (c.type === 'email') {
-      if (!contact.email) contact.email = `mailto:${c.texte}`;
-      else liens.push({ nom: c.texte, sous: `Écrire · ${nom}`, href: `mailto:${c.texte}`, genre: 'mail' });
+      if (!contact.email) contact.email = c.texte;
+      else contact.autres.push({ libelle: nom, tel: '', email: c.texte });
     } else if (!contact.adresse) {
+      const v = brut(c.id);
       contact.adresse = c.texte;
-      contact.carte = carteDe(c.texte);
+      contact.lat = typeof v?.location?.lat === 'number' ? v.location.lat : null;
+      contact.lng = typeof v?.location?.lng === 'number' ? v.location.lng : null;
     } else liens.push({ nom: c.texte, sous: `Itinéraire · ${nom}`, href: carteDe(c.texte), genre: 'carte' });
   }
 
@@ -106,22 +117,12 @@ export async function lireGabarit(token: string, t: any, motsCles: string[]): Pr
     }
   }
 
-  // Contact manquant : repris de la première fiche reliée qui en a (installation du Parc, chantier…)
-  if (!contact.tel || !contact.email || !contact.adresse) {
-    for (const r of reliees.slice(0, RELIEES_MAX)) {
-      const lt = await lire(token, `/task/${encodeURIComponent(r.id)}`);
-      if (!lt) continue;
-      const lc = champsLus(lt);
-      const tel = lc.find((x) => x.type === 'phone');
-      const mail = lc.find((x) => x.type === 'email');
-      const adr = lc.find((x) => x.type === 'location');
-      let pris = false;
-      if (!contact.tel && tel) { contact.tel = telDe(tel); pris = true; }
-      if (!contact.email && mail) { contact.email = `mailto:${mail.texte}`; pris = true; }
-      if (!contact.adresse && adr) { contact.adresse = adr.texte; contact.carte = carteDe(adr.texte); pris = true; }
-      if (pris && !contact.depuis) contact.depuis = String(lt?.name || r.nom || '');
-      if (contact.tel && contact.email && contact.adresse) break;
-    }
+  // Affaire reliée (installation du Parc, chantier, fiche de vente) : son bloc Contact
+  const affaires = [getQualificationListId(), LISTES.prospection, LISTES.planning, LISTES.parc].filter(Boolean).map(String);
+  let affaire = '';
+  for (const r of reliees.slice(0, RELIEES_MAX)) {
+    const lt = await lire(token, `/task/${encodeURIComponent(r.id)}`);
+    if (lt && affaires.includes(String(lt?.list?.id || ''))) { affaire = String(lt.id); break; }
   }
 
   // Liens web
@@ -138,5 +139,5 @@ export async function lireGabarit(token: string, t: any, motsCles: string[]): Pr
   if (t?.parent) liens.push({ nom: 'Tâche parente', sous: 'Fiche principale', href: `/interne/element/${t.parent}`, genre: 'fiche' });
 
   const parcours = await parcoursDe(token, String(t?.list?.id || ''), String(t?.status?.status || ''));
-  return { cles, parcours, contact, liens, ailleurs };
+  return { cles, parcours, affaire, contact, moi, liens, ailleurs };
 }
