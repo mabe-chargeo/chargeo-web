@@ -1,8 +1,9 @@
 // Briques de l'application équipe CHARGéO (charte 2026), pensées pour le téléphone et la tablette.
 // Composants d'affichage purs (aucun état) : utilisables dans une page serveur comme dans un formulaire client.
 // Exceptions : la pastille du rôle actif dans l'en-tête (composant client RoleActif, 17/10/2026), le bouton Retour
-// (composant client BoutonRetour, 17/10/2026, 16 h 19) et le masque des liens ClickUp (composant client MasqueClickUp,
-// 17/10/2026, 18 h 34 : liens ClickUp seulement pour le back-office et la direction).
+// (composant client BoutonRetour, 17/10/2026, 16 h 19), le masque des liens ClickUp (composant client MasqueClickUp,
+// 17/10/2026, 18 h 34 : liens ClickUp seulement pour le back-office et la direction) et le fil d'Ariane (composant
+// client FilAriane, 18/10/2026, 17 h 20).
 // Servent à /interne aujourd'hui, puis à tous les écrans par rôle d'app.chargeo.fr (Phase 6).
 import React from "react";
 import { ArrowLeft } from "lucide-react";
@@ -10,6 +11,7 @@ import { NAVY, CYAN, ORANGE, GRIS, CYAN_PALE, CYAN_SUR_NAVY } from "@/components
 import RoleActif from "@/components/charte/RoleActif";
 import BoutonRetour from "@/components/charte/BoutonRetour";
 import MasqueClickUp from "@/components/charte/MasqueClickUp";
+import FilAriane from "@/components/charte/FilAriane";
 
 // Champ de saisie et étiquette : mêmes réglages que le formulaire de contact du site (texte 16 px pour éviter le zoom iPhone).
 export const CHAMP =
@@ -36,9 +38,10 @@ function ancienRetour(n: React.ReactNode): { repli?: string } | null {
   return { repli: typeof props.href === 'string' ? props.href : undefined };
 }
 
-// En-tête navy : bouton Retour (écran précédent) et logo blanc à gauche, action à droite (actualiser...), surtitre,
-// rôle affiché, titre. « retour » donne l'écran parent de repli quand on arrive de l'extérieur.
+// En-tête navy : bouton Retour (écran précédent) et logo blanc à gauche, action à droite (actualiser...), fil d'Ariane,
+// surtitre, rôle affiché, titre. « retour » donne l'écran parent de repli quand on arrive de l'extérieur.
 // 17/10/2026, 16 h 19 : le bouton Retour est sur tous les écrans sauf Ma journée, Mon espace et Plus.
+// 18/10/2026, 17 h 20 : fil d'Ariane sous le bouton Retour (onglet de la barre puis écrans parents, src/lib/filAriane.ts).
 export function EnTeteAppli({
   surtitre,
   titre,
@@ -64,6 +67,7 @@ export function EnTeteAppli({
           </div>
           {droite}
         </div>
+        <FilAriane />
         <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
           <p className="text-[12px] font-extrabold uppercase tracking-[0.14em]" style={{ color: CYAN_SUR_NAVY }}>{surtitre}</p>
           <RoleActif />
