@@ -34,6 +34,7 @@ export default function DemarrerPage() {
   };
   const statut = normal(donnees?.statut || '');
   const peutDemarrer = statut === 'planifie' || statut === 'preparation';
+  const enCours = statut === 'en cours';
   return (
     <PageAppli>
       <EnTeteAppli surtitre="Réception" titre="Démarrer le chantier" action={<a href="/interne/interventions" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white"><ArrowLeft size={16} /> Interventions</a>} />
@@ -46,7 +47,7 @@ export default function DemarrerPage() {
           {!donnees.ecritureAutorisee && <Alerte>En preview, seuls les chantiers « Test » sont modifiables.</Alerte>}
           {peutDemarrer && donnees.ecritureAutorisee && <button disabled={action} onClick={demarrer} className="flex min-h-[58px] w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-[17px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: ORANGE }}><Play size={20} /> {action ? 'Démarrage…' : '🚧 Démarrer le chantier'}</button>}
           {!peutDemarrer && <p className="flex items-center gap-2 font-semibold" style={{ color: '#16a34a' }}><CheckCircle2 size={20} /> Ce chantier est déjà en cours ou terminé.</p>}
-          {statut === 'encours' && <button onClick={() => router.push('/interne/reception')} className="w-full rounded-full px-6 py-4 text-[16px] font-bold text-white" style={{ backgroundColor: CYAN }}>Ouvrir la réception</button>}
+          {enCours && <button onClick={() => router.push('/interne/reception')} className="w-full rounded-full px-6 py-4 text-[16px] font-bold text-white" style={{ backgroundColor: CYAN }}>Ouvrir la réception</button>}
         </Carte>}
       </ContenuAppli>
     </PageAppli>
