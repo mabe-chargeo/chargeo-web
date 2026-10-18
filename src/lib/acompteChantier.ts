@@ -1,8 +1,10 @@
 import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
+import { commenterUneFois } from '@/lib/commentaireUnique';
 
 // Acompte et chantier (décision Matthieu du 12/10/2026 : pas d'achat de matériel ni de démarrage sans acompte encaissé).
 // - confirmerAcompte : facture d'acompte passée en ✅ payée (route factures/relances) → 💶 Acompte = ✅ Confirmé sur le
 //   chantier relié par 🔗 Affaire, avec un commentaire sur le chantier. Déjà confirmé : rien.
+//   18/10/2026 : commentaire du chantier par commenterUneFois (application + automatisations ClickUp appellent en même temps).
 // - chantiersSansAcompte : chantiers de Planning Chantiers reliés à une commande (🏗️ Chantier ou lien de tâche) dont
 //   💶 Acompte n'est ni ✅ Confirmé ni ➖ Non applicable (route achats/validation). Commande sans chantier (stock) :
 //   pas de contrôle.
@@ -28,12 +30,6 @@ async function api(token: string, chemin: string, methode = 'GET', corps?: any):
 async function lireTache(taskId: string, token: string): Promise<any | null> {
   const res = await api(token, `/task/${encodeURIComponent(taskId)}?custom_task_ids=true`);
   return res.ok ? res.json() : null;
-}
-
-async function commenter(taskId: string, token: string, texte: string): Promise<boolean> {
-  const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: false });
-  if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${taskId}`);
-  return res.ok;
 }
 
 const champ = (t: any, id: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => c.id === id);
@@ -78,7 +74,7 @@ export async function confirmerAcompte(token: string, facture: any, simulation: 
     }
     const r = await api(token, `/task/${c.id}/field/${CHAMP_ACOMPTE}`, 'POST', { value: o.id });
     if (!r.ok) { chantiers.push({ chantier: c.name, action: 'erreur_ecriture' }); continue; }
-    await commenter(String(c.id), token, `💶 Acompte encaissé : « ${facture.name} » payée le ${jour}. Prérequis 💶 Acompte passé à ✅ Confirmé.`);
+    await commenterUneFois(String(c.id), token, `💶 Acompte encaissé : « ${facture.name} » payée le ${jour}. Prérequis 💶 Acompte passé à ✅ Confirmé.`);
     chantiers.push({ chantier: c.name, action: 'confirme' });
   }
   return { action: 'traite', chantiers };

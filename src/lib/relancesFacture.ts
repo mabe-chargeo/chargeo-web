@@ -1,5 +1,6 @@
 import { aujourdhuiParis, ajouterJours, prochainOuvre, comparer, echeanceClickUp, libelleJour, type Jour } from '@/lib/joursOuvres';
 import { confirmerAcompte, estFactureAcompte } from '@/lib/acompteChantier';
+import { commenterUneFois } from '@/lib/commentaireUnique';
 
 // Relances impayés (Phase 4, décision Matthieu du 11/10/2026 : aucun email automatique au client).
 // Appelé par les automatisations ClickUp de Factures Clients v2 (statut modifié, Date d'échéance modifiée,
@@ -18,6 +19,9 @@ import { confirmerAcompte, estFactureAcompte } from '@/lib/acompteChantier';
 //    3 ou plus → plus de rappel, dossier au back-office.
 //    Jours calendaires, reportés au jour ouvré suivant si week-end ou férié. Date déjà passée → aujourd'hui (ou ouvré suivant).
 // 4. Échéance déjà au bon jour → rien (pas de commentaire en double quand plusieurs automatisations se déclenchent).
+// 18/10/2026 (test facture) : « Marquer comme payée » + automatisations ClickUp = 3 fois « relances arrêtées ».
+//    Payée ou annulée : le rappel de relance (échéance de la tâche) est retiré et le commentaire passe par
+//    commenterUneFois (src/lib/commentaireUnique.ts) : un seul commentaire même si les appels arrivent ensemble.
 
 export const FACTURES_ID = process.env.CLICKUP_FACTURES_LIST_ID || '1200630000003863';
 export const CHAMP_ECHEANCE = 'ad00c457-c263-46cd-a2bb-83741ab5a240';
@@ -102,7 +106,11 @@ export async function traiterRelance(taskId: string, simulation: boolean): Promi
   }
   if (etat === 'payee' || etat === 'annulee' || etat === 'fermee') {
     const texte = etat === 'annulee' ? '🚫 Facture annulée : relances arrêtées.' : '✅ Facture payée : relances arrêtées.';
-    if (!simulation) await commenter(id, token, texte);
+    if (!simulation) {
+      // Plus de relance : le rappel posé dans l'échéance de la tâche n'a plus lieu d'être
+      if (tache.due_date) await ecrireEcheance(id, token, null);
+      await commenterUneFois(id, token, texte);
+    }
     // Acompte payé : le chantier peut acheter le matériel et recevoir son feu vert
     let acompte: any;
     if (etat === 'payee' && estFactureAcompte(tache)) {
@@ -110,7 +118,7 @@ export async function traiterRelance(taskId: string, simulation: boolean): Promi
       const rate = acompte.action === 'sans_affaire'
         || (acompte.chantiers || []).some((c: any) => ['introuvable', 'option_introuvable', 'erreur_ecriture'].includes(c.action));
       if (!simulation && rate) {
-        await commenter(id, token, '⚠️ Acompte payé, mais je n\'ai pas pu mettre à jour le chantier (🔗 Affaire vide ou chantier introuvable). Passe 💶 Acompte à ✅ Confirmé à la main sur la fiche du chantier.');
+        await commenterUneFois(id, token, '⚠️ Acompte payé, mais je n\'ai pas pu mettre à jour le chantier (🔗 Affaire vide ou chantier introuvable). Passe 💶 Acompte à ✅ Confirmé à la main sur la fiche du chantier.');
       }
     }
     return { status: 200, body: { success: true, action: 'arret', statut, commentaire: texte, acompte, simulation } };
