@@ -4,7 +4,7 @@ import { membresDuRole, rolesDe } from '@/lib/roles';
 import { getQualificationListId } from '@/lib/listesClickUp';
 import { CHAMPS_INTERVENTION, LISTES, etapePlanning } from '@/lib/espaces';
 import { adresseDe, champ, dateVisiteDe } from '@/lib/vuesFiches';
-import { agendaBranche, idEvenement, occupationsAgenda, poserEvenement, retirerEvenement } from '@/lib/googleAgenda';
+import { agendaBranche, idEvenement, occupationsAgenda, poserEvenement, retirerEvenement, type GarderNos } from '@/lib/googleAgenda';
 import { demiJourneesDe, jourEtMinutes, libelleJour, parisVersMs, segmentsPose, villeDe } from '@/lib/demiJournees';
 
 // Caler une visite de maintenance ou un dépannage SAV (18/10/2026, 8 h 31, Matthieu : « Fais maintenance et SAV », suite
@@ -21,6 +21,10 @@ import { demiJourneesDe, jourEtMinutes, libelleJour, parisVersMs, segmentsPose, 
 // sont plus. Un échec Google n'annule jamais l'écriture ClickUp : il est signalé par personne.
 // Occupations ERP lues avec leur vraie durée : poses (⏳ Durée intervention), visites et dépannages (⏳ Durée RDV),
 // relevés (⏳ Durée relevé).
+// 18/10/2026, 19 h 31 (Matthieu : « pour caler la visite, c'est toujours pareil, il manque des rendez-vous ») : l'agenda
+// est lu avec garderNos, comme Caler et Planifier depuis 12 h 55. Un de nos rendez-vous Google (relevé, pose, visite,
+// dépannage) n'est ignoré que si l'écran le montre déjà depuis l'ERP ; sinon (fiche passée à l'étape suivante, statut
+// hors planning) il compte comme occupé. Seul le rendez-vous en cours de calage est toujours ignoré.
 // GET ?type=visite|depannage&id=<tâche> ; POST { type, id, jour, minutes, duree, techniciens } ou { type, id, action: 'annuler' }.
 // Droits : chef de chantier et direction. Preview : seules les fiches avec « Test » dans le nom sont modifiées.
 // Le fichier n'exporte que les handlers (règle des routes Next).
@@ -38,7 +42,9 @@ const DUREE_DEFAUT_LIBELLE = '1 h 30';
 
 type TypeRdv = 'visite' | 'depannage';
 type Personne = { id: number; nom: string; email: string; role: string };
-type Bloc = { jour: string; debut: number; fin: number; journee: boolean; type: 'pose' | 'visite' | 'depannage' | 'releve'; nom: string; ville: string; personnes: number[] };
+type Bloc = { jour: string; debut: number; fin: number; journee: boolean; type: 'pose' | 'visite' | 'depannage' | 'releve'; nom: string; ville: string; personnes: number[]; id: string };
+// Préfixe de nos événements Google par type de bloc ERP
+const PREFIXE_BLOC: Record<Bloc['type'], string> = { pose: 'pose', visite: 'visite', depannage: 'depan', releve: 'releve' };
 
 const CONFIG: Record<TypeRdv, { liste: string; prefixe: string; titre: string; relation: string; planifie: string; retour: string; libelle: string }> = {
   visite: { liste: LISTES.maintenance, prefixe: 'visite', titre: '🔧 Maintenance', relation: CHAMPS_INTERVENTION.borneVisitee, planifie: 'rdv confirmé', retour: 'à planifier', libelle: 'Visite de maintenance' },
@@ -133,7 +139,7 @@ async function occupationsErp(token: string, ids: number[], saufId: string): Pro
     if (!personnes.length || String(t?.id) === saufId) return;
     const d = jourEtMinutes(ms);
     if (!d || d.jour < debut || d.jour > fin) return;
-    const base = { type, nom: String(t?.name || ''), ville: villeDe(adresseDe(t)), personnes };
+    const base = { type, nom: String(t?.name || ''), ville: villeDe(adresseDe(t)), personnes, id: String(t?.id || '') };
     if (d.minutes === null) blocs.push(Object.assign({ jour: d.jour, debut: 480, fin: 1050, journee: true }, base));
     else blocs.push(Object.assign({ jour: d.jour, debut: d.minutes, fin: d.minutes + duree, journee: false }, base));
   };
@@ -147,7 +153,7 @@ async function occupationsErp(token: string, ids: number[], saufId: string): Pro
       const demi = demiJourneesDe(menuNomme(t, 'duree intervention')?.choisi || '');
       const segs = segmentsPose(d.jour, d.minutes === null ? 480 : d.minutes, demi || (d.minutes === null ? 2 : 1));
       if (d.minutes !== null && !demi) segs[0] = { jour: d.jour, debut: d.minutes, fin: d.minutes + 240 };
-      for (const s of segs.filter((x) => x.jour >= debut && x.jour <= fin)) blocs.push({ jour: s.jour, debut: s.debut, fin: s.fin, journee: false, type: 'pose', nom: String(t?.name || ''), ville: villeDe(adresseDe(t)), personnes });
+      for (const s of segs.filter((x) => x.jour >= debut && x.jour <= fin)) blocs.push({ jour: s.jour, debut: s.debut, fin: s.fin, journee: false, type: 'pose', nom: String(t?.name || ''), ville: villeDe(adresseDe(t)), personnes, id: String(t?.id || '') });
     }
   }
   if (rVisites.status === 'fulfilled') {
@@ -171,14 +177,15 @@ async function occupationsErp(token: string, ids: number[], saufId: string): Pro
   return { blocs, incomplet: lus.some((r) => r.status !== 'fulfilled') };
 }
 
-// Créneaux occupés des Google Agendas (tous les agendas affichés, horaires seulement)
-async function lireAgendas(personnes: Personne[]) {
+// Créneaux occupés des Google Agendas (tous les agendas affichés, horaires seulement).
+// garder : un de nos rendez-vous compte comme occupé s'il n'est pas déjà montré par l'ERP (19 h 31)
+async function lireAgendas(personnes: Personne[], garder?: GarderNos) {
   const creneaux: { personne: number; jour: string; debut: number; fin: number; journee: boolean }[] = [];
   const erreurs: string[] = [];
   if (!agendaBranche()) return { branche: false, creneaux, erreurs };
   const depuis = new Date();
   const jusque = new Date(Date.now() + JOURS_PLANNING * 86400000);
-  const lus = await Promise.allSettled(personnes.map((p) => (p.email ? occupationsAgenda(p.email, depuis, jusque) : Promise.reject(new Error('pas d’email dans ClickUp')))));
+  const lus = await Promise.allSettled(personnes.map((p) => (p.email ? occupationsAgenda(p.email, depuis, jusque, garder) : Promise.reject(new Error('pas d’email dans ClickUp')))));
   lus.forEach((r, i) => {
     if (r.status === 'fulfilled') {
       for (const x of r.value.creneaux) creneaux.push({ personne: personnes[i].id, jour: x.jour, debut: x.debut, fin: x.fin, journee: x.journee });
@@ -224,7 +231,11 @@ export async function GET(request: Request) {
     if (!lu.ok) return json({ success: false, error: lu.erreur }, lu.status);
     const t = lu.t;
     const personnes = await personnesTerrain(token);
-    const [erp, agenda, adresse] = await Promise.all([occupationsErp(token, personnes.map((p) => p.id), String(t.id)), lireAgendas(personnes), adresseRdv(token, type, t)]);
+    const erp = await occupationsErp(token, personnes.map((p) => p.id), String(t.id));
+    // Nos rendez-vous Google déjà montrés par l'ERP (type + fiche), et celui qu'on est en train de caler
+    const montres = new Set(erp.blocs.map((b) => `${PREFIXE_BLOC[b.type]}|${b.id}`));
+    const garder: GarderNos = (ficheId, prefixe) => !(ficheId === String(t.id) && prefixe === CONFIG[type].prefixe) && !montres.has(`${prefixe}|${ficheId}`);
+    const [agenda, adresse] = await Promise.all([lireAgendas(personnes, garder), adresseRdv(token, type, t)]);
     const d = jourEtMinutes(dateDe(type, t));
     const menu = menuNomme(t, 'duree rdv');
     return json({
