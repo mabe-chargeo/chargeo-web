@@ -9,11 +9,14 @@
 // Sefram MW9665 avec l'adaptateur A1532-XA).
 // 17/10, 20 h 01 (choix de Matthieu : checklist d'onboarding dans la fiche salarié) : les checklists de la tâche,
 // avec leur avancement, se cochent ici (/api/interne/checklist). Seule écriture de la fiche générique.
+// 18/10, 9 h 33 : visite de maintenance (à planifier ou rdv confirmé) et ticket SAV ouvert : bouton « Caler » ou
+// « Décaler » (/interne/rdv/<visite|depannage>/<id>), pour le chef de chantier et la direction (rôle affiché).
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CalendarClock, Check, ChevronRight, ExternalLink, ListChecks, MessageSquare, Paperclip, RefreshCw, Tag, User } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CalendarPlus, Check, ChevronRight, ExternalLink, ListChecks, MessageSquare, Paperclip, RefreshCw, Tag, User } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte } from '@/components/charte/Appli';
 import { CYAN } from '@/components/charte/couleurs';
+import { useRoleAppli } from '@/components/charte/roleAppli';
 
 type Champ = { id: string; nom: string; type: string; texte: string; lien?: string; taches?: { id: string; nom: string }[] };
 type Checklist = { id: string; nom: string; points: { id: string; nom: string; fait: boolean }[] };
@@ -28,10 +31,24 @@ type Element = {
 };
 
 const sansEmoji = (s: string) => s.replace(/^[^A-Za-z0-9\u00C0-\u017F]+/, '').trim();
+const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+// Bouton Caler / Décaler d'une visite ou d'un dépannage (ou rien)
+function actionCaler(e: Element): { href: string; libelle: string } | null {
+  const s = normal(e.statut);
+  if (e.source === 'maintenance' && (s.includes('a planifier') || s.includes('rdv confirme'))) {
+    return { href: `/interne/rdv/visite/${e.id}`, libelle: s.includes('rdv confirme') ? '📅 Décaler la visite' : '📅 Caler la visite' };
+  }
+  if (e.source === 'sav' && !s.includes('resolu') && !s.includes('archive')) {
+    return { href: `/interne/rdv/depannage/${e.id}`, libelle: s.includes('intervention planifiee') ? '📅 Décaler le dépannage' : '📅 Caler le dépannage' };
+  }
+  return null;
+}
 
 export default function ElementPage() {
   const params = useParams<{ id: string }>();
   const id = String(params?.id || '');
+  const { role } = useRoleAppli();
   const [element, setElement] = useState<Element | null>(null);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<{ texte: string; url?: string } | null>(null);
@@ -109,6 +126,8 @@ export default function ElementPage() {
     return <span className="whitespace-pre-line font-semibold">{c.texte}</span>;
   };
 
+  const caler = element && (role === 'direction' || role === 'chargeOperation') ? actionCaler(element) : null;
+
   return (
     <PageAppli>
       <EnTeteAppli surtitre={element ? `${element.emoji} ${element.liste}` : 'Fiche'} titre={element?.nom || 'Fiche'} action={boutonRetour} />
@@ -134,6 +153,12 @@ export default function ElementPage() {
               </span>
               {element.tags.map((t) => <span key={t} className="inline-flex items-center gap-1 text-[12px] font-bold text-slate-500"><Tag size={12} /> {t}</span>)}
             </div>
+
+            {caler && (
+              <a href={caler.href} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold text-white transition-transform active:scale-95" style={{ backgroundColor: CYAN }}>
+                <CalendarPlus size={18} /> {caler.libelle.replace(/^📅 /, '')}
+              </a>
+            )}
 
             {element.source === 'maintenance' && (
               <a href={`/interne/maintenance/${element.id}`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 text-[15px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95">
