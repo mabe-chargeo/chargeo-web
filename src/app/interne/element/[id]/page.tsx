@@ -17,14 +17,19 @@
 // à traiter chantier » sur une facture), au lieu de Chantiers pour toutes.
 // 18/10, 19 h 31 : bouton « Faire la visite » sans le nom de l'appareil ; « Ouvrir dans ClickUp » pour direction et
 // back-office seulement.
+// 18/10, 19 h 50 (maquette MAQUETTE_GABARIT-FICHES_2026-10-18.png validée par Matthieu : « la page des factures est plus
+// travaillée… j'aimerais bien qu'il y ait ce genre de lien un peu sur toutes les pages ») : même gabarit que la facture
+// pour toutes les fiches. Carte du haut (statut, 3 infos clés, parcours par statuts, Appeler / Itinéraire / Écrire),
+// prochaine étape (Caler, Faire la visite), détails, liens (src/lib/ficheGabarit.ts), historique replié.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CalendarClock, CalendarPlus, Check, ChevronDown, ChevronRight, ExternalLink, ListChecks, MessageSquare, Paperclip, RefreshCw, Tag, User } from 'lucide-react';
+import { AlignLeft, ArrowLeft, CalendarPlus, Check, ChevronDown, ChevronRight, ExternalLink, Link2, ListChecks, Mail, Navigation, Paperclip, Phone, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte } from '@/components/charte/Appli';
 import { CYAN } from '@/components/charte/couleurs';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 import FicheFacture from '@/components/appli/FicheFacture';
 import type { Facture } from '@/lib/factureFiche';
+import type { Gabarit } from '@/lib/ficheGabarit';
 
 type Champ = { id: string; nom: string; type: string; texte: string; lien?: string; taches?: { id: string; nom: string }[] };
 type Checklist = { id: string; nom: string; points: { id: string; nom: string; fait: boolean }[] };
@@ -37,6 +42,7 @@ type Element = {
   commentaires: { id: string; auteur: string; date: string; texte: string }[];
   url: string;
   facture?: Facture;
+  gabarit?: Gabarit;
 };
 
 // Menu parent de la fiche dans le fil d'Ariane, par liste (clés de src/lib/menusAppli.ts)
@@ -65,6 +71,43 @@ function parentDe(source: string | undefined, role: string | null): string {
 
 const sansEmoji = (s: string) => s.replace(/^[^A-Za-z0-9\u00C0-\u017F]+/, '').trim();
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+function Pastille({ couleur, children }: { couleur: string; children: React.ReactNode }) {
+  return <span className="rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-[0.06em] text-white" style={{ backgroundColor: couleur }}>{children}</span>;
+}
+
+function Ligne({ libelle, valeur }: { libelle: string; valeur: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 text-[14px]">
+      <span className="shrink-0 text-slate-500">{libelle}</span>
+      <span className="text-right font-bold">{valeur}</span>
+    </div>
+  );
+}
+
+// Parcours par les statuts de la liste (étapes faites en vert, en cours en cyan)
+function Parcours({ etapes, courante }: { etapes: string[]; courante: number }) {
+  return (
+    <div className="mt-4 flex items-start">
+      {etapes.map((e, i) => {
+        const fait = i < courante;
+        const ici = i === courante;
+        const fond = fait ? '#16a34a' : ici ? CYAN : '#e2e8f0';
+        return (
+          <div key={`${e}-${i}`} className="relative flex min-w-0 flex-1 flex-col items-center">
+            {i > 0 && <span className="absolute right-1/2 top-[11px] h-[2px] w-full bg-[#e2e8f0]" />}
+            <span className="relative z-10 flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold text-white" style={{ backgroundColor: fond }}>
+              {fait ? <Check size={14} /> : i + 1}
+            </span>
+            <span className={`mt-1 px-0.5 text-center text-[11px] font-bold leading-tight ${fait ? 'text-[#16a34a]' : ici ? '' : 'text-slate-400'}`}>{e}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const GABARIT_VIDE: Gabarit = { cles: [], parcours: null, contact: { tel: '', email: '', adresse: '', carte: '', depuis: '' }, liens: [], ailleurs: [] };
 
 // Bouton Caler / Décaler d'une visite ou d'un dépannage (ou rien)
 function actionCaler(e: Element): { href: string; libelle: string } | null {
@@ -165,6 +208,39 @@ export default function ElementPage() {
   const caler = element && (role === 'direction' || role === 'chargeOperation') ? actionCaler(element) : null;
   const facture = element?.facture;
 
+  // Gabarit commun : infos clés, détails, raccourcis, étapes
+  const g: Gabarit = element?.gabarit || {
+    ...GABARIT_VIDE,
+    liens: [
+      ...(element?.piecesJointes || []).map((p) => ({ nom: p.nom, sous: 'Pièce jointe', href: p.url, genre: 'fichier' as const })),
+      ...(element?.parent ? [{ nom: 'Tâche parente', sous: 'Fiche principale', href: `/interne/element/${element.parent}`, genre: 'fiche' as const }] : []),
+    ],
+  };
+  const champsFiche = element?.champs || [];
+  const cles = g.cles.map((id) => champsFiche.find((c) => c.id === id)).filter((c): c is Champ => !!c);
+  const details = champsFiche.filter((c) => !g.cles.includes(c.id) && !g.ailleurs.includes(c.id));
+  const montrerEcheance = !!element?.echeance && !cles.some((c) => normal(c.nom).includes('echeance'));
+  const raccourcis = [
+    g.contact.tel ? { libelle: 'Appeler', href: g.contact.tel, icone: Phone, externe: false } : null,
+    g.contact.carte ? { libelle: 'Itinéraire', href: g.contact.carte, icone: Navigation, externe: true } : null,
+    g.contact.email ? { libelle: 'Écrire', href: g.contact.email, icone: Mail, externe: false } : null,
+  ].filter((r): r is { libelle: string; href: string; icone: any; externe: boolean } => !!r);
+  const etapes: { texte: string; libelle: string; href: string; couleur: string }[] = [];
+  if (element && caler) {
+    etapes.push({
+      texte: element.source === 'maintenance'
+        ? 'Caler le rendez-vous avec le client : l’événement part dans le Google Agenda du technicien.'
+        : 'Pas réglé par téléphone ? Caler un dépannage : l’événement part dans le Google Agenda du technicien.',
+      libelle: caler.libelle.replace(/^📅 /, ''),
+      href: caler.href,
+      couleur: CYAN,
+    });
+  }
+  // Faire la visite : jusqu'à la visite réalisée (le rapport se valide ensuite)
+  if (element?.source === 'maintenance' && !normal(element.statut).includes('rapport') && !normal(element.statut).includes('complete')) {
+    etapes.push({ texte: 'Le jour J, dérouler le protocole de contrôle jusqu’au rapport.', libelle: '🔧 Faire la visite', href: `/interne/maintenance/${element.id}`, couleur: '#FF6B00' });
+  }
+
   const commentaires = element && element.commentaires.length > 0 && (
     <div className="space-y-3">
       {element.commentaires.map((c) => (
@@ -205,30 +281,45 @@ export default function ElementPage() {
 
         {element && !facture && (
           <>
-            <div className="flex flex-wrap items-center gap-2 px-1">
-              <span className="rounded-full px-3 py-1 text-[12px] font-extrabold uppercase tracking-[0.06em] text-white" style={{ backgroundColor: element.couleurStatut || '#9aa3ad' }}>
-                {element.statut}
-              </span>
-              {element.tags.map((t) => <span key={t} className="inline-flex items-center gap-1 text-[12px] font-bold text-slate-500"><Tag size={12} /> {t}</span>)}
+            {/* En haut : statut, infos clés, parcours, raccourcis */}
+            <div className="rounded-[20px] bg-white p-5 ring-[1.5px] ring-[#dfe3e8]">
+              <div className="flex flex-wrap items-center gap-2">
+                <Pastille couleur={element.couleurStatut || '#87909e'}>{element.statut}</Pastille>
+                {element.tags.map((t) => <Pastille key={t} couleur="#64748b">{t}</Pastille>)}
+              </div>
+              {(cles.length > 0 || montrerEcheance || element.debut || element.assignes.length > 0) && (
+                <div className="mt-3 space-y-1.5">
+                  {cles.map((c) => <Ligne key={c.id} libelle={sansEmoji(c.nom) || c.nom} valeur={c.texte} />)}
+                  {element.debut && <Ligne libelle="Début" valeur={element.debut} />}
+                  {montrerEcheance && <Ligne libelle="Échéance" valeur={element.echeance} />}
+                  {element.assignes.length > 0 && <Ligne libelle="Assigné à" valeur={element.assignes.join(', ')} />}
+                </div>
+              )}
+              {g.parcours && <Parcours etapes={g.parcours.etapes} courante={g.parcours.courante} />}
+              {raccourcis.length > 0 && (
+                <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: `repeat(${raccourcis.length}, minmax(0, 1fr))` }}>
+                  {raccourcis.map((r) => (
+                    <a key={r.libelle} href={r.href} target={r.externe ? '_blank' : undefined} rel={r.externe ? 'noopener noreferrer' : undefined} className="flex flex-col items-center gap-1 rounded-[14px] bg-white py-2.5 text-[12px] font-bold ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95" style={{ color: CYAN }}>
+                      <r.icone size={18} /> {r.libelle}
+                    </a>
+                  ))}
+                </div>
+              )}
+              {raccourcis.length > 0 && g.contact.depuis && <p className="mt-2 text-center text-[11px] text-slate-500">Contact de la fiche {g.contact.depuis.replace(/^\s*test\s*·\s*/i, '')}</p>}
             </div>
 
-            {caler && (
-              <a href={caler.href} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold text-white transition-transform active:scale-95" style={{ backgroundColor: CYAN }}>
-                <CalendarPlus size={18} /> {caler.libelle.replace(/^📅 /, '')}
-              </a>
-            )}
-
-            {element.source === 'maintenance' && (
-              <a href={`/interne/maintenance/${element.id}`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 text-[15px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95">
-                🔧 Faire la visite
-              </a>
-            )}
-
-            {(element.echeance || element.debut || element.assignes.length > 0) && (
-              <Carte className="space-y-2">
-                {element.debut && <p className="flex items-center gap-2 text-[15px]"><CalendarClock size={16} color={CYAN} /> Début {element.debut}</p>}
-                {element.echeance && <p className="flex items-center gap-2 text-[15px]"><CalendarClock size={16} color={CYAN} /> Échéance {element.echeance}</p>}
-                {element.assignes.length > 0 && <p className="flex items-center gap-2 text-[15px]"><User size={16} color={CYAN} /> {element.assignes.join(', ')}</p>}
+            {/* Prochaine étape : caler, faire la visite */}
+            {etapes.length > 0 && (
+              <Carte className="space-y-3">
+                <TitreCarte icon={CalendarPlus}>Prochaine étape</TitreCarte>
+                {etapes.map((e, i) => (
+                  <div key={e.libelle} className="space-y-3">
+                    <p className="flex gap-3 text-[15px]"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold" style={{ color: CYAN, boxShadow: `inset 0 0 0 1.5px ${CYAN}` }}>{i + 1}</span>{e.texte}</p>
+                    <a href={e.href} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold text-white transition-transform active:scale-95" style={{ backgroundColor: e.couleur }}>
+                      {e.libelle}
+                    </a>
+                  </div>
+                ))}
               </Carte>
             )}
 
@@ -261,32 +352,23 @@ export default function ElementPage() {
               );
             })}
 
-            {element.champs.length > 0 && (
-              <Carte className="space-y-3">
-                {element.champs.map((c) => (
-                  <div key={c.id}>
-                    <p className="text-[12px] font-bold text-slate-500">{sansEmoji(c.nom) || c.nom}</p>
-                    <div className="mt-0.5 text-[15px]">{valeur(c)}</div>
-                  </div>
-                ))}
+            {/* Détails : les autres champs, puis la description */}
+            {(details.length > 0 || element.description) && (
+              <Carte className="space-y-1">
+                <TitreCarte icon={AlignLeft}>Détails</TitreCarte>
+                <div className="pt-1">
+                  {details.map((c) => {
+                    const long = c.texte.length > 38 || c.texte.includes('\n');
+                    return (
+                      <div key={c.id} className={`border-b border-[#dfe3e8] py-2 text-[14px] last:border-b-0 ${long ? '' : 'flex items-baseline justify-between gap-3'}`}>
+                        <span className="text-slate-500">{sansEmoji(c.nom) || c.nom}</span>
+                        <div className={long ? 'mt-0.5' : 'text-right'}>{valeur(c)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {element.description && <p className="whitespace-pre-line pt-2 text-[14px] leading-relaxed">{element.description}</p>}
               </Carte>
-            )}
-
-            {element.description && (
-              <Carte>
-                <p className="whitespace-pre-line text-[15px] leading-relaxed">{element.description}</p>
-              </Carte>
-            )}
-          </>
-        )}
-
-        {element && (
-          <>
-            {element.parent && (
-              <a href={`/interne/element/${element.parent}`} className="flex items-center justify-between rounded-[20px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
-                <span className="text-[15px] font-semibold">Tâche parente</span>
-                <ChevronRight size={20} color={CYAN} />
-              </a>
             )}
 
             {element.sousTaches.length > 0 && (
@@ -304,6 +386,45 @@ export default function ElementPage() {
               </Carte>
             )}
 
+            {/* Liens : fiches reliées, liens web, autres contacts, pièces jointes, tâche parente */}
+            {g.liens.length > 0 && (
+              <Carte className="space-y-2.5">
+                <TitreCarte icon={Link2}>Liens</TitreCarte>
+                {g.liens.map((l, i) => {
+                  const dehors = l.genre === 'web' || l.genre === 'fichier' || l.genre === 'carte';
+                  const Icone = l.genre === 'fiche' ? ChevronRight : l.genre === 'tel' ? Phone : l.genre === 'mail' ? Mail : l.genre === 'carte' ? Navigation : l.genre === 'fichier' ? Paperclip : ExternalLink;
+                  return (
+                    <a key={`${l.href}-${i}`} href={l.href} target={dehors ? '_blank' : undefined} rel={dehors ? 'noopener noreferrer' : undefined} className="flex items-center justify-between gap-3 rounded-[14px] bg-white p-3 ring-[1.5px] ring-[#dfe3e8]">
+                      <span className="min-w-0"><span className="block truncate text-[15px] font-bold">{l.nom.replace(/^\s*test\s*·\s*/i, '')}</span><span className="text-[12px] text-slate-500">{l.sous}</span></span>
+                      <Icone size={17} className="shrink-0" color={CYAN} />
+                    </a>
+                  );
+                })}
+              </Carte>
+            )}
+
+            {/* Historique replié */}
+            {element.commentaires.length > 0 && (
+              <div>
+                <button onClick={() => setHistorique(!historique)} className="mx-auto flex items-center gap-1.5 py-2 text-[13px] font-semibold text-slate-500">
+                  Historique ({element.commentaires.length} commentaire{element.commentaires.length > 1 ? 's' : ''})
+                  <ChevronDown size={14} className={historique ? 'rotate-180' : ''} />
+                </button>
+                {historique && commentaires}
+              </div>
+            )}
+          </>
+        )}
+
+        {element && facture && (
+          <>
+            {element.parent && (
+              <a href={`/interne/element/${element.parent}`} className="flex items-center justify-between rounded-[20px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
+                <span className="text-[15px] font-semibold">Tâche parente</span>
+                <ChevronRight size={20} color={CYAN} />
+              </a>
+            )}
+
             {element.piecesJointes.length > 0 && (
               <Carte className="space-y-2.5">
                 <TitreCarte icon={Paperclip} extra={<span className="text-[14px] font-bold">{element.piecesJointes.length}</span>}>Pièces jointes</TitreCarte>
@@ -316,7 +437,7 @@ export default function ElementPage() {
             )}
 
             {/* Facture : commentaires et note de création repliés dans Historique */}
-            {facture && (element.commentaires.length > 0 || element.description) && (
+            {(element.commentaires.length > 0 || element.description) && (
               <div>
                 <button onClick={() => setHistorique(!historique)} className="mx-auto flex items-center gap-1.5 py-2 text-[13px] font-semibold text-slate-500">
                   Historique ({element.commentaires.length} commentaire{element.commentaires.length > 1 ? 's' : ''})
@@ -335,20 +456,15 @@ export default function ElementPage() {
                 )}
               </div>
             )}
-
-            {!facture && element.commentaires.length > 0 && (
-              <Carte className="space-y-3">
-                <TitreCarte icon={MessageSquare} extra={<span className="text-[14px] font-bold">{element.commentaires.length}</span>}>Derniers commentaires</TitreCarte>
-                {commentaires}
-              </Carte>
-            )}
-
-            {voitClickUp && <div className="pt-2 text-center">
-              <a href={element.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
-                <ExternalLink size={13} /> Ouvrir dans ClickUp
-              </a>
-            </div>}
           </>
+        )}
+
+        {element && voitClickUp && (
+          <div className="pt-2 text-center">
+            <a href={element.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
+              <ExternalLink size={13} /> Ouvrir dans ClickUp
+            </a>
+          </div>
         )}
       </ContenuAppli>
     </PageAppli>
