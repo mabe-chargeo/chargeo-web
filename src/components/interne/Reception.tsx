@@ -1,7 +1,6 @@
 "use client";
 
 // Réception chantier en deux temps (Phase 6, décision Matthieu du 13/10/2026, page « Qui fait quoi ») :
-// 📊 Rapport de mesures du contrôleur d'installation : obligatoire (décision Matthieu du 13/10, procédure de mise en service).
 // Aperçu : PV, rapport et photos s'ouvrent depuis l'écran (vignettes), sans passer par ClickUp (test du 13/10).
 // Envoi : toujours possible quand tout est complet (un chantier peut déjà être en ✅ réalisé sans avoir été envoyé ;
 // renvoyer ne fait que reprévenir le chargé d'opération, test du 13/10).
@@ -16,8 +15,9 @@
 // 17/10, 15 h 34 (Matthieu : « le chef de chantier corrige, avec trace ») : une fois le PV signé et envoyé (✅ réalisé),
 // cadenas sur le PV et les réserves. Le poseur ne peut plus les changer ; le chef de chantier corrige en donnant un motif,
 // gardé en commentaire sur le chantier. Rapport de mesures et photos restent ajoutables.
-// 18/10, 14 h 41 (Matthieu : « il y a une mise en service à faire sur chaque chantier ») : bloc ⚡ Mise en service
-// (MW9665) avec l'état de chaque borne (ou TD IRVE) et le bouton vers /interne/mise-en-service/<chantier>.
+// 18/10, 14 h 41 et 15 h 08 : bloc ⚡ Mise en service, un contrôle par élément, bouton vers /interne/mise-en-service.
+// 18/10, 15 h 36 (Matthieu : « L'appli génère le rapport ») : 📊 Rapport de mise en service créé par l'appli quand tous
+// les éléments sont conformes (bouton de secours « Créer le rapport ») ; le PDF du contrôleur devient facultatif.
 import { useEffect, useState } from 'react';
 import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Lock, Plus, RefreshCw, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
@@ -32,7 +32,7 @@ interface Chantier {
   id: string; nom: string; statut: string; couleurStatut: string; url: string;
   pv: Fichier[]; photos: Fichier[]; rapport: Fichier[]; techniciens: string[]; reservesOptionId: string | null; niveau: string;
   reserves: Reserve[]; motifs: string[]; avertissements: string[]; ecritureAutorisee: boolean; envoye: boolean;
-  verrouille?: boolean; miseEnService?: PointMes[];
+  verrouille?: boolean; miseEnService?: PointMes[]; miseEnServiceComplete?: boolean;
 }
 
 const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -154,7 +154,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
     setEnCours(null);
   };
 
-  // ⚡ Mise en service MW9665 : état de chaque borne (ou TD IRVE) et accès à la saisie
+  // ⚡ Mise en service : état de chaque élément et accès à la saisie
   const blocMiseEnService = (c: Chantier) => {
     const points = c.miseEnService || [];
     if (!points.length) return null;
@@ -163,14 +163,14 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
     return (
       <div className="rounded-[14px] bg-white p-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="flex items-center gap-1.5 text-[14px] font-bold"><Zap size={16} color={CYAN} /> Mise en service (MW9665)</p>
+          <p className="flex items-center gap-1.5 text-[14px] font-bold"><Zap size={16} color={CYAN} /> Mise en service</p>
           <span className="text-[12px] font-semibold" style={{ color: complet ? '#16a34a' : ORANGE }}>{conformes}/{points.length} conforme{points.length > 1 ? 's' : ''}</span>
         </div>
         <ul className="mt-2 space-y-1">
           {points.map((p) => (
             <li key={p.id} className="flex items-center justify-between gap-3 text-[13px]">
               <span className="font-semibold">{p.nom}</span>
-              <span style={{ color: p.fait ? (p.defaut ? ORANGE : '#16a34a') : ORANGE }}>{p.fait ? (p.defaut ? '⚠️ défaut noté' : '✅ mesuré') : 'à mesurer'}</span>
+              <span style={{ color: p.fait ? (p.defaut ? ORANGE : '#16a34a') : ORANGE }}>{p.fait ? (p.defaut ? '⚠️ défaut noté' : '✅ conforme') : 'à faire'}</span>
             </li>
           ))}
         </ul>
@@ -190,6 +190,8 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
     const verrouPoseur = verrou && poseur;
     const motifManquant = verrou && !poseur && (correction[c.id] || '').trim().length < 5;
     const pvFige = verrouPoseur || motifManquant;
+    const avecMes = (c.miseEnService || []).length > 0;
+    const libelleRapport = avecMes ? '📊 Rapport de mise en service' : '📊 Rapport de mesures';
     return (
       <Carte key={c.id} className="space-y-4">
         <TitreCarte
@@ -209,7 +211,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
           <div className="space-y-2 rounded-[14px] bg-white p-3 ring-[1.5px] ring-[#dfe3e8]">
             <p className="flex items-center gap-2 text-[14px] font-bold"><Lock size={16} color={ORANGE} /> PV signé et envoyé</p>
             {poseur ? (
-              <p className="text-[13px]">PV et réserves sont verrouillés. S’il faut corriger, préviens le chef de chantier : lui seul peut le faire. Tu peux encore ajouter le rapport de mesures et des photos.</p>
+              <p className="text-[13px]">PV et réserves sont verrouillés. S’il faut corriger, préviens le chef de chantier : lui seul peut le faire. Tu peux encore ajouter des photos.</p>
             ) : (
               <>
                 <p className="text-[13px]">Pour corriger le PV ou les réserves, indique d’abord le motif : il est gardé en commentaire sur le chantier.</p>
@@ -226,17 +228,19 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
 
         {blocMiseEnService(c)}
 
-        {/* PV et photos */}
-        {([['pv', '📂 PV Réception', c.pv, FileText, 'image/*,application/pdf'], ['rapport', '📊 Rapport de mesures (PDF MESM)', (c.rapport || []) as Fichier[], Gauge, 'application/pdf,image/*'], ['photos', '📸 Photos Chantier', c.photos, Camera, 'image/*']] as const).map(([cible, libelle, liste, Icone, accept]) => {
+        {/* PV, rapport et photos */}
+        {([['pv', '📂 PV Réception', c.pv, FileText, 'image/*,application/pdf'], ['rapport', libelleRapport, (c.rapport || []) as Fichier[], Gauge, 'application/pdf,image/*'], ['photos', '📸 Photos Chantier', c.photos, Camera, 'image/*']] as const).map(([cible, libelle, liste, Icone, accept]) => {
           const fige = cible === 'pv' && pvFige;
+          const rapportAuto = cible === 'rapport' && avecMes;
           return (
             <div key={cible} className="rounded-[14px] bg-white p-3">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[14px] font-bold">{libelle}{cible === 'pv' && verrou ? ' 🔒' : ''}</p>
                 <span className="text-[12px] font-semibold" style={{ color: liste.length ? '#16a34a' : ORANGE }}>
-                  {liste.length ? `${liste.length} fichier${liste.length > 1 ? 's' : ''}` : 'aucun fichier'}
+                  {liste.length ? `${liste.length} fichier${liste.length > 1 ? 's' : ''}` : rapportAuto ? 'créé à la fin des mesures' : 'aucun fichier'}
                 </span>
               </div>
+              {rapportAuto && !liste.length && <p className="mt-1 text-[13px]">L’appli le crée toute seule quand tous les éléments sont conformes.</p>}
               {/* Aperçu : vignette pour les images, icône pour les PDF, ouverture en grand dans un nouvel onglet */}
               {liste.length > 0 && (
                 <div className="mt-2 grid grid-cols-3 gap-2">
@@ -258,10 +262,20 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
                   })}
                 </div>
               )}
+              {rapportAuto && c.miseEnServiceComplete && !liste.length && (
+                <button
+                  disabled={bloque || occupe}
+                  onClick={() => envoyer(c, { action: 'rapport' }, `${c.id}:rapport-auto`, '📊 Rapport de mise en service créé.')}
+                  className={`mt-2 flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold text-white ${bloque || occupe ? 'opacity-50' : ''}`}
+                  style={{ backgroundColor: CYAN }}
+                >
+                  <Gauge size={16} /> {enCours === `${c.id}:rapport-auto` ? 'Création...' : 'Créer le rapport de mise en service'}
+                </button>
+              )}
               {!(cible === 'pv' && verrouPoseur) && (
                 <label className={`mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8] ${bloque || occupe || fige ? 'pointer-events-none opacity-50' : ''}`}>
                   <Icone size={16} color={CYAN} />
-                  {enCours === `${c.id}:${cible}` ? 'Envoi...' : cible === 'pv' ? (verrou ? 'Corriger : déposer un nouveau PV' : 'Ajouter le PV signé') : cible === 'rapport' ? 'Ajouter le rapport MESM du MW9665' : 'Ajouter des photos'}
+                  {enCours === `${c.id}:${cible}` ? 'Envoi...' : cible === 'pv' ? (verrou ? 'Corriger : déposer un nouveau PV' : 'Ajouter le PV signé') : cible === 'rapport' ? (rapportAuto ? 'Joindre un PDF du contrôleur (facultatif)' : 'Ajouter le rapport de mesures') : 'Ajouter des photos'}
                   <input type="file" accept={accept} multiple={cible === 'photos'} className="hidden" onChange={(e) => { deposer(c, cible, e.target.files); e.target.value = ''; }} />
                 </label>
               )}
@@ -382,8 +396,8 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
         <div className="flex items-center justify-between gap-3">
           <p className="text-[13px]">
             {poseur
-              ? 'Fais la mise en service MW9665, fais signer le PV, dépose PV, rapport MESM et photos, déclare les réserves, puis envoie au chargé d\'opération.'
-              : 'Contrôle la mise en service, le PV, le rapport de mesures, les photos et les réserves, puis valide : le chantier passe au Parc.'}
+              ? 'Fais la mise en service de chaque élément, fais signer le PV, dépose PV et photos, déclare les réserves, puis envoie au chargé d\'opération. Le rapport de mise en service se crée tout seul.'
+              : 'Contrôle la mise en service et son rapport, le PV, les photos et les réserves, puis valide : le chantier passe au Parc.'}
           </p>
           <button onClick={charger} aria-label="Actualiser" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95">
             <RefreshCw size={18} color={CYAN} className={loading ? 'animate-spin' : ''} />

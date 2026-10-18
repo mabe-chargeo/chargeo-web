@@ -3,8 +3,9 @@
 // Mise en service à la réception (décision de Matthieu du 18/10/2026, 14 h 41). 15 h 08 : les contrôles s'adaptent à ce
 // qu'on met en service. Un onglet par élément du scénario retenu, dans l'ordre du courant (raccordement → alimentation →
 // TD IRVE → artère → dérivations → communication → data → prises → bornes), chacun avec son protocole
-// (src/lib/protocoleMaintenance.ts). Brouillon gardé sur le téléphone ; « Enregistrer » passe par la file d'envoi hors
-// ligne (src/lib/fileEnvoi.ts).
+// (src/lib/protocoleMaintenance.ts). 15 h 36 : quand tous les éléments sont conformes, l'appli crée le rapport de mise
+// en service (plus de PDF du contrôleur obligatoire). Brouillon gardé sur le téléphone ; « Enregistrer » passe par la
+// file d'envoi hors ligne (src/lib/fileEnvoi.ts).
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, Camera, Check, CloudOff, MapPin, RefreshCw } from 'lucide-react';
@@ -102,12 +103,18 @@ export default function MiseEnServicePage() {
         if (f) await ajouter({ cle: nouvelleCle(), chantierId: id, chantierNom: chantier.nom, elementId: point.id, elementNom: point.nom, type: 'photo', donnees: { etape }, fichier: f, nomFichier: f.name, route: ROUTE });
       }
       const d = defauts(r, etapes);
-      setMessage(d.length ? `${point.nom} : ${d.length} défaut${d.length > 1 ? 's' : ''} noté${d.length > 1 ? 's' : ''}. Corrige puis refais la mesure, la réception reste bloquée.` : `${point.nom} : mesures enregistrées.`);
-      setPoints((l) => l.map((p) => (p.id === point.id ? { ...p, fait: true, defaut: d.length > 0 } : p)));
+      const apres = points.map((p) => (p.id === point.id ? { ...p, fait: true, defaut: d.length > 0 } : p));
+      const tousConformes = apres.every((p) => p.fait && !p.defaut);
+      setMessage(d.length
+        ? `${point.nom} : ${d.length} défaut${d.length > 1 ? 's' : ''} noté${d.length > 1 ? 's' : ''}. Corrige puis refais la mesure, la réception reste bloquée.`
+        : tousConformes
+          ? `${point.nom} : mesures enregistrées. Tous les éléments sont conformes : le rapport de mise en service se crée dès l’envoi.`
+          : `${point.nom} : mesures enregistrées.`);
+      setPoints(apres);
       try { localStorage.removeItem(cleBrouillon(id, point.id)); } catch { /* rien */ }
       setPhotos({});
       // Passe au point suivant pas encore fait
-      const suivant = points.find((p) => p.id !== point.id && !p.fait);
+      const suivant = apres.find((p) => p.id !== point.id && !p.fait);
       if (suivant && !d.length) setActif(suivant.id);
       await envoyerTout().catch(() => 0);
     } catch {
@@ -161,6 +168,7 @@ export default function MiseEnServicePage() {
           <Carte className="space-y-1.5">
             {chantier.adresse && <p className="flex items-center gap-1.5 text-[14px]"><MapPin size={14} color={CYAN} /> {chantier.adresse}</p>}
             <p className="text-[13px]">{points.length} élément{points.length > 1 ? 's' : ''} à mettre en service · {conformes} conforme{conformes > 1 ? 's' : ''}</p>
+            <p className="text-[13px]">Quand tous les éléments sont conformes, l’appli crée le rapport de mise en service dans la réception.</p>
           </Carte>
         )}
         {!loading && chantier && points.length === 0 && (
@@ -248,7 +256,6 @@ export default function MiseEnServicePage() {
             <BoutonPrincipal inactif={bloque} disabled={bloque} onClick={enregistrer}>
               <Check size={20} /> Enregistrer les mesures{reste > 0 ? ` (${reste} à remplir)` : ''}
             </BoutonPrincipal>
-            {appareilDe(mode).includes('MW9665') && <p className="px-1 text-center text-[13px]">Enregistre aussi les mesures dans le MW9665 : le rapport MESM (PDF) se dépose ensuite dans la réception.</p>}
           </>
         )}
 

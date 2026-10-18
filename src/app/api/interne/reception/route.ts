@@ -4,6 +4,7 @@ import { alerter } from '@/lib/alerteSite';
 import { champType } from '@/lib/typesTaches';
 import { rolesDe } from '@/lib/roles';
 import { etatMiseEnService, type EtatMes } from '@/lib/miseEnService';
+import { genererRapportMiseEnService } from '@/lib/rapportMiseEnService';
 
 // Réception en deux temps (Phase 6, décision Matthieu du 13/10/2026, page « Qui fait quoi ») :
 // - le technicien poseur collecte sur place (/interne/reception) : PV signé, photos, réserves déclarées, puis « envoyer » ;
@@ -15,12 +16,13 @@ import { etatMiseEnService, type EtatMes } from '@/lib/miseEnService';
 //   - 'reserves' + optionId : règle 🧾 Réserves ;
 //   - 'reserve_ajout' + libelle + echeance (AAAA-MM-JJ) : sous-tâche « 🔧 Réserve : … », responsable = 👷 Technicien du
 //     chantier (c'est en général lui qui revient la lever), à défaut la personne connectée ;
+//   - 'rapport' : (re)crée le rapport de mise en service PDF si tous les éléments sont conformes (18/10, 15 h 36) ;
 //   - 'envoyer' (poseur) : refusé s'il manque quelque chose ; sinon statut ✅ réalisé et alerte au chargé d'opération
 //     (📣 Alerte site, relais @charge-doperation) ;
 //   - 'terminer' (chargé d'opération) : statut 🏁 terminé si tout est en règle (sinon refus avec la liste).
 // POST multipart { taskId, cible: 'pv' | 'photos' | 'rapport', fichier } : fichier déposé dans 📂 PV Réception, 📸 Photos
-//   Chantier ou 📊 Rapport de mesures (rapport du contrôleur d'installation, obligatoire : décision Matthieu du 13/10)
-//   (API v3 des pièces jointes de champ, puis rattachement au champ). Un fichier par envoi (limite Vercel 4,5 Mo).
+//   Chantier ou 📊 Rapport de mesures (API v3 des pièces jointes de champ, puis rattachement au champ). Un fichier par
+//   envoi (limite Vercel 4,5 Mo).
 // Un seul compte ClickUp pour l'instant : les deux écrans sont ouverts à toute personne connectée.
 // Preview : écriture uniquement sur les fiches dont le nom commence par « Test ».
 // Étape 2 (15/10/2026) : la réserve naît en type Réserve. Le nom « 🔧 Réserve : … » est gardé (anciennes réserves).
@@ -29,9 +31,10 @@ import { etatMiseEnService, type EtatMes } from '@/lib/miseEnService';
 // Le chef de chantier (ou la direction) corrige avec un motif obligatoire (champ « motif ») ; chaque correction laisse
 // un commentaire « ✏️ Correction après signature du PV » (quoi, motif, qui, quand). L'ancien PV reste dans le champ.
 // Rapport de mesures et photos restent ajoutables.
-// 18/10/2026, 14 h 41 (Matthieu : « il y a une mise en service à faire sur chaque chantier ») : chaque borne du scénario
-// retenu (à défaut chaque TD IRVE) doit avoir sa mise en service MW9665 saisie (/interne/mise-en-service) et sans défaut
-// avant l'envoi et la validation. Le PDF MESM reste déposé dans 📊 Rapport de mesures.
+// 18/10/2026, 14 h 41 (Matthieu : « il y a une mise en service à faire sur chaque chantier »), 15 h 08 (contrôles par
+// élément) : chaque élément du scénario retenu doit être mis en service (/interne/mise-en-service) et sans défaut.
+// 15 h 36 (Matthieu : « L'appli génère le rapport ») : 📊 Rapport de mesures reçoit le rapport de mise en service créé par
+// l'appli (src/lib/rapportMiseEnService.ts) ; le PDF du contrôleur devient facultatif.
 
 const WORKSPACE_ID = process.env.CLICKUP_TEAM_ID?.trim() || '90151325642';
 const PLANNING_CHANTIERS_ID = '901520038258';
@@ -121,14 +124,17 @@ function decrire(t: any, sousTaches: any[], options: Option[], mes: EtatMes[] = 
   const incompletes = reserves.filter((x) => !x.responsables.length || !x.echeance).map((x) => x.nom);
   const aMesurer = mes.filter((m) => !m.fait).map((m) => m.nom);
   const enDefaut = mes.filter((m) => m.fait && m.defaut).map((m) => m.nom);
-  // Mêmes motifs de refus que la route de passage au Parc, plus la mise en service MW9665 (18/10)
+  const miseEnServiceComplete = mes.length > 0 && !aMesurer.length && !enDefaut.length;
+  // Mêmes motifs de refus que la route de passage au Parc, plus la mise en service par élément (18/10)
   const motifs: string[] = [];
   if (!r.niveau) motifs.push('🧾 Réserves pas renseigné');
   if (r.niveau === 'bloquante') motifs.push('réserve 🔴 Bloquante : pas de mise en service');
-  if (aMesurer.length) motifs.push(`⚡ Mise en service MW9665 à faire (${aMesurer.join(', ')})`);
+  if (aMesurer.length) motifs.push(`⚡ Mise en service à faire (${aMesurer.join(', ')})`);
   if (enDefaut.length) motifs.push(`⚡ défaut à la mise en service (${enDefaut.join(', ')}) : corriger puis refaire la mesure`);
   if (!pv.length) motifs.push('📂 PV Réception manquant');
-  if (!rapport.length) motifs.push('📊 Rapport de mesures (PDF MESM) manquant');
+  // Le rapport est créé par l'appli quand la mise en service est complète : on ne le réclame que s'il devrait déjà exister
+  if (!rapport.length && miseEnServiceComplete) motifs.push('📊 Rapport de mise en service pas encore créé');
+  if (!rapport.length && !mes.length) motifs.push('📊 Rapport de mesures manquant');
   if (r.niveau === 'mineure' && !reserves.length) motifs.push('réserve mineure sans sous-tâche « 🔧 Réserve : … »');
   if (r.niveau === 'mineure' && incompletes.length) motifs.push(`réserve sans responsable ou sans échéance (${incompletes.join(', ')})`);
   return {
@@ -141,6 +147,7 @@ function decrire(t: any, sousTaches: any[], options: Option[], mes: EtatMes[] = 
     photos,
     rapport,
     miseEnService: mes.map((m) => ({ id: m.id, nom: m.nom, mode: m.mode, fait: m.fait, defaut: m.defaut })),
+    miseEnServiceComplete,
     techniciens: techniciens(t).map((u) => u.nom).filter(Boolean),
     reservesOptionId: r.option?.id ?? null,
     niveau: r.niveau,
@@ -272,7 +279,7 @@ export async function POST(request: Request) {
       const corps = await request.json().catch(() => ({}));
       const taskId = String(corps?.taskId || '');
       const action = String(corps?.action || '');
-      if (!taskId || !['reserves', 'reserve_ajout', 'envoyer', 'terminer'].includes(action)) {
+      if (!taskId || !['reserves', 'reserve_ajout', 'rapport', 'envoyer', 'terminer'].includes(action)) {
         return NextResponse.json({ error: 'Demande incomplète' }, { status: 400 });
       }
       const c = await chantierEcrivable(token, taskId);
@@ -315,6 +322,15 @@ export async function POST(request: Request) {
         });
         if (!res.ok) return NextResponse.json({ error: `La réserve n'a pas pu être créée (${res.status})` }, { status: 502 });
         if (correcteur) await tracer(token, id, `réserve ajoutée « ${libelle} »`, motif, correcteur);
+      } else if (action === 'rapport') {
+        const sousTaches = Array.isArray(c.tache.subtasks) ? c.tache.subtasks : [];
+        const mes = await mesDe(token, id, sousTaches);
+        if (!mes.length || mes.some((x) => !x.fait || x.defaut)) {
+          return NextResponse.json({ error: 'Le rapport se crée quand tous les éléments sont mis en service et conformes.' }, { status: 409 });
+        }
+        const g = await genererRapportMiseEnService(token, c.tache, mes);
+        if (!g.ok) return NextResponse.json({ error: `Rapport non créé : ${g.erreur}` }, { status: 502 });
+        await api(token, `/task/${id}/comment`, 'POST', { comment_text: `📊 Rapport de mise en service créé par l’application (${g.nom}) : ${mes.length} élément${mes.length > 1 ? 's' : ''} conforme${mes.length > 1 ? 's' : ''}.`, notify_all: false }).catch(() => null);
       } else if (action === 'envoyer') {
         const sousTaches = Array.isArray(c.tache.subtasks) ? c.tache.subtasks : [];
         const mes = await mesDe(token, id, sousTaches);
@@ -328,8 +344,8 @@ export async function POST(request: Request) {
         const session = await sessionDeRequete(request);
         const par = avant.techniciens.join(', ') || session?.nom || 'le poseur';
         const reserves = avant.niveau === 'mineure' ? `${avant.reserves.length} réserve${avant.reserves.length > 1 ? 's' : ''} mineure${avant.reserves.length > 1 ? 's' : ''}` : 'aucune réserve';
-        const miseEnService = mes.length ? `mise en service MW9665 conforme (${mes.map((x) => x.nom).join(', ')}), ` : '';
-        await alerter(token, id, `📋 Réception à valider : PV, rapport de mesures, ${miseEnService}${avant.photos.length} photo${avant.photos.length > 1 ? 's' : ''} déposés par ${par}, ${reserves}. Contrôle et valide dans l'appli (Valider les réceptions).`);
+        const miseEnService = mes.length ? `mise en service conforme (${mes.length} élément${mes.length > 1 ? 's' : ''}) et son rapport, ` : 'rapport de mesures, ';
+        await alerter(token, id, `📋 Réception à valider : PV, ${miseEnService}${avant.photos.length} photo${avant.photos.length > 1 ? 's' : ''} déposés par ${par}, ${reserves}. Contrôle et valide dans l'appli (Valider les réceptions).`);
       } else {
         const sousTaches = Array.isArray(c.tache.subtasks) ? c.tache.subtasks : [];
         const avant = decrire(c.tache, sousTaches, l.optionsReserves, await mesDe(token, id, sousTaches));
