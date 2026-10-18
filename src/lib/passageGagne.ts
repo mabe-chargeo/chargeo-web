@@ -20,6 +20,12 @@ import { champType, poserType, type CleType } from '@/lib/typesTaches';
 // sous-fiches archivées : elles suivent la fiche sans figurer dans sa lecture.
 // Étape 2 (15/10/2026) : la commande naît en type Commande, le dossier ADVENIR en type Dossier aide ; arrivée dans
 // Planning, la fiche passe en type Projet si elle ne l'est pas déjà (anciennes fiches Prospect ou Tâche).
+// 18/10/2026, 12 h 45 (parcours test : le dossier ADVENIR naissait vide) : 🅿️ Nb Places Parking et 🏛️ Date dépôt permis
+// ont été ajoutés par Matthieu (champs existants, mêmes identifiants) à Planning Chantiers et à Dossiers Advenir.
+// Ils suivent donc la fiche dans Planning (contrôlés comme champs communs) et sont recopiés sur le dossier ADVENIR,
+// avec le passeport (Email, Téléphone, Adresse, Lien Costructor). La description du dossier donne l'assiette selon la
+// date du permis (avant 2017 complète, 2017 au 10/03/2021 réduite, après non éligible). Un dossier déjà lié est
+// complété sur ses champs vides seulement.
 // Garde : fiche principale de Qualification, encore en gagné. En preview : vrai passage sur la liste TEST ou une fiche
 // « Test… », simulation partout.
 
@@ -29,6 +35,8 @@ const COMMANDES_ID = '901520038249';
 const ADVENIR_ID = process.env.CLICKUP_ADVENIR_LIST_ID || '901520038271';
 const CHAMP_SEGMENT = 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2';
 const CHAMP_CHANTIER = '9b561ce2-719c-4cc0-9bb6-392959f9206e'; // 🏗️ Chantier côté commande, 📦 Commande Liée côté chantier
+const CHAMP_PLACES = 'dd19d42f-8d9f-4657-bac5-942de6822468';
+const CHAMP_PERMIS = '39fa76fa-544d-4e0e-81ab-94822296cf85';
 const CHAMPS_COMMUNS: { id: string; nom: string }[] = [
   { id: 'd9f88e8f-4e20-4a98-aee8-3ded30fef5fc', nom: '🔗 Lien Costructor' },
   { id: '66aee5d1-7159-46a7-b986-3dd6c314fd80', nom: '📧 Email' },
@@ -39,6 +47,17 @@ const CHAMPS_COMMUNS: { id: string; nom: string }[] = [
   { id: '4423a27f-ecc1-4107-9488-4784360178c0', nom: '📝 N° devis' },
   { id: '58a159c7-edbc-4d53-a81a-5ec48337c7eb', nom: '💶 Montant devis HT' },
   { id: 'ae80f202-2ef3-4302-b778-f36075ee398f', nom: '🔗 Lien devis' },
+  { id: CHAMP_PLACES, nom: '🅿️ Nb Places Parking' },
+  { id: CHAMP_PERMIS, nom: '🏛️ Date dépôt permis' },
+];
+// Recopiés de la fiche vers le dossier ADVENIR (champs présents dans Dossiers Advenir)
+const CHAMPS_ADVENIR = [
+  CHAMP_PLACES,
+  CHAMP_PERMIS,
+  'd9f88e8f-4e20-4a98-aee8-3ded30fef5fc', // 🔗 Lien Costructor
+  '66aee5d1-7159-46a7-b986-3dd6c314fd80', // 📧 Email
+  '6a120794-23be-4c50-8d25-75993f0aece4', // 📞 Telephone
+  '990a7f3b-989f-416d-9a80-eba5654b228d', // 📍 Adresse
 ];
 
 const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -74,6 +93,54 @@ function option(t: any, id: string): string {
   if (!f || f.value === undefined || f.value === null || f.value === '') return '';
   const o = (f.type_config?.options || []).find((x: any) => x.orderindex === Number(f.value) || x.id === f.value);
   return String(o?.name || '');
+}
+
+// Valeur d'un champ de la fiche, prête à être écrite sur une autre tâche. undefined = rien à recopier
+function valeurAEcrire(f: any): any {
+  const v = f?.value;
+  if (v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)) return undefined;
+  if (f.type === 'location') {
+    const loc = v?.location || {};
+    return v?.formatted_address ? { location: { lat: loc.lat, lng: loc.lng }, formatted_address: v.formatted_address } : undefined;
+  }
+  if (['number', 'currency', 'date'].includes(String(f.type))) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return String(v);
+}
+
+const jourParis = (ms: number) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+// Assiette ADVENIR infrastructure selon la date de dépôt du permis (règle validée)
+function assietteAdvenir(fiche: any): string {
+  const ms = Number(champ(fiche, CHAMP_PERMIS)?.value);
+  if (!Number.isFinite(ms) || ms <= 0) return 'Date de dépôt du permis non renseignée : elle fixe l’assiette ADVENIR.';
+  const d = jourParis(ms);
+  const date = `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+  if (d < '2017-01-01') return `Permis déposé le ${date} : avant 2017, assiette complète.`;
+  if (d <= '2021-03-10') return `Permis déposé le ${date} : entre 2017 et le 10/03/2021, assiette réduite.`;
+  return `Permis déposé le ${date} : après le 10/03/2021, non éligible à l’aide infrastructure.`;
+}
+function placesTexte(fiche: any): string {
+  const n = Number(champ(fiche, CHAMP_PLACES)?.value);
+  return rempli(fiche, CHAMP_PLACES) && Number.isFinite(n) ? `${n} places de parking.` : 'Nombre de places non renseigné.';
+}
+
+// Champs de la fiche recopiés sur le dossier ADVENIR ; dossier déjà existant : seulement ses champs vides
+async function remplirDossier(token: string, fiche: any, dossierId: string, dossier?: any): Promise<{ copies: string[]; rates: string[] }> {
+  const copies: string[] = [];
+  const rates: string[] = [];
+  for (const id of CHAMPS_ADVENIR) {
+    const f = champ(fiche, id);
+    const v = valeurAEcrire(f);
+    if (v === undefined) continue;
+    if (dossier && rempli(dossier, id)) continue;
+    const r = await api(token, `/task/${dossierId}/field/${id}`, 'POST', { value: v });
+    if (r.ok) copies.push(String(f.name));
+    else { rates.push(String(f.name)); console.error(`Champ ${f.name} non recopié sur le dossier ADVENIR (${r.status})`); }
+  }
+  return { copies, rates };
 }
 
 async function statutsListe(listId: string, token: string): Promise<any[]> {
@@ -191,6 +258,8 @@ export async function traiterGagne(taskId: string, simulation: boolean) {
       planning: 'deplacerait en 📥 à planifier',
       commande: commandeExistante ? 'deja_creee' : 'creerait',
       advenir: !avecAdvenir ? 'ignore_res' : dossierExistant ? 'deja_cree' : 'creerait',
+      advenirChamps: CHAMPS_ADVENIR.filter((c) => rempli(fiche, c)).map((c) => String(champ(fiche, c)?.name || c)),
+      assiette: assietteAdvenir(fiche),
     };
   }
 
@@ -223,20 +292,26 @@ export async function traiterGagne(taskId: string, simulation: boolean) {
     }
   }
 
-  // 3. #6 Dossiers ADVENIR
+  // 3. #6 Dossiers ADVENIR (fiche lue AVANT le déplacement : toutes ses valeurs de Qualification)
   let advenir: any;
   if (!avecAdvenir) advenir = { action: 'ignore_res' };
-  else if (dossierExistant) advenir = { action: 'deja_cree', url: dossierExistant.url };
-  else {
+  else if (dossierExistant) {
+    const r = await remplirDossier(token, fiche, String(dossierExistant.id), dossierExistant);
+    advenir = { action: 'deja_cree', url: dossierExistant.url, ...r };
+  } else {
     const a = await creerLiee(token, fiche, ADVENIR_ID, 'reserver',
-      `Dossier ADVENIR pour ${nom}. Première étape : vérifier l'éligibilité (date de dépôt du permis, date du vote d'AG, barème applicable) avant toute réservation.`, 'dossierAide');
-    advenir = a ? { action: 'cree', ...a } : { action: 'erreur_creation' };
+      `Dossier ADVENIR pour ${nom}. Première étape : vérifier l'éligibilité (date de dépôt du permis, date du vote d'AG, barème applicable) avant toute réservation.\n\n${placesTexte(fiche)}\n${assietteAdvenir(fiche)}`, 'dossierAide');
+    advenir = a ? { action: 'cree', ...a, ...(await remplirDossier(token, fiche, a.id)) } : { action: 'erreur_creation' };
   }
+  const manquantsAdvenir = avecAdvenir
+    ? [!rempli(fiche, CHAMP_PLACES) && 'nombre de places', !rempli(fiche, CHAMP_PERMIS) && 'date de dépôt du permis'].filter(Boolean) as string[]
+    : [];
 
   // Récapitulatif sur la fiche
   const lignes = [d.ok ? '🏆 Affaire gagnée : fiche passée dans Planning Chantiers (📥 à planifier).' : '🏆 Affaire gagnée.'];
   if (commande.action === 'creee') lignes.push(`📦 Commande matériel à préparer (vérifier le stock d'abord) : ${commande.url}`);
   if (advenir.action === 'cree') lignes.push(`🏛️ Dossier ADVENIR créé, première étape : vérifier l'éligibilité : ${advenir.url}`);
+  if ((advenir.action === 'cree' || advenir.action === 'deja_cree') && advenir.copies?.length) lignes.push(`🏛️ Recopié sur le dossier ADVENIR : ${advenir.copies.join(', ')}. ${assietteAdvenir(fiche)}`);
   if (advenir.action === 'ignore_res') lignes.push('🏛️ Pas de dossier ADVENIR (segment RES).');
   if (lignes.length > 1 || d.ok) await commenter(token, id, lignes.join('\n'));
 
@@ -245,11 +320,13 @@ export async function traiterGagne(taskId: string, simulation: boolean) {
     advenir.action === 'erreur_creation' ? 'le dossier ADVENIR (Dossiers ADVENIR)' : '',
   ].filter(Boolean);
   if (rates.length) await alerter(token, id, `⚠️ Passage en gagné : je n'ai pas pu créer ${rates.join(' ni ')}. ${rates.length > 1 ? 'Crée-les à la main et lie-les' : 'Crée-la à la main et lie-la'} à cette fiche.`);
+  if (advenir.rates?.length) await alerter(token, id, `⚠️ Dossier ADVENIR : ${advenir.rates.join(', ')} non recopié${advenir.rates.length > 1 ? 's' : ''} depuis la fiche. Reporte la valeur à la main.`);
+  if (manquantsAdvenir.length) await alerter(token, id, `⚠️ Dossier ADVENIR : ${manquantsAdvenir.join(' et ')} absent${manquantsAdvenir.length > 1 ? 's' : ''} de la fiche. Renseigne-les sur la fiche et sur le dossier : ils fixent l'éligibilité et le barème.`);
 
   return {
-    success: d.ok && !rates.length && !perdus.length,
+    success: d.ok && !rates.length && !perdus.length && !advenir.rates?.length,
     segment: segment || 'vide',
     planning: { ok: d.ok, statut: d.detail, essai: d.essai, champsVides: perdus },
-    commande, advenir,
+    commande, advenir, manquantsAdvenir,
   };
 }
