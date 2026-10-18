@@ -21,6 +21,8 @@
 // gros bouton « 💼 Préparer le devis dans Costructor » (🔗 Lien Costructor du client) pour chiffrer depuis la fiche.
 // 17/10, 20 h 53 (Matthieu) : carte Relevé d'une fiche à visiter : « 📅 Caler le relevé » tant qu'il n'y a pas de date ;
 // ensuite « ✉️ Renvoyer la confirmation » (email du rendez-vous, /interne/caler/<id>?confirmation=1) et « 📅 Décaler ».
+// 18/10, 9 h 33 : carte Chantier d'un chantier à planifier, en préparation ou planifié : « 📅 Planifier la pose » ou
+// « Décaler la pose » (/interne/planifier/<id>), pour le chef de chantier et la direction (rôle affiché).
 // Structure de départ validée le 16/10 ; bloc Contact le 17/10 à 10 h 20. Retour vers la vue d'où l'on vient, sinon
 // vers Mon espace.
 import { useEffect, useState, type ElementType, type ReactNode } from 'react';
@@ -84,6 +86,8 @@ const euros = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency',
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 // Fiche d'un SAV, d'une visite, d'une facture ou d'un dossier ADVENIR dans l'application (plus de lien ClickUp)
 const ficheElement = (id: string) => `/interne/element/${encodeURIComponent(id)}`;
+// Chantier qui se planifie encore : à planifier, en préparation ou planifié (pas en cours, réalisé ni annulé)
+const sePlanifie = (statut: string) => { const s = normal(statut); return s.includes('a planifier') || s.includes('preparation') || (s.includes('planifie') && !s.includes('en cours')); };
 
 const boutonAction = (href: string, libelle: string) => (
   <a
@@ -265,14 +269,15 @@ export default function FichePage() {
     </Carte>
   );
 
-  // Chantier, avec les actions de la fiche intervention (étape 2) : ce qui est prévu, saisie à la pose, puis rapport et
-  // signature
+  // Chantier, avec les actions de la fiche intervention (étape 2) : planifier la pose (chef de chantier, direction), ce
+  // qui est prévu, saisie à la pose, puis rapport et signature
   const carteChantier = (f: Fiche) => f.chantier && (
     <Carte className="space-y-2.5">
       <TitreCarte icon={HardHat}>Chantier</TitreCarte>
       {ligne(CalendarClock, f.chantier.intervention ? `Intervention ${f.chantier.intervention}` : 'Date d’intervention à fixer', f.chantier.intervention ? CYAN : ORANGE)}
       {ligne(HardHat, f.chantier.techniciens.length ? f.chantier.techniciens.join(', ') : 'Technicien à affecter', f.chantier.techniciens.length ? CYAN : ORANGE)}
       <div className="space-y-2 pt-1">
+        {(role === 'direction' || role === 'chargeOperation') && sePlanifie(f.statut) && boutonSecondaire(`/interne/planifier/${encodeURIComponent(f.id)}`, f.chantier.intervention ? '📅 Décaler la pose' : '📅 Planifier la pose')}
         {boutonSecondaire(`/interne/pose/${f.id}#prevu`, '📋 Ce qui est prévu')}
         {boutonAction(`/interne/pose/${f.id}`, '📸 Saisie à la pose')}
         {boutonSecondaire('/interne/reception', 'Rapport et signature')}
