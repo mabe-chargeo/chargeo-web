@@ -20,6 +20,8 @@
 // 17/10, 17 h 51 (Matthieu : « je suis en vue installateur, alors pourquoi j'ai ce message ? ») : le rôle choisi dans
 // la pastille de l'en-tête part avec la lecture (&role=). Vue Installateur = mes interventions, comme un installateur,
 // même pour la direction. Vue Direction ou Chef de chantier = toute l'équipe, avec le nom des installateurs.
+// 18/10, 22 h 20 (maquette MAQUETTE_RAPPORT-SAV_2026-10-18.png validée par Matthieu) : chaque ticket SAV a le bouton
+// orange « 🛠️ Rapport d'intervention » (/interne/rapport-sav/<id>) ; caler le dépannage passe en bouton secondaire.
 import { useEffect, useState } from 'react';
 import { ArrowLeft, CalendarClock, ChevronRight, Download, ExternalLink, HardHat, MapPin, Navigation, RefreshCw, WifiOff } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
@@ -152,8 +154,8 @@ export default function InterventionsPage() {
     </a>
   );
 
-  // Pose et visite ont leur bouton orange principal : l'action éventuelle passe alors en bouton secondaire
-  const aBoutonPrincipal = (i: Item) => i.type === 'pose' || i.type === 'visite';
+  // Pose, visite et ticket SAV ont leur bouton orange principal : l'action éventuelle passe alors en bouton secondaire
+  const aBoutonPrincipal = (i: Item) => i.type === 'pose' || i.type === 'visite' || i.type === 'sav';
 
   const carte = (i: Item) => (
     <div key={`${i.type}-${i.id}`} className="space-y-3 rounded-[20px] p-5" style={{ backgroundColor: GRIS }}>
@@ -200,6 +202,11 @@ export default function InterventionsPage() {
       {i.type === 'visite' && (
         <a href={`/interne/maintenance/${i.id}`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 text-[15px] font-semibold text-white transition-transform active:scale-95">
           🔧 Faire la visite
+        </a>
+      )}
+      {i.type === 'sav' && (
+        <a href={`/interne/rapport-sav/${i.id}`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 text-[15px] font-semibold text-white transition-transform active:scale-95">
+          🛠️ Rapport d’intervention
         </a>
       )}
       {i.action && (

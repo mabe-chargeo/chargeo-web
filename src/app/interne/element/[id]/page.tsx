@@ -24,6 +24,9 @@
 // 18/10, 20 h 00 (Matthieu : « ton bouton… FaceTime, on avait travaillé là-dessus ») : plus de raccourcis tel: bruts.
 // Le contact passe par le bloc 📇 Contact validé : celui de l'affaire reliée (Parc, chantier, vente), et les mêmes
 // boutons (BoutonsContact : Appeler, Google Voice, SMS, Gmail ; Waze et Google Maps) sur les coordonnées de la fiche.
+// 18/10, 22 h 20 (maquette MAQUETTE_RAPPORT-SAV_2026-10-18.png validée par Matthieu) : un ticket SAV ouvert a le bouton
+// « 🛠️ Rapport d'intervention » (/interne/rapport-sav/<id>) pour le chef de chantier, la direction et l'installateur ;
+// « Problème résolu » dans le rapport ferme le ticket.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AlignLeft, ArrowLeft, CalendarPlus, Check, ChevronDown, ChevronRight, ExternalLink, Link2, ListChecks, Mail, MapPin, Navigation, Paperclip, Phone, RefreshCw, Users } from 'lucide-react';
@@ -253,6 +256,11 @@ export default function ElementPage() {
   // Faire la visite : jusqu'à la visite réalisée (le rapport se valide ensuite)
   if (element?.source === 'maintenance' && !normal(element.statut).includes('rapport') && !normal(element.statut).includes('complete')) {
     etapes.push({ texte: 'Le jour J, dérouler le protocole de contrôle jusqu’au rapport.', libelle: '🔧 Faire la visite', href: `/interne/maintenance/${element.id}`, couleur: '#FF6B00' });
+  }
+  // Rapport d'intervention SAV : sur place, après le dépannage, jusqu'au ticket résolu
+  const savOuvert = element?.source === 'sav' && !normal(element.statut).includes('resolu') && !normal(element.statut).includes('archive');
+  if (element && savOuvert && (role === 'direction' || role === 'chargeOperation' || role === 'poseur')) {
+    etapes.push({ texte: 'Sur place, après le dépannage : remplir le rapport et le faire signer au client. « Problème résolu » ferme le ticket.', libelle: '🛠️ Rapport d’intervention', href: `/interne/rapport-sav/${element.id}`, couleur: '#FF6B00' });
   }
 
   const commentaires = element && element.commentaires.length > 0 && (
