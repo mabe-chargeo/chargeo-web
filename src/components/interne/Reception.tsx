@@ -16,8 +16,10 @@
 // 17/10, 15 h 34 (Matthieu : « le chef de chantier corrige, avec trace ») : une fois le PV signé et envoyé (✅ réalisé),
 // cadenas sur le PV et les réserves. Le poseur ne peut plus les changer ; le chef de chantier corrige en donnant un motif,
 // gardé en commentaire sur le chantier. Rapport de mesures et photos restent ajoutables.
+// 18/10, 14 h 41 (Matthieu : « il y a une mise en service à faire sur chaque chantier ») : bloc ⚡ Mise en service
+// (MW9665) avec l'état de chaque borne (ou TD IRVE) et le bouton vers /interne/mise-en-service/<chantier>.
 import { useEffect, useState } from 'react';
-import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Lock, Plus, RefreshCw } from 'lucide-react';
+import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Lock, Plus, RefreshCw, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
@@ -25,11 +27,12 @@ import { BlocContact } from '@/components/ui/BlocContact';
 interface Reserve { id: string; nom: string; responsables: string[]; echeance: number | null; faite: boolean }
 interface Option { id: string; nom: string; orderindex: number }
 interface Fichier { id: string; nom: string; image: boolean }
+interface PointMes { id: string; nom: string; mode: string; fait: boolean; defaut: boolean }
 interface Chantier {
   id: string; nom: string; statut: string; couleurStatut: string; url: string;
   pv: Fichier[]; photos: Fichier[]; rapport: Fichier[]; techniciens: string[]; reservesOptionId: string | null; niveau: string;
   reserves: Reserve[]; motifs: string[]; avertissements: string[]; ecritureAutorisee: boolean; envoye: boolean;
-  verrouille?: boolean;
+  verrouille?: boolean; miseEnService?: PointMes[];
 }
 
 const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -151,6 +154,33 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
     setEnCours(null);
   };
 
+  // ⚡ Mise en service MW9665 : état de chaque borne (ou TD IRVE) et accès à la saisie
+  const blocMiseEnService = (c: Chantier) => {
+    const points = c.miseEnService || [];
+    if (!points.length) return null;
+    const conformes = points.filter((p) => p.fait && !p.defaut).length;
+    const complet = conformes === points.length;
+    return (
+      <div className="rounded-[14px] bg-white p-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="flex items-center gap-1.5 text-[14px] font-bold"><Zap size={16} color={CYAN} /> Mise en service (MW9665)</p>
+          <span className="text-[12px] font-semibold" style={{ color: complet ? '#16a34a' : ORANGE }}>{conformes}/{points.length} conforme{points.length > 1 ? 's' : ''}</span>
+        </div>
+        <ul className="mt-2 space-y-1">
+          {points.map((p) => (
+            <li key={p.id} className="flex items-center justify-between gap-3 text-[13px]">
+              <span className="font-semibold">{p.nom}</span>
+              <span style={{ color: p.fait ? (p.defaut ? ORANGE : '#16a34a') : ORANGE }}>{p.fait ? (p.defaut ? '⚠️ défaut noté' : '✅ mesuré') : 'à mesurer'}</span>
+            </li>
+          ))}
+        </ul>
+        <a href={`/interne/mise-en-service/${c.id}`} className="mt-2 flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8]">
+          <Zap size={16} color={CYAN} /> {complet ? 'Voir ou refaire les mesures' : 'Faire les mesures'}
+        </a>
+      </div>
+    );
+  };
+
   const carte = (c: Chantier) => {
     const occupe = !!enCours && enCours.startsWith(c.id);
     const bloque = !c.ecritureAutorisee;
@@ -194,8 +224,10 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
           </div>
         )}
 
+        {blocMiseEnService(c)}
+
         {/* PV et photos */}
-        {([['pv', '📂 PV Réception', c.pv, FileText, 'image/*,application/pdf'], ['rapport', '📊 Rapport de mesures', (c.rapport || []) as Fichier[], Gauge, 'application/pdf,image/*'], ['photos', '📸 Photos Chantier', c.photos, Camera, 'image/*']] as const).map(([cible, libelle, liste, Icone, accept]) => {
+        {([['pv', '📂 PV Réception', c.pv, FileText, 'image/*,application/pdf'], ['rapport', '📊 Rapport de mesures (PDF MESM)', (c.rapport || []) as Fichier[], Gauge, 'application/pdf,image/*'], ['photos', '📸 Photos Chantier', c.photos, Camera, 'image/*']] as const).map(([cible, libelle, liste, Icone, accept]) => {
           const fige = cible === 'pv' && pvFige;
           return (
             <div key={cible} className="rounded-[14px] bg-white p-3">
@@ -229,7 +261,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
               {!(cible === 'pv' && verrouPoseur) && (
                 <label className={`mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8] ${bloque || occupe || fige ? 'pointer-events-none opacity-50' : ''}`}>
                   <Icone size={16} color={CYAN} />
-                  {enCours === `${c.id}:${cible}` ? 'Envoi...' : cible === 'pv' ? (verrou ? 'Corriger : déposer un nouveau PV' : 'Ajouter le PV signé') : cible === 'rapport' ? 'Ajouter le rapport du contrôleur' : 'Ajouter des photos'}
+                  {enCours === `${c.id}:${cible}` ? 'Envoi...' : cible === 'pv' ? (verrou ? 'Corriger : déposer un nouveau PV' : 'Ajouter le PV signé') : cible === 'rapport' ? 'Ajouter le rapport MESM du MW9665' : 'Ajouter des photos'}
                   <input type="file" accept={accept} multiple={cible === 'photos'} className="hidden" onChange={(e) => { deposer(c, cible, e.target.files); e.target.value = ''; }} />
                 </label>
               )}
@@ -350,8 +382,8 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
         <div className="flex items-center justify-between gap-3">
           <p className="text-[13px]">
             {poseur
-              ? 'Fais signer le PV, dépose PV, rapport de mesures et photos, déclare les réserves, puis envoie au chargé d\'opération.'
-              : 'Contrôle le PV, le rapport de mesures, les photos et les réserves, puis valide : le chantier passe au Parc.'}
+              ? 'Fais la mise en service MW9665, fais signer le PV, dépose PV, rapport MESM et photos, déclare les réserves, puis envoie au chargé d\'opération.'
+              : 'Contrôle la mise en service, le PV, le rapport de mesures, les photos et les réserves, puis valide : le chantier passe au Parc.'}
           </p>
           <button onClick={charger} aria-label="Actualiser" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95">
             <RefreshCw size={18} color={CYAN} className={loading ? 'animate-spin' : ''} />
