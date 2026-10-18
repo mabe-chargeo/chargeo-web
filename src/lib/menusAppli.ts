@@ -25,6 +25,8 @@
 // Ma journée · À traiter (l'ancien Mon espace, sans sa partie À consulter) · Consulter (/interne/consulter,
 // MENUS[rôle].consulter) · Créer (/interne/plus, CREER[rôle]). La déconnexion passe sous la pastille du rôle de
 // l'en-tête (src/components/charte/RoleActif.tsx). + Prospect (19 h 53) et + Tâche (20 h 14) ajoutés à Créer.
+// 18/10/2026, 9 h 50 : pastilles Perdues (Pipeline, /interne/fiches?vue=perdues), Aujourd'hui et À venir (Relevés,
+// /interne?vue=aujourdhui et ?vue=a-venir) branchées.
 
 export type RoleAppli = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 
@@ -108,7 +110,7 @@ export const ECRANS: Record<string, Ecran> = {
       { cle: 'relances-echues', libelle: 'Relances échues', groupe: 'Devis', href: fiches('relances-echues') },
       { cle: 'en-negociation', libelle: 'En négociation', groupe: 'Devis', href: fiches('en-negociation') },
       { cle: 'gagnees', libelle: 'Gagnées', groupe: 'Issue', href: fiches('gagnees') },
-      { cle: 'perdues', libelle: 'Perdues', groupe: 'Issue' },
+      { cle: 'perdues', libelle: 'Perdues', groupe: 'Issue', href: fiches('perdues') },
       { cle: 'toutes', libelle: 'Toutes', groupe: 'Issue', href: fiches('toutes') },
     ],
   },
@@ -116,8 +118,8 @@ export const ECRANS: Record<string, Ecran> = {
     cle: 'releves', libelle: 'Relevés', href: '/interne', icone: 'releves', pret: true, actif: ['/interne', '/interne/metre'],
     description: 'Outil terrain : fiches 📍 à visiter, relevé (mètre, scénarios, photos) utilisable hors ligne',
     pastilles: [
-      { cle: 'aujourdhui', libelle: "Aujourd'hui" },
-      { cle: 'a-venir', libelle: 'À venir' },
+      { cle: 'aujourdhui', libelle: "Aujourd'hui", href: '/interne?vue=aujourdhui' },
+      { cle: 'a-venir', libelle: 'À venir', href: '/interne?vue=a-venir' },
       { cle: 'carte', libelle: 'Carte des audits', href: '/interne/agenda?vue=carte' },
     ],
   },
