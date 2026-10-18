@@ -3,12 +3,15 @@ import { sessionDeRequete } from '@/lib/session';
 import { rolesDe } from '@/lib/roles';
 import { echeanceClickUp, libelleJour } from '@/lib/joursOuvres';
 import { FACTURES_ID, CHAMP_ECHEANCE, lireStatut, traiterRelance } from '@/lib/relancesFacture';
+import { retrouverFacture } from '@/lib/factureAuto';
 
 // Écran facture de l'application (maquette validée par Matthieu le 18/10/2026, 18 h 19).
 // POST { id, numero, montant, echeance: 'AAAA-MM-JJ' } : « Marquer comme émise ». Back-office et direction seulement.
 // Remplit 🧾 N° facture Costructor, Montant HT et Date d'échéance, passe la facture en 📤 émise, puis programme tout de
 // suite la première relance (src/lib/relancesFacture.ts, la même que l'automatisation ClickUp : pas de doublon, la
 // seconde trouve le rappel déjà posé). Seulement depuis 📄 à émettre. En preview : factures « Test… » uniquement.
+// 18/10/2026, 18 h 57 : POST { id, action: 'retrouver' } (appelé à l'ouverture de l'écran) cherche la facture finalisée
+// dans Costructor et la reporte toute seule (src/lib/factureAuto.ts) ; le formulaire reste en secours.
 
 export const dynamic = 'force-dynamic';
 const json = (corps: any, status = 200) => NextResponse.json(corps, { status });
@@ -44,6 +47,11 @@ export async function POST(request: Request) {
 
   const corps = await request.json().catch(() => ({}));
   const id = String(corps?.id || '');
+  if (corps?.action === 'retrouver') {
+    if (!/^[a-z0-9]+$/i.test(id)) return json({ error: 'Identifiant invalide' }, 400);
+    const r = await retrouverFacture(id).catch((e) => ({ success: false, error: String(e) }));
+    return json(r, r.success ? 200 : 502);
+  }
   const numero = String(corps?.numero || '').trim();
   const montant = Number(String(corps?.montant ?? '').replace(/\s/g, '').replace(',', '.'));
   const m = String(corps?.echeance || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
