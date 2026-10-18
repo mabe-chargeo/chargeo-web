@@ -17,6 +17,7 @@ import { synchroniserSav } from '@/lib/syncSavParc';
 import { CHAMP_RESULTAT_APPEL, PROSPECTION_ID, traiterProspection, type DeclencheurProspection } from '@/lib/prospection';
 import { apresReceptionResident, avantReceptionResident, controlerResident, suggererInfra } from '@/lib/residentInfra';
 import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
+import { traiterEmbauche } from '@/lib/embauche';
 
 // Aiguillage des changements ClickUp (bascule du 12/10/2026) : remplace les automatisations « Appeler le webhook »
 // et les Super Agents de synchro. ClickUp prévient le site (src/app/api/webhooks/clickup), l'aiguillage choisit
@@ -37,10 +38,13 @@ import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
 //   matériel ; statut → validation des achats puis réception matériel.
 // Achats Fournisseurs : statut → validation. Factures Clients : statut, Date d'échéance, Relances envoyées → relances.
 // Parc installé : ⭐ Avis Google → suivi des avis. Tickets SAV : création, statut, 🔗 Fiche Installation → synchro Parc.
+// Recrutement Installateurs (18/10/2026, 9 h 40, choix de Matthieu) : statut « embauché » → fiche salarié dans Vie des
+//   Salariés avec la checklist ONBOARDING (src/lib/embauche.ts).
 
 const PLANNING_CHANTIERS_ID = '901520038258';
 const COMMANDES_ID = '901520038249';
 const PARC_ID = '901520038290';
+const RECRUTEMENT_ID = '1200630000003865';
 const SAV_IDS = [process.env.CLICKUP_SAV_LIST_ID || '', '901520038282'].filter(Boolean);
 const FACTURES_ID = process.env.CLICKUP_FACTURES_LIST_ID || '1200630000003863';
 const ACHATS_ID = process.env.CLICKUP_ACHATS_LIST_ID || '1200630000003864';
@@ -85,7 +89,7 @@ function listesQualification(): string[] {
 }
 
 export function listeSuivie(listeId: string): boolean {
-  return [String(PROSPECTION_ID), ...listesQualification(), PLANNING_CHANTIERS_ID, COMMANDES_ID, PARC_ID, ...SAV_IDS, String(FACTURES_ID), String(ACHATS_ID)].includes(listeId);
+  return [String(PROSPECTION_ID), ...listesQualification(), PLANNING_CHANTIERS_ID, COMMANDES_ID, PARC_ID, RECRUTEMENT_ID, ...SAV_IDS, String(FACTURES_ID), String(ACHATS_ID)].includes(listeId);
 }
 
 // Changements lus dans l'envoi de ClickUp. Chaque type d'événement n'apporte que son changement (pas de doublon
@@ -159,6 +163,8 @@ export function planifier(listeId: string, ch: Changement): Etape[] {
 
   if (listeId === PARC_ID) return ch.type === 'champ' && ch.champId === CHAMP_AVIS ? [{ cle: 'avis' }] : [];
 
+  if (listeId === RECRUTEMENT_ID) return ch.type === 'statut' && s.includes('embauche') ? [{ cle: 'embauche' }] : [];
+
   if (SAV_IDS.includes(listeId)) {
     if (ch.type === 'creation') return [{ cle: 'sav', params: { declencheur: 'creation' } }];
     if (ch.type === 'statut') return [{ cle: 'sav', params: { declencheur: 'statut' } }];
@@ -208,6 +214,7 @@ export async function executer(taskId: string, etapes: Etape[], simulation: bool
       else if (e.cle === 'residentControle') r = await controlerResident(taskId, simulation);
       else if (e.cle === 'residentAvantParc') r = await avantReceptionResident(taskId, simulation);
       else if (e.cle === 'residentParc') r = await apresReceptionResident(taskId, simulation, libelleJour(aujourdhuiParis()));
+      else if (e.cle === 'embauche') r = await traiterEmbauche(taskId, simulation);
       else r = await appelerRoute(e.cle, taskId, e.params || {}, simulation);
     } catch (erreur) {
       console.error(`Aiguillage : ${libelle(e)} en erreur sur ${taskId}`, erreur);
