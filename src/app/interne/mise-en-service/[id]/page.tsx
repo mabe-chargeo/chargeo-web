@@ -1,9 +1,9 @@
 "use client";
 
 // Mise en service à la réception (décision de Matthieu du 18/10/2026, 14 h 41), protocole Sefram MW9665.
-// Un onglet par point à mesurer (bornes du scénario retenu, sinon TD IRVE) ; mêmes étapes que la visite de maintenance
-// (src/lib/protocoleMaintenance.ts), étapes électriques seulement pour un TD IRVE. Brouillon gardé sur le téléphone ;
-// « Enregistrer » passe par la file d'envoi hors ligne (src/lib/fileEnvoi.ts).
+// Un onglet par point à mesurer (bornes du scénario retenu, sinon TD IRVE). Borne : autoséquence EVSE avec l'A1532-XA ;
+// TD IRVE : contrôles d'installation du MW9665 (src/lib/protocoleMaintenance.ts, réaligné le 18/10 à 14 h 56).
+// Brouillon gardé sur le téléphone ; « Enregistrer » passe par la file d'envoi hors ligne (src/lib/fileEnvoi.ts).
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, Camera, Check, CloudOff, MapPin, RefreshCw } from 'lucide-react';
@@ -17,7 +17,7 @@ type Point = { id: string; nom: string; mode: 'borne' | 'infra'; fait: boolean; 
 
 const ROUTE = '/api/interne/mise-en-service';
 const VIDE: Resultats = { tri: false, valeurs: {}, remarque: '' };
-const cleBrouillon = (chantier: string, element: string) => `chargeo-mes-${chantier}-${element}`;
+const cleBrouillon = (chantier: string, element: string) => `chargeo-mes2-${chantier}-${element}`;
 const cleCache = (chantier: string) => `chargeo-mes-chantier-${chantier}`;
 
 export default function MiseEnServicePage() {
@@ -84,6 +84,7 @@ export default function MiseEnServicePage() {
   }, [id, actif]);
 
   const point = points.find((p) => p.id === actif) || null;
+  const infra = point?.mode === 'infra';
   const etapes = etapesDe(point?.mode || 'borne');
   const changer = (suite: Resultats) => {
     setR(suite);
@@ -100,7 +101,7 @@ export default function MiseEnServicePage() {
         if (f) await ajouter({ cle: nouvelleCle(), chantierId: id, chantierNom: chantier.nom, elementId: point.id, elementNom: point.nom, type: 'photo', donnees: { etape }, fichier: f, nomFichier: f.name, route: ROUTE });
       }
       const d = defauts(r, etapes);
-      setMessage(d.length ? `${point.nom} enregistré avec ${d.length} défaut${d.length > 1 ? 's' : ''} : corrige puis refais la mesure, la réception reste bloquée.` : `${point.nom} enregistré.`);
+      setMessage(d.length ? `Mesures du ${point.nom} enregistrées avec ${d.length} défaut${d.length > 1 ? 's' : ''} : corrige puis refais la mesure, la réception reste bloquée.` : `Mesures du ${point.nom} enregistrées.`);
       setPoints((l) => l.map((p) => (p.id === point.id ? { ...p, fait: true, defaut: d.length > 0 } : p)));
       try { localStorage.removeItem(cleBrouillon(id, point.id)); } catch { /* rien */ }
       setPhotos({});
@@ -155,7 +156,9 @@ export default function MiseEnServicePage() {
           <Carte className="space-y-1.5">
             {chantier.adresse && <p className="flex items-center gap-1.5 text-[14px]"><MapPin size={14} color={CYAN} /> {chantier.adresse}</p>}
             <p className="text-[13px]">{points.length} point{points.length > 1 ? 's' : ''} à mesurer · {points.filter((p) => p.fait && !p.defaut).length} conforme{points.filter((p) => p.fait && !p.defaut).length > 1 ? 's' : ''}</p>
-            {point?.mode === 'infra' && <p className="text-[13px]">Pas de borne dans le scénario retenu : le TD IRVE est mesuré sans adaptateur de borne (visuel, tension, boucle, différentiel, isolement).</p>}
+            {infra
+              ? <p className="text-[13px]">Pas de borne dans le scénario retenu : le TD IRVE est contrôlé au MW9665 seul, sans l’A1532-XA (continuité PE, isolement, tension, impédances, différentiel). L’autoséquence borne se fera à la pose des bornes.</p>
+              : <p className="text-[13px]">Suis l’autoséquence borne du MW9665 avec l’A1532-XA, dans le même ordre. Note la valeur et le verdict affichés par l’appareil.</p>}
           </Carte>
         )}
         {!loading && chantier && points.length === 0 && (
@@ -170,7 +173,7 @@ export default function MiseEnServicePage() {
           </Alerte>
         )}
 
-        {points.length > 0 && (
+        {points.length > 1 && (
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
             {points.map((p) => {
               const choisi = p.id === actif;
@@ -182,6 +185,7 @@ export default function MiseEnServicePage() {
             })}
           </div>
         )}
+        {point && points.length === 1 && <p className="px-1 text-[16px] font-bold" style={{ color: NAVY }}>{point.nom}</p>}
 
         {point && (
           <>
@@ -202,7 +206,7 @@ export default function MiseEnServicePage() {
                 {e.controles.filter((c) => !(c.tri && !r.tri)).map((c) => (
                   <div key={c.cle} className="flex flex-wrap items-center justify-between gap-2">
                     <p className="min-w-0 text-[15px] font-semibold">{c.libelle}</p>
-                    {c.type === 'okko' ? boutonsOkKo(e.cle, c.cle, c.na || point.mode === 'infra') : (
+                    {c.type === 'okko' ? boutonsOkKo(e.cle, c.cle, c.na) : (
                       <div className="flex items-center gap-2">
                         <input className={`${CHAMP} w-28 py-2.5 text-right`} inputMode="decimal" value={valeur(e.cle, c.cle)} onChange={(ev) => poser(e.cle, c.cle, ev.target.value.replace(',', '.'))} />
                         <span className="w-8 text-[14px] font-bold">{c.unite}</span>
@@ -233,7 +237,7 @@ export default function MiseEnServicePage() {
             {message && <Carte accent><p className="text-[15px] font-semibold">{message}</p></Carte>}
 
             <BoutonPrincipal inactif={bloque} disabled={bloque} onClick={enregistrer}>
-              <Check size={20} /> Enregistrer {point.nom}{reste > 0 ? ` (${reste} non renseigné${reste > 1 ? 's' : ''})` : ''}
+              <Check size={20} /> Enregistrer les mesures{reste > 0 ? ` (${reste} à remplir)` : ''}
             </BoutonPrincipal>
             <p className="px-1 text-center text-[13px]">Enregistre aussi la séquence dans le MW9665 : le rapport MESM (PDF) se dépose ensuite dans la réception.</p>
           </>
