@@ -43,15 +43,18 @@ function ancienRetour(n: React.ReactNode): { repli?: string } | null {
 // 17/10/2026, 16 h 19 : le bouton Retour est sur tous les écrans sauf Ma journée, Mon espace et Plus.
 // 18/10/2026, 17 h 20 : fil d'Ariane sous le bouton Retour (onglet de la barre puis écrans parents, src/lib/filAriane.ts).
 // 18/10/2026, 17 h 37 : « parent » impose l'écran parent du fil (clé de la carte des menus, '' = aucun).
+// 18/10/2026, 18 h 19 : « sousTitre » optionnel sous le titre (écran facture : devis et n° de facture).
 export function EnTeteAppli({
   surtitre,
   titre,
+  sousTitre,
   retour,
   action,
   parent,
 }: {
   surtitre: string;
   titre: string;
+  sousTitre?: string;
   retour?: { href: string; libelle: string };
   action?: React.ReactNode;
   parent?: string;
@@ -76,6 +79,7 @@ export function EnTeteAppli({
           <RoleActif />
         </div>
         <h1 className="mt-1 text-[26px] font-bold leading-tight tracking-[-0.015em] text-white sm:text-[28px]">{titre}</h1>
+        {sousTitre && <p className="mt-1.5 text-[14px] font-medium text-white/75">{sousTitre}</p>}
       </div>
     </header>
   );

@@ -5,12 +5,14 @@ import { getQualificationListId } from '@/lib/listesClickUp';
 import { LISTES } from '@/lib/espaces';
 import { CONFIG_LISTES, lienListe, peutLire, seulementMoi, sourceDeListe } from '@/lib/listesAppli';
 import { champsLus, dateCourte, estAMoiPartout } from '@/lib/champsGeneriques';
+import { lireFacture } from '@/lib/factureFiche';
 
 // Fiche générique (lot « écrans qui manquent » du 17/10/2026, 14 h 28). LECTURE SEULE.
 // GET ?id=<tâche> : une tâche d'une liste de src/lib/listesAppli.ts (commande, ticket SAV, visite, facture, achat, dossier
 // ADVENIR, installation du Parc, demande RH, CODIR, OKR, Kaizen, To-Do), avec tous ses champs remplis, sa description,
 // ses 10 derniers commentaires, ses pièces jointes et ses sous-tâches.
 // 17/10, 20 h 01 : et ses checklists (onboarding des salariés…), cochables par /api/interne/checklist.
+// 18/10, 18 h 19 (écran facture validé par Matthieu) : une facture client renvoie aussi « facture » (src/lib/factureFiche.ts).
 // Une fiche affaire (Prospection, Qualification, Planning, Parc) renvoie { fiche } : l'écran bascule sur la fiche
 // affaire unique /interne/fiches/<id>, qui garde le bloc Contact et les sections par étape.
 // (/api/interne/elements est déjà pris par les éléments des scénarios du relevé.)
@@ -61,6 +63,7 @@ export async function GET(request: Request) {
       nom: String(c.name || 'Checklist'),
       points: (Array.isArray(c?.items) ? c.items.slice() : []).sort(parOrdre).map((i: any) => ({ id: String(i.id), nom: String(i.name || ''), fait: !!i.resolved })),
     }));
+    const facture = source === 'factures' ? await lireFacture(token, t).catch((e) => { console.error('Écran facture :', e); return undefined; }) : undefined;
 
     return json({
       element: {
@@ -84,6 +87,7 @@ export async function GET(request: Request) {
         piecesJointes: (Array.isArray(t?.attachments) ? t.attachments : []).map((a: any) => ({ nom: String(a?.title || 'fichier'), url: String(a?.url || '') })).filter((a: any) => a.url),
         commentaires,
         url: String(t.url || `https://app.clickup.com/t/${t.id}`),
+        ...(facture ? { facture } : {}),
       },
     });
   } catch (error) {

@@ -8,15 +8,21 @@
 // 17/10, 14 h 50 : une visite de maintenance a le bouton « Faire la visite » (/interne/maintenance/<id>, protocole
 // Sefram MW9665 avec l'adaptateur A1532-XA).
 // 17/10, 20 h 01 (choix de Matthieu : checklist d'onboarding dans la fiche salarié) : les checklists de la tâche,
-// avec leur avancement, se cochent ici (/api/interne/checklist). Seule écriture de la fiche générique.
+// avec leur avancement, se cochent ici (/api/interne/checklist).
 // 18/10, 9 h 33 : visite de maintenance (à planifier ou rdv confirmé) et ticket SAV ouvert : bouton « Caler » ou
 // « Décaler » (/interne/rdv/<visite|depannage>/<id>), pour le chef de chantier et la direction (rôle affiché).
+// 18/10, 18 h 19 (maquette validée par Matthieu) : une facture client a son propre écran (src/components/appli/
+// FicheFacture.tsx) avec « Marquer comme émise » ; les commentaires et la note de création passent dans Historique.
+// Fil d'Ariane : chaque fiche remonte au menu de sa liste (Matthieu, 18 h 12 : « pourquoi dans le fil d'Ariane il y a
+// à traiter chantier » sur une facture), au lieu de Chantiers pour toutes.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CalendarClock, CalendarPlus, Check, ChevronRight, ExternalLink, ListChecks, MessageSquare, Paperclip, RefreshCw, Tag, User } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CalendarPlus, Check, ChevronDown, ChevronRight, ExternalLink, ListChecks, MessageSquare, Paperclip, RefreshCw, Tag, User } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte } from '@/components/charte/Appli';
 import { CYAN } from '@/components/charte/couleurs';
 import { useRoleAppli } from '@/components/charte/roleAppli';
+import FicheFacture from '@/components/appli/FicheFacture';
+import type { Facture } from '@/lib/factureFiche';
 
 type Champ = { id: string; nom: string; type: string; texte: string; lien?: string; taches?: { id: string; nom: string }[] };
 type Checklist = { id: string; nom: string; points: { id: string; nom: string; fait: boolean }[] };
@@ -28,7 +34,32 @@ type Element = {
   piecesJointes: { nom: string; url: string }[];
   commentaires: { id: string; auteur: string; date: string; texte: string }[];
   url: string;
+  facture?: Facture;
 };
+
+// Menu parent de la fiche dans le fil d'Ariane, par liste (clés de src/lib/menusAppli.ts)
+const PARENT_SOURCE: Record<string, string> = {
+  factures: 'facturation',
+  commandes: 'materielAchats',
+  achats: 'materielAchats',
+  sav: 'sav',
+  maintenance: 'sav',
+  advenir: 'advenir',
+  parc: 'parc',
+  rh: 'rh',
+  salaries: 'rh',
+  recrutement: 'rh',
+  codir: 'pilotage',
+  okr: 'pilotage',
+  kaizen: 'pilotage',
+  todo: 'pilotage',
+};
+function parentDe(source: string | undefined, role: string | null): string {
+  if (!source) return '';
+  // L'installateur retrouve ses tickets et ses visites dans Mes interventions
+  if (role === 'poseur' && (source === 'sav' || source === 'maintenance')) return 'interventions';
+  return PARENT_SOURCE[source] || '';
+}
 
 const sansEmoji = (s: string) => s.replace(/^[^A-Za-z0-9\u00C0-\u017F]+/, '').trim();
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -54,6 +85,7 @@ export default function ElementPage() {
   const [erreur, setErreur] = useState<{ texte: string; url?: string } | null>(null);
   const [enCours, setEnCours] = useState<string | null>(null);
   const [erreurCoche, setErreurCoche] = useState<string | null>(null);
+  const [historique, setHistorique] = useState(false);
 
   const charger = async () => {
     setLoading(true);
@@ -127,10 +159,28 @@ export default function ElementPage() {
   };
 
   const caler = element && (role === 'direction' || role === 'chargeOperation') ? actionCaler(element) : null;
+  const facture = element?.facture;
+
+  const commentaires = element && element.commentaires.length > 0 && (
+    <div className="space-y-3">
+      {element.commentaires.map((c) => (
+        <div key={c.id} className="rounded-[14px] bg-white p-3 ring-[1.5px] ring-[#dfe3e8]">
+          <p className="text-[12px] font-bold text-slate-500">{[c.auteur, c.date].filter(Boolean).join(' · ')}</p>
+          <p className="mt-1 whitespace-pre-line text-[14px]">{c.texte}</p>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre={element ? `${element.emoji} ${element.liste}` : 'Fiche'} titre={element?.nom || 'Fiche'} action={boutonRetour} />
+      <EnTeteAppli
+        surtitre={element ? `${element.emoji} ${element.liste}` : 'Fiche'}
+        titre={facture?.titre || element?.nom || 'Fiche'}
+        sousTitre={facture?.sousTitre}
+        action={boutonRetour}
+        parent={parentDe(element?.source, role)}
+      />
       <ContenuAppli className="space-y-4">
         {erreur && (
           <Alerte>
@@ -145,7 +195,11 @@ export default function ElementPage() {
           </Carte>
         )}
 
-        {element && (
+        {element && facture && (
+          <FicheFacture id={element.id} facture={facture} peutEcrire={role === 'direction' || role === 'backOffice'} onEmise={charger} />
+        )}
+
+        {element && !facture && (
           <>
             <div className="flex flex-wrap items-center gap-2 px-1">
               <span className="rounded-full px-3 py-1 text-[12px] font-extrabold uppercase tracking-[0.06em] text-white" style={{ backgroundColor: element.couleurStatut || '#9aa3ad' }}>
@@ -219,7 +273,11 @@ export default function ElementPage() {
                 <p className="whitespace-pre-line text-[15px] leading-relaxed">{element.description}</p>
               </Carte>
             )}
+          </>
+        )}
 
+        {element && (
+          <>
             {element.parent && (
               <a href={`/interne/element/${element.parent}`} className="flex items-center justify-between rounded-[20px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
                 <span className="text-[15px] font-semibold">Tâche parente</span>
@@ -253,15 +311,31 @@ export default function ElementPage() {
               </Carte>
             )}
 
-            {element.commentaires.length > 0 && (
+            {/* Facture : commentaires et note de création repliés dans Historique */}
+            {facture && (element.commentaires.length > 0 || element.description) && (
+              <div>
+                <button onClick={() => setHistorique(!historique)} className="mx-auto flex items-center gap-1.5 py-2 text-[13px] font-semibold text-slate-500">
+                  Historique ({element.commentaires.length} commentaire{element.commentaires.length > 1 ? 's' : ''})
+                  <ChevronDown size={14} className={historique ? 'rotate-180' : ''} />
+                </button>
+                {historique && (
+                  <div className="space-y-3">
+                    {commentaires}
+                    {element.description && (
+                      <div className="rounded-[14px] bg-white p-3 ring-[1.5px] ring-[#dfe3e8]">
+                        <p className="text-[12px] font-bold text-slate-500">Note de création</p>
+                        <p className="mt-1 whitespace-pre-line text-[14px]">{element.description}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!facture && element.commentaires.length > 0 && (
               <Carte className="space-y-3">
                 <TitreCarte icon={MessageSquare} extra={<span className="text-[14px] font-bold">{element.commentaires.length}</span>}>Derniers commentaires</TitreCarte>
-                {element.commentaires.map((c) => (
-                  <div key={c.id} className="rounded-[14px] bg-white p-3 ring-[1.5px] ring-[#dfe3e8]">
-                    <p className="text-[12px] font-bold text-slate-500">{[c.auteur, c.date].filter(Boolean).join(' · ')}</p>
-                    <p className="mt-1 whitespace-pre-line text-[14px]">{c.texte}</p>
-                  </div>
-                ))}
+                {commentaires}
               </Carte>
             )}
 

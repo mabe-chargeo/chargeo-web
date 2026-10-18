@@ -15,6 +15,8 @@ import { champType } from '@/lib/typesTaches';
 // aussi : autre chose à faire par le back-office au même passage au Parc (contrat de maintenance à remplir à la main),
 //   ajouté à la même alerte (deux alertes coup sur coup : la première est perdue, test du 12/10).
 // Étape 2 (15/10/2026) : la tâche naît en type Facture.
+// 18/10/2026 (écran facture) : le nom de la fiche test n'est plus repris avec son « Test · » (« Test · Solde · Test · … »
+// vu par Matthieu) ; même règle que l'acompte.
 
 const FACTURES_ID = process.env.CLICKUP_FACTURES_LIST_ID || '1200630000003863';
 const FACTURE = {
@@ -95,7 +97,8 @@ export async function creerSolde(token: string, chantier: any, simulation: boole
     return { solde: 'deja_cree', id: String(f.solde.id), nom: f.solde.name, url: f.solde.url, backOfficePrevenu: prevenu };
   }
 
-  const client = (f.acompte ? valeur(f.acompte, FACTURE.client) : '') || String(chantier.name || '');
+  const clientFiche = String(chantier.name || '').replace(/^\s*test\s*·\s*/i, '').trim();
+  const client = (f.acompte ? valeur(f.acompte, FACTURE.client) : '') || clientFiche;
   const estTest = normal(chantier.name).startsWith('test');
   const nom = `${estTest ? 'Test · ' : ''}Solde · ${client} · ${numero || 'N° devis à compléter'}`;
   const aujourdhui = aujourdhuiParis();
