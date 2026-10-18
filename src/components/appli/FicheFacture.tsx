@@ -7,6 +7,8 @@
 // relances J+3 / J+10 / J+15 datées, liens vers le chantier et les autres factures du même devis.
 // 18/10, 18 h 57 : à l'ouverture d'une facture à émettre sans n°, l'écran demande au site de la retrouver dans
 // Costructor (src/lib/factureAuto.ts) ; trouvée, la fiche se recharge déjà émise. Rien ne change à l'affichage sinon.
+// 18/10, 19 h 21 (maquette MAQUETTE_FACTURE-BOUTONS validée par Matthieu) : étape 2 « Rien à recopier… », saisie à la
+// main en secours ; dans Relances, « J'ai relancé le client » et « Marquer comme payée » (avec confirmation).
 import { useEffect, useState } from 'react';
 import { Check, ChevronRight, Euro, ExternalLink, Link2, Bell, RefreshCw } from 'lucide-react';
 import { Carte, TitreCarte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
@@ -61,6 +63,8 @@ export default function FicheFacture({ id, facture: f, peutEcrire, onEmise }: { 
   const [echeance, setEcheance] = useState(f.paiementDuIso);
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [suivi, setSuivi] = useState<'relance' | 'payee' | null>(null);
+  const [erreurSuivi, setErreurSuivi] = useState<string | null>(null);
 
   const t = normal(f.type);
   const couleurType = COULEUR_TYPE[t.split(' ')[0]] || '#64748b';
@@ -79,6 +83,25 @@ export default function FicheFacture({ id, facture: f, peutEcrire, onEmise }: { 
       .catch(() => {});
     return () => { fini = true; };
   }, [id, peutEcrire, f.etat, f.numero]);
+
+  // « J'ai relancé le client » / « Marquer comme payée »
+  const suivre = async (action: 'relance' | 'payee') => {
+    if (suivi) return;
+    if (action === 'payee' && !window.confirm('Le règlement intégral est-il bien confirmé dans Costructor ?')) return;
+    setErreurSuivi(null);
+    setSuivi(action);
+    try {
+      const res = await fetch('/api/interne/facture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) { setErreurSuivi(data?.error || `Enregistrement impossible (${res.status})`); return; }
+      onEmise();
+    } catch {
+      setErreurSuivi('Impossible de joindre le serveur. Rien n’a changé.');
+    } finally {
+      setSuivi(null);
+    }
+  };
+  const suivante = f.relancesEnvoyees + 1;
 
   const emettre = async () => {
     if (envoi) return;
@@ -141,7 +164,8 @@ export default function FicheFacture({ id, facture: f, peutEcrire, onEmise }: { 
           )}
           {peutEcrire ? (
             <>
-              <p className="flex gap-3 text-[15px]"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold" style={{ color: CYAN, boxShadow: `inset 0 0 0 1.5px ${CYAN}` }}>2</span>Reporter ici la facture émise :</p>
+              <p className="flex gap-3 text-[15px]"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold" style={{ color: CYAN, boxShadow: `inset 0 0 0 1.5px ${CYAN}` }}>2</span>Rien à recopier : dès qu'elle est finalisée dans Costructor, la facture se reporte ici toute seule (à l'ouverture de cet écran et chaque matin), puis passe en émise.</p>
+              <p className="pl-9 text-[14px] text-slate-600">Pas encore remontée ? Saisis-la à la main :</p>
               <label className="block">
                 <span className="ml-1 text-[12px] font-bold text-slate-500">N° facture Costructor</span>
                 <input className={`${CHAMP} mt-1`} value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="ex. F202600012" autoCapitalize="characters" />
@@ -183,6 +207,21 @@ export default function FicheFacture({ id, facture: f, peutEcrire, onEmise }: { 
           <p className="pt-1 text-[13px] leading-snug text-slate-600">
             Chaque relance est un rappel pour l’équipe : le client n’est jamais relancé automatiquement. Le matin de la relance, le règlement est revérifié dans Costructor.
           </p>
+          {peutEcrire && (ouverte || f.etat === 'litige') && (
+            <div className="space-y-2.5 pt-1">
+              {ouverte && f.relancesEnvoyees < 3 && (
+                <button onClick={() => suivre('relance')} disabled={!!suivi} className="flex min-h-[52px] w-full flex-col items-center justify-center rounded-full px-6 py-2 text-white transition-transform active:scale-95" style={{ backgroundColor: CYAN }}>
+                  <span className="flex items-center gap-2 text-[15px] font-semibold">{suivi === 'relance' && <RefreshCw size={16} className="animate-spin" />}J'ai relancé le client</span>
+                  <span className="text-[12px] opacity-85">{suivante >= 3 ? 'note la dernière relance, le dossier passe au back-office' : `note la relance ${suivante} et programme la suivante`}</span>
+                </button>
+              )}
+              <button onClick={() => suivre('payee')} disabled={!!suivi} className="flex min-h-[52px] w-full flex-col items-center justify-center rounded-full bg-white px-6 py-2 transition-transform active:scale-95" style={{ color: '#16a34a', boxShadow: 'inset 0 0 0 1.5px #16a34a' }}>
+                <span className="flex items-center gap-2 text-[15px] font-semibold">{suivi === 'payee' && <RefreshCw size={16} className="animate-spin" />}Marquer comme payée</span>
+                <span className="text-[12px]">après vérification du règlement dans Costructor</span>
+              </button>
+              {erreurSuivi && <p className="text-[14px] font-bold text-red-600">{erreurSuivi}</p>}
+            </div>
+          )}
         </Carte>
       )}
 
