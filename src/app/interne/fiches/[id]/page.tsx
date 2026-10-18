@@ -23,6 +23,10 @@
 // ensuite « ✉️ Renvoyer la confirmation » (email du rendez-vous, /interne/caler/<id>?confirmation=1) et « 📅 Décaler ».
 // 18/10, 9 h 33 : carte Chantier d'un chantier à planifier, en préparation ou planifié : « 📅 Planifier la pose » ou
 // « Décaler la pose » (/interne/planifier/<id>), pour le chef de chantier et la direction (rôle affiché).
+// 18/10, 12 h (Matthieu : « je n'ai aucun emplacement pour renseigner la zone de déplacement », « comment je fais pour
+// passer la fiche en devis envoyé ? ») : en vente, pour le commercial et la direction, carte « Le projet » (zone,
+// places, SIRET / RNIC, date du permis) sous le Relevé, et carte « Suite de la vente » (devis envoyé, négociation,
+// gagné, perdu avec motif) sous le Devis (src/components/ui/Vente.tsx, /api/interne/vente).
 // Structure de départ validée le 16/10 ; bloc Contact le 17/10 à 10 h 20. Retour vers la vue d'où l'on vient, sinon
 // vers Mon espace.
 import { useEffect, useState, type ElementType, type ReactNode } from 'react';
@@ -34,6 +38,7 @@ import {
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
+import { Vente } from '@/components/ui/Vente';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 
 type Etape = 'prospection' | 'qualification' | 'chantier' | 'parc';
@@ -371,6 +376,9 @@ export default function FichePage() {
     );
   };
 
+  // Vente (Le projet, Suite de la vente) : commercial et direction, jamais sans prix
+  const peutVendre = (f: Fiche) => !f.sansPrix && (role === 'direction' || role === 'commercial');
+
   return (
     <PageAppli>
       <EnTeteAppli surtitre={fiche ? [fiche.passeport.typeClient, fiche.projet.segment].filter(Boolean).join(' · ') || fiche.liste || 'Fiche' : 'Fiche'} titre={fiche?.nom || 'Fiche'} action={boutonRetour} />
@@ -410,7 +418,9 @@ export default function FichePage() {
             {fiche.etape === 'qualification' && (
               <>
                 {carteReleve(fiche)}
+                {peutVendre(fiche) && <Vente ficheId={fiche.id} partie="projet" onChange={charger} />}
                 {carteDevis(fiche, 'Devis', true)}
+                {peutVendre(fiche) && <Vente key={fiche.statut} ficheId={fiche.id} partie="suite" onChange={charger} />}
                 {carteScenarios(fiche)}
               </>
             )}
