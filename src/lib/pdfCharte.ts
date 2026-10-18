@@ -1,13 +1,21 @@
 // Moteur PDF A4 à la charte CHARGéO, sans dépendance (décisions de Matthieu du 18/10/2026 : « L'appli génère le
 // rapport » à 15 h 36, puis 16 h 04 : « créer une mise en page comme pour le rapport, en s'inspirant des modèles
 // d'en-tête du Drive »). Sert au rapport de mise en service et au PV de réception.
-// Charte (kit d'identité du 04/10/2026, charte présentation 2026) : page blanche, logo officiel vectoriel en tête (sans
-// slogan sous 45 mm de large, slogan en vrai texte turquoise), barre turquoise 56 × 4, texte navy #032b60 à opacité
-// pleine, labels en capitales turquoise foncé #007f96, cartes gris #eceef1 arrondies, encadré turquoise pâle #e3f4f7,
-// pied « chargeo.fr · contact · page N/N ». Police : Helvetica (police PDF standard ; Poppins demanderait d'embarquer
+// 18/10, 16 h 35 : chaque page porte l'en-tête A4 officiel tel quel (src/lib/entetePdf.ts : logo avec slogan,
+// coordonnées, filet et mentions légales), plus rien de redessiné. Par-dessus : texte navy #032b60, labels en capitales
+// turquoise foncé #007f96, cartes gris #eceef1 arrondies, encadré turquoise pâle #e3f4f7, numéro de page au-dessus du filet. Police : Helvetica (police PDF standard ; Poppins demanderait d'embarquer
 // la fonte). Accents par l'encodage WinAnsi ; emojis, Ω, Δ et flèches remplacés par un équivalent lisible.
 // Signatures : images JPEG (canvas du téléphone) posées telles quelles (DCTDecode).
-import { LARGEURS_HELVETICA, LARGEURS_HELVETICA_GRAS, LOGO_BAS, LOGO_FLUX, LOGO_HAUTEUR, LOGO_LARGEUR } from './logoPdf';
+import { LARGEURS_HELVETICA, LARGEURS_HELVETICA_GRAS } from './logoPdf';
+import { brotliDecompressSync, deflateSync } from 'zlib';
+import { ENTETE_FLUX_B64 } from './entetePdf';
+
+let fondCache: string | null = null;
+function fondEntete(): string {
+  const fond = fondCache ?? deflateSync(brotliDecompressSync(Buffer.from(ENTETE_FLUX_B64, 'base64')), { level: 9 }).toString('latin1');
+  fondCache = fond;
+  return fond;
+}
 
 export type Couleur = [number, number, number];
 const rgb = (hex: string): Couleur => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255) as Couleur;
@@ -26,8 +34,8 @@ export type Signature = { titre: string; nom: string; qualite?: string; image?: 
 
 const LARGEUR = 595.28;
 const HAUTEUR = 841.89;
-const MARGE = 48;
-const BAS = 64;
+const MARGE = 51;
+const BAS = 74;
 const CONTENU = LARGEUR - 2 * MARGE;
 
 // ---------- Texte ----------
@@ -121,27 +129,17 @@ export class DocumentPdf {
       + `${n(x + r)} ${n(y + h)} l ${n(x + r - k)} ${n(y + h)} ${n(x)} ${n(y + h - r + k)} ${n(x)} ${n(y + h - r)} c `
       + `${n(x)} ${n(y + r)} l ${n(x)} ${n(y + r - k)} ${n(x + r - k)} ${n(y)} ${n(x + r)} ${n(y)} c h f`);
   }
-  private logo(x: number, y: number, hauteur: number) {
-    const s = hauteur / (LOGO_HAUTEUR - LOGO_BAS);
-    this.flux.push(`q ${n(s)} 0 0 ${n(s)} ${n(x)} ${n(y - LOGO_BAS * s)} cm /Logo Do Q`);
-    return LOGO_LARGEUR * s;
-  }
-
   private nouvellePage() {
+    const suite = this.flux.length > 0 || this.pages.length > 0;
     if (this.flux.length) this.pages.push(this.flux);
-    this.flux = [];
-    const haut = HAUTEUR - 40;
-    // En-tête : logo, slogan en texte, titre du document et référence à droite, barre turquoise
-    this.logo(MARGE, haut - 26, 26);
-    this.texteBrut(versWinAnsi('INSTALLATEUR DE BORNES DE RECHARGE'), MARGE, haut - 38, 5.6, true, TURQUOISE, 0.55);
-    const titre = versWinAnsi(this.o.titre);
-    this.texteBrut(titre, LARGEUR - MARGE - largeurTexte(titre, 10, true), haut - 12, 10, true, NAVY);
-    if (this.o.reference) {
-      const ref = versWinAnsi(this.o.reference);
-      this.texteBrut(ref, LARGEUR - MARGE - largeurTexte(ref, 8), haut - 25, 8, false, NAVY);
+    this.flux = ['q /Entete Do Q'];
+    this.y = HAUTEUR - 118;
+    // Pages suivantes : rappel du document sous l'en-tête
+    if (suite) {
+      const rappel = versWinAnsi(`${this.o.titre}${this.o.reference ? ` · ${this.o.reference}` : ''}`);
+      this.texteBrut(rappel, MARGE, this.y - 4, 7.5, false, NAVY);
+      this.y -= 16;
     }
-    this.rectangle(MARGE, haut - 58, 56, 4, 2, TURQUOISE);
-    this.y = haut - 76;
   }
   private place(h: number) {
     if (this.y - h < BAS) this.nouvellePage();
@@ -286,7 +284,7 @@ export class DocumentPdf {
     const objets: (() => void)[] = [];
     let nb = 0;
     const reserver = () => ++nb;
-    const catalogue = reserver(), racine = reserver(), f1 = reserver(), f2 = reserver(), logo = reserver(), ressources = reserver();
+    const catalogue = reserver(), racine = reserver(), f1 = reserver(), f2 = reserver(), entete = reserver(), ressources = reserver();
     const imgs = this.images.map(() => reserver());
     const pagesIds = this.pages.map(() => [reserver(), reserver()]);
     const objet = (id: number, corps: string) => objets.push(() => { positions[id] = longueur; ecrire(`${id} 0 obj\n${corps}\nendobj\n`); });
@@ -294,8 +292,9 @@ export class DocumentPdf {
     objet(racine, `<< /Type /Pages /Kids [${pagesIds.map(([p]) => `${p} 0 R`).join(' ')}] /Count ${total} >>`);
     objet(f1, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
     objet(f2, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
-    objet(logo, `<< /Type /XObject /Subtype /Form /BBox [0 0 ${LOGO_LARGEUR} ${LOGO_HAUTEUR}] /Length ${LOGO_FLUX.length} >>\nstream\n${LOGO_FLUX}\nendstream`);
-    objet(ressources, `<< /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >> /XObject << /Logo ${logo} 0 R ${imgs.map((id, i) => `/Im${i + 1} ${id} 0 R`).join(' ')} >> >>`);
+    const fond = fondEntete();
+    objet(entete, `<< /Type /XObject /Subtype /Form /BBox [0 0 ${LARGEUR} ${HAUTEUR}] /Resources << /ExtGState << /a0 << /CA 1 /ca 1 >> >> >> /Filter /FlateDecode /Length ${fond.length} >>\nstream\n${fond}\nendstream`);
+    objet(ressources, `<< /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >> /XObject << /Entete ${entete} 0 R ${imgs.map((id, i) => `/Im${i + 1} ${id} 0 R`).join(' ')} >> >>`);
     this.images.forEach((img, i) => {
       let binaire = '';
       for (let k = 0; k < img.octets.length; k += 8192) binaire += String.fromCharCode(...img.octets.subarray(k, k + 8192));
@@ -303,11 +302,8 @@ export class DocumentPdf {
     });
     this.pages.forEach((p, i) => {
       const pied: string[] = [];
-      const gauche = versWinAnsi('chargeo.fr · contact@chargeo.fr · 04 85 69 22 04');
-      const droite = versWinAnsi(`${this.o.pied ? `${this.o.pied} · ` : ''}page ${i + 1}/${total}`);
-      pied.push(`${couleur(GRIS_CARTE)} RG 0.8 w ${MARGE} 46 m ${n(LARGEUR - MARGE)} 46 l S`);
-      pied.push(`BT /F1 7.5 Tf 0 Tc ${couleur(NAVY)} rg ${MARGE} 34 Td (${echapper(gauche)}) Tj ET`);
-      pied.push(`BT /F1 7.5 Tf 0 Tc ${couleur(NAVY)} rg ${n(LARGEUR - MARGE - largeurTexte(droite, 7.5))} 34 Td (${echapper(droite)}) Tj ET`);
+      const numero = versWinAnsi(`${this.o.pied ? `${this.o.pied} · ` : ''}page ${i + 1}/${total}`);
+      pied.push(`BT /F1 7 Tf 0 Tc ${couleur(NAVY)} rg ${n(LARGEUR - MARGE - largeurTexte(numero, 7))} 57 Td (${echapper(numero)}) Tj ET`);
       const corps = [...p, ...pied].join('\n');
       const [pageId, fluxId] = pagesIds[i];
       objet(fluxId, `<< /Length ${corps.length} >>\nstream\n${corps}\nendstream`);

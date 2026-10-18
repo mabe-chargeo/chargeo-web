@@ -20,7 +20,8 @@ function lireMesure(texte: string) {
   let verdict = '';
   let remarque = '';
   for (const brute of lignes.slice(1)) {
-    const t = brute.trim();
+    const l = brute.replace(/\s+$/, '');
+    const t = l.trim();
     if (!t || /^réf\./.test(t)) continue;
     if (t.startsWith('Appareil :')) { appareil = t.slice(10).trim(); continue; }
     if (t.startsWith('Remarque :')) { remarque = t.slice(10).trim(); continue; }
@@ -36,6 +37,7 @@ function lireMesure(texte: string) {
 export function pdfRapportMiseEnService(d: DonneesRapport): Uint8Array {
   const doc = new DocumentPdf({ titre: 'Rapport de mise en service', reference: d.reference, pied: d.chantier });
   doc.titre('Rapport de mise en service');
+  doc.texte(`Référence ${d.reference}`, { taille: 8 });
   doc.texte(d.chantier, { taille: 12, gras: true });
   doc.deuxCartes(
     [etiquette('Chantier'), { texte: d.chantier, gras: true }, ...(d.adresse ? [{ texte: d.adresse }] : [])],
@@ -79,11 +81,11 @@ export type DonneesPv = {
 export function pdfPvReception(d: DonneesPv): Uint8Array {
   const doc = new DocumentPdf({ titre: 'Procès-verbal de réception', reference: d.reference, pied: d.chantier });
   doc.titre('Procès-verbal de réception des travaux');
-  doc.texte('Réception prononcée en application de l’article 1792-6 du Code civil.', { taille: 8.5 });
+  doc.texte(`Référence ${d.reference} · réception prononcée en application de l’article 1792-6 du Code civil.`, { taille: 8 });
   doc.deuxCartes(
     [etiquette('Maître d’ouvrage'), { texte: d.client.nom, gras: true }, ...(d.client.type ? [{ texte: d.client.type }] : []),
       ...(d.client.adresse ? [{ texte: d.client.adresse }] : []), ...(d.client.email ? [{ texte: d.client.email }] : []), ...(d.client.telephone ? [{ texte: d.client.telephone }] : [])],
-    [etiquette('Entreprise'), { texte: 'CHARGéO', gras: true }, { texte: 'Installateur de bornes de recharge' }, { texte: 'contact@chargeo.fr · 04 85 69 22 04' }, { texte: 'chargeo.fr' }],
+    [etiquette('Entreprise'), { texte: 'CHARGéO', gras: true }, { texte: 'SAS au capital de 5 000 €' }, { texte: 'SIRET 130 946 346 00017' }, { texte: '89 chemin de la Ballastière, 74200 Thonon-les-Bains' }],
   );
 
   doc.label('Chantier');
