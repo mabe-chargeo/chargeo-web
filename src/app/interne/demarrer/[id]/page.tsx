@@ -7,7 +7,7 @@ import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte } from '@/component
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 
 type Donnees = { id: string; nom: string; statut: string; ecritureAutorisee: boolean };
-const normal = (v: string) => v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const normal = (v: string) => v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^[^a-z0-9]+/i, '').trim();
 
 export default function DemarrerPage() {
   const params = useParams<{ id: string }>();
@@ -44,7 +44,7 @@ export default function DemarrerPage() {
           <p className="text-[18px] font-bold">{donnees.nom}</p>
           <p className="text-[15px]">Statut actuel : <strong>{donnees.statut}</strong></p>
           {!donnees.ecritureAutorisee && <Alerte>En preview, seuls les chantiers « Test » sont modifiables.</Alerte>}
-          {peutDemarrer && donnees.ecritureAutorisee && <button disabled={action} onClick={demarrer} className="flex min-h-[58px] w-full items-center justify-center gap-2 rounded-full px-6 text-[17px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: ORANGE }}><Play size={20} /> {action ? 'Démarrage…' : '🚧 Démarrer le chantier'}</button>}
+          {peutDemarrer && donnees.ecritureAutorisee && <button disabled={action} onClick={demarrer} className="flex min-h-[58px] w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-[17px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: ORANGE }}><Play size={20} /> {action ? 'Démarrage…' : '🚧 Démarrer le chantier'}</button>}
           {!peutDemarrer && <p className="flex items-center gap-2 font-semibold" style={{ color: '#16a34a' }}><CheckCircle2 size={20} /> Ce chantier est déjà en cours ou terminé.</p>}
           {statut === 'encours' && <button onClick={() => router.push('/interne/reception')} className="w-full rounded-full px-6 py-4 text-[16px] font-bold text-white" style={{ backgroundColor: CYAN }}>Ouvrir la réception</button>}
         </Carte>}
