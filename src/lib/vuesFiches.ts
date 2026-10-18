@@ -6,6 +6,7 @@
 // (Relevés planifiés, Relevés en retard) sont réservées au chargé d'opération / chef de chantier, qui fait le relevé.
 // 17/10/2026, 13 h 13 (Matthieu : « c'est le commercial qui planifie le relevé technique pour le chef de chantier ») :
 // « À caler » revient au commercial, qui appelle le client et fixe la 📅 Date Visite Technique.
+// 18/10/2026, 9 h 50 : vue « Perdues » (fiches ❌ perdu), pastille « Perdues » du Pipeline.
 // Pas d'accès réseau ici : fonctions pures sur les tâches lues par l'appelant.
 import { estAVisiter } from '@/lib/listesClickUp';
 import { aujourdhuiParis, comparer, type Jour } from '@/lib/joursOuvres';
@@ -24,6 +25,7 @@ export type CleVue =
   | 'relances-echues'
   | 'en-negociation'
   | 'gagnees'
+  | 'perdues'
   | 'toutes';
 export type Tri = 'dateVisite' | 'echeance' | 'maj';
 export type Vue = {
@@ -117,6 +119,10 @@ export const VUES: Vue[] = [
   {
     cle: 'gagnees', libelle: 'Gagnées', description: 'Fiches en 🏆 gagné (elles partent ensuite au Planning chantiers)',
     roles: ['commercial', 'backOffice'], filtre: (t) => statut(t).includes('gagn'), tri: 'maj',
+  },
+  {
+    cle: 'perdues', libelle: 'Perdues', description: 'Fiches en ❌ perdu, les plus récentes d’abord (le motif de refus est sur la fiche)',
+    roles: ['commercial'], filtre: (t) => statut(t).includes('perdu'), tri: 'maj',
   },
   {
     cle: 'toutes', libelle: 'Toutes', description: 'Toutes les fiches ouvertes de Qualification',
