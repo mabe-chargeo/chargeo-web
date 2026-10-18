@@ -13,6 +13,8 @@
 // (modèle Procore / ServiceTitan de la recherche du 17/10 : ouvrir avant de perdre le réseau).
 // 17/10, 14 h 50 : chaque visite de maintenance a le bouton « Visite de maintenance » (/interne/maintenance/<id>),
 // protocole Sefram MW9665 avec l'adaptateur A1532-XA, point de charge par point de charge.
+// 18/10, 20 h 55 : le bouton s'appelle « 🔧 Faire la visite », sans le nom de l'appareil, comme sur la fiche (Matthieu,
+// 19 h 31 : « pourquoi tu mets un bouton faire la visite MW 96 65 »).
 // 17/10, 17 h 37 (choix de Matthieu) : chaque pose a aussi « 📋 Ce qui est prévu » (/interne/pose/<id>#prevu) : les
 // éléments du scénario retenu avec leur détail, sans aucun prix, gardés hors ligne avec « Préparer ma journée ».
 // 17/10, 17 h 51 (Matthieu : « je suis en vue installateur, alors pourquoi j'ai ce message ? ») : le rôle choisi dans
@@ -197,7 +199,7 @@ export default function InterventionsPage() {
       )}
       {i.type === 'visite' && (
         <a href={`/interne/maintenance/${i.id}`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 text-[15px] font-semibold text-white transition-transform active:scale-95">
-          🔧 Visite de maintenance (MW9665)
+          🔧 Faire la visite
         </a>
       )}
       {i.action && (
