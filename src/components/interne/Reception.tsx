@@ -21,6 +21,7 @@
 // 18/10, 16 h 04 (Matthieu : « le PV de réception, que ce soit l'appli qui le génère, au doigt sur le téléphone ») :
 // bouton « Faire signer le PV sur le téléphone » (/interne/pv/<chantier>), le PV papier photographié reste en secours.
 // Ordre de la carte : mise en service, réserves, puis PV (le PV reprend les réserves déclarées), rapport et photos.
+// 18/10, 17 h 20 (validé sur maquette) : une fois envoyé, le bouton dit « Déjà envoyé · prévenir à nouveau ».
 import { useEffect, useState } from 'react';
 import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Lock, PenLine, Plus, RefreshCw, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
@@ -369,7 +370,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
             disabled={occupe || c.motifs.length > 0 || bloque}
             onClick={() => envoyer(c, { action: 'envoyer' }, `${c.id}:envoyer`, '📋 Envoyé au chargé d\'opération pour validation.')}
           >
-            {enCours === `${c.id}:envoyer` ? 'Envoi...' : c.motifs.length ? `Il manque ${c.motifs.length} élément${c.motifs.length > 1 ? 's' : ''}` : 'Envoyer au chargé d\'opération'}
+            {enCours === `${c.id}:envoyer` ? 'Envoi...' : c.motifs.length ? `Il manque ${c.motifs.length} élément${c.motifs.length > 1 ? 's' : ''}` : c.envoye ? 'Déjà envoyé · prévenir à nouveau' : 'Envoyer au chargé d\'opération'}
           </BoutonPrincipal>
         ) : (
           <BoutonPrincipal
