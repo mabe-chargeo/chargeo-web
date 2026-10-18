@@ -1,5 +1,6 @@
 import { membresDuRole } from '@/lib/roles';
 import { agendaBranche, ficheDeEvenement, nosEvenementsAVenir, retirerEvenement, retirerReleve } from '@/lib/googleAgenda';
+import { dateVisiteDe } from '@/lib/vuesFiches';
 
 // Rendez-vous Google devenus caducs (18/10/2026, 11 h 26, Matthieu : « tu n'as pas dit aussi que tu devais construire
 // quelque chose quand la fiche calée est archivée ou perdue, son rendez-vous Google disparaît »). Cas vu le 18/10 :
@@ -8,10 +9,14 @@ import { agendaBranche, ficheDeEvenement, nosEvenementsAVenir, retirerEvenement,
 // 1. Tout de suite (aiguillage, src/lib/aiguillage.ts) : fiche de Qualification passée à ❌ perdu ou 🏁 archivé → relevé
 //    retiré de l'agenda Google des chefs de chantier, trace en commentaire. La date de visite reste sur la fiche
 //    (historique).
+//    18/10/2026, 22 h 05 (Matthieu : « quoi qu'il arrive la visite technique elle a eu lieu même si le devis après le
+//    projet il est perdu et archivé ») : seul un relevé À VENIR est retiré. Relevé déjà passé (📅 Date Visite Technique
+//    passée) : la visite a eu lieu, le rendez-vous reste dans l'agenda.
 // 2. Chaque jour (contrôle quotidien, src/app/api/cron/quotidien) : nos événements à venir (releve…, pose…, visite…,
 //    depan…) dans l'agenda principal des chefs de chantier et des installateurs ; retirés si la tâche est supprimée,
 //    archivée, ou à un statut qui annule le rendez-vous (relevé : perdu, archivé ; pose et visite : annulé ;
 //    dépannage : résolu, archivé). Couvre ce que ClickUp ne signale pas au site (archivage, suppression).
+//    Seuls les rendez-vous à venir sont lus : un rendez-vous passé n'est jamais retiré.
 //    Une tâche illisible pour une autre raison n'est jamais traitée comme supprimée : l'événement reste, c'est signalé.
 // En preview, l'aiguillage ne traite que les fiches « Test » et le contrôle quotidien est en simulation (rien n'est
 // retiré, la liste de ce qui le serait est renvoyée).
@@ -60,7 +65,7 @@ async function commenter(token: string, taskId: string, texte: string) {
 
 const libelleJour = (ms: number) => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
 
-// 1. Fiche de Qualification perdue ou archivée : son relevé sort de l'agenda Google des chefs de chantier
+// 1. Fiche de Qualification perdue ou archivée : son relevé À VENIR sort de l'agenda Google des chefs de chantier
 export async function retirerReleveCaduc(taskId: string, simulation: boolean) {
   const token = process.env.CLICKUP_API_KEY;
   if (!token) return { success: false, error: 'CLICKUP_API_KEY manquant' };
@@ -72,6 +77,9 @@ export async function retirerReleveCaduc(taskId: string, simulation: boolean) {
   if (process.env.VERCEL_ENV !== 'production' && !/\btest\b/i.test(String(t?.name || ''))) return { success: true, action: 'ignore_preview_non_test' };
   const raison = raisonCaduc('releve', t);
   if (!raison) return { success: true, action: 'ignore_rdv_maintenu' };
+  // Visite déjà passée : elle a eu lieu, le rendez-vous reste dans l'agenda (historique)
+  const visite = dateVisiteDe(t);
+  if (visite && visite <= Date.now()) return { success: true, action: 'ignore_releve_passe', raison };
   const chefs = (await membresDuRole(token, 'chargeOperation')).filter((c) => c.email);
   if (simulation) return { success: true, action: 'retirerait', raison, chefs: chefs.map((c) => c.nom) };
   const lus = await Promise.allSettled(chefs.map((c) => retirerReleve(c.email, String(t.id))));
