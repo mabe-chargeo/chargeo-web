@@ -12,7 +12,8 @@
 //   « Caler le relevé » ou « Décaler » (/interne/caler/<id> : commercial, chef de chantier, direction). Pose à planifier,
 //   en préparation ou planifiée : « Planifier la pose » ou « Décaler » (/interne/planifier/<id> : chef de chantier,
 //   direction). Les boutons suivent les rôles de /api/interne/moi ; chaque route contrôle elle-même les droits.
-//   Visites de maintenance et dépannages : pas encore d'écran de planification.
+// 18/10, 8 h 31 (Matthieu : « Fais maintenance et SAV ») : visite de maintenance (à planifier ou rdv confirmé) et
+//   dépannage (ticket ouvert) : « Caler » ou « Décaler » (/interne/rdv/<visite|depannage>/<id> : chef de chantier, direction).
 import { useEffect, useState } from 'react';
 import { ArrowLeft, CalendarPlus, ChevronRight, MapPin, RefreshCw, User } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
@@ -88,6 +89,8 @@ export default function PlanningPage() {
     const s = normal(i.statut);
     if (i.type === 'releve' && peutCaler && s.includes('a visiter')) return { href: `/interne/caler/${i.id}`, libelle: i.jour ? 'Décaler le relevé' : 'Caler le relevé' };
     if (i.type === 'pose' && peutPlanifier && (s.includes('a planifier') || s.includes('preparation') || s.includes('planifie'))) return { href: `/interne/planifier/${i.id}`, libelle: i.jour ? 'Décaler la pose' : 'Planifier la pose' };
+    if (i.type === 'visite' && peutPlanifier) return { href: `/interne/rdv/visite/${i.id}`, libelle: i.jour ? 'Décaler la visite' : 'Caler la visite' };
+    if (i.type === 'depannage' && peutPlanifier) return { href: `/interne/rdv/depannage/${i.id}`, libelle: i.jour ? 'Décaler le dépannage' : 'Caler le dépannage' };
     return null;
   };
 
