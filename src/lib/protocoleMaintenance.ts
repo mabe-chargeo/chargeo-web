@@ -7,6 +7,12 @@
 // n'est pas pareil si on met en service une infrastructure collective ou un point de charge ») : un protocole par nature
 // d'élément (raccordement, alimentation, TD IRVE, artère, boîte de dérivation, communication, liaison data, prise
 // renforcée, borne). L'appareil donne le verdict : l'application note la valeur et le verdict, sans seuil maison.
+// 18/10, 15 h 18 (Matthieu : « je pense qu'il y a des doublons » ; « le switch ne donne aucun réseau ») :
+// - la synthèse (photo de l'écran du MW9665) n'est plus répétée sur chaque élément, seulement sur l'autoséquence borne ;
+// - les protections au tableau ne sont plus contrôlées sur la borne (elles le sont sur le TD IRVE) ;
+// - la tension n'est plus mesurée au raccordement (elle l'est au bout de l'alimentation, dans le TD IRVE) ;
+// - Communication = la connectivité vers la supervision (SIM, modem, TD IRVE), pas le switch : le switch relie les
+//   équipements du réseau, c'est le point de raccordement du segment RIC.
 // Ordre exact des écrans du MW9665 à recaler quand CHARGéO aura l'appareil.
 // Fichier pur : utilisé par les écrans (saisie) et par les routes (commentaire lisible).
 
@@ -76,19 +82,14 @@ const differentiel = (aide: string, dc6 = false): EtapeProtocole => {
   controles.push({ cle: 'resultat', libelle: 'Verdict de l’appareil', type: 'okko' });
   return { cle: 'ddr', titre: 'Différentiel (RCD auto)', aide, controles };
 };
-const synthese = (libelle = 'Mesures enregistrées dans le MW9665', aide = 'Photographie l’écran de résumé du MW9665 (rapport MESM ensuite).'): EtapeProtocole => ({
-  cle: 'synthese', titre: 'Synthèse', aide, photo: true,
-  controles: [{ cle: 'global', libelle, type: 'okko' }],
-});
 
 // Borne : autoséquence EVSE avec l'A1532-XA (ordre du 18/10, 14 h 56)
 export const PROTOCOLE: EtapeProtocole[] = numeroter([
   {
-    cle: 'visuel', titre: 'Contrôle visuel', aide: 'Avant de brancher l’A1532-XA. Contrôles visuels de l’autoséquence, repris dans le rapport MESM.', photo: true,
+    cle: 'visuel', titre: 'Contrôle visuel', aide: 'Avant de brancher l’A1532-XA. Contrôles visuels de l’autoséquence.', photo: true,
     controles: [
       { cle: 'borne', libelle: 'Borne : boîtier, fixation, étiquetage', type: 'okko' },
       { cle: 'cable', libelle: 'Socle ou câble T2 : état, verrouillage', type: 'okko' },
-      { cle: 'tableau', libelle: 'Protections au tableau : repérage, serrage', type: 'okko' },
     ],
   },
   {
@@ -128,7 +129,10 @@ export const PROTOCOLE: EtapeProtocole[] = numeroter([
       { cle: 'compteur', libelle: 'Compteur de la borne cohérent', type: 'okko' },
     ],
   },
-  synthese('Autoséquence réussie et enregistrée', 'CP sur A avant de débrancher. Photographie l’écran de résumé et enregistre la séquence dans le MW9665 (rapport MESM).'),
+  {
+    cle: 'synthese', titre: 'Synthèse', aide: 'CP sur A avant de débrancher. Photographie l’écran de résumé de l’autoséquence.', photo: true,
+    controles: [{ cle: 'global', libelle: 'Autoséquence réussie', type: 'okko' }],
+  },
 ]);
 
 // Prise renforcée : pas de CP ni de PP, contrôles d'installation du circuit et essai d'une charge
@@ -149,10 +153,9 @@ const PROTOCOLE_PRISE: EtapeProtocole[] = numeroter([
     cle: 'essai', titre: 'Essai de charge', aide: 'Câble de recharge occasionnelle ou charge d’essai branché sur la prise.',
     controles: [{ cle: 'charge', libelle: 'La charge démarre et tient', type: 'okko' }],
   },
-  synthese(),
 ]);
 
-// Raccordement (PDL dédié, TGBT, tableau) : prise de terre et arrivée
+// Raccordement (PDL dédié, TGBT, tableau) : point de raccordement et prise de terre
 const PROTOCOLE_RACCORDEMENT: EtapeProtocole[] = numeroter([
   {
     cle: 'visuel', titre: 'Contrôle visuel', aide: 'Point de raccordement : protection de tête, repérage, serrage.', photo: true,
@@ -167,8 +170,6 @@ const PROTOCOLE_RACCORDEMENT: EtapeProtocole[] = numeroter([
       { cle: 'resultat', libelle: 'Verdict de l’appareil', type: 'okko', na: true },
     ],
   },
-  tension('Sous tension, à l’arrivée.'),
-  synthese(),
 ]);
 
 // Alimentation (raccordement → TD IRVE) et artère (TD IRVE → fin d'artère) : contrôles du câble posé, mesurés au bout
@@ -177,7 +178,6 @@ const cable = (bout: string, Bout: string): EtapeProtocole[] => numeroter([
   isolement('Câble consigné aux deux bouts, conducteur par conducteur contre le PE.'),
   tension(`Sous tension, ${bout}.`),
   impedances(`${Bout}, sans déclencher le DDR.`),
-  synthese(),
 ]);
 const PROTOCOLE_ALIMENTATION = cable('à l’arrivée dans le TD IRVE', 'À l’arrivée dans le TD IRVE');
 const PROTOCOLE_ARTERE = cable('en fin d’artère', 'En fin d’artère');
@@ -201,7 +201,6 @@ const PROTOCOLE_TD: EtapeProtocole[] = numeroter([
       { cle: 'mesure', libelle: 'Mesure de puissance (TIC ou compteur) : remonte', type: 'okko', na: true },
     ],
   },
-  synthese(),
 ]);
 
 // Boîte de dérivation
@@ -214,23 +213,23 @@ const PROTOCOLE_DERIVATION: EtapeProtocole[] = numeroter([
     ],
   },
   continuite('R basse du MW9665 entre la barrette de terre du TD IRVE et le PE de la boîte.'),
-  synthese(),
 ]);
 
-// Communication (HUB, switch, modem) : contrôle fonctionnel, pas de MW9665
+// Communication : la connectivité vers la supervision (SIM intégrée, modem déporté, intégrée au TD IRVE). Le switch
+// n'en fait pas partie : il relie les équipements du réseau (Matthieu, 18/10, 15 h 18).
 const PROTOCOLE_COMMUNICATION: EtapeProtocole[] = numeroter([
   {
-    cle: 'materiel', titre: 'Matériel', aide: 'HUB, switch ou modem en place.', photo: true,
+    cle: 'materiel', titre: 'Matériel', aide: 'SIM, modem ou module de communication du TD IRVE.', photo: true,
     controles: [
       { cle: 'alim', libelle: 'Alimenté, voyants normaux', type: 'okko' },
-      { cle: 'fixation', libelle: 'Fixé et étiqueté', type: 'okko' },
+      { cle: 'fixation', libelle: 'Fixé et étiqueté', type: 'okko', na: true },
     ],
   },
   {
-    cle: 'reseau', titre: 'Réseau', aide: 'Connexion vers l’extérieur (4G, WiFi ou câble) et vers les équipements.',
+    cle: 'reseau', titre: 'Connexion', aide: 'Connexion vers l’extérieur (4G, WiFi ou câble) et vers la supervision.',
     controles: [
-      { cle: 'connecte', libelle: 'Connecté au réseau', type: 'okko' },
-      { cle: 'equipements', libelle: 'Équipements vus (TD IRVE, bornes)', type: 'okko', na: true },
+      { cle: 'connecte', libelle: 'Connecté au réseau (4G, WiFi ou câble)', type: 'okko' },
+      { cle: 'supervision', libelle: 'Vu par la supervision', type: 'okko', na: true },
     ],
   },
 ]);
@@ -274,12 +273,12 @@ const APPAREILS: Record<ModeProtocole, string> = {
 export const OBJET: Record<ModeProtocole, string> = {
   borne: 'Point de charge : autoséquence borne du MW9665 avec l’A1532-XA.',
   prise: 'Prise renforcée : contrôles du circuit au MW9665 et essai de charge.',
-  raccordement: 'Raccordement : prise de terre et tension à l’arrivée.',
+  raccordement: 'Raccordement : point de raccordement et prise de terre.',
   alimentation: 'Alimentation du TD IRVE : continuité, isolement et mesures à l’arrivée dans le TD.',
   td: 'TD IRVE : coffret, protections, différentiel de tête et gestion de charge.',
   artere: 'Artère : continuité, isolement et mesures en fin d’artère.',
   derivation: 'Boîte de dérivation : connexions et continuité du PE.',
-  communication: 'Communication : matériel alimenté et connecté.',
+  communication: 'Communication : connectivité vers la supervision (SIM, modem ou TD IRVE).',
   data: 'Liaison data : test du câble.',
 };
 
