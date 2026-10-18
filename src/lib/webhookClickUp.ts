@@ -12,6 +12,11 @@ import { alerter } from '@/lib/alerteSite';
 //   (VERCEL_AUTOMATION_BYPASS_SECRET), sans quoi ClickUp serait bloqué par la protection des previews.
 // - Santé : ClickUp suspend un abonnement après trop d'échecs. Le contrôle quotidien le réactive et prévient
 //   (tâche CLICKUP_TACHE_ALERTES_ID si elle est renseignée).
+// 18/10/2026, 13 h 15 (parcours test : commentaire « Feu vert donné » posté deux fois à 130 ms d'écart) : depuis
+//   l'installation automatique de l'aperçu (src/app/api/interne/moi), deux instances du serveur peuvent installer en
+//   même temps et créer deux abonnements vers la même adresse, donc chaque événement traité deux fois. Après une
+//   création, la liste est relue : un seul abonnement est gardé par adresse (le plus petit identifiant, le même pour
+//   toutes les instances), les autres sont supprimés. Le contrôle quotidien supprime aussi les doublons.
 
 const TEAM_ID = process.env.CLICKUP_TEAM_ID || '90151325642';
 const CHEMIN = '/api/webhooks/clickup';
@@ -41,8 +46,8 @@ export function adresseWebhook(): { url: string; erreur?: string } {
     return { url: `${base}${CHEMIN}` };
   }
   // ClickUp refuse l'adresse fixe de la branche (test du 12/10 : « Specified URL not allowed », nom trop long) mais
-  // accepte celle du déploiement. Elle change à chaque déploiement : relancer ?action=installer après chaque mise à jour
-  // (l'ancien abonnement de preview est alors remplacé).
+  // accepte celle du déploiement. Elle change à chaque déploiement : l'abonnement est réinstallé tout seul à la
+  // première ouverture de l'appli (l'ancien abonnement de preview est alors remplacé).
   const deploiement = process.env.VERCEL_URL;
   if (!deploiement) return { url: '', erreur: "Adresse du déploiement introuvable (VERCEL_URL)" };
   const jeton = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
@@ -82,13 +87,29 @@ export function signatureValide(brut: string, signature: string | null, secret: 
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// Doublons vers notre adresse : on garde le plus petit identifiant (le même choix pour toutes les instances)
+async function supprimerDoublons(token: string, url: string): Promise<{ garde: string | null; supprimes: number }> {
+  const liste = await listerWebhooks(token);
+  const nos = (liste || []).filter((w) => estNotreAdresse(w, url)).sort((a, b) => String(a?.id).localeCompare(String(b?.id)));
+  let supprimes = 0;
+  for (const w of nos.slice(1)) {
+    const del = await api(token, `/webhook/${w.id}`, 'DELETE');
+    secrets.delete(String(w.id));
+    if (del.ok) supprimes++;
+  }
+  return { garde: nos.length ? String(nos[0].id) : null, supprimes };
+}
+
 export async function installerWebhook(token: string) {
   const { url, erreur } = adresseWebhook();
   if (erreur) return { success: false, error: erreur };
   const liste = await listerWebhooks(token);
   if (!liste) return { success: false, error: 'Lecture des webhooks ClickUp impossible' };
-  const existant = liste.find((w) => estNotreAdresse(w, url));
-  if (existant) return { success: true, action: 'deja_installe', webhook: resumeWebhook(existant) };
+  const existants = liste.filter((w) => estNotreAdresse(w, url));
+  if (existants.length) {
+    const d = existants.length > 1 ? await supprimerDoublons(token, url) : { supprimes: 0 };
+    return { success: true, action: 'deja_installe', webhook: resumeWebhook(existants[0]), doublonsSupprimes: d.supprimes };
+  }
   // Preview : un seul abonnement à la fois, les anciens déploiements de preview sont désabonnés
   const remplaces: any[] = [];
   if (process.env.VERCEL_ENV !== 'production') {
@@ -106,7 +127,9 @@ export async function installerWebhook(token: string) {
   const json = (() => { try { return JSON.parse(texte); } catch { return {}; } })();
   const id = String(json?.id || json?.webhook?.id || '');
   if (id && json?.webhook?.secret) secrets.set(id, String(json.webhook.secret));
-  return { success: true, action: 'installe', webhook: resumeWebhook({ ...(json?.webhook || {}), id, endpoint: url, events: EVENEMENTS_WEBHOOK }), remplaces };
+  // Une autre instance a pu créer le même abonnement au même moment : un seul est gardé
+  const d = await supprimerDoublons(token, url);
+  return { success: true, action: 'installe', webhook: resumeWebhook({ ...(json?.webhook || {}), id: d.garde || id, endpoint: url, events: EVENEMENTS_WEBHOOK }), remplaces, doublonsSupprimes: d.supprimes };
 }
 
 export async function supprimerWebhook(token: string, id: string) {
@@ -120,16 +143,22 @@ export async function supprimerWebhook(token: string, id: string) {
   return { success: res.ok, action: res.ok ? 'supprime' : 'erreur_suppression', webhook: resumeWebhook(w) };
 }
 
-// Contrôle quotidien : abonnement présent et actif, réactivé sinon (reparer = true)
+// Contrôle quotidien : abonnement présent et actif, réactivé sinon (reparer = true), doublons supprimés
 export async function verifierWebhooks(token: string, reparer: boolean) {
   const { url, erreur } = adresseWebhook();
-  const liste = await listerWebhooks(token);
+  let liste = await listerWebhooks(token);
   if (!liste) return { success: false, error: 'Lecture des webhooks ClickUp impossible' };
+  const problemes: string[] = [];
+  if (reparer && liste.filter((w) => estNotreAdresse(w, url)).length > 1) {
+    const d = await supprimerDoublons(token, url);
+    if (d.supprimes) problemes.push(`${d.supprimes} abonnement(s) ClickUp en double supprimé(s)`);
+    liste = (await listerWebhooks(token)) || liste;
+  }
   const nos = liste.filter((w) => estNotreAdresse(w, url));
   const autres = liste.filter((w) => !estNotreAdresse(w, url) && sansRequete(w?.endpoint).endsWith(CHEMIN)).map(resumeWebhook);
-  const problemes: string[] = [];
   const resultats: any[] = [];
   if (!nos.length) problemes.push(`aucun abonnement ClickUp vers ${sansRequete(url) || 'le site'}${erreur ? ` (${erreur})` : ''}`);
+  if (nos.length > 1) problemes.push(`${nos.length} abonnements ClickUp vers la même adresse : chaque changement est traité plusieurs fois`);
   for (const w of nos) {
     const etat = String(w?.health?.status || '');
     if (etat === 'active') { resultats.push({ ...resumeWebhook(w), action: 'ok' }); continue; }
@@ -140,7 +169,7 @@ export async function verifierWebhooks(token: string, reparer: boolean) {
   }
   const tache = process.env.CLICKUP_TACHE_ALERTES_ID;
   if (problemes.length && reparer && tache) {
-    await alerter(token, tache, `⚠️ Site : ${problemes.join(' ; ')}. Tant que ce n'est pas réglé, le site ne réagit plus aux changements faits dans ClickUp.`);
+    await alerter(token, tache, `⚠️ Site : ${problemes.join(' ; ')}. Tant que ce n'est pas réglé, le site ne réagit plus correctement aux changements faits dans ClickUp.`);
   }
   if (problemes.length) console.error('Webhook ClickUp :', problemes.join(' ; '));
   return { success: !problemes.length || resultats.some((r) => r.action === 'reactive'), adresse: sansRequete(url), problemes, webhooks: resultats, autres };
