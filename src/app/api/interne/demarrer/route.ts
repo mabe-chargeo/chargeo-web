@@ -5,7 +5,7 @@ import { LISTES } from '@/lib/espaces';
 export const dynamic = 'force-dynamic';
 
 const json = (body: any, status = 200) => NextResponse.json(body, { status });
-const normal = (v: unknown) => String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const normal = (v: unknown) => String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^[^a-z0-9]+/i, '').trim();
 
 async function api(token: string, path: string, method = 'GET', body?: any) {
   return fetch(`https://api.clickup.com/api/v2${path}`, {
@@ -22,7 +22,7 @@ async function lire(token: string, id: string) {
 }
 
 function autorise(t: any) {
-  return process.env.VERCEL_ENV === 'production' || normal(t?.name).trim().startsWith('test');
+  return process.env.VERCEL_ENV === 'production' || normal(t?.name).startsWith('test');
 }
 
 export async function GET(request: Request) {
