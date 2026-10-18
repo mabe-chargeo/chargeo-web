@@ -115,6 +115,8 @@ export function pdfPvReception(d: DonneesPv): Uint8Array {
     doc.carte(d.reserves.map((r, i) => ({ texte: `${i + 1}. ${r.libelle}`, valeur: r.echeance ? `à lever le ${r.echeance}` : 'date à fixer', espace: i ? 3 : 0 })));
   }
 
+  // Garanties, « Fait à » et signatures restent ensemble sur la même page (18/10, 16 h 53 : paragraphe coupé en deux)
+  doc.garder(300);
   doc.label('Garanties');
   doc.texte('La réception est le point de départ de la garantie de parfait achèvement (1 an, article 1792-6 du Code civil), de la garantie de bon fonctionnement des éléments d’équipement (2 ans au moins, article 1792-3) et de la garantie décennale (10 ans, articles 1792 et 1792-4-1).', { taille: 8.5 });
 

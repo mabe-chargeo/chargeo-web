@@ -145,6 +145,8 @@ export class DocumentPdf {
     if (this.y - h < BAS) this.nouvellePage();
   }
   espace(h: number) { this.y -= h; }
+  // Garde ensemble le bloc qui suit (hauteur h) : nouvelle page s'il ne tient pas
+  garder(h: number) { this.place(h); }
 
   titre(s: string, taille = 20) {
     const lignes = couper(versWinAnsi(s), taille, true, CONTENU);
@@ -164,6 +166,8 @@ export class DocumentPdf {
     const x = MARGE + (o.retrait || 0);
     const lignes = couper(versWinAnsi(s), taille, !!o.gras, LARGEUR - MARGE - x);
     this.y -= o.espaceAvant || 0;
+    // Paragraphe court (8 lignes au plus) : jamais coupé entre deux pages
+    if (lignes.length <= 8) this.place(lignes.length * taille * 1.45);
     for (const l of lignes) {
       this.place(taille * 1.45);
       this.y -= taille * 1.45;
