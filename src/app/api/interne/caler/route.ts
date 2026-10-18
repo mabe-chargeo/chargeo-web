@@ -6,6 +6,8 @@ import { CHAMPS } from '@/lib/champsClickUp';
 import { CHAMPS_INTERVENTION, LISTES, etapePlanning } from '@/lib/espaces';
 import { DATE_VISITE_ID, adresseDe, champ, dateVisiteDe, libelleDate } from '@/lib/vuesFiches';
 import { agendaBranche, occupationsAgenda, poserReleve, retirerReleve } from '@/lib/googleAgenda';
+import { demiJourneesDe, segmentsPose } from '@/lib/demiJournees';
+import { dureePose, dureeRdv } from '@/lib/dureesRdv';
 
 // Caler le relevé technique depuis l'application (17/10/2026, 20 h 44, choix de Matthieu : « Caler + email de
 // confirmation prêt à envoyer »). Le commercial appelle le client et fixe le rendez-vous du chef de chantier.
@@ -18,8 +20,11 @@ import { agendaBranche, occupationsAgenda, poserReleve, retirerReleve } from '@/
 //   est créé ou déplacé dans l'agenda du chef. Un échec Google n'annule jamais la date ClickUp : il est signalé.
 // 17/10, 23 h 00 (Matthieu : « il faudrait pouvoir supprimer un créneau aussi si on se trompe et en modifier la
 //   durée ») : durée au choix, écrite dans ⏳ Durée relevé (30 min, 1 h, 1 h 30, 2 h, 3 h ; option lue par son nom, 1 h
-//   si vide) ; les relevés déjà calés occupent leur durée ; POST { id, action: 'annuler' } vide la date et la durée,
-//   retire l'événement de l'agenda Google des chefs et laisse une trace en commentaire.
+//   si vide) ; POST { id, action: 'annuler' } vide la date et la durée, retire l'événement de l'agenda Google des chefs
+//   et laisse une trace en commentaire.
+// 18/10, 9 h 22 (Matthieu : « il faut que toutes les durées soient paramétrables ») : chaque occupation a sa durée
+//   ClickUp (src/lib/dureesRdv.ts) : relevés ⏳ Durée relevé, visites et dépannages ⏳ Durée RDV, poses ⏳ Durée
+//   intervention sur leurs demi-journées (pose sans heure ni durée : bandeau « chantier »).
 // POST { id, date (AAAA-MM-JJ), heure (HH:MM), duree?, chefId?, note? } → 📅 Date Visite Technique avec l'heure (Paris),
 //   durée, chef assigné, commentaire de trace avec le texte de l'email. Renvoie l'email de confirmation prêt à envoyer
 //   (le texte s'arrête à « Bien cordialement, » : la messagerie ajoute la signature).
@@ -38,6 +43,7 @@ const MARQUE_NOTE = 'Accès / remarques : ';
 const JOURS_PLANNING = 30;
 const PAGES_MAX = 10;
 const DUREE_DEFAUT = 60;
+const POSE_SANS_DUREE = 240;
 
 type Chef = { id: number; nom: string; email: string };
 type ChampDuree = { id: string; options: { id: string; nom: string; ordre: number }[] };
@@ -120,7 +126,8 @@ async function lister(token: string, listId: string): Promise<any[]> {
 
 type Occupation = { jour: string; minutes: number | null; duree?: number; type: 'pose' | 'visite' | 'depannage' | 'releve'; nom: string; ville: string; techniciens: number[] };
 
-// Occupations des chefs sur les 30 prochains jours (mêmes règles que /api/interne/planning), sans la fiche à caler
+// Occupations des chefs sur les 30 prochains jours (mêmes règles que /api/interne/planning), sans la fiche à caler,
+// chacune avec sa durée ClickUp
 async function occupationsDes(token: string, chefs: number[], saufId: string): Promise<{ occupations: Occupation[]; incomplet: boolean }> {
   if (!chefs.length) return { occupations: [], incomplet: false };
   const debut = jourParis(new Date());
@@ -143,22 +150,35 @@ async function occupationsDes(token: string, chefs: number[], saufId: string): P
   const [rPlanning, rVisites, rSav, rReleves] = lus;
   if (rPlanning.status === 'fulfilled') {
     for (const t of rPlanning.value) {
-      if (etapePlanning(String(t?.status?.status || '')) > 3) continue;
-      pousser(t, 'pose', champ(t, CHAMPS_INTERVENTION.dateChantier)?.value, ids(champ(t, CHAMPS_INTERVENTION.technicienChantier)?.value));
+      if (etapePlanning(String(t?.status?.status || '')) > 3 || String(t?.id) === saufId) continue;
+      const techniciens = ids(champ(t, CHAMPS_INTERVENTION.technicienChantier)?.value);
+      const brut = champ(t, CHAMPS_INTERVENTION.dateChantier)?.value;
+      const d = jourEtMinutes(brut);
+      if (!techniciens.length || !d) continue;
+      const demi = demiJourneesDe(dureePose(t));
+      // Ni heure ni durée : bandeau « chantier » sur la journée
+      if (d.minutes === null && !demi) { pousser(t, 'pose', brut, techniciens); continue; }
+      const segs = demi
+        ? segmentsPose(d.jour, d.minutes === null ? 480 : d.minutes, demi)
+        : [{ jour: d.jour, debut: d.minutes as number, fin: (d.minutes as number) + POSE_SANS_DUREE }];
+      for (const s of segs) {
+        if (s.jour < debut || s.jour > fin) continue;
+        occupations.push({ jour: s.jour, minutes: s.debut, duree: s.fin - s.debut, type: 'pose', nom: String(t?.name || ''), ville: villeDe(adresseDe(t)), techniciens });
+      }
     }
   }
   if (rVisites.status === 'fulfilled') {
     for (const t of rVisites.value) {
       const s = normal(t?.status?.status);
       if (!s.includes('a planifier') && !s.includes('rdv confirme')) continue;
-      pousser(t, 'visite', champ(t, CHAMPS_INTERVENTION.dateVisite)?.value, ids(champ(t, CHAMPS_INTERVENTION.technicienVisite)?.value));
+      pousser(t, 'visite', champ(t, CHAMPS_INTERVENTION.dateVisite)?.value, ids(champ(t, CHAMPS_INTERVENTION.technicienVisite)?.value), dureeRdv(t));
     }
   }
   if (rSav.status === 'fulfilled') {
     for (const t of rSav.value) {
       const s = normal(t?.status?.status);
       if (s.includes('resolu') || s.includes('archive')) continue;
-      pousser(t, 'depannage', t?.due_date, ids(t?.assignees));
+      pousser(t, 'depannage', t?.due_date, ids(t?.assignees), dureeRdv(t));
     }
   }
   if (rReleves.status === 'fulfilled') {

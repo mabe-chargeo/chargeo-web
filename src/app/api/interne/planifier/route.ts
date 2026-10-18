@@ -6,12 +6,15 @@ import { CHAMPS_INTERVENTION, LISTES, etapePlanning } from '@/lib/espaces';
 import { adresseDe, champ, dateVisiteDe } from '@/lib/vuesFiches';
 import { agendaBranche, idEvenement, occupationsAgenda, poserEvenement, retirerEvenement } from '@/lib/googleAgenda';
 import { DEPARTS_POSE, demiJourneesDe, jourEtMinutes, libellePose, parisVersMs, segmentsPose, villeDe, type Segment } from '@/lib/demiJournees';
+import { dureeRdv, dureeReleve } from '@/lib/dureesRdv';
 
 // Planifier la pose d'un chantier (17/10/2026, 22 h 49, Matthieu : « il faut que ça fonctionne de la même manière pour
 // les installateurs pour leur caler les chantiers » ; durée choisie à chaque chantier, ½ j à 5 j).
 // GET ?id=<chantier du Planning> : le chantier (date, durée et techniciens actuels), les installateurs et chefs de chantier
-//   (groupes ClickUp), leurs occupations sur 35 jours dans l'ERP (poses avec leur durée, visites de maintenance 1 h 30,
-//   dépannages 1 h 30, relevés 1 h ; sans heure = journée) et leurs créneaux Google Agenda (horaires seulement).
+//   (groupes ClickUp), leurs occupations sur 35 jours dans l'ERP et leurs créneaux Google Agenda (horaires seulement).
+// 18/10, 9 h 22 (Matthieu : « il faut que toutes les durées soient paramétrables ») : chaque occupation ERP a sa durée
+//   ClickUp (src/lib/dureesRdv.ts) : poses ⏳ Durée intervention, visites et dépannages ⏳ Durée RDV (1 h 30 si vide),
+//   relevés ⏳ Durée relevé (1 h si vide) ; sans heure = journée.
 // POST { id, jour, minutes (480 ou 810), duree (libellé de ⏳ Durée intervention), techniciens: [ids] } :
 //   📅 Date Intervention (début, avec l'heure), ⏳ Durée intervention, 👷 Technicien (ajoutés et retirés), statut
 //   📅 planifié si le chantier était à planifier ou en préparation, événements « 🏗️ Pose · nom » (un par jour) dans
@@ -33,7 +36,6 @@ const STATUT_PLANIFIE = '📅 planifié';
 const STATUT_A_PLANIFIER = '📥 à planifier';
 const JOURS_PLANNING = 35;
 const PAGES_MAX = 10;
-const DUREE_RDV: Record<string, number> = { releve: 60, visite: 90, depannage: 90 };
 
 type Personne = { id: number; nom: string; email: string; role: string };
 type Bloc = { jour: string; debut: number; fin: number; journee: boolean; type: 'pose' | 'visite' | 'depannage' | 'releve'; nom: string; ville: string; personnes: number[] };
@@ -81,7 +83,7 @@ async function personnesPose(token: string): Promise<Personne[]> {
   return res;
 }
 
-// Occupations des personnes dans l'ERP sur 35 jours, sans le chantier à planifier
+// Occupations des personnes dans l'ERP sur 35 jours, avec leur durée ClickUp, sans le chantier à planifier
 async function occupationsErp(token: string, ids: number[], saufId: string, cd: ChampDuree | null): Promise<{ blocs: Bloc[]; incomplet: boolean }> {
   const debut = jourParis(new Date());
   const fin = jourParis(new Date(Date.now() + JOURS_PLANNING * 86400000));
@@ -95,13 +97,13 @@ async function occupationsErp(token: string, ids: number[], saufId: string, cd: 
   const blocs: Bloc[] = [];
   const qui = (v: unknown) => (Array.isArray(v) ? v : []).map((u: any) => Number(u?.id)).filter((n) => ids.includes(n));
   const garder = (s: Segment) => s.jour >= debut && s.jour <= fin;
-  const rdv = (t: any, type: Bloc['type'], ms: unknown, personnes: number[]) => {
+  const rdv = (t: any, type: Bloc['type'], ms: unknown, personnes: number[], duree: number) => {
     if (!personnes.length || String(t?.id) === saufId) return;
     const d = jourEtMinutes(ms);
     if (!d || d.jour < debut || d.jour > fin) return;
     const base = { type, nom: String(t?.name || ''), ville: villeDe(adresseDe(t)), personnes };
     if (d.minutes === null) blocs.push(Object.assign({ jour: d.jour, debut: 480, fin: 1050, journee: true }, base));
-    else blocs.push(Object.assign({ jour: d.jour, debut: d.minutes, fin: d.minutes + (DUREE_RDV[type] || 60), journee: false }, base));
+    else blocs.push(Object.assign({ jour: d.jour, debut: d.minutes, fin: d.minutes + duree, journee: false }, base));
   };
   const [rPlanning, rVisites, rSav, rReleves] = lus;
   if (rPlanning.status === 'fulfilled') {
@@ -121,20 +123,20 @@ async function occupationsErp(token: string, ids: number[], saufId: string, cd: 
     for (const t of rVisites.value) {
       const s = normal(t?.status?.status);
       if (!s.includes('a planifier') && !s.includes('rdv confirme')) continue;
-      rdv(t, 'visite', champ(t, CHAMPS_INTERVENTION.dateVisite)?.value, qui(champ(t, CHAMPS_INTERVENTION.technicienVisite)?.value));
+      rdv(t, 'visite', champ(t, CHAMPS_INTERVENTION.dateVisite)?.value, qui(champ(t, CHAMPS_INTERVENTION.technicienVisite)?.value), dureeRdv(t));
     }
   }
   if (rSav.status === 'fulfilled') {
     for (const t of rSav.value) {
       const s = normal(t?.status?.status);
       if (s.includes('resolu') || s.includes('archive')) continue;
-      rdv(t, 'depannage', t?.due_date, qui(t?.assignees));
+      rdv(t, 'depannage', t?.due_date, qui(t?.assignees), dureeRdv(t));
     }
   }
   if (rReleves.status === 'fulfilled') {
     for (const t of rReleves.value) {
       if (!normal(t?.status?.status).includes('a visiter')) continue;
-      rdv(t, 'releve', dateVisiteDe(t), qui(t?.assignees));
+      rdv(t, 'releve', dateVisiteDe(t), qui(t?.assignees), dureeReleve(t));
     }
   }
   return { blocs, incomplet: lus.some((r) => r.status !== 'fulfilled') };
