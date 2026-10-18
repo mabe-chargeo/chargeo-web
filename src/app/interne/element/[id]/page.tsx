@@ -15,6 +15,8 @@
 // FicheFacture.tsx) avec « Marquer comme émise » ; les commentaires et la note de création passent dans Historique.
 // Fil d'Ariane : chaque fiche remonte au menu de sa liste (Matthieu, 18 h 12 : « pourquoi dans le fil d'Ariane il y a
 // à traiter chantier » sur une facture), au lieu de Chantiers pour toutes.
+// 18/10, 19 h 31 : bouton « Faire la visite » sans le nom de l'appareil ; « Ouvrir dans ClickUp » pour direction et
+// back-office seulement.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, CalendarClock, CalendarPlus, Check, ChevronDown, ChevronRight, ExternalLink, ListChecks, MessageSquare, Paperclip, RefreshCw, Tag, User } from 'lucide-react';
@@ -158,6 +160,8 @@ export default function ElementPage() {
     return <span className="whitespace-pre-line font-semibold">{c.texte}</span>;
   };
 
+  // Lien ClickUp réservé à la direction et au back-office (consigne de Matthieu)
+  const voitClickUp = role === 'direction' || role === 'backOffice';
   const caler = element && (role === 'direction' || role === 'chargeOperation') ? actionCaler(element) : null;
   const facture = element?.facture;
 
@@ -185,7 +189,7 @@ export default function ElementPage() {
         {erreur && (
           <Alerte>
             {erreur.texte}
-            {erreur.url && <> · <a href={erreur.url} target="_blank" rel="noopener noreferrer" className="underline">Ouvrir dans ClickUp</a></>}
+            {erreur.url && voitClickUp && <> · <a href={erreur.url} target="_blank" rel="noopener noreferrer" className="underline">Ouvrir dans ClickUp</a></>}
           </Alerte>
         )}
         {loading && !element && (
@@ -216,7 +220,7 @@ export default function ElementPage() {
 
             {element.source === 'maintenance' && (
               <a href={`/interne/maintenance/${element.id}`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 text-[15px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95">
-                🔧 Faire la visite (MW9665)
+                🔧 Faire la visite
               </a>
             )}
 
@@ -339,11 +343,11 @@ export default function ElementPage() {
               </Carte>
             )}
 
-            <div className="pt-2 text-center">
+            {voitClickUp && <div className="pt-2 text-center">
               <a href={element.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
                 <ExternalLink size={13} /> Ouvrir dans ClickUp
               </a>
-            </div>
+            </div>}
           </>
         )}
       </ContenuAppli>
