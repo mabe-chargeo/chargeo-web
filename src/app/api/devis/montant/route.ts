@@ -16,21 +16,29 @@ import { champType } from '@/lib/typesTaches';
 //   dans Costructor (lien mort) : le devis est retenu et le commentaire demande de corriger le lien.
 // - gagne (🏆 gagné) : relit le devis du lien, suit sa dernière version s'il a été révisé, met à jour le montant et
 //   signale (sans bloquer) un devis pas encore signé dans Costructor.
-//   Devis signé : crée la tâche « Acompte · client · n° devis » dans Factures Clients (📄 à émettre, Type de pièce Acompte,
+//   Crée la tâche « Acompte · client · n° devis » dans Factures Clients (📄 à émettre, Type de pièce Acompte,
 //   Client, Réf. devis signé, Lien Costructor, 🔗 Affaire), échéance = rappel à J+1 ouvré pour émettre l'acompte dans
 //   Costructor. Montant laissé vide : il dépend des conditions de chaque devis (décision Matthieu du 11/10). Jamais en
-//   double : une tâche acompte déjà présente pour ce n° de devis est réutilisée.
+//   double : une tâche acompte déjà présente pour ce n° de devis ou reliée à cette fiche (🔗 Affaire) est réutilisée.
 //   Étape 2 (15/10/2026) : la tâche d'acompte naît en type Facture.
+//   18/10/2026 (décision Matthieu, pas de bouton) : la fiche de suivi de l'acompte est TOUJOURS créée au gagné, même si
+//   le devis n'est pas retrouvé (lien faux, plusieurs devis, Costructor muet) ou pas encore signé. Sans n° : nom
+//   « Acompte · client · N° devis à compléter » et alerte au back-office sur la tâche de facture (comme le solde).
+//   Si le devis est retrouvé plus tard (nouveau passage en gagné), la tâche existante est complétée (Réf. et nom).
+//   Suivi du paiement et relances : factures/relances (📤 émise) puis 💶 Acompte ✅ au paiement.
 // Montants : l'API externe renvoie des centimes (Bacchus D202600007 : 1959994 = 19 599,94 € HT, vérifié le 11/10).
 // Statuts : l'API externe renvoie le code (open, accepted...), traduit ici comme dans Costructor (open = « En attente »).
 // Champs lus par identifiant puis par nom (ils peuvent être renommés sans « signé »).
 // Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à l'équipe de l'espace (src/lib/alerteSite.ts).
 // Preview : GET ?taskId=...&evenement=...&simulation=1 (aussi sur une vraie fiche, lecture seule) ou &executer=1 (fiches TEST).
 //   &forcerSigne=1 (preview seulement) : traite le devis comme signé, pour tester la création de l'acompte.
+//   Au gagné, une fiche déjà au Parc est acceptée (rattrapage de l'acompte d'une fiche passée en gagné avant le 18/10).
 
 const COSTRUCTOR = 'https://api.costructor.co/external/v1';
 const PLANNING_CHANTIERS_ID = '901520038258';
+const PARC_INSTALLE_ID = '901520038290';
 const FACTURES_ID = process.env.CLICKUP_FACTURES_LIST_ID || '1200630000003863';
+const A_COMPLETER = 'N° devis à compléter';
 const CHAMPS = {
   lienClient: { id: 'd9f88e8f-4e20-4a98-aee8-3ded30fef5fc', nom: 'lien costructor' },
   montant: { id: '58a159c7-edbc-4d53-a81a-5ec48337c7eb', nom: 'montant devis' },
@@ -170,16 +178,24 @@ async function commenter(token: string, taskId: string, texte: string, notifier 
 
 // ---------- Facture d'acompte ----------
 
-// Tâche acompte déjà présente pour ce n° de devis ? tâche, null, ou undefined si lecture impossible
-async function acompteExistant(cu: string, numero: string): Promise<any | null | undefined> {
+const champFacture = (t: any, id: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => c.id === id);
+// 🔗 Affaire (relation) contient-elle cette fiche ?
+const relieALaFiche = (t: any, ficheId: string) => {
+  const v = champFacture(t, FACTURE.affaire)?.value;
+  return (Array.isArray(v) ? v : []).some((x: any) => String(x?.id ?? x) === ficheId);
+};
+
+// Tâche acompte déjà présente pour ce n° de devis ou reliée à cette fiche ? tâche, null, ou undefined si lecture impossible
+async function acompteExistant(cu: string, numero: string, ficheId: string): Promise<any | null | undefined> {
   for (let page = 0; page < 10; page++) {
     const res = await clickup(cu, `/list/${FACTURES_ID}/task?include_closed=true&subtasks=true&page=${page}`);
     if (!res.ok) return undefined;
     const json = await res.json().catch(() => ({}));
     const taches: any[] = Array.isArray(json?.tasks) ? json.tasks : [];
     const trouvee = taches.find((t) => {
-      const ref = (t.custom_fields || []).find((c: any) => c.id === FACTURE.ref)?.value;
-      return String(ref || '').trim() === numero && normal(t.name).includes('acompte');
+      if (!normal(t.name).includes('acompte')) return false;
+      const ref = String(champFacture(t, FACTURE.ref)?.value || '').trim();
+      return (!!numero && ref === numero) || relieALaFiche(t, ficheId);
     });
     if (trouvee) return trouvee;
     if (json?.last_page !== false || taches.length === 0) break;
@@ -196,31 +212,44 @@ async function optionAcompte(cu: string): Promise<string | null> {
   return o ? String(o.id) : null;
 }
 
-async function creerAcompte(cu: string, tache: any, devis: any, lienClient: string, simulation: boolean) {
-  const numero = String(devis.number || '');
-  const existant = await acompteExistant(cu, numero);
+// devis = devis Costructor retenu, ou null s'il n'a pas pu être retrouvé (la tâche est créée quand même)
+async function creerAcompte(cu: string, tache: any, devis: any | null, lienClient: string, simulation: boolean): Promise<any> {
+  const numero = String(devis?.number || valeur(tache, CHAMPS.numero) || '').trim();
+  const ficheId = String(tache.id);
+  const existant = await acompteExistant(cu, numero, ficheId);
   if (existant === undefined) return { acompte: 'lecture_factures_impossible' };
-  if (existant) return { acompte: 'deja_cree', nom: existant.name, url: existant.url };
+  if (existant) {
+    // Créée sans n° de devis, devis retrouvé depuis : on complète Réf. devis signé et le nom
+    const refExistante = String(champFacture(existant, FACTURE.ref)?.value || '').trim();
+    let completee = false;
+    if (numero && !refExistante && !simulation) {
+      const r1 = await clickup(cu, `/task/${existant.id}/field/${FACTURE.ref}`, 'POST', { value: numero });
+      const r2 = await clickup(cu, `/task/${existant.id}`, 'PUT', { name: String(existant.name || '').replace(A_COMPLETER, numero) });
+      completee = r1.ok && r2.ok;
+    }
+    return { acompte: 'deja_cree', nom: existant.name, url: existant.url, completee };
+  }
 
-  const client = nomClientDe(devis) || String(tache.name || '');
   const estTest = normal(tache.name).startsWith('test');
-  const nom = `${estTest ? 'Test · ' : ''}Acompte · ${client} · ${numero}`;
+  const clientFiche = String(tache.name || '').replace(/^\s*test\s*·\s*/i, '').trim();
+  const client = (devis ? nomClientDe(devis) : '') || clientFiche;
+  const nom = `${estTest ? 'Test · ' : ''}Acompte · ${client} · ${numero || A_COMPLETER}`;
   const rappel = ajouterJoursOuvres(aujourdhuiParis(), 1);
-  const base = { nom, rappel: libelleJour(rappel) };
+  const base = { nom, numero, sansNumero: !numero, devisRetrouve: !!devis, rappel: libelleJour(rappel) };
   if (simulation) return { acompte: 'creerait', ...base };
 
   const option = await optionAcompte(cu);
   const description = [
-    `Facture d'acompte du devis ${numero} (${euros(montantHT(devis).ht)}) : ${urlDevis(devis.id)}`,
+    devis
+      ? `Facture d'acompte du devis ${numero} (${euros(montantHT(devis).ht)}) : ${urlDevis(devis.id)}`
+      : `Facture d'acompte du chantier « ${tache.name} » : le devis signé n'a pas été retrouvé automatiquement dans Costructor${numero ? ` (📝 N° devis ${numero} sur la fiche)` : ''}. Retrouve-le et remplis Réf. devis signé${numero ? '' : ' (et le n° dans le nom)'}.`,
     `Montant selon les conditions de ce devis (pas de taux fixe).`,
     `1. Émettre la facture d'acompte dans Costructor.`,
     `2. Remplir ici 🧾 N° facture Costructor, Montant HT et Date d'échéance.`,
     `3. Passer la tâche en 📤 émise : les rappels de relance se programment seuls.`,
   ].join('\n');
-  const champs: any[] = [
-    { id: FACTURE.client, value: client },
-    { id: FACTURE.ref, value: numero },
-  ];
+  const champs: any[] = [{ id: FACTURE.client, value: client }];
+  if (numero) champs.push({ id: FACTURE.ref, value: numero });
   if (option) champs.push({ id: FACTURE.type, value: option });
   if (/^https?:\/\//.test(lienClient)) champs.push({ id: FACTURE.lien, value: lienClient });
 
@@ -233,8 +262,15 @@ async function creerAcompte(cu: string, tache: any, devis: any, lienClient: stri
     return { acompte: 'erreur_creation', ...base };
   }
   const creee = await res.json();
-  const lien = await clickup(cu, `/task/${creee.id}/field/${FACTURE.affaire}`, 'POST', { value: { add: [String(tache.id)], rem: [] } });
-  return { acompte: 'cree', ...base, url: creee.url, typeRempli: !!option, affaireReliee: lien.ok };
+  const lien = await clickup(cu, `/task/${creee.id}/field/${FACTURE.affaire}`, 'POST', { value: { add: [ficheId], rem: [] } });
+  // Devis pas retrouvé : c'est au back-office de le retrouver, alerte sur la tâche de facture (comme le solde)
+  let backOfficePrevenu = false;
+  if (!devis) {
+    backOfficePrevenu = await alerter(cu, String(creee.id),
+      `⚠️ Acompte à émettre pour « ${tache.name} » (passé en 🏆 gagné), mais le devis signé n'a pas été retrouvé dans Costructor${numero ? ` (N° ${numero} sur la fiche)` : ''} : retrouve-le, remplis Réf. devis signé${numero ? '' : ' et le n° dans le nom'}, puis émets l'acompte. Rappel le ${libelleJour(rappel)}.`)
+      .then((x: any) => !!x).catch(() => false);
+  }
+  return { acompte: 'cree', ...base, url: creee.url, typeRempli: !!option, affaireReliee: lien.ok, backOfficePrevenu };
 }
 
 async function traiter(taskId: string, evenement: Evenement, simulation: boolean, forcerSigne = false) {
@@ -249,7 +285,7 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
 
   const liste = String(tache?.list?.id ?? '');
   const listeQualif = getQualificationListId();
-  const autorisees = [String(listeQualif || ''), QUALIFICATION_PROD_ID, PLANNING_CHANTIERS_ID].filter(Boolean);
+  const autorisees = [String(listeQualif || ''), QUALIFICATION_PROD_ID, PLANNING_CHANTIERS_ID, ...(evenement === 'gagne' ? [PARC_INSTALLE_ID] : [])].filter(Boolean);
   if (!autorisees.includes(liste)) return { status: 200, body: { success: true, action: 'ignore_hors_liste', simulation } };
   if (process.env.VERCEL_ENV !== 'production' && !simulation) {
     const estTest = (!!listeQualif && liste === String(listeQualif)) || normal(tache.name).startsWith('test');
@@ -264,11 +300,27 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   const clientId = (lienClient.match(/cnt_[a-z0-9]+/i) || [])[0] || '';
   const lienDevis = valeur(tache, CHAMPS.lienDevis);
   const devisIdLien = (lienDevis.match(/quote_[a-z0-9]+/i) || [])[0] || '';
+  const base = { evenement, clientId: clientId || null, lienDevis: lienDevis || null, champsPresents, simulation };
+
+  // 🏆 gagné : la fiche de suivi de l'acompte est toujours créée (décision Matthieu du 18/10), devis retrouvé ou non
+  const acompteGagne = async (devisRetenu: any | null): Promise<any> => {
+    if (evenement !== 'gagne') return {};
+    const a: any = await creerAcompte(cu, tache, devisRetenu, lienClient, simulation);
+    if (!simulation) {
+      if (a.acompte === 'cree') {
+        await commenter(cu, id, `🧾 Facture d'acompte à émettre : tâche créée dans Factures Clients${devisRetenu ? ' (montant selon les conditions du devis)' : ', devis à retrouver par le back-office'}, rappel le ${a.rappel}. ${a.url}`);
+      } else if (a.acompte !== 'deja_cree') {
+        await commenter(cu, id, `⚠️ Facture d'acompte : je n'ai pas pu créer la tâche dans Factures Clients. Crée-la à la main (Type de pièce Acompte${a.numero || devisRetenu?.number ? `, Réf. devis signé ${devisRetenu?.number || a.numero}` : ''}).`, true);
+      }
+    }
+    return a;
+  };
 
   const devis = await listerDevis(co);
   if (!devis) {
     if (!simulation) await commenter(cu, id, '⚠️ Devis : lecture de Costructor impossible, montant non remonté. Réessaie plus tard.');
-    return { status: 502, body: { success: false, error: 'Lecture Costructor impossible' } };
+    const a = await acompteGagne(null);
+    return { status: 502, body: { success: false, error: 'Lecture Costructor impossible', ...a } };
   }
 
   // Devis choisi par le lien (identifiant ou lien client partagé)
@@ -277,17 +329,20 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
     choisi = devis.find((d) => d.id === devisIdLien) || devis.find((d) => d.hostedUrl && lienDevis.startsWith(String(d.hostedUrl).split('?')[0]));
   }
   const viaLien = !!choisi;
-  const base = { evenement, clientId: clientId || null, lienDevis: lienDevis || null, champsPresents, simulation };
+  // Devis non retenu : alerte, et au gagné l'acompte est créé quand même, n° à compléter
   const signaler = async (action: string, texte: string, extra: any = {}) => {
     if (!simulation) await commenter(cu, id, texte, true);
-    return { status: 200, body: { success: true, action, ...base, ...extra, commentaire: texte } };
+    const a = await acompteGagne(null);
+    return { status: 200, body: { success: true, action, ...base, ...extra, commentaire: texte, ...a } };
   };
 
   if (!choisi) {
     if (lienDevis) {
       return signaler('lien_devis_inconnu', '⚠️ Devis : le lien collé dans « 🔗 Lien devis » ne correspond à aucun devis Costructor. Colle le lien de la page du devis (app.costructor.co/quotes/…).');
     }
-    if (evenement === 'gagne' && !clientId) return { status: 200, body: { success: true, action: 'ignore_sans_lien', ...base } };
+    if (evenement === 'gagne' && !clientId) {
+      return { status: 200, body: { success: true, action: 'acompte_sans_devis', ...base, ...(await acompteGagne(null)) } };
+    }
     if (!clientId) {
       return signaler('sans_client', '⚠️ Devis : « 🔗 Lien Costructor » est vide, je ne peux pas retrouver le devis. Colle le lien du devis dans « 🔗 Lien devis ».');
     }
@@ -341,9 +396,8 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   }
   texte += noteLien;
   const resume: any = { action: evenement === 'envoye' ? 'devis_retenu' : signe ? 'devis_signe' : 'devis_non_signe', devis: resumeDevis(actuel), nouvelleVersion, centimes: m.centimes, forcerSigne, commentaire: texte };
-  const faireAcompte = evenement === 'gagne' && signe;
   if (simulation) {
-    if (faireAcompte) Object.assign(resume, await creerAcompte(cu, tache, actuel, lienClient, true));
+    Object.assign(resume, await acompteGagne(actuel));
     return { status: 200, body: { success: true, ...base, ...resume } };
   }
 
@@ -356,15 +410,8 @@ async function traiter(taskId: string, evenement: Evenement, simulation: boolean
   if (rates.length) texte += ` ⚠️ Non écrit : ${rates.join(', ')} (champ absent de la liste ou refusé), à remplir à la main.`;
   await commenter(cu, id, texte, (evenement === 'gagne' && !signe) || !!noteLien);
 
-  if (faireAcompte) {
-    const a: any = await creerAcompte(cu, tache, actuel, lienClient, false);
-    Object.assign(resume, a);
-    if (a.acompte === 'cree') {
-      await commenter(cu, id, `🧾 Facture d'acompte à émettre : tâche créée dans Factures Clients (montant selon les conditions du devis), rappel le ${a.rappel}. ${a.url}`);
-    } else if (a.acompte !== 'deja_cree') {
-      await commenter(cu, id, `⚠️ Facture d'acompte : je n'ai pas pu créer la tâche dans Factures Clients. Crée-la à la main (Type de pièce Acompte, Réf. devis signé ${actuel.number}).`, true);
-    }
-  }
+  // Au gagné, signé ou pas encore : la fiche de suivi de l'acompte est créée (la non-signature est déjà signalée)
+  Object.assign(resume, await acompteGagne(actuel));
   return { status: 200, body: { success: rates.length === 0, ...base, ...resume, ecrit: ok, commentaire: texte } };
 }
 
