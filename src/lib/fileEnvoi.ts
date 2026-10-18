@@ -6,7 +6,9 @@
 // ne crée pas de doublon.
 // 17/10, 14 h 50 : chaque envoi peut viser sa route (« route ») : saisie à la pose (par défaut, /api/interne/pose) ou
 // visite de maintenance (/api/interne/maintenance). Pour une visite, chantierId = la visite, elementId = le point de charge.
-// 18/10, 14 h 41 : mise en service de la réception (/api/interne/mise-en-service), elementId = la borne ou le TD IRVE.
+// 18/10, 14 h 41 : mise en service de la réception (/api/interne/mise-en-service), elementId = l'élément mesuré.
+// 18/10, 16 h 04 : PV de réception signé au doigt (/api/interne/pv), elementId = le chantier. « oublier » retire un envoi
+// refusé par le serveur pour une raison qui ne se règlera pas en réessayant.
 // IndexedDB (et pas localStorage) : les photos y tiennent sans la limite de 5 Mo. Navigateur uniquement.
 
 export type EtatEnvoi = 'attente' | 'encours' | 'echec';
@@ -31,7 +33,7 @@ export type Envoi = {
 
 const BASE = 'chargeo-terrain';
 const TABLE = 'envois';
-const ROUTES = ['/api/interne/pose', '/api/interne/maintenance', '/api/interne/mise-en-service'];
+const ROUTES = ['/api/interne/pose', '/api/interne/maintenance', '/api/interne/mise-en-service', '/api/interne/pv'];
 const routeDe = (e: Envoi) => (e.route && ROUTES.includes(e.route) ? e.route : '/api/interne/pose');
 
 function ouvrir(): Promise<IDBDatabase> {
@@ -76,6 +78,11 @@ async function maj(e: Envoi): Promise<void> {
 
 async function retirer(cle: string): Promise<void> {
   await transaction('readwrite', (s) => s.delete(cle));
+}
+
+// Retire un envoi de la file sans l'envoyer (refus définitif du serveur)
+export async function oublier(cle: string): Promise<void> {
+  await retirer(cle);
 }
 
 // Envoie un élément de la file. true = reçu par le serveur (retiré de la file)
