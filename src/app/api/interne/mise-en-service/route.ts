@@ -4,11 +4,14 @@ import { LISTES } from '@/lib/espaces';
 import { adresseDe } from '@/lib/vuesFiches';
 import { appareilDe, defauts, etapesDe, texteResultats, type Resultats } from '@/lib/protocoleMaintenance';
 import { ENTETE_MES, commentairesDe, etatMiseEnService, pointsDuChantier } from '@/lib/miseEnService';
+import { genererRapportMiseEnService } from '@/lib/rapportMiseEnService';
 
-// Mise en service à la réception (décision de Matthieu du 18/10/2026, 14 h 41), protocole Sefram MW9665.
-// GET ?id=<chantier du Planning> : points à mesurer (bornes du scénario retenu, sinon TD IRVE) et ce qui est déjà mesuré.
+// Mise en service à la réception (décision de Matthieu du 18/10/2026, 14 h 41), protocole par élément (15 h 08).
+// GET ?id=<chantier du Planning> : éléments à mettre en service et ce qui est déjà mesuré.
 // POST JSON { cle, chantierId, elementId, resultats } : commentaire « ⚡ Mise en service · <élément> » sur l'élément
-//   (il suit la borne au Parc) et copie sur le chantier ; notification si un défaut est noté.
+//   (il suit jusqu'au Parc) et copie sur le chantier ; notification si un défaut est noté. 15 h 36 (Matthieu : « L'appli
+//   génère le rapport ») : quand tous les éléments sont conformes, le rapport de mise en service PDF est créé et déposé
+//   dans 📊 Rapport de mesures (src/lib/rapportMiseEnService.ts).
 // POST multipart { cle, chantierId, elementId, etape, fichier } : photo en pièce jointe de l'élément.
 // Rejouable (file d'envoi hors ligne) : la clé est écrite dans le commentaire et le nom de la photo.
 // Preview : écriture seulement sur les chantiers « Test … ».
@@ -18,7 +21,7 @@ const json = (corps: any, status = 200) => NextResponse.json(corps, { status });
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const ecritureAutorisee = (t: any) => process.env.VERCEL_ENV === 'production' || normal(t?.name).trim().startsWith('test');
 const cleValide = (c: string) => /^[a-z0-9]{6,40}$/i.test(c);
-const ETAPES_PHOTO: Record<string, string> = { visuel: 'contrôle visuel', synthese: 'synthèse MW9665', autre: 'photo' };
+const ETAPES_PHOTO: Record<string, string> = { visuel: 'contrôle visuel', synthese: 'synthèse MW9665', materiel: 'matériel', cable: 'câble', autre: 'photo' };
 
 async function api(token: string, chemin: string, methode = 'GET', corps?: any): Promise<Response> {
   return fetch(`https://api.clickup.com/api/v2${chemin}`, {
@@ -83,7 +86,8 @@ export async function POST(request: Request) {
     if ('erreur' in c) return json({ error: c.erreur }, c.status);
     const t = c.tache;
     if (!ecritureAutorisee(t)) return json({ error: 'En preview, seuls les chantiers « Test » sont modifiables' }, 403);
-    const points = await pointsDuChantier(token, String(t.id), Array.isArray(t.subtasks) ? t.subtasks : []);
+    const sousTaches = Array.isArray(t.subtasks) ? t.subtasks : [];
+    const points = await pointsDuChantier(token, String(t.id), sousTaches);
     const p = points.find((x) => x.id === lireChamp('elementId'));
     if (!p) return json({ error: 'Cet élément n’est pas à mettre en service sur ce chantier' }, 400);
 
@@ -127,7 +131,28 @@ export async function POST(request: Request) {
     const r = await api(token, `/task/${p.id}/comment`, 'POST', { comment_text: texte, notify_all: false });
     if (!r.ok) return json({ error: `ClickUp a refusé l’enregistrement (${r.status})` }, 502);
     await api(token, `/task/${t.id}/comment`, 'POST', { comment_text: texte, notify_all: d.length > 0 }).catch(() => null);
-    return json({ success: true, defauts: d });
+
+    // Tous les éléments conformes : rapport de mise en service créé par l'appli (un échec n'annule jamais la mesure)
+    let rapport: string | null = null;
+    if (!d.length) {
+      try {
+        const etat = await etatMiseEnService(token, String(t.id), sousTaches);
+        if (etat.length && etat.every((x) => x.fait && !x.defaut)) {
+          const g = await genererRapportMiseEnService(token, t, etat);
+          rapport = g.ok ? 'cree' : `echec : ${g.erreur}`;
+          await api(token, `/task/${t.id}/comment`, 'POST', {
+            comment_text: g.ok
+              ? `📊 Rapport de mise en service créé par l’application (${g.nom}) : ${etat.length} élément${etat.length > 1 ? 's' : ''} conforme${etat.length > 1 ? 's' : ''}.`
+              : `⚠️ Rapport de mise en service : création impossible (${g.erreur}). Relance-la depuis la réception.`,
+            notify_all: !g.ok,
+          }).catch(() => null);
+        }
+      } catch (e) {
+        console.error('Rapport de mise en service :', e);
+        rapport = 'echec';
+      }
+    }
+    return json({ success: true, defauts: d, rapport });
   } catch (error) {
     console.error('Mise en service (écriture) :', error);
     return json({ error: 'Erreur serveur : nouvel essai automatique' }, 500);
