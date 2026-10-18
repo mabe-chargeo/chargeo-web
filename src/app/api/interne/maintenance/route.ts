@@ -15,6 +15,9 @@ import { PROTOCOLE, defauts, texteResultats, type Resultats } from '@/lib/protoc
 // Rejouable (file d'envoi hors ligne) : la clé est écrite dans le commentaire et le nom de la photo.
 // Droits : l'installateur de la visite (👷 Technicien ou assigné), le chef de chantier, la direction.
 // Preview : lecture réelle, écriture seulement sur les visites « Test … ».
+// 18/10/2026, 21 h 29 (choix de Matthieu, après le test : la visite restait « rdv confirmé ») : quand tous les points de
+//   charge de la borne ont leur compte rendu, une visite « à planifier » ou « rdv confirmé » passe en « réalisée ». La
+//   suite reste celle de la liste (rapport à valider, rapport envoyé). Réponse : realisee = true si le statut a changé.
 
 export const dynamic = 'force-dynamic';
 const json = (corps: any, status = 200) => NextResponse.json(corps, { status });
@@ -24,6 +27,7 @@ const champNomme = (t: any, mot: string) => (Array.isArray(t?.custom_fields) ? t
 const ecritureAutorisee = (t: any) => process.env.VERCEL_ENV === 'production' || normal(t?.name).trim().startsWith('test');
 const cleValide = (c: string) => /^[a-z0-9]{6,40}$/i.test(c);
 const ETAPES_PHOTO: Record<string, string> = { visuel: 'contrôle visuel', synthese: 'synthèse MW9665', autre: 'photo' };
+const STATUT_REALISEE = 'réalisée';
 
 async function api(token: string, chemin: string, methode = 'GET', corps?: any): Promise<Response> {
   return fetch(`https://api.clickup.com/api/v2${chemin}`, {
@@ -37,6 +41,21 @@ async function lire(token: string, id: string): Promise<any | null> {
   const res = await api(token, `/task/${encodeURIComponent(id)}`);
   return res.ok ? res.json() : null;
 }
+
+// Borne visitée (Parc) et son nombre de points de charge (1 si non renseigné)
+async function borneDe(token: string, t: any): Promise<{ borne: any | null; points: number }> {
+  const liees: any[] = Array.isArray(champ(t, CHAMPS_INTERVENTION.borneVisitee)?.value) ? champ(t, CHAMPS_INTERVENTION.borneVisitee).value : [];
+  const borne = liees[0]?.id ? await lire(token, String(liees[0].id)) : null;
+  const nb = Number(champNomme(borne, 'nb points')?.value);
+  return { borne, points: Number.isInteger(nb) && nb > 0 && nb <= 40 ? nb : 1 };
+}
+// Points de charge déjà saisis, d'après les commentaires de la visite
+const pointsSaisis = (commentaires: any[]): number[] =>
+  commentaires
+    .map((c: any) => String(c?.comment_text || '').match(/^🔧 Visite de maintenance · PDC (\d+)/))
+    .filter(Boolean)
+    .map((m: any) => Number(m[1]))
+    .filter((n: number, i: number, tab: number[]) => tab.indexOf(n) === i);
 
 async function visiteAutorisee(token: string, id: string, session: any) {
   if (!/^[a-z0-9]+$/i.test(id)) return { erreur: 'Identifiant de visite invalide', status: 400 } as const;
@@ -60,18 +79,12 @@ export async function GET(request: Request) {
     if ('erreur' in v) return json({ error: v.erreur }, v.status);
     const t = v.tache;
     // Borne visitée (Parc) : nombre de points de charge et modèle
-    const liees: any[] = Array.isArray(champ(t, CHAMPS_INTERVENTION.borneVisitee)?.value) ? champ(t, CHAMPS_INTERVENTION.borneVisitee).value : [];
-    const borne = liees[0]?.id ? await lire(token, String(liees[0].id)) : null;
-    const nb = Number(champNomme(borne, 'nb points')?.value);
+    const { borne, points } = await borneDe(token, t);
     const modele = borne ? String(champNomme(borne, 'modele')?.value ?? '') : '';
     // Points de charge déjà saisis (commentaires de visite)
     const resCom = await api(token, `/task/${t.id}/comment`);
     const commentaires: any[] = resCom.ok ? (await resCom.json().catch(() => ({})))?.comments || [] : [];
-    const saisis = commentaires
-      .map((c: any) => String(c?.comment_text || '').match(/^🔧 Visite de maintenance · PDC (\d+)/))
-      .filter(Boolean)
-      .map((m: any) => Number(m[1]))
-      .filter((n: number, i: number, tab: number[]) => tab.indexOf(n) === i);
+    const saisis = pointsSaisis(commentaires);
     return json({
       visite: {
         id: String(t.id),
@@ -83,7 +96,7 @@ export async function GET(request: Request) {
         ecritureAutorisee: ecritureAutorisee(t),
       },
       borne: borne ? { id: String(borne.id), nom: String(borne.name || ''), modele, lien: `/interne/fiches/${borne.id}` } : null,
-      points: Number.isInteger(nb) && nb > 0 && nb <= 40 ? nb : 1,
+      points,
       saisis,
       protocole: PROTOCOLE.length,
       preview: process.env.VERCEL_ENV !== 'production',
@@ -151,7 +164,26 @@ export async function POST(request: Request) {
     ].join('\n');
     const r = await api(token, `/task/${t.id}/comment`, 'POST', { comment_text: texte, notify_all: defauts(resultats).length > 0 });
     if (!r.ok) return json({ error: `ClickUp a refusé l’enregistrement (${r.status})` }, 502);
-    return json({ success: true, defauts: defauts(resultats) });
+
+    // Tous les points de charge ont leur compte rendu : la visite passe en « réalisée » (21 h 29). Un échec ici
+    // n'annule pas la saisie, déjà enregistrée.
+    let realisee = false;
+    const statut = normal(t?.status?.status);
+    if (statut.includes('a planifier') || statut.includes('rdv confirme')) {
+      try {
+        const { points } = await borneDe(token, t);
+        const saisis = pointsSaisis(commentaires).concat(pdc);
+        const complets = Array.from({ length: points }, (_, i) => i + 1).every((n) => saisis.includes(n));
+        if (complets) {
+          const rs = await api(token, `/task/${t.id}`, 'PUT', { status: STATUT_REALISEE });
+          realisee = rs.ok;
+          if (!rs.ok) console.error('Visite de maintenance : statut « réalisée » refusé', rs.status);
+        }
+      } catch (e) {
+        console.error('Visite de maintenance : passage en réalisée impossible', e);
+      }
+    }
+    return json({ success: true, defauts: defauts(resultats), realisee });
   } catch (error) {
     console.error('Visite de maintenance (écriture) :', error);
     return json({ error: 'Erreur serveur : nouvel essai automatique' }, 500);
