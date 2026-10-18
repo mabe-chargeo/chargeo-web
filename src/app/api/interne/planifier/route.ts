@@ -17,8 +17,10 @@ import { dureeRdv, dureeReleve } from '@/lib/dureesRdv';
 //   relevés ⏳ Durée relevé (1 h si vide) ; sans heure = journée.
 // 18/10, 12 h 55 (Matthieu : « mon rendez-vous visite technique du lundi 19 n'apparaît pas dans le planning ») : un de
 //   nos rendez-vous Google (relevé, pose, visite, dépannage) n'est plus ignoré que si l'ERP le montre déjà ; sinon (fiche
-//   passée en gagné avant la date du relevé, statut changé à la main…) il compte comme créneau occupé de l'agenda. Le
-//   chantier à planifier reste exclu (sa planification actuelle est affichée à part).
+//   passée en gagné avant la date du relevé, statut changé à la main…) il compte comme créneau occupé de l'agenda.
+// 18/10, 13 h 05 (« non ça n'apparaît toujours pas ») : la fiche du relevé EST le chantier à planifier (une fiche va de
+//   la visite au Parc). Le chantier n'exclut donc que ses propres poses (sa planification actuelle, affichée à part) ;
+//   l'ERP est indexé par type et fiche (« releve:<id> », « pose:<id> »…).
 // POST { id, jour, minutes (480 ou 810), duree (libellé de ⏳ Durée intervention), techniciens: [ids] } :
 //   📅 Date Intervention (début, avec l'heure), ⏳ Durée intervention, 👷 Technicien (ajoutés et retirés), statut
 //   📅 planifié si le chantier était à planifier ou en préparation, événements « 🏗️ Pose · nom » (un par jour) dans
@@ -44,6 +46,8 @@ const PAGES_MAX = 10;
 type Personne = { id: number; nom: string; email: string; role: string };
 type Bloc = { jour: string; debut: number; fin: number; journee: boolean; type: 'pose' | 'visite' | 'depannage' | 'releve'; nom: string; ville: string; personnes: number[] };
 type ChampDuree = { id: string; options: { id: string; nom: string; ordre: number }[] };
+// Préfixe des événements Google de chaque type (src/lib/googleAgenda.ts)
+const PREFIXE: Record<Bloc['type'], string> = { pose: 'pose', visite: 'visite', depannage: 'depan', releve: 'releve' };
 
 const jourParis = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 const prenom = (nom: string) => nom.split(/\s+/)[0] || nom;
@@ -88,8 +92,8 @@ async function personnesPose(token: string): Promise<Personne[]> {
 }
 
 // Occupations des personnes dans l'ERP sur 35 jours, avec leur durée ClickUp, sans le chantier à planifier.
-// fiches = tâches montrées (leurs rendez-vous Google sont alors ignorés pour ne pas les compter deux fois)
-async function occupationsErp(token: string, ids: number[], saufId: string, cd: ChampDuree | null): Promise<{ blocs: Bloc[]; incomplet: boolean; fiches: Set<string> }> {
+// montres = rendez-vous montrés, « <préfixe>:<id de la fiche> » (leur événement Google est alors ignoré, pas compté deux fois)
+async function occupationsErp(token: string, ids: number[], saufId: string, cd: ChampDuree | null): Promise<{ blocs: Bloc[]; incomplet: boolean; montres: Set<string> }> {
   const debut = jourParis(new Date());
   const fin = jourParis(new Date(Date.now() + JOURS_PLANNING * 86400000));
   const qualification = String(getQualificationListId() || '');
@@ -100,7 +104,7 @@ async function occupationsErp(token: string, ids: number[], saufId: string, cd: 
     qualification ? lister(token, qualification) : Promise.resolve([] as any[]),
   ]);
   const blocs: Bloc[] = [];
-  const fiches = new Set<string>();
+  const montres = new Set<string>();
   const qui = (v: unknown) => (Array.isArray(v) ? v : []).map((u: any) => Number(u?.id)).filter((n) => ids.includes(n));
   const garder = (s: Segment) => s.jour >= debut && s.jour <= fin;
   const rdv = (t: any, type: Bloc['type'], ms: unknown, personnes: number[], duree: number) => {
@@ -110,7 +114,7 @@ async function occupationsErp(token: string, ids: number[], saufId: string, cd: 
     const base = { type, nom: String(t?.name || ''), ville: villeDe(adresseDe(t)), personnes };
     if (d.minutes === null) blocs.push(Object.assign({ jour: d.jour, debut: 480, fin: 1050, journee: true }, base));
     else blocs.push(Object.assign({ jour: d.jour, debut: d.minutes, fin: d.minutes + duree, journee: false }, base));
-    fiches.add(String(t?.id));
+    montres.add(`${PREFIXE[type]}:${String(t?.id)}`);
   };
   const [rPlanning, rVisites, rSav, rReleves] = lus;
   if (rPlanning.status === 'fulfilled') {
@@ -124,7 +128,7 @@ async function occupationsErp(token: string, ids: number[], saufId: string, cd: 
       const segs = segmentsPose(d.jour, d.minutes === null ? 480 : d.minutes, demi);
       if (d.minutes !== null && !demiJourneesDe(dureeDe(t, cd))) segs[0] = { jour: d.jour, debut: d.minutes, fin: d.minutes + 240 };
       for (const s of segs.filter(garder)) blocs.push({ jour: s.jour, debut: s.debut, fin: s.fin, journee: false, type: 'pose', nom: String(t?.name || ''), ville: villeDe(adresseDe(t)), personnes });
-      fiches.add(String(t?.id));
+      montres.add(`pose:${String(t?.id)}`);
     }
   }
   if (rVisites.status === 'fulfilled') {
@@ -147,7 +151,7 @@ async function occupationsErp(token: string, ids: number[], saufId: string, cd: 
       rdv(t, 'releve', dateVisiteDe(t), qui(t?.assignees), dureeReleve(t));
     }
   }
-  return { blocs, incomplet: lus.some((r) => r.status !== 'fulfilled'), fiches };
+  return { blocs, incomplet: lus.some((r) => r.status !== 'fulfilled'), montres };
 }
 
 // Créneaux occupés des Google Agendas (tous les agendas affichés, horaires seulement)
@@ -207,10 +211,11 @@ export async function GET(request: Request) {
     const t = lu.t;
     const [cd, personnes] = await Promise.all([champDuree(token), personnesPose(token)]);
     const ids = personnes.map((p) => p.id);
-    // L'ERP d'abord : ses fiches décident quels rendez-vous Google de l'appli sont déjà montrés
+    // L'ERP d'abord : ses rendez-vous décident quels événements Google de l'appli sont déjà montrés
     const erp = await occupationsErp(token, ids, String(t.id), cd);
     const chantierId = String(t.id);
-    const agenda = await lireAgendas(personnes, (ficheId) => ficheId !== chantierId && !erp.fiches.has(ficheId));
+    const agenda = await lireAgendas(personnes, (ficheId, prefixe) =>
+      !(prefixe === 'pose' && ficheId === chantierId) && !erp.montres.has(`${prefixe}:${ficheId}`));
     const d = jourEtMinutes(champ(t, CHAMPS_INTERVENTION.dateChantier)?.value);
     const actuels = segmentsDe(t, cd);
     return json({
