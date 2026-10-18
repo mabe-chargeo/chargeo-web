@@ -26,6 +26,10 @@ import { champType, poserType, type CleType } from '@/lib/typesTaches';
 // avec le passeport (Email, Téléphone, Adresse, Lien Costructor). La description du dossier donne l'assiette selon la
 // date du permis (avant 2017 complète, 2017 au 10/03/2021 réduite, après non éligible). Un dossier déjà lié est
 // complété sur ses champs vides seulement.
+// 18/10/2026, 13 h 30 (parcours test : « Aucun matériel prévu » à la saisie à la pose) : la lecture de la fiche ne donne
+// que ses sous-tâches directes (les scénarios). Les éléments des scénarios gardaient « 📍 à visiter », statut absent
+// de Planning : arrivés sans statut, ils disparaissaient des lectures. Les statuts des éléments (actifs et archivés) de
+// chaque scénario sont maintenant ajoutés à la correspondance.
 // Garde : fiche principale de Qualification, encore en gagné. En preview : vrai passage sur la liste TEST ou une fiche
 // « Test… », simulation partout.
 
@@ -179,7 +183,7 @@ async function tacheLieeDans(fiche: any, listeId: string, token: string): Promis
   return null;
 }
 
-// #3 : même tâche déplacée dans Planning Chantiers, statuts utilisés (fiche et sous-tâches) vers 📥 à planifier
+// #3 : même tâche déplacée dans Planning Chantiers, statuts utilisés (fiche, scénarios, éléments) vers 📥 à planifier
 async function deplacerVersPlanning(fiche: any, token: string): Promise<{ ok: boolean; detail?: string; essai?: string; relue?: any }> {
   const [source, dest] = await Promise.all([statutsListe(String(fiche.list.id), token), statutsListe(PLANNING_CHANTIERS_ID, token)]);
   const cible = dest.find((s: any) => normal(s.status).includes('planifier')) || dest.find((s: any) => s.type === 'open');
@@ -189,10 +193,23 @@ async function deplacerVersPlanning(fiche: any, token: string): Promise<{ ok: bo
   if (!actuel) return { ok: false, detail: 'statut actuel introuvable' };
   // Statuts utilisés : la fiche, ses sous-tâches, et ses sous-fiches archivées (absentes de la lecture, 14/10)
   const utilises: any[] = [actuel];
-  const archivees = await sousTachesArchivees(token, String(fiche.list.id), String(fiche.id));
-  for (const st of [...(Array.isArray(fiche?.subtasks) ? fiche.subtasks : []), ...archivees]) {
-    const s = trouver(st.status);
+  const ajouter = (st: any) => {
+    const s = trouver(st?.status);
     if (s && !utilises.some((u) => u.id === s.id)) utilises.push(s);
+  };
+  const listeId = String(fiche.list.id);
+  const archivees = await sousTachesArchivees(token, listeId, String(fiche.id));
+  const directes = [...(Array.isArray(fiche?.subtasks) ? fiche.subtasks : []), ...archivees]
+    .filter((st: any) => !st?.parent || String(st.parent) === String(fiche.id));
+  for (const st of directes) ajouter(st);
+  // 18/10 : les éléments de chaque scénario (sous-sous-tâches), actifs et archivés, absents de la lecture de la fiche
+  for (const sc of directes) {
+    const lu = await lireTache(String(sc.id), token, true);
+    const elements = [
+      ...(Array.isArray(lu?.subtasks) ? lu.subtasks : []),
+      ...(await sousTachesArchivees(token, listeId, String(sc.id))),
+    ];
+    for (const e of elements) ajouter(e);
   }
   // Pas de move_custom_fields : les champs propres à Qualification ne sont pas ajoutés à Planning Chantiers.
   // Les champs communs (même champ dans les deux listes) gardent leur valeur ; c'est vérifié à la relecture.
