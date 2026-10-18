@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     const t = c.tache;
     if (!ecritureAutorisee(t)) return json({ error: 'En preview, seuls les chantiers « Test » sont modifiables' }, 403);
 
-    const commentaires = await api(token, `/task/${t.id}/comment`).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+    const commentaires: any = await api(token, `/task/${t.id}/comment`).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
     if ((commentaires?.comments || []).some((x: any) => String(x?.comment_text || '').includes(`réf. ${cle}`))) return json({ success: true, deja: true });
 
     const e = await etatPv(token, t);
