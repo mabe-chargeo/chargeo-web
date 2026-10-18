@@ -1,23 +1,24 @@
 "use client";
 
-// Mise en service à la réception (décision de Matthieu du 18/10/2026, 14 h 41), protocole Sefram MW9665.
-// Un onglet par point à mesurer (bornes du scénario retenu, sinon TD IRVE). Borne : autoséquence EVSE avec l'A1532-XA ;
-// TD IRVE : contrôles d'installation du MW9665 (src/lib/protocoleMaintenance.ts, réaligné le 18/10 à 14 h 56).
-// Brouillon gardé sur le téléphone ; « Enregistrer » passe par la file d'envoi hors ligne (src/lib/fileEnvoi.ts).
+// Mise en service à la réception (décision de Matthieu du 18/10/2026, 14 h 41). 15 h 08 : les contrôles s'adaptent à ce
+// qu'on met en service. Un onglet par élément du scénario retenu, dans l'ordre du courant (raccordement → alimentation →
+// TD IRVE → artère → dérivations → communication → data → prises → bornes), chacun avec son protocole
+// (src/lib/protocoleMaintenance.ts). Brouillon gardé sur le téléphone ; « Enregistrer » passe par la file d'envoi hors
+// ligne (src/lib/fileEnvoi.ts).
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, Camera, Check, CloudOff, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, GRIS, NAVY, ORANGE } from '@/components/charte/couleurs';
-import { appareilDe, cleValeur, defauts, etapesDe, manquants, type Resultats } from '@/lib/protocoleMaintenance';
+import { OBJET, aDuTri, appareilDe, cleValeur, defauts, etapesDe, manquants, type ModeProtocole, type Resultats } from '@/lib/protocoleMaintenance';
 import { ajouter, envoyerTout, lister, nouvelleCle, reprendre, type Envoi } from '@/lib/fileEnvoi';
 
 type Chantier = { id: string; nom: string; statut: string; adresse: string; ecritureAutorisee: boolean };
-type Point = { id: string; nom: string; mode: 'borne' | 'infra'; fait: boolean; defaut: boolean };
+type Point = { id: string; nom: string; mode: ModeProtocole; fait: boolean; defaut: boolean };
 
 const ROUTE = '/api/interne/mise-en-service';
 const VIDE: Resultats = { tri: false, valeurs: {}, remarque: '' };
-const cleBrouillon = (chantier: string, element: string) => `chargeo-mes2-${chantier}-${element}`;
+const cleBrouillon = (chantier: string, element: string) => `chargeo-mes3-${chantier}-${element}`;
 const cleCache = (chantier: string) => `chargeo-mes-chantier-${chantier}`;
 
 export default function MiseEnServicePage() {
@@ -84,8 +85,8 @@ export default function MiseEnServicePage() {
   }, [id, actif]);
 
   const point = points.find((p) => p.id === actif) || null;
-  const infra = point?.mode === 'infra';
-  const etapes = etapesDe(point?.mode || 'borne');
+  const mode: ModeProtocole = point?.mode || 'borne';
+  const etapes = etapesDe(mode);
   const changer = (suite: Resultats) => {
     setR(suite);
     try { localStorage.setItem(cleBrouillon(id, actif), JSON.stringify(suite)); } catch { /* plein */ }
@@ -101,10 +102,13 @@ export default function MiseEnServicePage() {
         if (f) await ajouter({ cle: nouvelleCle(), chantierId: id, chantierNom: chantier.nom, elementId: point.id, elementNom: point.nom, type: 'photo', donnees: { etape }, fichier: f, nomFichier: f.name, route: ROUTE });
       }
       const d = defauts(r, etapes);
-      setMessage(d.length ? `Mesures du ${point.nom} enregistrées avec ${d.length} défaut${d.length > 1 ? 's' : ''} : corrige puis refais la mesure, la réception reste bloquée.` : `Mesures du ${point.nom} enregistrées.`);
+      setMessage(d.length ? `${point.nom} : ${d.length} défaut${d.length > 1 ? 's' : ''} noté${d.length > 1 ? 's' : ''}. Corrige puis refais la mesure, la réception reste bloquée.` : `${point.nom} : mesures enregistrées.`);
       setPoints((l) => l.map((p) => (p.id === point.id ? { ...p, fait: true, defaut: d.length > 0 } : p)));
       try { localStorage.removeItem(cleBrouillon(id, point.id)); } catch { /* rien */ }
       setPhotos({});
+      // Passe au point suivant pas encore fait
+      const suivant = points.find((p) => p.id !== point.id && !p.fait);
+      if (suivant && !d.length) setActif(suivant.id);
       await envoyerTout().catch(() => 0);
     } catch {
       setMessage('Le téléphone refuse d’enregistrer : libère de la place et réessaie.');
@@ -132,6 +136,7 @@ export default function MiseEnServicePage() {
   const reste = manquants(r, etapes);
   const d = defauts(r, etapes);
   const bloque = !chantier || !chantier.ecritureAutorisee || !point;
+  const conformes = points.filter((p) => p.fait && !p.defaut).length;
 
   const boutonRetour = (
     <a href="/interne/reception" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
@@ -141,7 +146,7 @@ export default function MiseEnServicePage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre={`Mise en service · ${appareilDe(point?.mode || 'borne')}`} titre={chantier?.nom || 'Chantier'} action={boutonRetour} />
+      <EnTeteAppli surtitre="Mise en service" titre={chantier?.nom || 'Chantier'} action={boutonRetour} />
       <ContenuAppli className="space-y-4">
         {preview && chantier && !chantier.ecritureAutorisee && <Alerte>Preview : seuls les chantiers « Test … » peuvent être enregistrés.</Alerte>}
         {erreur && <Alerte>{erreur}</Alerte>}
@@ -155,14 +160,11 @@ export default function MiseEnServicePage() {
         {chantier && (
           <Carte className="space-y-1.5">
             {chantier.adresse && <p className="flex items-center gap-1.5 text-[14px]"><MapPin size={14} color={CYAN} /> {chantier.adresse}</p>}
-            <p className="text-[13px]">{points.length} point{points.length > 1 ? 's' : ''} à mesurer · {points.filter((p) => p.fait && !p.defaut).length} conforme{points.filter((p) => p.fait && !p.defaut).length > 1 ? 's' : ''}</p>
-            {infra
-              ? <p className="text-[13px]">Pas de borne dans le scénario retenu : le TD IRVE est contrôlé au MW9665 seul, sans l’A1532-XA (continuité PE, isolement, tension, impédances, différentiel). L’autoséquence borne se fera à la pose des bornes.</p>
-              : <p className="text-[13px]">Suis l’autoséquence borne du MW9665 avec l’A1532-XA, dans le même ordre. Note la valeur et le verdict affichés par l’appareil.</p>}
+            <p className="text-[13px]">{points.length} élément{points.length > 1 ? 's' : ''} à mettre en service · {conformes} conforme{conformes > 1 ? 's' : ''}</p>
           </Carte>
         )}
         {!loading && chantier && points.length === 0 && (
-          <Alerte>Aucune borne ni aucun TD IRVE dans le scénario retenu : rien à mettre en service.</Alerte>
+          <Alerte>Aucun élément à mettre en service dans le scénario retenu.</Alerte>
         )}
 
         {enAttente.length > 0 && (
@@ -185,17 +187,24 @@ export default function MiseEnServicePage() {
             })}
           </div>
         )}
-        {point && points.length === 1 && <p className="px-1 text-[16px] font-bold" style={{ color: NAVY }}>{point.nom}</p>}
 
         {point && (
           <>
-            <div className="grid grid-cols-2 gap-1 rounded-full bg-[#eef1f4] p-1">
-              {[false, true].map((tri) => (
-                <button key={String(tri)} onClick={() => changer({ ...r, tri })} className={`rounded-full py-2.5 text-[15px] font-bold ${r.tri === tri ? 'bg-white shadow' : ''}`}>
-                  {tri ? 'Triphasé' : 'Monophasé'}
-                </button>
-              ))}
+            <div className="px-1">
+              <p className="text-[18px] font-bold" style={{ color: NAVY }}>{point.nom}</p>
+              <p className="mt-0.5 text-[14px]">{OBJET[mode]}</p>
+              <p className="mt-0.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500">{appareilDe(mode)}</p>
             </div>
+
+            {aDuTri(etapes) && (
+              <div className="grid grid-cols-2 gap-1 rounded-full bg-[#eef1f4] p-1">
+                {[false, true].map((tri) => (
+                  <button key={String(tri)} onClick={() => changer({ ...r, tri })} className={`rounded-full py-2.5 text-[15px] font-bold ${r.tri === tri ? 'bg-white shadow' : ''}`}>
+                    {tri ? 'Triphasé' : 'Monophasé'}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {etapes.map((e) => (
               <div key={e.cle} className="space-y-3 rounded-[20px] p-5" style={{ backgroundColor: GRIS }}>
@@ -239,7 +248,7 @@ export default function MiseEnServicePage() {
             <BoutonPrincipal inactif={bloque} disabled={bloque} onClick={enregistrer}>
               <Check size={20} /> Enregistrer les mesures{reste > 0 ? ` (${reste} à remplir)` : ''}
             </BoutonPrincipal>
-            <p className="px-1 text-center text-[13px]">Enregistre aussi la séquence dans le MW9665 : le rapport MESM (PDF) se dépose ensuite dans la réception.</p>
+            {appareilDe(mode).includes('MW9665') && <p className="px-1 text-center text-[13px]">Enregistre aussi les mesures dans le MW9665 : le rapport MESM (PDF) se dépose ensuite dans la réception.</p>}
           </>
         )}
 

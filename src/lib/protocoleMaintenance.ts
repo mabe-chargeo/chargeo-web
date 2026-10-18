@@ -24,8 +24,8 @@ export type EtapeProtocole = { cle: string; titre: string; aide: string; control
 
 export const APPAREIL = 'Sefram MW9665 + A1532-XA';
 
-const numeroter = (etapes: Omit<EtapeProtocole, 'titre'> & { titre: string }[] | EtapeProtocole[]): EtapeProtocole[] =>
-  (etapes as EtapeProtocole[]).map((e, i) => ({ ...e, titre: `${i + 1}. ${e.titre}` }));
+// Numérotation continue 1, 2, 3… dans l'ordre de la liste
+const numeroter = (etapes: EtapeProtocole[]): EtapeProtocole[] => etapes.map((e, i) => ({ ...e, titre: `${i + 1}. ${e.titre}` }));
 
 // Briques communes
 const tension = (aide: string): EtapeProtocole => ({
@@ -66,18 +66,18 @@ const continuite = (aide: string): EtapeProtocole => ({
     { cle: 'resultat', libelle: 'Verdict de l’appareil', type: 'okko' },
   ],
 });
-const differentiel = (aide: string, dc6 = false): EtapeProtocole => ({
-  cle: 'ddr', titre: 'Différentiel (RCD auto)', aide,
-  controles: [
+const differentiel = (aide: string, dc6 = false): EtapeProtocole => {
+  const controles: Controle[] = [
     { cle: 'temps', libelle: 'Temps de déclenchement à IΔn', type: 'nombre', unite: 'ms' },
     { cle: 'temps5', libelle: 'Temps de déclenchement à 5 × IΔn', type: 'nombre', unite: 'ms' },
     { cle: 'courant', libelle: 'Courant de déclenchement IΔ', type: 'nombre', unite: 'mA' },
-    ...(dc6 ? [{ cle: 'dc6', libelle: 'Détection 6 mA DC', type: 'okko' as const, na: true }] : []),
-    { cle: 'resultat', libelle: 'Verdict de l’appareil', type: 'okko' },
-  ],
-});
-const synthese = (libelle = 'Mesures enregistrées dans le MW9665'): EtapeProtocole => ({
-  cle: 'synthese', titre: 'Synthèse', aide: 'Photographie l’écran de résumé du MW9665 (rapport MESM ensuite).', photo: true,
+  ];
+  if (dc6) controles.push({ cle: 'dc6', libelle: 'Détection 6 mA DC', type: 'okko', na: true });
+  controles.push({ cle: 'resultat', libelle: 'Verdict de l’appareil', type: 'okko' });
+  return { cle: 'ddr', titre: 'Différentiel (RCD auto)', aide, controles };
+};
+const synthese = (libelle = 'Mesures enregistrées dans le MW9665', aide = 'Photographie l’écran de résumé du MW9665 (rapport MESM ensuite).'): EtapeProtocole => ({
+  cle: 'synthese', titre: 'Synthèse', aide, photo: true,
   controles: [{ cle: 'global', libelle, type: 'okko' }],
 });
 
@@ -128,7 +128,7 @@ export const PROTOCOLE: EtapeProtocole[] = numeroter([
       { cle: 'compteur', libelle: 'Compteur de la borne cohérent', type: 'okko' },
     ],
   },
-  { ...synthese('Autoséquence réussie et enregistrée'), aide: 'CP sur A avant de débrancher. Photographie l’écran de résumé et enregistre la séquence dans le MW9665 (rapport MESM).' },
+  synthese('Autoséquence réussie et enregistrée', 'CP sur A avant de débrancher. Photographie l’écran de résumé et enregistre la séquence dans le MW9665 (rapport MESM).'),
 ]);
 
 // Prise renforcée : pas de CP ni de PP, contrôles d'installation du circuit et essai d'une charge
@@ -155,13 +155,13 @@ const PROTOCOLE_PRISE: EtapeProtocole[] = numeroter([
 // Raccordement (PDL dédié, TGBT, tableau) : prise de terre et arrivée
 const PROTOCOLE_RACCORDEMENT: EtapeProtocole[] = numeroter([
   {
-    cle: 'visuel', titre: 'Contrôle visuel', aide: 'Point de raccordement : protection de tête, repérage, serrage, plombage le cas échéant.', photo: true,
+    cle: 'visuel', titre: 'Contrôle visuel', aide: 'Point de raccordement : protection de tête, repérage, serrage.', photo: true,
     controles: [
       { cle: 'arrivee', libelle: 'Arrivée : protection de tête, repérage, serrage', type: 'okko' },
     ],
   },
   {
-    cle: 'terre', titre: 'Prise de terre', aide: 'Mesure de terre du MW9665 (piquets ou boucle) : surtout sur un PDL dédié, qui a sa propre terre.',
+    cle: 'terre', titre: 'Prise de terre', aide: 'Mesure de terre du MW9665 (piquets ou boucle), surtout sur un PDL dédié qui a sa propre terre.',
     controles: [
       { cle: 'ra', libelle: 'Résistance de terre RA', type: 'nombre', unite: 'Ω' },
       { cle: 'resultat', libelle: 'Verdict de l’appareil', type: 'okko', na: true },
@@ -172,15 +172,15 @@ const PROTOCOLE_RACCORDEMENT: EtapeProtocole[] = numeroter([
 ]);
 
 // Alimentation (raccordement → TD IRVE) et artère (TD IRVE → fin d'artère) : contrôles du câble posé, mesurés au bout
-const cable = (bout: string): EtapeProtocole[] => numeroter([
+const cable = (bout: string, Bout: string): EtapeProtocole[] => numeroter([
   continuite(`R basse du MW9665 entre la barrette de terre de départ et le PE ${bout}.`),
   isolement('Câble consigné aux deux bouts, conducteur par conducteur contre le PE.'),
   tension(`Sous tension, ${bout}.`),
-  impedances(`${bout.charAt(0).toUpperCase()}${bout.slice(1)}, sans déclencher le DDR.`),
+  impedances(`${Bout}, sans déclencher le DDR.`),
   synthese(),
 ]);
-const PROTOCOLE_ALIMENTATION = cable('à l’arrivée dans le TD IRVE');
-const PROTOCOLE_ARTERE = cable('en fin d’artère');
+const PROTOCOLE_ALIMENTATION = cable('à l’arrivée dans le TD IRVE', 'À l’arrivée dans le TD IRVE');
+const PROTOCOLE_ARTERE = cable('en fin d’artère', 'En fin d’artère');
 
 // TD IRVE / coffret : coffret, protections et gestion de charge
 const PROTOCOLE_TD: EtapeProtocole[] = numeroter([
