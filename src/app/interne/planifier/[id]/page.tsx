@@ -7,6 +7,9 @@
 // de la pose le sont pour chacun d'eux. Écrit par /api/interne/planifier. Ouvert depuis Chantiers.
 // 17/10, 23 h 00 (Matthieu : « pouvoir supprimer un créneau aussi si on se trompe ») : départ effaçable (le toucher à
 // nouveau, ou « Effacer ») et « Annuler la planification » pour un chantier déjà planifié.
+// 18/10, 13 h 00 (Matthieu, après un rechargement qui avait tout décoché : « c'est sûr que comme ça c'est encore plus
+// simple de planifier ») : installateurs précochés, l'agenda s'affiche d'emblée. Ordre : ceux déjà sur le chantier ;
+// sinon le seul de la liste ; sinon le dernier choix fait sur ce téléphone (gardé à chaque changement).
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AlertTriangle, CalendarCheck, CalendarX, Check, ChevronRight, HardHat, MapPin, RefreshCw, X } from 'lucide-react';
@@ -25,6 +28,19 @@ type Resultat = { quand: string; duree: string; statut: string; equipe: string[]
 const VERT = '#16a34a';
 const TYPES: Record<TypeRdv, string> = { pose: '🏗️ Pose', visite: '🔧 Maintenance', depannage: '🚨 Dépannage', releve: '📋 Relevé' };
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const CLE_DERNIERS = 'chargeo_poseurs_choisis';
+
+function lireDerniers(): number[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(CLE_DERNIERS) || '[]');
+    return Array.isArray(v) ? v.map(Number).filter((n) => n > 0) : [];
+  } catch {
+    return [];
+  }
+}
+function garderDerniers(ids: number[]) {
+  try { if (ids.length) localStorage.setItem(CLE_DERNIERS, JSON.stringify(ids)); } catch {}
+}
 
 export default function PlanifierPage() {
   const params = useParams<{ id: string }>();
@@ -61,7 +77,12 @@ export default function PlanifierPage() {
         setChampManquant(!!data.champDureeManquant);
         setPlanningIncomplet(!!data.planningIncomplet);
         setPreview(!!data.preview);
-        setChoisis((data.chantier?.techniciens || []).filter((n: number) => (data.personnes || []).some((p: Personne) => p.id === n)));
+        // Précochés : déjà sur le chantier, sinon le seul de la liste, sinon le dernier choix sur ce téléphone
+        const liste: Personne[] = data.personnes || [];
+        const existe = (n: number) => liste.some((p) => p.id === n);
+        const surChantier = (data.chantier?.techniciens || []).filter(existe);
+        const derniers = lireDerniers().filter(existe);
+        setChoisis(surChantier.length ? surChantier : liste.length === 1 ? [liste[0].id] : derniers);
         setDuree(data.chantier?.duree || (data.durees || []).find((d: string) => normal(d) === '1 jour') || '');
       } catch {
         setErreur('Impossible de joindre le serveur.');
@@ -85,7 +106,12 @@ export default function PlanifierPage() {
   const segsChoix = choix ? segments(choix.jour, choix.minutes) : [];
   const alertesChoix = journees.filter((x) => segsChoix.some((s) => s.jour === x.jour));
 
-  const basculer = (pid: number) => { setChoisis(choisis.includes(pid) ? choisis.filter((x) => x !== pid) : choisis.concat([pid])); setChoix(null); };
+  const basculer = (pid: number) => {
+    const suivants = choisis.includes(pid) ? choisis.filter((x) => x !== pid) : choisis.concat([pid]);
+    setChoisis(suivants);
+    garderDerniers(suivants);
+    setChoix(null);
+  };
   // Toucher le départ déjà choisi l'efface
   const choisirDepart = (jour: string, minutes: number) => setChoix(choix && choix.jour === jour && choix.minutes === minutes ? null : { jour, minutes });
   const pret = !!choix && !!duree && choisis.length > 0;
@@ -102,7 +128,7 @@ export default function PlanifierPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) setErreur(data?.error || `Enregistrement impossible (${res.status})`);
-      else setResultat(data as Resultat);
+      else { garderDerniers(choisis); setResultat(data as Resultat); }
     } catch {
       setErreur('Impossible de joindre le serveur. Rien n’a été enregistré.');
     } finally {
