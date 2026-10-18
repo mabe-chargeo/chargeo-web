@@ -27,6 +27,10 @@
 // passer la fiche en devis envoyé ? ») : en vente, pour le commercial et la direction, carte « Le projet » (zone,
 // places, SIRET / RNIC, date du permis) sous le Relevé, et carte « Suite de la vente » (devis envoyé, négociation,
 // gagné, perdu avec motif) sous le Devis (src/components/ui/Vente.tsx, /api/interne/vente).
+// 18/10, 17 h 37 (Matthieu, au Parc : « je n'ai pas accès au PV de réception », « le fil d'Ariane dit à traiter
+// pipeline », maquette validée) : carte Réception avec les vignettes du PV, du rapport et des photos (le plus récent en
+// premier, ouverture par /api/interne/fichier, comme sur l'écran Réception) ; fil d'Ariane selon l'étape (Pipeline,
+// Chantiers, Consulter › Parc installé).
 // Structure de départ validée le 16/10 ; bloc Contact le 17/10 à 10 h 20. Retour vers la vue d'où l'on vient, sinon
 // vers Mon espace.
 import { useEffect, useState, type ElementType, type ReactNode } from 'react';
@@ -44,6 +48,7 @@ import { useRoleAppli } from '@/components/charte/roleAppli';
 type Etape = 'prospection' | 'qualification' | 'chantier' | 'parc';
 type Scenario = { id: string; nom: string; statut: string; couleurStatut: string; segment: string; elements: number; natures: { nature: string; n: number }[] };
 type Lien = { id: string; nom: string };
+type FichierRec = { id: string; nom: string; image: boolean };
 type Facture = {
   id: string; nom: string; statut: string; couleurStatut: string; type: string; numero: string; montantHT: number | null;
   echeance: string; enRetard: boolean; lienCostructor: string; url: string;
@@ -70,7 +75,10 @@ type Fiche = {
   scenarios: Scenario[];
   feuVert: { donne: boolean; prerequis: { libelle: string; valeur: string; ok: boolean }[] } | null;
   chantier: { intervention: string; techniciens: string[]; realise: boolean } | null;
-  reception: { reserves: string; pv: number; rapport: number; photos: number } | null;
+  reception: {
+    reserves: string; pv: number; rapport: number; photos: number;
+    fichiers?: { pv: FichierRec[]; rapport: FichierRec[]; photos: FichierRec[] };
+  } | null;
   parc: {
     contrat: string; echeance: string; miseEnService: string; finGarantie: string; modele: string; numeroSerie: string;
     pointsDeCharge: number | null; lienChargeUnix: string; sav: Lien[]; visites: Lien[];
@@ -86,6 +94,8 @@ const ETAPES: { cle: Etape; libelle: string }[] = [
   { cle: 'chantier', libelle: 'Chantier' },
   { cle: 'parc', libelle: 'Parc' },
 ];
+// Écran parent du fil d'Ariane selon l'étape (clés de la carte des menus)
+const PARENT_ETAPE: Record<Etape, string> = { prospection: 'pipeline', qualification: 'pipeline', chantier: 'chantiers', parc: 'parc' };
 
 const euros = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -290,16 +300,53 @@ export default function FichePage() {
     </Carte>
   );
 
-  const carteReception = (f: Fiche) => f.reception && (
-    <Carte className="space-y-2.5">
-      <TitreCarte icon={ShieldCheck}>Réception</TitreCarte>
-      {ligne(FileText, f.reception.pv ? 'PV de réception déposé' : 'PV de réception pas encore déposé', f.reception.pv ? '#16a34a' : ORANGE)}
-      {ligne(ClipboardList, f.reception.rapport ? 'Rapport de mesures déposé' : 'Rapport de mesures pas encore déposé', f.reception.rapport ? '#16a34a' : ORANGE)}
-      {ligne(ClipboardList, `${f.reception.photos} photo${f.reception.photos > 1 ? 's' : ''} de chantier`)}
-      {f.reception.reserves && ligne(Wrench, `Réserves : ${f.reception.reserves}`)}
-      {f.etape === 'chantier' && f.chantier?.realise && !f.sansPrix && boutonAction('/interne/validation', 'Valider la réception')}
-    </Carte>
+  // Vignettes d'un champ Fichiers (18/10, 17 h 37) : image en miniature, PDF en icône avec son nom, le plus récent en
+  // premier ; un appui ouvre le fichier en grand dans un nouvel onglet (aperçu /api/interne/fichier)
+  const vignettes = (f: Fiche, cible: 'pv' | 'rapport' | 'photos', liste: FichierRec[]) => liste.length > 0 && (
+    <div className="grid grid-cols-3 gap-2">
+      {liste.map((x, i) => {
+        const lien = `/api/interne/fichier?taskId=${encodeURIComponent(f.id)}&cible=${cible}&id=${encodeURIComponent(x.id)}`;
+        const recent = i === 0 && liste.length > 1;
+        return (
+          <a key={x.id} href={lien} target="_blank" rel="noreferrer" title={x.nom} className="relative block overflow-hidden rounded-[10px] bg-white ring-[1.5px] ring-[#dfe3e8]">
+            {x.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`${lien}&mini=1`} alt={x.nom} loading="lazy" className="aspect-square w-full object-cover" />
+            ) : (
+              <div className="flex aspect-square flex-col items-center justify-center gap-1 p-2 text-center">
+                <FileText size={22} color={CYAN} />
+                <span className="line-clamp-2 break-all text-[11px]">{x.nom}</span>
+              </div>
+            )}
+            {recent && (
+              <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#16a34a] px-2 py-0.5 text-[10px] font-bold text-white">le plus récent</span>
+            )}
+          </a>
+        );
+      })}
+    </div>
   );
+
+  const carteReception = (f: Fiche) => {
+    if (!f.reception) return null;
+    const r = f.reception;
+    const fichiers = r.fichiers || { pv: [], rapport: [], photos: [] };
+    const miseEnService = fichiers.rapport.some((x) => normal(x.nom).includes('mise-en-service'));
+    const libelleRapport = miseEnService ? 'Rapport de mise en service' : 'Rapport de mesures';
+    return (
+      <Carte className="space-y-2.5">
+        <TitreCarte icon={ShieldCheck}>Réception</TitreCarte>
+        {ligne(FileText, r.pv ? `PV de réception (${r.pv})` : 'PV de réception pas encore déposé', r.pv ? '#16a34a' : ORANGE)}
+        {vignettes(f, 'pv', fichiers.pv)}
+        {ligne(ClipboardList, r.rapport ? `${libelleRapport} (${r.rapport})` : `${libelleRapport} pas encore déposé`, r.rapport ? '#16a34a' : ORANGE)}
+        {vignettes(f, 'rapport', fichiers.rapport)}
+        {ligne(ClipboardList, `${r.photos} photo${r.photos > 1 ? 's' : ''} de chantier`)}
+        {vignettes(f, 'photos', fichiers.photos)}
+        {r.reserves && ligne(Wrench, `Réserves : ${r.reserves}`)}
+        {f.etape === 'chantier' && f.chantier?.realise && !f.sansPrix && boutonAction('/interne/validation', 'Valider la réception')}
+      </Carte>
+    );
+  };
 
   const carteParc = (f: Fiche) => f.parc && (
     <>
@@ -381,7 +428,7 @@ export default function FichePage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre={fiche ? [fiche.passeport.typeClient, fiche.projet.segment].filter(Boolean).join(' · ') || fiche.liste || 'Fiche' : 'Fiche'} titre={fiche?.nom || 'Fiche'} action={boutonRetour} />
+      <EnTeteAppli surtitre={fiche ? [fiche.passeport.typeClient, fiche.projet.segment].filter(Boolean).join(' · ') || fiche.liste || 'Fiche' : 'Fiche'} titre={fiche?.nom || 'Fiche'} action={boutonRetour} parent={fiche ? PARENT_ETAPE[fiche.etape] : ''} />
 
       <ContenuAppli className="space-y-4">
         {preview && <Alerte>Prévisualisation : en vente, fiche lue dans 🧪 Qualification TEST ; au chantier et au Parc, dans les vraies listes. Seules les fiches « Test · … » sont modifiées.</Alerte>}

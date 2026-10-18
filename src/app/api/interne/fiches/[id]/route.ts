@@ -21,6 +21,8 @@ import { CHAMP_FEU_VERT, CHAMPS_INTERVENTION, LISTES, PREREQUIS_FEU_VERT } from 
 // 17/10, 18 h 10 (décision de Matthieu à 17 h 37 : l'installateur voit « ce qui est prévu, sans prix ») : pour un
 // installateur (aucun autre rôle), et pour toute personne en vue Installateur (?role=poseur), la fiche part sans prix :
 // devis vidé (n°, montant, lien du devis, lien Costructor), ni factures ni dossiers ADVENIR (sansPrix: true).
+// 18/10, 17 h 37 (Matthieu, au Parc : « je n'ai pas accès au PV de réception ») : la réception donne aussi les fichiers
+// du PV, du rapport et des photos (le plus récent en premier), ouverts par l'aperçu /api/interne/fichier.
 
 export const dynamic = 'force-dynamic';
 
@@ -75,6 +77,15 @@ const personnes = (t: any, id: string): string[] =>
   tableau(t, id).map((u: any) => String(u?.username || u?.email || '').trim()).filter(Boolean);
 const liees = (t: any, id: string) => tableau(t, id).map((x: any) => ({ id: String(x?.id || ''), nom: String(x?.name || '') })).filter((x) => x.id);
 const champNomme = (t: any, mot: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => normal(c?.name).includes(mot));
+// Fichiers d'un champ Fichiers, le plus récent en premier (le champ les garde dans l'ordre de dépôt)
+const fichiersDe = (t: any, id: string) => tableau(t, id)
+  .map((f: any) => ({
+    id: String(f?.id || ''),
+    nom: String(f?.title || f?.name || f?.extension || 'fichier'),
+    image: String(f?.mimetype || '').startsWith('image/') || /^(jpe?g|png|gif|webp|heic|heif)$/i.test(String(f?.extension || '')),
+  }))
+  .filter((f) => f.id)
+  .reverse();
 
 async function lire(token: string, id: string, sousTaches = false): Promise<any | null> {
   const res = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(id)}${sousTaches ? '?include_subtasks=true' : ''}`, {
@@ -238,6 +249,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           pv: tableau(t, PV_RECEPTION).length,
           rapport: tableau(t, RAPPORT_MESURES).length,
           photos: tableau(t, PHOTOS_CHANTIER).length,
+          fichiers: {
+            pv: fichiersDe(t, PV_RECEPTION),
+            rapport: fichiersDe(t, RAPPORT_MESURES),
+            photos: fichiersDe(t, PHOTOS_CHANTIER),
+          },
         }
       : null;
     const parc = etape === 'parc'

@@ -42,16 +42,19 @@ function ancienRetour(n: React.ReactNode): { repli?: string } | null {
 // surtitre, rôle affiché, titre. « retour » donne l'écran parent de repli quand on arrive de l'extérieur.
 // 17/10/2026, 16 h 19 : le bouton Retour est sur tous les écrans sauf Ma journée, Mon espace et Plus.
 // 18/10/2026, 17 h 20 : fil d'Ariane sous le bouton Retour (onglet de la barre puis écrans parents, src/lib/filAriane.ts).
+// 18/10/2026, 17 h 37 : « parent » impose l'écran parent du fil (clé de la carte des menus, '' = aucun).
 export function EnTeteAppli({
   surtitre,
   titre,
   retour,
   action,
+  parent,
 }: {
   surtitre: string;
   titre: string;
   retour?: { href: string; libelle: string };
   action?: React.ReactNode;
+  parent?: string;
 }) {
   const ancien = ancienRetour(action);
   const repli = retour?.href || ancien?.repli || '/interne/espace';
@@ -67,7 +70,7 @@ export function EnTeteAppli({
           </div>
           {droite}
         </div>
-        <FilAriane />
+        <FilAriane parent={parent} />
         <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
           <p className="text-[12px] font-extrabold uppercase tracking-[0.14em]" style={{ color: CYAN_SUR_NAVY }}>{surtitre}</p>
           <RoleActif />
