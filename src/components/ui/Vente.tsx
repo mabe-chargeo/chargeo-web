@@ -7,14 +7,18 @@
 // partie "suite" : carte « Suite de la vente », boutons selon le statut : devis à faire → Devis envoyé ; devis envoyé →
 //   En négociation, Gagné, Perdu ; en négociation → Gagné, Perdu. Gagné et Perdu demandent une confirmation dans la
 //   page ; Perdu demande le motif. Commercial et direction (contrôlé côté serveur).
+// 18/10, 12 h 25 : « Devis des scénarios », le lien du devis à coller sous chaque scénario (l'alerte le demandait sans
+//   endroit pour le faire) ; la confirmation du gagné fait choisir le scénario retenu parmi ceux qui ont un lien.
+// La date du permis affiche sa conséquence ADVENIR sous le champ (une année mal tapée se voit tout de suite).
 import { useEffect, useState } from 'react';
-import { Building2, Check, Flame, RefreshCw, Send, Trophy, XCircle } from 'lucide-react';
+import { Building2, Check, Flame, Link2, RefreshCw, Send, Trophy, XCircle } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, LABEL, ORANGE } from '@/components/charte/couleurs';
 
+type Scenario = { id: string; nom: string; statut: string; lien: string; retenu: boolean };
 type Etat = {
   statut: string; zone: string; zones: string[]; places: number | null; siret: string; permis: string;
-  motif: string; motifs: string[]; manquants: string[];
+  motif: string; motifs: string[]; manquants: string[]; lienFiche?: string; scenarios?: Scenario[];
 };
 const URL = '/api/interne/vente';
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -23,6 +27,15 @@ const AIDE_ZONE: Record<string, string> = {
   z2: 'Périphérie : déplacement facturé au barème',
   z3: 'Éloigné : à valider par la direction avant de s’engager',
 };
+// Assiette ADVENIR infrastructure selon la date de dépôt du permis (règle validée)
+function aideAdvenir(d: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return '';
+  const [j, m, a] = [d.slice(8, 10), d.slice(5, 7), d.slice(0, 4)];
+  const date = `${j}/${m}/${a}`;
+  if (d < '2017-01-01') return `Permis du ${date} : avant 2017, assiette ADVENIR complète.`;
+  if (d <= '2021-03-10') return `Permis du ${date} : entre 2017 et le 10/03/2021, assiette ADVENIR réduite.`;
+  return `Permis du ${date} : après le 10/03/2021, pas d’aide ADVENIR infrastructure.`;
+}
 
 async function poster(corps: any): Promise<{ ok: boolean; j: any }> {
   try {
@@ -62,13 +75,21 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
   // Suite de la vente
   const [confirmer, setConfirmer] = useState<'gagne' | 'perdu' | null>(null);
   const [motif, setMotif] = useState('');
+  const [liens, setLiens] = useState<Record<string, string>>({});
+  const [retenu, setRetenu] = useState('');
 
+  const prendreScenarios = (l: Scenario[] | undefined) => {
+    const m: Record<string, string> = {};
+    for (const s of l || []) m[s.id] = s.lien || '';
+    setLiens(m);
+  };
   const remplir = (j: Etat) => {
     setE(j);
     setZone(j.zone || '');
     setPlaces(j.places === null || j.places === undefined ? '' : String(j.places));
     setSiret(j.siret || '');
     setPermis(j.permis || '');
+    prendreScenarios(j.scenarios);
   };
   useEffect(() => {
     (async () => {
@@ -102,6 +123,7 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
       setEnvoi(false);
     };
     const manque = [!e.zone && 'zone', e.places === null && 'places'].filter(Boolean) as string[];
+    const absents = e.manquants.filter((m) => m !== 'motif' && m !== 'lien');
     return (
       <Carte className="space-y-4">
         <TitreCarte icon={Building2}>Le projet</TitreCarte>
@@ -125,8 +147,9 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
         <div className="space-y-2">
           <label className={ETIQUETTE} htmlFor={`permis-${ficheId}`}>Date de dépôt du permis (ADVENIR)</label>
           <input id={`permis-${ficheId}`} type="date" className={CHAMP} value={permis} onChange={(ev) => setPermis(ev.target.value)} />
+          {permis && <p className="ml-1 text-[13px] font-semibold" style={{ color: CYAN }}>{aideAdvenir(permis)}</p>}
         </div>
-        {e.manquants.filter((m) => m !== 'motif').length > 0 && <p className="text-[13px]">Champ absent de cette liste : {e.manquants.filter((m) => m !== 'motif').join(', ')}.</p>}
+        {absents.length > 0 && <p className="text-[13px]">Champ absent de cette liste : {absents.join(', ')}.</p>}
         {erreur && <Alerte>{erreur}</Alerte>}
         {message && <p className="flex items-center gap-1.5 px-1 text-[14px] font-semibold" style={{ color: '#16a34a' }}><Check size={16} /> {message}</p>}
         <BoutonPrincipal type="button" onClick={enregistrer} disabled={envoi || !change} inactif={envoi || !change}>
@@ -142,17 +165,35 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
   const close = s.includes('gagn') || s.includes('perdu') || s.includes('archiv');
   const envoye = s.includes('devis envoy');
   const nego = s.includes('negociation');
+  const scenarios = e.scenarios || [];
+  const aTrancher = scenarios.filter((x) => !x.retenu);
+  const avecLien = aTrancher.filter((x) => x.lien);
+  const retenuEffectif = retenu && avecLien.some((x) => x.id === retenu) ? retenu : avecLien.length === 1 ? avecLien[0].id : '';
+
   const passer = async (statut: 'envoye' | 'negociation' | 'gagne' | 'perdu') => {
     setEnvoi(true);
     setErreur('');
     setMessage('');
-    const { ok, j } = await poster({ id: ficheId, action: 'statut', statut, motif });
+    const { ok, j } = await poster({ id: ficheId, action: 'statut', statut, motif, retenu: statut === 'gagne' ? retenuEffectif : undefined });
     if (!ok) { setErreur(j?.error || 'Le statut n’a pas changé.'); setEnvoi(false); return; }
     setE({ ...e, statut: String(j.statut || e.statut), motif: String(j.motif || e.motif) });
     setConfirmer(null);
-    setMessage(`Fiche passée en ${j.statut}.`);
+    setMessage(`Fiche passée en ${j.statut}${j.retenu ? `, scénario retenu : ${j.retenu}` : ''}.`);
     setEnvoi(false);
     onChange?.();
+  };
+  const enregistrerLien = async (sc: Scenario) => {
+    setEnvoi(true);
+    setErreur('');
+    setMessage('');
+    const { ok, j } = await poster({ id: ficheId, action: 'lien', scenarioId: sc.id, lien: (liens[sc.id] || '').trim() });
+    if (!ok) setErreur(j?.error || 'Le lien n’a pas été enregistré.');
+    else {
+      setE({ ...e, scenarios: j.scenarios as Scenario[] });
+      prendreScenarios(j.scenarios as Scenario[]);
+      setMessage(`Lien du devis enregistré pour ${sc.nom}.`);
+    }
+    setEnvoi(false);
   };
 
   return (
@@ -161,6 +202,25 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
       <p className="text-[14px]">Statut actuel : <strong>{e.statut || '–'}</strong>{e.motif && s.includes('perdu') ? ` (${e.motif})` : ''}.</p>
       {aVisiter && <p className="text-[14px]">Le relevé d’abord : la suite de la vente s’ouvre quand la fiche passe en devis à faire.</p>}
       {close && <p className="text-[14px]">Vente close.</p>}
+
+      {!aVisiter && !close && aTrancher.length > 0 && (
+        <div className="space-y-3 rounded-[16px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
+          <p className="flex items-center gap-2 text-[15px] font-bold" style={{ color: LABEL }}><Link2 size={18} /> Devis des scénarios</p>
+          <p className="text-[13px]">Colle le lien du devis sous chaque scénario chiffré. Il sert au montant, aux relances et au choix du scénario retenu.</p>
+          {aTrancher.map((sc) => {
+            const modifie = (liens[sc.id] || '').trim() !== (sc.lien || '');
+            return (
+              <div key={sc.id} className="space-y-2">
+                <label className={ETIQUETTE} htmlFor={`lien-${sc.id}`}>{sc.nom}</label>
+                <input id={`lien-${sc.id}`} type="url" inputMode="url" className={CHAMP} value={liens[sc.id] || ''} onChange={(ev) => setLiens({ ...liens, [sc.id]: ev.target.value })} placeholder="https://…" />
+                {modifie && <BoutonSecondaire onClick={() => enregistrerLien(sc)} disabled={envoi}><Check size={18} /> Enregistrer le lien</BoutonSecondaire>}
+                {!modifie && sc.lien && <p className="ml-1 text-[13px] font-semibold" style={{ color: '#16a34a' }}>Lien enregistré.</p>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {erreur && <Alerte>{erreur}</Alerte>}
       {message && <p className="flex items-center gap-1.5 px-1 text-[14px] font-semibold" style={{ color: '#16a34a' }}><Check size={16} /> {message}</p>}
 
@@ -184,8 +244,21 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
 
       {confirmer === 'gagne' && (
         <div className="space-y-3 rounded-[16px] bg-white p-4 ring-2 ring-[#FF6B00]">
-          <p className="text-[15px] font-semibold leading-relaxed">Projet gagné ? Le scénario retenu est choisi (devis signé dans Costructor, ou lien du devis sur la fiche), puis l’acompte, le chantier, la commande et le dossier ADVENIR partent.</p>
-          <BoutonPrincipal type="button" onClick={() => passer('gagne')} disabled={envoi} inactif={envoi}><Trophy size={20} /> {envoi ? 'Envoi…' : 'Confirmer : gagné'}</BoutonPrincipal>
+          <p className="text-[15px] font-semibold leading-relaxed">Projet gagné ? L’acompte, le chantier, la commande et le dossier ADVENIR partent du scénario retenu.</p>
+          {aTrancher.length > 0 && avecLien.length === 0 && <Alerte>Colle d’abord le lien du devis du scénario retenu, dans « Devis des scénarios ».</Alerte>}
+          {avecLien.length > 1 && (
+            <div className="space-y-2">
+              <p className={ETIQUETTE}>Scénario retenu</p>
+              <div className="flex flex-wrap gap-2">
+                {avecLien.map((x) => <Pastille key={x.id} actif={retenuEffectif === x.id} onClick={() => setRetenu(x.id)}>{x.nom}</Pastille>)}
+              </div>
+            </div>
+          )}
+          {avecLien.length === 1 && <p className="text-[14px]">Scénario retenu : <strong>{avecLien[0].nom}</strong>.</p>}
+          {(() => {
+            const bloque = envoi || (aTrancher.length > 0 && !retenuEffectif);
+            return <BoutonPrincipal type="button" onClick={() => passer('gagne')} disabled={bloque} inactif={bloque}><Trophy size={20} /> {envoi ? 'Envoi…' : 'Confirmer : gagné'}</BoutonPrincipal>;
+          })()}
           <BoutonSecondaire onClick={() => setConfirmer(null)} disabled={envoi}>Annuler</BoutonSecondaire>
         </div>
       )}
