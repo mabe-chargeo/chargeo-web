@@ -2,6 +2,8 @@
 // - rapport de mise en service (décision de Matthieu du 18/10/2026, 15 h 36 : « L'appli génère le rapport ») ;
 // - procès-verbal de réception signé au doigt sur le téléphone (18/10/2026, 16 h 04 : « au doigt sur le téléphone, et
 //   créer une mise en page comme pour le rapport »).
+// - rapport d'intervention SAV signé au doigt (maquette MAQUETTE_RAPPORT-SAV_2026-10-18.png validée par Matthieu le
+//   18/10/2026 à 22 h 15 : « un rapport un peu de la même manière que le rapport de mise en service et le PV de réception »).
 // Fonctions pures : elles reçoivent des données déjà lues et rendent les octets du PDF.
 import { DocumentPdf, NAVY, TURQUOISE_FONCE, type ImageJpeg, type LigneCarte } from './pdfCharte';
 
@@ -126,5 +128,70 @@ export function pdfPvReception(d: DonneesPv): Uint8Array {
     { titre: 'Pour CHARGéO', nom: d.technicien.nom, qualite: 'Technicien', image: d.technicien.image, mention: 'Pour l’entreprise' },
   ]);
   doc.texte(`Signé au doigt sur l’application CHARGéO le ${d.horodatage}. Un exemplaire est remis au maître d’ouvrage.`, { taille: 7.5, espaceAvant: 6, couleur: NAVY });
+  return doc.finir();
+}
+
+// ---------- Rapport d'intervention SAV ----------
+export type PieceSav = { designation: string; quantite: string };
+export type DonneesRapportSav = {
+  reference: string;
+  ticket: string;
+  installation: string;
+  adresse: string;
+  demande: string;
+  details: string;
+  signaleLe?: string;
+  intervention: string;
+  techniciens: string;
+  constat: string;
+  cause: string;
+  travaux: string;
+  pieces: PieceSav[];
+  essai: string;
+  priseEnCharge: string;
+  resultat: 'resolu' | 'piece' | 'revenir';
+  date: string;
+  commune?: string;
+  signataire: { nom: string; image: ImageJpeg };
+  technicien: { nom: string; image: ImageJpeg };
+  horodatage: string;
+};
+
+const CONCLUSIONS_SAV: Record<DonneesRapportSav['resultat'], string> = {
+  resolu: 'Résultat : problème résolu, borne remise en service.',
+  piece: 'Résultat : pièce à commander. CHARGéO revient pour la poser dès réception.',
+  revenir: 'Résultat : intervention à poursuivre. CHARGéO convient d’un nouveau rendez-vous avec le client.',
+};
+
+export function pdfRapportSav(d: DonneesRapportSav): Uint8Array {
+  const doc = new DocumentPdf({ titre: 'Rapport d’intervention SAV', reference: d.reference, pied: d.installation || d.ticket });
+  doc.titre('Rapport d’intervention SAV');
+  doc.texte(`Référence ${d.reference}`, { taille: 8 });
+  doc.deuxCartes(
+    [etiquette('Client / installation'), { texte: d.installation || d.ticket, gras: true }, ...(d.adresse ? [{ texte: d.adresse }] : [])],
+    [etiquette('Intervention'), { texte: 'Le', valeur: d.intervention }, { texte: 'Technicien', valeur: d.techniciens || 'CHARGéO' },
+      ...(d.signaleLe ? [{ texte: 'Ticket signalé le', valeur: d.signaleLe }] : [])],
+  );
+  // Un intitulé ne reste jamais seul en bas de page : il part avec sa carte
+  const bloc = (titre: string, lignes: LigneCarte[]) => { doc.garder(70); doc.label(titre); doc.carte(lignes); };
+  bloc('Demande du client', [{ texte: d.demande || 'Non précisée' }, ...(d.details ? [{ texte: d.details, taille: 8.5, espace: 4 }] : [])]);
+  bloc('Constat', [{ texte: d.constat }]);
+  bloc('Travaux réalisés', [{ texte: d.travaux }]);
+  bloc('Pièces remplacées', d.pieces.length ? d.pieces.map((p, i) => ({ texte: p.designation, valeur: `x ${p.quantite || '1'}`, espace: i ? 3 : 0 })) : [{ texte: 'Aucune pièce remplacée' }]);
+  bloc('Diagnostic', [
+    { texte: 'Cause', valeur: d.cause },
+    { texte: 'Essai après intervention', valeur: d.essai, espace: 3 },
+    { texte: 'Prise en charge', valeur: d.priseEnCharge, espace: 3 },
+  ]);
+  // Conclusion, « Fait le » et signatures restent ensemble sur la même page
+  doc.garder(260);
+  doc.espace(6);
+  doc.encadre(CONCLUSIONS_SAV[d.resultat], { gras: true });
+  doc.texte(`Fait${d.commune ? ` à ${d.commune}` : ''}, le ${d.date}, en présence du client.`, { espaceAvant: 10 });
+  doc.signatures([
+    { titre: 'Pour le client', nom: d.signataire.nom, image: d.signataire.image, mention: 'Intervention constatée' },
+    { titre: 'Pour CHARGéO', nom: d.technicien.nom, qualite: 'Technicien', image: d.technicien.image, mention: 'Pour l’entreprise' },
+  ]);
+  doc.texte(`Signé au doigt sur l’application CHARGéO le ${d.horodatage}. Un exemplaire est remis au client.`, { taille: 7.5, espaceAvant: 6, couleur: NAVY });
   return doc.finir();
 }

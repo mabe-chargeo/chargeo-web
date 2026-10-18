@@ -9,6 +9,7 @@
 // 18/10, 14 h 41 : mise en service de la réception (/api/interne/mise-en-service), elementId = l'élément mesuré.
 // 18/10, 16 h 04 : PV de réception signé au doigt (/api/interne/pv), elementId = le chantier. « oublier » retire un envoi
 // refusé par le serveur pour une raison qui ne se règlera pas en réessayant.
+// 18/10, 22 h 20 : rapport d'intervention SAV signé au doigt (/api/interne/rapport-sav), chantierId = elementId = le ticket.
 // IndexedDB (et pas localStorage) : les photos y tiennent sans la limite de 5 Mo. Navigateur uniquement.
 
 export type EtatEnvoi = 'attente' | 'encours' | 'echec';
@@ -33,7 +34,7 @@ export type Envoi = {
 
 const BASE = 'chargeo-terrain';
 const TABLE = 'envois';
-const ROUTES = ['/api/interne/pose', '/api/interne/maintenance', '/api/interne/mise-en-service', '/api/interne/pv'];
+const ROUTES = ['/api/interne/pose', '/api/interne/maintenance', '/api/interne/mise-en-service', '/api/interne/pv', '/api/interne/rapport-sav'];
 const routeDe = (e: Envoi) => (e.route && ROUTES.includes(e.route) ? e.route : '/api/interne/pose');
 
 function ouvrir(): Promise<IDBDatabase> {
