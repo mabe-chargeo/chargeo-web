@@ -4,7 +4,7 @@ import { membresDuRole, rolesDe } from '@/lib/roles';
 import { getQualificationListId } from '@/lib/listesClickUp';
 import { CHAMPS_INTERVENTION, LISTES, etapePlanning } from '@/lib/espaces';
 import { adresseDe, champ, dateVisiteDe } from '@/lib/vuesFiches';
-import { agendaBranche, idEvenement, occupationsAgenda, poserEvenement, retirerEvenement } from '@/lib/googleAgenda';
+import { agendaBranche, idEvenement, occupationsAgenda, poserEvenement, retirerEvenement, type GarderNos } from '@/lib/googleAgenda';
 import { DEPARTS_POSE, demiJourneesDe, jourEtMinutes, libellePose, parisVersMs, segmentsPose, villeDe, type Segment } from '@/lib/demiJournees';
 import { dureeRdv, dureeReleve } from '@/lib/dureesRdv';
 
@@ -15,6 +15,10 @@ import { dureeRdv, dureeReleve } from '@/lib/dureesRdv';
 // 18/10, 9 h 22 (Matthieu : « il faut que toutes les durées soient paramétrables ») : chaque occupation ERP a sa durée
 //   ClickUp (src/lib/dureesRdv.ts) : poses ⏳ Durée intervention, visites et dépannages ⏳ Durée RDV (1 h 30 si vide),
 //   relevés ⏳ Durée relevé (1 h si vide) ; sans heure = journée.
+// 18/10, 12 h 55 (Matthieu : « mon rendez-vous visite technique du lundi 19 n'apparaît pas dans le planning ») : un de
+//   nos rendez-vous Google (relevé, pose, visite, dépannage) n'est plus ignoré que si l'ERP le montre déjà ; sinon (fiche
+//   passée en gagné avant la date du relevé, statut changé à la main…) il compte comme créneau occupé de l'agenda. Le
+//   chantier à planifier reste exclu (sa planification actuelle est affichée à part).
 // POST { id, jour, minutes (480 ou 810), duree (libellé de ⏳ Durée intervention), techniciens: [ids] } :
 //   📅 Date Intervention (début, avec l'heure), ⏳ Durée intervention, 👷 Technicien (ajoutés et retirés), statut
 //   📅 planifié si le chantier était à planifier ou en préparation, événements « 🏗️ Pose · nom » (un par jour) dans
@@ -83,8 +87,9 @@ async function personnesPose(token: string): Promise<Personne[]> {
   return res;
 }
 
-// Occupations des personnes dans l'ERP sur 35 jours, avec leur durée ClickUp, sans le chantier à planifier
-async function occupationsErp(token: string, ids: number[], saufId: string, cd: ChampDuree | null): Promise<{ blocs: Bloc[]; incomplet: boolean }> {
+// Occupations des personnes dans l'ERP sur 35 jours, avec leur durée ClickUp, sans le chantier à planifier.
+// fiches = tâches montrées (leurs rendez-vous Google sont alors ignorés pour ne pas les compter deux fois)
+async function occupationsErp(token: string, ids: number[], saufId: string, cd: ChampDuree | null): Promise<{ blocs: Bloc[]; incomplet: boolean; fiches: Set<string> }> {
   const debut = jourParis(new Date());
   const fin = jourParis(new Date(Date.now() + JOURS_PLANNING * 86400000));
   const qualification = String(getQualificationListId() || '');
@@ -95,6 +100,7 @@ async function occupationsErp(token: string, ids: number[], saufId: string, cd: 
     qualification ? lister(token, qualification) : Promise.resolve([] as any[]),
   ]);
   const blocs: Bloc[] = [];
+  const fiches = new Set<string>();
   const qui = (v: unknown) => (Array.isArray(v) ? v : []).map((u: any) => Number(u?.id)).filter((n) => ids.includes(n));
   const garder = (s: Segment) => s.jour >= debut && s.jour <= fin;
   const rdv = (t: any, type: Bloc['type'], ms: unknown, personnes: number[], duree: number) => {
@@ -104,6 +110,7 @@ async function occupationsErp(token: string, ids: number[], saufId: string, cd: 
     const base = { type, nom: String(t?.name || ''), ville: villeDe(adresseDe(t)), personnes };
     if (d.minutes === null) blocs.push(Object.assign({ jour: d.jour, debut: 480, fin: 1050, journee: true }, base));
     else blocs.push(Object.assign({ jour: d.jour, debut: d.minutes, fin: d.minutes + duree, journee: false }, base));
+    fiches.add(String(t?.id));
   };
   const [rPlanning, rVisites, rSav, rReleves] = lus;
   if (rPlanning.status === 'fulfilled') {
@@ -117,6 +124,7 @@ async function occupationsErp(token: string, ids: number[], saufId: string, cd: 
       const segs = segmentsPose(d.jour, d.minutes === null ? 480 : d.minutes, demi);
       if (d.minutes !== null && !demiJourneesDe(dureeDe(t, cd))) segs[0] = { jour: d.jour, debut: d.minutes, fin: d.minutes + 240 };
       for (const s of segs.filter(garder)) blocs.push({ jour: s.jour, debut: s.debut, fin: s.fin, journee: false, type: 'pose', nom: String(t?.name || ''), ville: villeDe(adresseDe(t)), personnes });
+      fiches.add(String(t?.id));
     }
   }
   if (rVisites.status === 'fulfilled') {
@@ -139,17 +147,17 @@ async function occupationsErp(token: string, ids: number[], saufId: string, cd: 
       rdv(t, 'releve', dateVisiteDe(t), qui(t?.assignees), dureeReleve(t));
     }
   }
-  return { blocs, incomplet: lus.some((r) => r.status !== 'fulfilled') };
+  return { blocs, incomplet: lus.some((r) => r.status !== 'fulfilled'), fiches };
 }
 
 // Créneaux occupés des Google Agendas (tous les agendas affichés, horaires seulement)
-async function lireAgendas(personnes: Personne[]) {
+async function lireAgendas(personnes: Personne[], garderNos?: GarderNos) {
   const creneaux: { personne: number; jour: string; debut: number; fin: number; journee: boolean }[] = [];
   const erreurs: string[] = [];
   if (!agendaBranche()) return { branche: false, creneaux, erreurs };
   const depuis = new Date();
   const jusque = new Date(Date.now() + JOURS_PLANNING * 86400000);
-  const lus = await Promise.allSettled(personnes.map((p) => (p.email ? occupationsAgenda(p.email, depuis, jusque) : Promise.reject(new Error('pas d’email dans ClickUp')))));
+  const lus = await Promise.allSettled(personnes.map((p) => (p.email ? occupationsAgenda(p.email, depuis, jusque, garderNos) : Promise.reject(new Error('pas d’email dans ClickUp')))));
   lus.forEach((r, i) => {
     if (r.status === 'fulfilled') {
       for (const x of r.value.creneaux) creneaux.push({ personne: personnes[i].id, jour: x.jour, debut: x.debut, fin: x.fin, journee: x.journee });
@@ -199,7 +207,10 @@ export async function GET(request: Request) {
     const t = lu.t;
     const [cd, personnes] = await Promise.all([champDuree(token), personnesPose(token)]);
     const ids = personnes.map((p) => p.id);
-    const [erp, agenda] = await Promise.all([occupationsErp(token, ids, String(t.id), cd), lireAgendas(personnes)]);
+    // L'ERP d'abord : ses fiches décident quels rendez-vous Google de l'appli sont déjà montrés
+    const erp = await occupationsErp(token, ids, String(t.id), cd);
+    const chantierId = String(t.id);
+    const agenda = await lireAgendas(personnes, (ficheId) => ficheId !== chantierId && !erp.fiches.has(ficheId));
     const d = jourEtMinutes(champ(t, CHAMPS_INTERVENTION.dateChantier)?.value);
     const actuels = segmentsDe(t, cd);
     return json({
