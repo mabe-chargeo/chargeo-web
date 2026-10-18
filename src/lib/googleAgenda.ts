@@ -16,6 +16,8 @@ import { createSign } from 'crypto';
 // pour une pose sur plusieurs jours) : créé, déplacé au décalage, retiré de l'agenda d'une personne qui n'y est plus.
 // 17/10, 22 h 49 : poserEvenement / retirerEvenement génériques pour les poses (src/app/api/interne/planifier).
 // 18/10, 8 h 31 : visites de maintenance (« visite… ») et dépannages SAV (« depan… »), src/app/api/interne/rdv.
+// 18/10, 11 h 30 : nosEvenementsAVenir et ficheDeEvenement (retrouver la tâche d'un de nos rendez-vous) pour retirer
+//   les rendez-vous devenus caducs (src/lib/rdvOrphelins.ts) ; retirerEvenement dit si l'événement existait.
 // Gratuit (doc Google « Usage limits », 11/09/2026) : 10 000 requêtes par minute par projet, 600 par utilisateur.
 
 const SCOPE_EVENEMENTS = 'https://www.googleapis.com/auth/calendar.events';
@@ -72,6 +74,16 @@ async function jetonPour(sujet: string, scopes: string[] = [SCOPE_EVENEMENTS]): 
 // Identifiant d'événement (caractères a à v et 0 à 9 seulement, exigés par Google)
 export const idEvenement = (prefixe: string, ficheId: string, n = 0) => `${prefixe}${Buffer.from(String(ficheId)).toString('hex')}${n ? `j${n}` : ''}`;
 export const idEvenementReleve = (ficheId: string) => idEvenement('releve', ficheId);
+
+// Inverse de idEvenement : type (préfixe) et id de la tâche d'un de nos rendez-vous, null sinon
+export function ficheDeEvenement(id: string): { prefixe: string; ficheId: string } | null {
+  const prefixe = NOS_PREFIXES.find((p) => String(id || '').startsWith(p));
+  if (!prefixe) return null;
+  const m = String(id).slice(prefixe.length).match(/^((?:[0-9a-f]{2})+)(?:j\d+)?$/);
+  if (!m) return null;
+  const ficheId = Buffer.from(m[1], 'hex').toString('utf8');
+  return /^[0-9a-z]+$/i.test(ficheId) ? { prefixe, ficheId } : null;
+}
 
 // Jour (AAAA-MM-JJ) et minutes depuis minuit, heure de Paris
 function paris(ms: number): { jour: string; minutes: number } {
@@ -175,6 +187,37 @@ export async function occupationsAgenda(email: string, depuis: Date, jusque: Dat
   return { creneaux, agendas: ids.length - sautes, listeComplete: complet, sautes };
 }
 
+// Nos rendez-vous à venir dans l'agenda principal de la personne (là où l'appli écrit), jusqu'à la date donnée
+export async function nosEvenementsAVenir(email: string, jusque: Date): Promise<{ id: string; debutMs: number; titre: string }[]> {
+  const jeton = await jetonPour(email);
+  const maintenant = Date.now();
+  const trouves: { id: string; debutMs: number; titre: string }[] = [];
+  let page = '';
+  for (let n = 0; n < PAGES_MAX; n++) {
+    const q = new URLSearchParams({
+      timeMin: new Date(maintenant).toISOString(),
+      timeMax: jusque.toISOString(),
+      singleEvents: 'true',
+      maxResults: '250',
+      fields: 'items(id,status,summary,start),nextPageToken',
+    });
+    if (page) q.set('pageToken', page);
+    const r = await fetch(`${API}?${q.toString()}`, { headers: { Authorization: `Bearer ${jeton}` }, cache: 'no-store' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(`lecture refusée par Google (${j?.error?.message || r.status})`);
+    for (const e of Array.isArray(j?.items) ? j.items : []) {
+      const id = String(e?.id || '');
+      if (e?.status === 'cancelled' || !NOS_PREFIXES.some((p) => id.startsWith(p))) continue;
+      const debutMs = Date.parse(String(e?.start?.dateTime || e?.start?.date || ''));
+      if (!Number.isFinite(debutMs) || debutMs <= maintenant) continue;
+      trouves.push({ id, debutMs, titre: String(e?.summary || '') });
+    }
+    page = String(j?.nextPageToken || '');
+    if (!page) break;
+  }
+  return trouves;
+}
+
 // Crée (ou déplace et réactive) un événement d'identifiant fixe dans l'agenda principal de la personne
 export async function poserEvenement(email: string, id: string, e: { debutMs: number; finMs: number; titre: string; lieu: string; description: string }): Promise<'cree' | 'deplace'> {
   const jeton = await jetonPour(email);
@@ -201,17 +244,19 @@ export async function poserEvenement(email: string, id: string, e: { debutMs: nu
   return 'deplace';
 }
 
-// Retire un événement de l'agenda d'une personne (absent : rien à faire)
-export async function retirerEvenement(email: string, id: string): Promise<void> {
+// Retire un événement de l'agenda d'une personne : true s'il y était, false s'il était déjà absent
+export async function retirerEvenement(email: string, id: string): Promise<boolean> {
   const jeton = await jetonPour(email);
   const r = await fetch(`${API}/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${jeton}` }, cache: 'no-store' });
-  if (!r.ok && r.status !== 404 && r.status !== 410) throw new Error(`suppression refusée par Google (${r.status})`);
+  if (r.ok) return true;
+  if (r.status === 404 || r.status === 410) return false;
+  throw new Error(`suppression refusée par Google (${r.status})`);
 }
 
 // Relevé technique (écran Caler) : 1 événement par fiche
 export async function poserReleve(email: string, ficheId: string, e: { debutMs: number; dureeMin: number; titre: string; lieu: string; description: string }): Promise<'cree' | 'deplace'> {
   return poserEvenement(email, idEvenementReleve(ficheId), { debutMs: e.debutMs, finMs: e.debutMs + e.dureeMin * 60000, titre: e.titre, lieu: e.lieu, description: e.description });
 }
-export async function retirerReleve(email: string, ficheId: string): Promise<void> {
+export async function retirerReleve(email: string, ficheId: string): Promise<boolean> {
   return retirerEvenement(email, idEvenementReleve(ficheId));
 }
