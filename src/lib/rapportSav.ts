@@ -5,6 +5,7 @@
 // le client puis le technicien signent au doigt. Le PDF à la charte (src/lib/documentsPdf.ts) se dépose dans
 // 📄 Rapport d'intervention du ticket (champ Fichiers créé le 18/10 à 22 h 18 dans Tickets SAV 🔧).
 // La suite selon le résultat est dans la route /api/interne/rapport-sav.
+// 18/10, 22 h 37 (test de Matthieu) : date d'intervention du PDF = jour de la signature, et non la date calée du dépannage.
 import { adresseDe, champ, nomOption, normal, sansEmoji } from '@/lib/vuesFiches';
 import { CHAMPS_INTERVENTION } from '@/lib/espaces';
 import { pdfRapportSav, type PieceSav } from '@/lib/documentsPdf';
@@ -125,7 +126,8 @@ export async function genererRapportSav(token: string, t: any, e: EtatTicket, s:
     demande: e.demande ? `« ${e.demande} »` : '',
     details,
     signaleLe: e.signaleLe || undefined,
-    intervention: e.intervention || q.date,
+    // Le rapport se fait sur place : la date de l'intervention est celle de la signature (pas la date calée, qui peut différer)
+    intervention: q.date,
     techniciens: s.technicien,
     constat: s.constat,
     cause: s.cause,

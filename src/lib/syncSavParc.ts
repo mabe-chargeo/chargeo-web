@@ -1,5 +1,6 @@
 import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
 import { alerter } from '@/lib/alerteSite';
+import { commenterUneFois } from '@/lib/commentaireUnique';
 
 // Synchro Tickets SAV ↔ Parc installé : remplace les Super Agents « Nouveau Ticket SAV → Sous Surveillance » et
 // « SAV Résolu → En Service » (crédits IA, bascule du 12/10/2026). Appelé par l'aiguillage des webhooks :
@@ -12,6 +13,8 @@ import { alerter } from '@/lib/alerteSite';
 // - Champ 🔗 Fiche Installation vide : rien à la création ni dans les 2 minutes qui suivent (le lien arrive juste
 //   après), alerte sinon (une seule fois).
 // Preview : vrai passage sur un ticket et une installation « Test… » (« SAV - Test… » accepté), simulation partout.
+// 18/10/2026, 22 h 37 (test du rapport d'intervention) : deux webhooks « statut modifié » arrivent ensemble, d'où deux
+// fois « Installation remise en service ». Les commentaires de bascule passent par commenterUneFois (un seul reste).
 
 const SAV_IDS = Array.from(new Set([process.env.CLICKUP_SAV_LIST_ID || '', '901520038282'].filter(Boolean)));
 const PARC_ID = '901520038290';
@@ -161,9 +164,9 @@ export async function synchroniserSav(ticketId: string, simulation: boolean, dec
       continue;
     }
     if (sens === 'surveillance') {
-      await commenter(token, pid, `⚠️ Installation passée en ${cible.status} : ticket SAV « ${ticket.name} » ouvert le ${jour}. ${ticket.url || ''}`.trim());
+      await commenterUneFois(pid, token, `⚠️ Installation passée en ${cible.status} : ticket SAV « ${ticket.name} » ouvert le ${jour}. ${ticket.url || ''}`.trim());
     } else {
-      await commenter(token, id, `🟢 Installation « ${parc.name} » remise en ${cible.status} (ticket résolu le ${jour}). ${parc.url || ''}`.trim());
+      await commenterUneFois(id, token, `🟢 Installation « ${parc.name} » remise en ${cible.status} (ticket résolu le ${jour}). ${parc.url || ''}`.trim());
     }
     resultats.push({ ...r, action: 'change', vers: cible.status });
   }
