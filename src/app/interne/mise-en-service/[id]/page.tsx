@@ -4,8 +4,9 @@
 // qu'on met en service. Un onglet par élément du scénario retenu, dans l'ordre du courant (raccordement → alimentation →
 // TD IRVE → artère → dérivations → communication → data → prises → bornes), chacun avec son protocole
 // (src/lib/protocoleMaintenance.ts). 15 h 36 : quand tous les éléments sont conformes, l'appli crée le rapport de mise
-// en service (plus de PDF du contrôleur obligatoire). Brouillon gardé sur le téléphone ; « Enregistrer » passe par la
-// file d'envoi hors ligne (src/lib/fileEnvoi.ts).
+// en service (plus de PDF du contrôleur obligatoire). 15 h 56 (test) : « Enregistrer » reste grisé tant qu'un contrôle
+// n'est pas rempli (valeur, OK, Défaut ou NA), et une fois enregistré tant que rien ne change (pas de double envoi).
+// Brouillon gardé sur le téléphone ; « Enregistrer » passe par la file d'envoi hors ligne (src/lib/fileEnvoi.ts).
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, Camera, Check, CloudOff, MapPin, RefreshCw } from 'lucide-react';
@@ -35,6 +36,8 @@ export default function MiseEnServicePage() {
   const [photos, setPhotos] = useState<Record<string, File | null>>({});
   const [file, setFile] = useState<Envoi[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  // Mesure de l'élément affiché déjà enregistrée : bouton grisé jusqu'au prochain changement
+  const [enregistre, setEnregistre] = useState(false);
 
   const rafraichirFile = async () => { try { setFile((await lister()).filter((e) => e.chantierId === id)); } catch { /* stockage indisponible */ } };
 
@@ -42,7 +45,7 @@ export default function MiseEnServicePage() {
     setChantier(data.chantier);
     setPoints(data.points || []);
     setPreview(!!data.preview);
-    setActif((a) => a || data.points?.[0]?.id || '');
+    setActif((a) => a || data.points?.find((p: Point) => !p.fait)?.id || data.points?.[0]?.id || '');
   };
 
   useEffect(() => {
@@ -83,6 +86,7 @@ export default function MiseEnServicePage() {
     } catch { setR(VIDE); }
     setPhotos({});
     setMessage(null);
+    setEnregistre(false);
   }, [id, actif]);
 
   const point = points.find((p) => p.id === actif) || null;
@@ -90,13 +94,15 @@ export default function MiseEnServicePage() {
   const etapes = etapesDe(mode);
   const changer = (suite: Resultats) => {
     setR(suite);
+    setEnregistre(false);
     try { localStorage.setItem(cleBrouillon(id, actif), JSON.stringify(suite)); } catch { /* plein */ }
   };
   const valeur = (etape: string, controle: string) => r.valeurs[cleValeur(etape, controle)] || '';
   const poser = (etape: string, controle: string, v: string) => changer({ ...r, valeurs: { ...r.valeurs, [cleValeur(etape, controle)]: v } });
 
   const enregistrer = async () => {
-    if (!chantier || !point) return;
+    if (!chantier || !point || manquants(r, etapes) > 0 || enregistre) return;
+    setEnregistre(true);
     try {
       await ajouter({ cle: nouvelleCle(), chantierId: id, chantierNom: chantier.nom, elementId: point.id, elementNom: point.nom, type: 'saisie', donnees: { resultats: JSON.stringify(r) }, route: ROUTE });
       for (const [etape, f] of Object.entries(photos)) {
@@ -108,7 +114,7 @@ export default function MiseEnServicePage() {
       setMessage(d.length
         ? `${point.nom} : ${d.length} défaut${d.length > 1 ? 's' : ''} noté${d.length > 1 ? 's' : ''}. Corrige puis refais la mesure, la réception reste bloquée.`
         : tousConformes
-          ? `${point.nom} : mesures enregistrées. Tous les éléments sont conformes : le rapport de mise en service se crée dès l’envoi.`
+          ? `${point.nom} : mesures enregistrées. Tous les éléments sont conformes : le rapport de mise en service se crée dès l’envoi. Retourne à la réception.`
           : `${point.nom} : mesures enregistrées.`);
       setPoints(apres);
       try { localStorage.removeItem(cleBrouillon(id, point.id)); } catch { /* rien */ }
@@ -118,6 +124,7 @@ export default function MiseEnServicePage() {
       if (suivant && !d.length) setActif(suivant.id);
       await envoyerTout().catch(() => 0);
     } catch {
+      setEnregistre(false);
       setMessage('Le téléphone refuse d’enregistrer : libère de la place et réessaie.');
     }
     rafraichirFile();
@@ -143,6 +150,7 @@ export default function MiseEnServicePage() {
   const reste = manquants(r, etapes);
   const d = defauts(r, etapes);
   const bloque = !chantier || !chantier.ecritureAutorisee || !point;
+  const inactif = bloque || reste > 0 || enregistre;
   const conformes = points.filter((p) => p.fait && !p.defaut).length;
 
   const boutonRetour = (
@@ -168,7 +176,7 @@ export default function MiseEnServicePage() {
           <Carte className="space-y-1.5">
             {chantier.adresse && <p className="flex items-center gap-1.5 text-[14px]"><MapPin size={14} color={CYAN} /> {chantier.adresse}</p>}
             <p className="text-[13px]">{points.length} élément{points.length > 1 ? 's' : ''} à mettre en service · {conformes} conforme{conformes > 1 ? 's' : ''}</p>
-            <p className="text-[13px]">Quand tous les éléments sont conformes, l’appli crée le rapport de mise en service dans la réception.</p>
+            <p className="text-[13px]">Remplis tous les contrôles de chaque élément (valeur, OK, Défaut ou NA). Quand tout est conforme, l’appli crée le rapport de mise en service dans la réception.</p>
           </Carte>
         )}
         {!loading && chantier && points.length === 0 && (
@@ -222,7 +230,7 @@ export default function MiseEnServicePage() {
                 </div>
                 {e.controles.filter((c) => !(c.tri && !r.tri)).map((c) => (
                   <div key={c.cle} className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="min-w-0 text-[15px] font-semibold">{c.libelle}</p>
+                    <p className="min-w-0 text-[15px] font-semibold">{c.libelle}{!valeur(e.cle, c.cle) && <span style={{ color: ORANGE }}> •</span>}</p>
                     {c.type === 'okko' ? boutonsOkKo(e.cle, c.cle, c.na) : (
                       <div className="flex items-center gap-2">
                         <input className={`${CHAMP} w-28 py-2.5 text-right`} inputMode="decimal" value={valeur(e.cle, c.cle)} onChange={(ev) => poser(e.cle, c.cle, ev.target.value.replace(',', '.'))} />
@@ -253,8 +261,8 @@ export default function MiseEnServicePage() {
             )}
             {message && <Carte accent><p className="text-[15px] font-semibold">{message}</p></Carte>}
 
-            <BoutonPrincipal inactif={bloque} disabled={bloque} onClick={enregistrer}>
-              <Check size={20} /> Enregistrer les mesures{reste > 0 ? ` (${reste} à remplir)` : ''}
+            <BoutonPrincipal inactif={inactif} disabled={inactif} onClick={enregistrer}>
+              <Check size={20} /> {enregistre ? 'Mesures enregistrées' : reste > 0 ? `Encore ${reste} contrôle${reste > 1 ? 's' : ''} à remplir` : 'Enregistrer les mesures'}
             </BoutonPrincipal>
           </>
         )}
