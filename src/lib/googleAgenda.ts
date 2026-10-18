@@ -10,11 +10,12 @@ import { createSign } from 'crypto';
 //   Matthieu « lis tous ses agendas affichés »). Sans cette autorisation, repli sur l'agenda principal seul, signalé.
 // Sans la variable : « non branché », les écrans montrent seulement le planning de l'ERP.
 // Lecture : horaires des événements seulement (ni titre ni lieu : l'agenda perso reste privé). Ignorés : annulés,
-// « disponible », refusés, lieux de travail, nos propres rendez-vous (« releve… », « pose… », déjà dans le planning ERP),
-// agendas de jours fériés, anniversaires et météo. Un agenda secondaire illisible est sauté (signalé).
+// « disponible », refusés, lieux de travail, nos propres rendez-vous (« releve… », « pose… », « visite… », « depan… »,
+// déjà dans le planning ERP), agendas de jours fériés, anniversaires et météo. Un agenda secondaire illisible est sauté.
 // Écriture : dans l'agenda principal, identifiant fixe (préfixe + id de la fiche en hexadécimal, + « j<n> » par jour
 // pour une pose sur plusieurs jours) : créé, déplacé au décalage, retiré de l'agenda d'une personne qui n'y est plus.
 // 17/10, 22 h 49 : poserEvenement / retirerEvenement génériques pour les poses (src/app/api/interne/planifier).
+// 18/10, 8 h 31 : visites de maintenance (« visite… ») et dépannages SAV (« depan… »), src/app/api/interne/rdv.
 // Gratuit (doc Google « Usage limits », 11/09/2026) : 10 000 requêtes par minute par projet, 600 par utilisateur.
 
 const SCOPE_EVENEMENTS = 'https://www.googleapis.com/auth/calendar.events';
@@ -23,7 +24,7 @@ const RACINE = 'https://www.googleapis.com/calendar/v3';
 const API = `${RACINE}/calendars/primary/events`;
 const PAGES_MAX = 4;
 const AGENDAS_MAX = 12;
-const NOS_PREFIXES = ['releve', 'pose'];
+const NOS_PREFIXES = ['releve', 'pose', 'visite', 'depan'];
 
 function compte(): { email: string; cle: string } | null {
   const brut = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
