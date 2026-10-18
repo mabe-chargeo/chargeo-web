@@ -3,7 +3,10 @@
 // Sefram relue le 17/10). Même ordre que l'appareil, pour chaque point de charge : contrôle visuel, états du pilote CP,
 // signal PP, simulations de défaut (A1532-XA), tension, boucle et impédance, différentiel, isolement hors tension, test
 // de charge jusqu'à 13 A (A1532-XA), synthèse. Le rapport professionnel reste celui du logiciel MESM, joint à la visite.
-// Fichier pur : utilisé par l'écran (saisie) et par la route (commentaire lisible sur la visite).
+// 18/10/2026, 14 h 41 (Matthieu : « il y a une mise en service à faire sur chaque chantier ») : le même protocole sert à
+// la mise en service de la réception (/interne/mise-en-service). Sans borne (infrastructure collective), le TD IRVE
+// est mesuré avec les étapes électriques seulement (etapesDe('infra')).
+// Fichier pur : utilisé par les écrans (saisie) et par les routes (commentaire lisible).
 
 export type Controle = {
   cle: string;
@@ -18,6 +21,7 @@ export type Controle = {
 export type EtapeProtocole = { cle: string; titre: string; aide: string; controles: Controle[]; photo?: boolean };
 
 export const APPAREIL = 'Sefram MW9665 + A1532-XA';
+export const APPAREIL_INFRA = 'Sefram MW9665';
 
 export const PROTOCOLE: EtapeProtocole[] = [
   {
@@ -97,6 +101,13 @@ export const PROTOCOLE: EtapeProtocole[] = [
   },
 ];
 
+// Sans borne (TD IRVE d'une infrastructure collective) : étapes électriques seulement, pas d'adaptateur de borne
+export const ETAPES_INFRA = ['visuel', 'tension', 'boucle', 'ddr', 'isolement', 'synthese'];
+export type ModeProtocole = 'borne' | 'infra';
+export const etapesDe = (mode: ModeProtocole = 'borne'): EtapeProtocole[] =>
+  mode === 'infra' ? PROTOCOLE.filter((e) => ETAPES_INFRA.includes(e.cle)) : PROTOCOLE;
+export const appareilDe = (mode: ModeProtocole = 'borne') => (mode === 'infra' ? APPAREIL_INFRA : APPAREIL);
+
 export type Resultats = { tri: boolean; valeurs: Record<string, string>; remarque: string };
 
 export const cleValeur = (etape: string, controle: string) => `${etape}.${controle}`;
@@ -107,9 +118,9 @@ const libelleValeur = (c: Controle, v: string) => {
 };
 
 // Contrôles en défaut (pour l'alerte de fin et le commentaire)
-export function defauts(r: Resultats): string[] {
+export function defauts(r: Resultats, etapes: EtapeProtocole[] = PROTOCOLE): string[] {
   const sortie: string[] = [];
-  for (const e of PROTOCOLE) for (const c of e.controles) {
+  for (const e of etapes) for (const c of e.controles) {
     if (c.tri && !r.tri) continue;
     if (c.type === 'okko' && r.valeurs[cleValeur(e.cle, c.cle)] === 'ko') sortie.push(`${e.titre.replace(/^\d+\.\s*/, '')} : ${c.libelle}`);
   }
@@ -117,28 +128,28 @@ export function defauts(r: Resultats): string[] {
 }
 
 // Contrôles pas encore renseignés
-export function manquants(r: Resultats): number {
+export function manquants(r: Resultats, etapes: EtapeProtocole[] = PROTOCOLE): number {
   let n = 0;
-  for (const e of PROTOCOLE) for (const c of e.controles) {
+  for (const e of etapes) for (const c of e.controles) {
     if (c.tri && !r.tri) continue;
     if (!String(r.valeurs[cleValeur(e.cle, c.cle)] || '').trim()) n++;
   }
   return n;
 }
 
-// Texte du commentaire laissé sur la visite
-export function texteResultats(r: Resultats): string {
+// Texte du commentaire laissé sur la visite ou sur l'élément mis en service
+export function texteResultats(r: Resultats, etapes: EtapeProtocole[] = PROTOCOLE, appareil: string = APPAREIL): string {
   const lignes: string[] = [];
-  for (const e of PROTOCOLE) {
+  for (const e of etapes) {
     const vus = e.controles.filter((c) => !(c.tri && !r.tri)).map((c) => {
       const v = String(r.valeurs[cleValeur(e.cle, c.cle)] || '').trim();
       return v ? `   ${c.libelle} : ${libelleValeur(c, v)}` : '';
     }).filter(Boolean);
     if (vus.length) lignes.push(e.titre, ...vus);
   }
-  const d = defauts(r);
+  const d = defauts(r, etapes);
   return [
-    `Appareil : ${APPAREIL} · ${r.tri ? 'triphasé' : 'monophasé'}`,
+    `Appareil : ${appareil} · ${r.tri ? 'triphasé' : 'monophasé'}`,
     ...lignes,
     d.length ? `⚠️ Défauts : ${d.join(' ; ')}` : '✅ Aucun défaut noté',
     r.remarque ? `Remarque : ${r.remarque}` : '',
