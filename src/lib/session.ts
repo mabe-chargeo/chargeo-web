@@ -63,8 +63,9 @@ export async function sessionDeRequete(request: Request): Promise<Session | null
   return lireSession(trouve ? decodeURIComponent(trouve.slice(COOKIE_SESSION.length + 1)) : null);
 }
 
-// Adresse de retour après connexion : chemin interne uniquement (pas de redirection vers un autre site)
+// Adresse de retour après connexion : chemin interne uniquement (pas de redirection vers un autre site).
+// Sans page demandée : Ma journée, la page d'accueil de l'application (Matthieu, 19/10/2026, 13 h 24).
 export function cheminSur(suivant: string | null | undefined): string {
   const s = String(suivant || '');
-  return s.startsWith('/') && !s.startsWith('//') && !s.startsWith('/\\') ? s : '/interne';
+  return s.startsWith('/') && !s.startsWith('//') && !s.startsWith('/\\') ? s : '/interne/journee';
 }

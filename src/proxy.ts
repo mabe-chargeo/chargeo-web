@@ -9,15 +9,19 @@ import { COOKIE_SESSION, lireSession } from '@/lib/session';
 //
 // Adresse dédiée app.chargeo.fr (prévue le 10/10, lancée par Matthieu le 18/10/2026 à 10 h 00). Même projet Vercel que
 // le site : l'adresse est un second domaine du projet.
-// - Sur app.chargeo.fr (APP_HOTE pour une autre adresse) : « / » ouvre /interne ; l'application, la connexion, les API et
-//   les fichiers restent servis ; une page du site public est renvoyée vers chargeo.fr (CHARGEO_SITE_URL).
+// - Sur app.chargeo.fr (APP_HOTE pour une autre adresse) : « / » ouvre Ma journée (/interne/journee) ; l'application, la
+//   connexion, les API et les fichiers restent servis ; une page du site public est renvoyée vers chargeo.fr
+//   (CHARGEO_SITE_URL).
 // - Sur chargeo.fr, quand la variable Vercel APP_CHARGEO_ACTIF vaut 1 en production : /interne et /connexion sont
 //   renvoyés vers app.chargeo.fr (à activer une fois le domaine vérifié et l'URL de retour ajoutée dans ClickUp).
 //   Les webhooks, le cron et les API restent sur chargeo.fr.
 // La session est un cookie propre à chaque adresse : une seule reconnexion par personne au passage sur app.chargeo.fr.
+// 19/10/2026, 13 h 24 (Matthieu, premier essai sur app.chargeo.fr : « je voudrais que la page d'accueil soit la page de
+// ma journée ») : « / » ouvrait /interne (Relevés à faire), il ouvre maintenant Ma journée.
 
 const APP_HOTE = (process.env.APP_HOTE || 'app.chargeo.fr').trim().toLowerCase();
 const SITE_PUBLIC = (process.env.CHARGEO_SITE_URL || 'https://chargeo.fr').trim().replace(/\/$/, '');
+const ACCUEIL_APPLI = '/interne/journee';
 
 // Chemins de l'application qui demandent une session
 const protege = (p: string) => p === '/interne' || p.startsWith('/interne/') || p.startsWith('/api/interne/') || p === '/api/chantiers';
@@ -33,7 +37,7 @@ export async function proxy(request: NextRequest) {
   if (hote === APP_HOTE) {
     if (pathname === '/') {
       const url = request.nextUrl.clone();
-      url.pathname = '/interne';
+      url.pathname = ACCUEIL_APPLI;
       url.search = '';
       return NextResponse.redirect(url);
     }
