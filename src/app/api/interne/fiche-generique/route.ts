@@ -16,6 +16,8 @@ import { lireGabarit } from '@/lib/ficheGabarit';
 // 18/10, 18 h 19 (écran facture validé par Matthieu) : une facture client renvoie aussi « facture » (src/lib/factureFiche.ts).
 // 18/10, 19 h 50 (gabarit commun validé par Matthieu) : les autres listes renvoient « gabarit » (src/lib/ficheGabarit.ts) :
 // champs clés, parcours par statuts, contact Appeler / Itinéraire / Écrire, liens.
+// 19/10, 8 h 35 (passe de cohérence validée sur maquette) : et les documents de la liste (📄 Rapport d'intervention d'un
+// ticket SAV), présentés comme le PV de la réception.
 // Une fiche affaire (Prospection, Qualification, Planning, Parc) renvoie { fiche } : l'écran bascule sur la fiche
 // affaire unique /interne/fiches/<id>, qui garde le bloc Contact et les sections par étape.
 // (/api/interne/elements est déjà pris par les éléments des scénarios du relevé.)
@@ -67,7 +69,7 @@ export async function GET(request: Request) {
       points: (Array.isArray(c?.items) ? c.items.slice() : []).sort(parOrdre).map((i: any) => ({ id: String(i.id), nom: String(i.name || ''), fait: !!i.resolved })),
     }));
     const facture = source === 'factures' ? await lireFacture(token, t).catch((e) => { console.error('Écran facture :', e); return undefined; }) : undefined;
-    const gabarit = source !== 'factures' ? await lireGabarit(token, t, CONFIG_LISTES[source].champs || [], String((session as any)?.email || '')).catch((e) => { console.error('Gabarit de fiche :', e); return undefined; }) : undefined;
+    const gabarit = source !== 'factures' ? await lireGabarit(token, t, CONFIG_LISTES[source].champs || [], String((session as any)?.email || ''), source).catch((e) => { console.error('Gabarit de fiche :', e); return undefined; }) : undefined;
 
     return json({
       element: {

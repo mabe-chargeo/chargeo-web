@@ -6,6 +6,10 @@
 // 18/10, 17 h 37 (Matthieu, au Parc : « le fil d'Ariane dit à traiter pipeline », correctif validé sur maquette) :
 // l'écran parent peut être imposé (la fiche affaire donne celui de son étape : Pipeline, Chantiers ou Parc installé), et
 // un écran rangé dans Consulter pour le rôle (Parc, Ressources, Wikis, cartes) est rattaché à l'onglet Consulter.
+// 19/10/2026 (passe de cohérence validée par Matthieu) : parents des écrans d'action qui n'en avaient pas. Caler la
+// visite → Pipeline ; Planifier un chantier → Chantiers ; Caler ou décaler un rendez-vous et Rapport d'intervention →
+// SAV (l'écran du rapport impose Mes interventions pour l'installateur). Nouveau projet et les créations restent sous
+// l'onglet Créer.
 import { ECRANS, MENUS, precisionActif, libelleBarre, type Ecran, type RoleAppli } from './menusAppli';
 
 export type Miette = { libelle: string; href: string };
@@ -26,6 +30,10 @@ const PARENT_CHEMIN: [string, string][] = [
   ['/interne/prospection/nouveau', ''],
   ['/interne/prospection', 'pipeline'],
   ['/interne/metre', 'releves'],
+  ['/interne/caler', 'pipeline'],
+  ['/interne/planifier', 'chantiers'],
+  ['/interne/rdv', 'sav'],
+  ['/interne/rapport-sav', 'sav'],
 ];
 // Écran parent d'un écran : on remonte la chaîne
 const PARENT_ECRAN: Record<string, string> = { reception: 'interventions', validation: 'chantiers', feuVert: 'chantiers' };
