@@ -6,17 +6,18 @@ import { rolesDe, type Role } from '@/lib/roles';
 import { CHAMPS } from '@/lib/champsClickUp';
 import { adresseDe, champ, dateVisiteDe, jourDe, libelleDate, nomOption, normal, sansEmoji, trier, vueDe, type CleVue } from '@/lib/vuesFiches';
 import { CHAMPS_INTERVENTION, chantierAMoi } from '@/lib/espaces';
+import { adresses } from '@/lib/adresses';
 
 // Accueil « Ma journée » de l'application équipe (Phase 6, maquette du 13/10/2026). LECTURE SEULE.
 // GET : ce qui est à faire aujourd'hui et ce qui est en retard, avec des compteurs réels, selon les rôles de la personne
 // connectée (src/lib/roles.ts). Direction : toutes les cartes. Autres rôles : seulement les leurs, filtrées ici.
 // 16/10/2026, 23 h 22 (structure validée par Matthieu) : les cartes des fiches ouvrent la vue correspondante de l'écran
-// Fiches (/interne/fiches?vue=…), plus ClickUp ; elles comptent avec les règles de src/lib/vuesFiches.ts (mêmes
+// Pipeline (/pipeline?vue=…), plus ClickUp ; elles comptent avec les règles de src/lib/vuesFiches.ts (mêmes
 // chiffres que le sous-menu des vues). Relevés du jour et en retard : une carte chacun, qui ouvre la fiche détaillée.
 // Chantiers : feu vert à donner (5 prérequis OK, pas de feu vert) et réceptions à valider (réalisé), vers leurs écrans.
 // Back-office : factures et contrats, vers les écrans de liste de l'application (depuis le 17/10 à 14 h 28).
 // 17/10, 11 h 01 et 13 h 13 : relevés au chef de chantier, visites à caler au commercial.
-// 17/10, 11 h 18 : carte « Mes interventions » de l'installateur, vers /interne/interventions.
+// 17/10, 11 h 18 : carte « Mes interventions » de l'installateur, vers /interventions.
 // 17/10, 16 h 32 (Matthieu : il ne comprenait pas la différence entre « À faire aujourd'hui » et « À débloquer » ;
 // choix « Deux blocs : Aujourd'hui / En retard ») : la section dépend de la DATE de chaque fiche, plus du type de carte.
 //   - section 'aujourdhui' : date du jour, ou travail sans date à traiter (visites à caler, devis à chiffrer, feu vert,
@@ -27,6 +28,7 @@ import { CHAMPS_INTERVENTION, chantierAMoi } from '@/lib/espaces';
 //   jour ont chacun leur carte.
 // 17/10, 19 h 42 (choix de Matthieu : « À relancer ») : l'échéance de la tâche Factures est la date de RELANCE
 // (J+3, J+10, J+15), pas la date limite de paiement (champ 📅 Date d'échéance) : libellés des cartes corrigés.
+// 19/10/2026 (adresses propres) : tous les liens des cartes passent par src/lib/adresses.ts.
 // Preview : fiches lues dans 🧪 Qualification TEST, le reste dans les listes réelles, en lecture seule.
 
 export const dynamic = 'force-dynamic';
@@ -69,8 +71,8 @@ type Releve = { id: string; nom: string; quand: string; retard: boolean; typeCli
 type Coupe = { dateDe: (t: any) => Jour | null; titreRetard: string; detailRetard: string };
 
 const champNomme = (t: any, mot: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => normal(c?.name).includes(mot));
-const urlTache = (t: any) => `/interne/element/${t?.id}`;
-const urlFiche = (t: any) => `/interne/fiches/${t?.id}`;
+const urlTache = (t: any) => adresses.fiche(String(t?.id));
+const urlFiche = (t: any) => adresses.affaire(String(t?.id));
 
 // « 14h30 » à Paris. Date sans heure dans ClickUp (enregistrée à 0 h ou 4 h) : heure non précisée
 function heureDe(ms: number): string {
@@ -147,7 +149,7 @@ export async function GET(request: Request) {
           retard,
           typeClient: sansEmoji(nomOption(t, CHAMPS.typeClient)).toLowerCase(),
           adresse: adresseDe(t),
-          lien: `/interne/fiches/${t.id}`,
+          lien: adresses.affaire(String(t.id)),
         };
       })
       : [];
@@ -176,14 +178,14 @@ export async function GET(request: Request) {
       if (!visible(c.role)) return;
       pousser(c, source.taches ? source.taches.filter(filtre) : null, source.erreur, (t) => ({ nom: String(t?.name || ''), url: urlTache(t) }), coupe);
     };
-    // Carte d'une vue de l'écran Fiches : même filtre, même tri, ouvre la vue
+    // Carte d'une vue de l'écran Pipeline : même filtre, même tri, ouvre la vue
     const carteVue = (cle: CleVue, role: Role, surtitre: string, urgent: boolean, libelles?: { titre: string; detail: string }, coupe?: Coupe) => {
       const v = vueDe(cle);
       if (!v || !visible(role)) return;
       const liste = qualif.taches ? trier(qualif.taches.filter((t) => v.filtre(t, aujourdhui)), v.tri) : null;
       pousser({
         cle, role, surtitre, titre: libelles?.titre || v.libelle, detail: libelles?.detail || v.description, urgent,
-        lien: `/interne/fiches?vue=${cle}`, externe: false,
+        lien: `${adresses.pipeline}?vue=${cle}`, externe: false,
       }, liste, qualif.erreur, (t) => ({ nom: String(t?.name || ''), url: urlFiche(t) }), coupe);
     };
 
@@ -199,7 +201,7 @@ export async function GET(request: Request) {
     const dateChantier = (t: any) => jourDe(champ(t, CHAMPS_INTERVENTION.dateChantier)?.value);
     ajouter({
       cle: 'mesInterventions', role: 'poseur', surtitre: 'Installateur', titre: 'Mes interventions du jour',
-      detail: 'Chantiers où tu es le technicien, prévus aujourd’hui', urgent: true, lien: '/interne/interventions', externe: false,
+      detail: 'Chantiers où tu es le technicien, prévus aujourd’hui', urgent: true, lien: adresses.interventions, externe: false,
     }, planning, (t) => {
       const j = dateChantier(t);
       return chantierAMoi(t, moi) && !!j && comparer(j, aujourdhui) <= 0;
@@ -208,7 +210,7 @@ export async function GET(request: Request) {
     // ── Chef de chantier : travail sans date, à traiter aujourd'hui ──
     ajouter({
       cle: 'feuVert', role: 'chargeOperation', surtitre: `Chantiers · ${CHEF}`, titre: 'Feu vert à donner',
-      detail: 'Chantiers dont les 5 prérequis sont OK', urgent: false, lien: '/interne/feu-vert', externe: false,
+      detail: 'Chantiers dont les 5 prérequis sont OK', urgent: false, lien: adresses.feuVert, externe: false,
     }, planning, (t) => {
       const coche = champ(t, CHAMP_FEU_VERT)?.value;
       if (coche === true || coche === 'true') return false;
@@ -216,21 +218,21 @@ export async function GET(request: Request) {
     });
     ajouter({
       cle: 'receptions', role: 'chargeOperation', surtitre: `Chantiers · ${CHEF}`, titre: 'Réceptions à valider',
-      detail: 'PV, rapport de mesures et photos déposés par le poseur', urgent: true, lien: '/interne/validation', externe: false,
+      detail: 'PV, rapport de mesures et photos déposés par le poseur', urgent: true, lien: adresses.receptionChantiers, externe: false,
     }, planning, (t) => statut(t).includes('realise'));
 
     // ── Back-office ──
     // Échéance de la tâche = date de relance (J+3, J+10, J+15), pas la date limite de paiement
     ajouter({
       cle: 'factures', role: 'backOffice', surtitre: 'Back-office', titre: 'Factures à relancer aujourd’hui',
-      detail: 'Date de relance aujourd’hui, pas encore payées (relances J+3, J+10, J+15)', urgent: true, lien: '/interne/liste/factures?vue=retard', externe: false,
+      detail: 'Date de relance aujourd’hui, pas encore payées (relances J+3, J+10, J+15)', urgent: true, lien: `${adresses.liste('factures')}?vue=retard`, externe: false,
     }, factures, (t) => {
       const s = statut(t);
       return !s.includes('litige') && (s.includes('emise') || s.includes('partiel')) && echu(t?.due_date);
     }, { dateDe: (t) => jourDe(t?.due_date), titreRetard: 'Relances de factures en retard', detailRetard: 'Date de relance dépassée, pas encore payées (relances J+3, J+10, J+15)' });
     ajouter({
       cle: 'contrats', role: 'backOffice', surtitre: 'Back-office', titre: 'Contrats à renouveler',
-      detail: `Échéance annuelle dans les ${JOURS_CONTRAT} jours`, urgent: false, lien: '/interne/liste/parc?vue=contrats', externe: false,
+      detail: `Échéance annuelle dans les ${JOURS_CONTRAT} jours`, urgent: false, lien: `${adresses.liste('parc')}?vue=contrats`, externe: false,
     }, parc, (t) => {
       if (statut(t).includes('hors service')) return false;
       const j = jourDe(champNomme(t, 'echeance annuelle')?.value);
