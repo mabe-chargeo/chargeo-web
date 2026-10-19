@@ -9,11 +9,14 @@
 // Hors ligne : tout part d'abord sur le téléphone (src/lib/fileEnvoi.ts), puis la file d'envoi visible envoie dès que le
 // réseau revient. États : enregistré sur le téléphone (en attente), envoi en cours, envoyé, échec avec Réessayer. Une
 // photo en échec ne bloque jamais le reste. Le chantier lui-même est gardé sur le téléphone après la première ouverture.
+// 19/10/2026, 8 h 35 (passe de cohérence validée sur maquette) : bloc 📇 Contact commun du chantier en haut (masqué sans
+// réseau, l'adresse reste écrite plus bas) et bouton Retour de l'en-tête commun.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, BatteryCharging, Camera, CheckCircle2, ClipboardList, CloudOff, CloudUpload, MapPin, Package, RefreshCw, Save } from 'lucide-react';
+import { BatteryCharging, Camera, CheckCircle2, ClipboardList, CloudOff, CloudUpload, MapPin, Package, RefreshCw, Save } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere, TitreCarte, CHAMP } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
+import { BlocContact } from '@/components/ui/BlocContact';
 import { ajouter, envoyerTout, lister, nouvelleCle, reprendre, type Envoi } from '@/lib/fileEnvoi';
 
 type Element = {
@@ -162,12 +165,6 @@ export default function PosePage() {
   const bloque = !!donnees && !donnees.chantier.ecritureAutorisee;
   const enFile = (e: Element) => file.filter((x) => x.elementId === e.id);
 
-  const boutonRetour = (
-    <a href="/interne/interventions" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Interventions
-    </a>
-  );
-
   const boutonPhoto = (e: Element, etape: string) => {
     const faites = e.photos.filter((p) => p.etape === etape).length + enFile(e).filter((x) => x.type === 'photo' && x.donnees.etape === etape).length;
     return (
@@ -272,8 +269,11 @@ export default function PosePage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Saisie à la pose" titre={donnees?.chantier.nom || 'Chantier'} action={boutonRetour} />
+      <EnTeteAppli surtitre="Saisie à la pose" titre={donnees?.chantier.nom || 'Chantier'} retour={{ href: '/interne/interventions', libelle: 'Interventions' }} />
       <ContenuAppli className="space-y-4">
+        {/* Contact du chantier : bloc commun (lu avec du réseau) */}
+        {id && <BlocContact affaireId={id} ouvertParDefaut />}
+
         {/* File d'envoi, toujours visible */}
         <div className="rounded-[20px] p-4" style={{ backgroundColor: GRIS }}>
           <div className="flex items-center justify-between gap-3">
