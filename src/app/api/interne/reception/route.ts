@@ -7,8 +7,9 @@ import { etatMiseEnService, type EtatMes } from '@/lib/miseEnService';
 import { genererRapportMiseEnService } from '@/lib/rapportMiseEnService';
 
 // Réception en deux temps (Phase 6, décision Matthieu du 13/10/2026, page « Qui fait quoi ») :
-// - le technicien poseur collecte sur place (/interne/reception) : PV signé, photos, réserves déclarées, puis « envoyer » ;
-// - le chargé d'opération / chef de chantier valide (/interne/validation) : contrôle, qualifie les réserves, « terminer ».
+// - le technicien poseur collecte sur place (/interventions/rapport) : PV signé, photos, réserves déclarées, puis « envoyer » ;
+// - le chargé d'opération / chef de chantier valide (/chantiers/reception) : contrôle, qualifie les réserves, « terminer ».
+// Adresses des écrans : src/lib/adresses.ts.
 // Mêmes règles que le passage au Parc (src/app/api/chantiers/reception/route.ts), qui reste seul juge : l'écran met le
 // statut, l'automatisation existante contrôle, refuse ou déplace au Parc.
 // GET ?role=poseur (🚧 en cours et ✅ réalisé) | ?role=charge (✅ réalisé seulement).
@@ -32,7 +33,7 @@ import { genererRapportMiseEnService } from '@/lib/rapportMiseEnService';
 // un commentaire « ✏️ Correction après signature du PV » (quoi, motif, qui, quand). L'ancien PV reste dans le champ.
 // Rapport de mesures et photos restent ajoutables.
 // 18/10/2026, 14 h 41 (Matthieu : « il y a une mise en service à faire sur chaque chantier »), 15 h 08 (contrôles par
-// élément) : chaque élément du scénario retenu doit être mis en service (/interne/mise-en-service) et sans défaut.
+// élément) : chaque élément du scénario retenu doit être mis en service (/interventions/<id>/mise-en-service) et sans défaut.
 // 15 h 36 (Matthieu : « L'appli génère le rapport ») : 📊 Rapport de mesures reçoit le rapport de mise en service créé par
 // l'appli (src/lib/rapportMiseEnService.ts) ; le PDF du contrôleur devient facultatif.
 
