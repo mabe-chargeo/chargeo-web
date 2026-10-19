@@ -4,6 +4,7 @@ import { rolesDe } from '@/lib/roles';
 import { LISTES } from '@/lib/espaces';
 import { champType } from '@/lib/typesTaches';
 import { CANDIDAT, CONTRATS, DIPLOMES, HABILITATIONS, ONBOARDING, POSTES_CANDIDAT, POSTES_SALARIE, SALARIE, poserChecklist } from '@/lib/rh';
+import { adresses } from '@/lib/adresses';
 
 // Créations RH depuis l'application (17/10/2026, 19 h 10, choix de Matthieu : « Salarié et candidat »).
 // GET : options des listes déroulantes (dans l'ordre de ClickUp).
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
       const r = await creerTache(token, LISTES.salaries, { name: prefixe(nom), description, ...type, custom_fields: champs });
       if (!r.ok) return json({ error: `ClickUp a refusé la création (${r.status})` }, 502);
       const checklist = await poserChecklist(token, String(r.tache.id), 'ONBOARDING', ONBOARDING);
-      return json({ success: true, preview, checklist, cree: { id: String(r.tache.id), nom: String(r.tache.name), lien: `/interne/element/${r.tache.id}` } });
+      return json({ success: true, preview, checklist, cree: { id: String(r.tache.id), nom: String(r.tache.name), lien: adresses.fiche(String(r.tache.id)) } });
     }
 
     if (corps?.type === 'candidat') {
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
       const type = await champType(token, 'candidat');
       const r = await creerTache(token, LISTES.recrutement, { name: prefixe(nom), description, ...type, custom_fields: champs });
       if (!r.ok) return json({ error: `ClickUp a refusé la création (${r.status})` }, 502);
-      return json({ success: true, preview, cree: { id: String(r.tache.id), nom: String(r.tache.name), lien: `/interne/element/${r.tache.id}` } });
+      return json({ success: true, preview, cree: { id: String(r.tache.id), nom: String(r.tache.name), lien: adresses.fiche(String(r.tache.id)) } });
     }
 
     return json({ error: 'Création inconnue' }, 400);

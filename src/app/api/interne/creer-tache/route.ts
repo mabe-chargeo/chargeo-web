@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { sessionDeRequete } from '@/lib/session';
 import { rolesDe } from '@/lib/roles';
 import { LISTES } from '@/lib/espaces';
+import { adresses } from '@/lib/adresses';
 
 // + Tâche dans la To-Do 📝 (17/10/2026, 20 h 14, Matthieu : « il me faut la possibilité de créer des nouvelles tâches
 // dans la to do »). La liste est dans l'espace DIRECTION : réservée à la direction (comme son écran).
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
       console.error('Création To-Do refusée', res.status, t);
       return json({ success: false, error: `ClickUp a refusé la création (${res.status})` }, 502);
     }
-    return json({ success: true, preview, cree: { id: String(t.id), nom: String(t.name || titre), lien: `/interne/element/${t.id}` } });
+    return json({ success: true, preview, cree: { id: String(t.id), nom: String(t.name || titre), lien: adresses.fiche(String(t.id)) } });
   } catch (e) {
     console.error('To-Do (écriture)', e);
     return json({ success: false, error: 'Erreur serveur' }, 500);
