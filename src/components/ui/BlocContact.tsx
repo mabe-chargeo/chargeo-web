@@ -20,6 +20,9 @@
 // chantier et de prospect (differe). Dans une liste, differe : rien n'est lu avant le premier appui, pour ne pas lancer
 // une lecture ClickUp par carte (quota de l'API). Le relevé garde la lecture immédiate, faite avec du réseau avant de
 // descendre au sous-sol. BoutonsContact : les mêmes boutons pour une personne déjà lue (annuaire Contacts).
+// 19/10, 8 h 35 (passe de cohérence validée sur maquette) : une seule fabrique de boutons. Les personnes du bloc passent
+// par BoutonsContact, l'adresse par BoutonsAdresse (Waze, Google Maps), aussi utilisés par les fiches génériques au lieu
+// de leurs copies.
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Headphones, Mail, MapPin, MessageSquare, Navigation, Phone, Users } from 'lucide-react';
 import { Carte, TitreCarte } from '@/components/charte/Appli';
@@ -60,9 +63,10 @@ const lienGmail = (dest: string, moi: string, ios: boolean) =>
 // Waze : adresse écrite, cherchée autour du point GPS quand il existe
 const lienWaze = (texte: string, lat: number | null, lng: number | null) =>
   `https://waze.com/ul?q=${encodeURIComponent(texte)}${lat !== null && lng !== null ? `&ll=${lat},${lng}` : ''}&navigate=yes`;
+const lienMaps = (texte: string) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(texte)}`;
 
 // iPhone, iPad (y compris iPadOS qui se présente comme un Mac tactile)
-function estIOS(): boolean {
+export function estIOS(): boolean {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent || '';
   return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && (navigator as any).maxTouchPoints > 1);
@@ -98,6 +102,16 @@ export function BoutonsContact({ tel, email, moi = '' }: { tel: string; email: s
   );
 }
 
+// Les boutons d'une adresse : Waze (adresse écrite autour du point GPS) et Google Maps
+export function BoutonsAdresse({ texte, lat = null, lng = null }: { texte: string; lat?: number | null; lng?: number | null }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Lien href={lienWaze(texte, lat, lng)}><Navigation size={14} /> Waze</Lien>
+      <Lien href={lienMaps(texte)}><MapPin size={14} /> Google Maps</Lien>
+    </div>
+  );
+}
+
 export function BlocContact({
   affaireId,
   ouvertParDefaut = false,
@@ -109,14 +123,9 @@ export function BlocContact({
 }) {
   const [c, setC] = useState<FicheContact | null>(null);
   const [ouvert, setOuvert] = useState(ouvertParDefaut);
-  const [ios, setIos] = useState(false);
   const [etat, setEtat] = useState<'attente' | 'lecture' | 'lu' | 'erreur'>('attente');
 
   const doitLire = !differe || ouvert;
-
-  useEffect(() => {
-    setIos(estIOS());
-  }, []);
 
   useEffect(() => {
     if (!doitLire || etat === 'lecture' || etat === 'lu') return;
@@ -137,18 +146,11 @@ export function BlocContact({
 
   const moi = c?.moi || '';
   const a = c?.adresse || null;
-  const waze = a ? lienWaze(a.texte, a.lat, a.lng) : '';
-  const maps = a ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(a.texte)}` : '';
 
   const personne = (titre: string, p: Personne) => (
     <div key={`${titre}-${p.nom}`} className="space-y-2">
       <p className="text-[14px]"><strong>{titre} :</strong> {p.nom || '–'}{p.tel ? ` · ${p.tel}` : ''}</p>
-      <div className="flex flex-wrap gap-2">
-        {p.tel && <Lien href={`tel:${international(p.tel)}`}><Phone size={14} /> Appeler</Lien>}
-        {p.tel && <Lien href={lienVoice(p.tel, moi)}><Headphones size={14} /> Google Voice</Lien>}
-        {p.tel && recoitSms(p.tel) && <Lien href={`sms:${international(p.tel)}`}><MessageSquare size={14} /> SMS</Lien>}
-        {p.email && <Lien href={lienGmail(p.email, moi, ios)}><Mail size={14} /> Gmail</Lien>}
-      </div>
+      {(p.tel || p.email) && <BoutonsContact tel={p.tel} email={p.email} moi={moi} />}
     </div>
   );
 
@@ -160,10 +162,7 @@ export function BlocContact({
       {a ? (
         <div className="space-y-2">
           <p className="flex items-start gap-2 text-[14px]"><MapPin size={16} className="mt-0.5 shrink-0" /> {a.texte}</p>
-          <div className="flex flex-wrap gap-2">
-            <Lien href={waze}><Navigation size={14} /> Waze</Lien>
-            <Lien href={maps}><MapPin size={14} /> Google Maps</Lien>
-          </div>
+          <BoutonsAdresse texte={a.texte} lat={a.lat} lng={a.lng} />
         </div>
       ) : (
         <p className="text-[14px]">Pas d&apos;adresse sur la fiche.</p>

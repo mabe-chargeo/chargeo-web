@@ -15,6 +15,10 @@ import { LISTES } from '@/lib/espaces';
 // - liens : fiches reliées (ouvertes dans l'application), liens web, autres adresses, pièces jointes, tâche parente.
 // 18/10, 20 h 00 (Matthieu : « ton bouton… qui ouvre FaceTime, on avait travaillé là-dessus ») : plus de raccourcis tel: /
 // mailto: bruts, les boutons de contact sont ceux du bloc Contact validé les 15 et 17/10.
+// 19/10, 8 h 35 (passe de cohérence validée sur maquette MAQUETTE_COHERENCE-SAV_2026-10-19.png) : les documents créés
+// par l'appli (📄 Rapport d'intervention d'un ticket SAV) ont leur ligne « Documents », comme le PV et le rapport de mise
+// en service de la réception (src/components/appli/LigneDocument.tsx). Leur PDF ne passe plus dans les Liens (« Pièce
+// jointe », lien ClickUp brut) ni dans les Détails (« 1 fichier(s) »).
 // Lecture seule. Un échec réseau ne casse pas la fiche : parcours ou affaire absents.
 
 const API = 'https://api.clickup.com/api/v2';
@@ -25,6 +29,13 @@ const RELIEES_MAX = 3;
 const RELATIONS = ['tasks', 'list_relationship'];
 const CONTACTS = ['phone', 'email', 'location'];
 
+// Documents par liste : champ fichier ClickUp et cible de l'aperçu (/api/interne/fichier)
+const DOCUMENTS: Record<string, { cible: string; champ: string; titre: string }[]> = {
+  sav: [{ cible: 'rapportSav', champ: '8dbf671d-4a53-4870-be35-d2e866c73ede', titre: '📄 Rapport d’intervention' }],
+};
+const IMAGE = /\.(jpe?g|png|webp|gif|heic|heif)$/i;
+
+export type DocumentFiche = { cible: string; titre: string; fichiers: { id: string; nom: string; image: boolean }[] };
 export type LienFiche = { nom: string; sous: string; href: string; genre: 'fiche' | 'web' | 'tel' | 'mail' | 'carte' | 'fichier' };
 export type Gabarit = {
   cles: string[];
@@ -34,6 +45,8 @@ export type Gabarit = {
   // Email CHARGéO de la personne connectée (Google Voice et Gmail sur le bon compte)
   moi: string;
   liens: LienFiche[];
+  // Documents créés par l'appli, montrés comme à la réception
+  documents: DocumentFiche[];
   // Champs déjà montrés ailleurs (contact, liens) : absents des Détails
   ailleurs: string[];
 };
@@ -80,13 +93,28 @@ function genreWeb(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return 'Lien'; }
 }
 
-export async function lireGabarit(token: string, t: any, motsCles: string[], moi = ''): Promise<Gabarit> {
+export async function lireGabarit(token: string, t: any, motsCles: string[], moi = '', source = ''): Promise<Gabarit> {
   const champs = champsLus(t);
   const cles = champsCles(t, motsCles, 3).filter((c) => !RELATIONS.includes(c.type)).map((c) => c.id);
   const ailleurs: string[] = [];
   const liens: LienFiche[] = [];
   const contact: Gabarit['contact'] = { tel: '', email: '', adresse: '', lat: null, lng: null, autres: [] };
   const brut = (id: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((x: any) => String(x?.id) === id)?.value;
+
+  // Documents de la liste : leurs fichiers, retirés des Détails et des pièces jointes
+  const documents: DocumentFiche[] = [];
+  const dejaMontres = new Set<string>();
+  for (const d of DOCUMENTS[source] || []) {
+    ailleurs.push(d.champ);
+    const v = brut(d.champ);
+    const fichiers = (Array.isArray(v) ? v : v ? [v] : []).map((f: any) => {
+      const nom = String(f?.title || f?.name || 'fichier');
+      if (f?.id) dejaMontres.add(String(f.id));
+      if (f?.title || f?.name) dejaMontres.add(nom);
+      return { id: String(f?.id || ''), nom, image: String(f?.mimetype || '').startsWith('image/') || IMAGE.test(nom) };
+    }).filter((f: { id: string }) => !!f.id);
+    documents.push({ cible: d.cible, titre: d.titre, fichiers });
+  }
 
   // Contact de la fiche : le premier de chaque sorte, puis les autres numéros et emails avec leur nom ; les autres adresses dans les liens
   for (const c of champs.filter((x) => CONTACTS.includes(x.type))) {
@@ -134,10 +162,11 @@ export async function lireGabarit(token: string, t: any, motsCles: string[], moi
   // Pièces jointes, puis tâche parente
   for (const a of Array.isArray(t?.attachments) ? t.attachments : []) {
     const url = String(a?.url || '');
+    if ((a?.id && dejaMontres.has(String(a.id))) || (a?.title && dejaMontres.has(String(a.title)))) continue;
     if (url) liens.push({ nom: String(a?.title || 'Fichier'), sous: 'Pièce jointe', href: url, genre: 'fichier' });
   }
   if (t?.parent) liens.push({ nom: 'Tâche parente', sous: 'Fiche principale', href: `/interne/element/${t.parent}`, genre: 'fiche' });
 
   const parcours = await parcoursDe(token, String(t?.list?.id || ''), String(t?.status?.status || ''));
-  return { cles, parcours, affaire, contact, moi, liens, ailleurs };
+  return { cles, parcours, affaire, contact, moi, liens, documents, ailleurs };
 }
