@@ -25,6 +25,8 @@
 // 19/10, 8 h 35 (passe de cohérence validée sur maquette) : PV, rapport et photos passent par la ligne document commune
 // (src/components/appli/LigneDocument.tsx), la même que le rapport d'intervention d'un ticket SAV ; le lien ClickUp de la
 // carte n'est plus rendu que pour la direction et le back-office.
+// 19/10, 11 h 39 : la préparation des photos (1600 px, JPEG) passe dans src/lib/preparerFichier.ts, partagée avec la
+// photo du bon de livraison d'une commande.
 import { useEffect, useState } from 'react';
 import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Lock, PenLine, Plus, RefreshCw, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
@@ -32,6 +34,7 @@ import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 import { ActionDocument, LigneDocument, type FichierApercu } from '@/components/appli/LigneDocument';
+import { preparerFichier as preparer, TAILLE_MAX_ENVOI } from '@/lib/preparerFichier';
 
 interface Reserve { id: string; nom: string; responsables: string[]; echeance: number | null; faite: boolean }
 interface Option { id: string; nom: string; orderindex: number }
@@ -53,24 +56,6 @@ function couleurReserve(nom: string): string {
   return CYAN;
 }
 const jour = (ms: number) => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit' }).format(new Date(ms));
-
-// Photo réduite à 1600 px en JPEG avant l'envoi (limite de taille et réseau de chantier). PDF envoyé tel quel.
-async function preparer(fichier: File): Promise<File> {
-  if (!fichier.type.startsWith('image/')) return fichier;
-  try {
-    const image = await createImageBitmap(fichier);
-    const echelle = Math.min(1, 1600 / Math.max(image.width, image.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(image.width * echelle);
-    canvas.height = Math.round(image.height * echelle);
-    canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const blob: Blob | null = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.82));
-    if (!blob) return fichier;
-    return new File([blob], fichier.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
-  } catch {
-    return fichier;
-  }
-}
 
 export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
   const poseur = role === 'poseur';
@@ -145,7 +130,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
     let ok = 0;
     for (const brut of Array.from(liste)) {
       const fichier = await preparer(brut);
-      if (fichier.size > 4 * 1024 * 1024) { message(c.id, `${brut.name} : fichier trop lourd (4 Mo maximum).`); continue; }
+      if (fichier.size > TAILLE_MAX_ENVOI) { message(c.id, `${brut.name} : fichier trop lourd (4 Mo maximum).`); continue; }
       const form = new FormData();
       form.append('taskId', c.id);
       form.append('cible', cible);
