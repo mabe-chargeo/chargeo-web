@@ -9,11 +9,14 @@
 // (nombre de chantiers par étape, réalisés à réceptionner compris) et Carte des chantiers (comme la carte des visites).
 // 17/10, 22 h 49 : bouton « 📅 Planifier la pose » (ou « Décaler la pose ») sur les chantiers à planifier, en préparation
 // ou planifiés : /interne/planifier/<id> (installateurs, durée, agenda de la semaine).
+// 19/10/2026 (2e lot de cohérence) : cartes et boutons sur les briques communes (src/components/charte/Appli.tsx),
+// liens ClickUp réservés à la direction et au back-office, bouton Retour de l'en-tête commun.
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarClock, CalendarPlus, ChevronRight, ExternalLink, HardHat, MapPin, Navigation, RefreshCw } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
-import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
+import { CalendarClock, CalendarPlus, ChevronRight, ExternalLink, HardHat, MapPin, Navigation, RefreshCw } from 'lucide-react';
+import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere, LienPrincipal, BoutonSecondaire } from '@/components/charte/Appli';
+import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
+import { useRoleAppli } from '@/components/charte/roleAppli';
 
 type Chantier = {
   id: string; nom: string; statut: string; couleurStatut: string; etape: number; quand: string;
@@ -49,6 +52,8 @@ export default function ChantiersPage() {
   const [choisi, setChoisi] = useState('');
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+  const { role } = useRoleAppli();
+  const voitClickUp = role === 'direction' || role === 'backOffice';
 
   const charger = async () => {
     setLoading(true);
@@ -98,14 +103,8 @@ export default function ChantiersPage() {
     return etapes;
   };
 
-  const boutonRetour = (
-    <a href="/interne/espace" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Mon espace
-    </a>
-  );
-
   const carte = (c: Chantier, surCarte?: () => void) => (
-    <div key={c.id} className="space-y-3 rounded-[20px] p-5" style={{ backgroundColor: GRIS }}>
+    <Carte key={c.id} className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-white" style={{ backgroundColor: c.couleurStatut || '#9aa3ad' }}>
           {c.statut}
@@ -141,10 +140,12 @@ export default function ChantiersPage() {
       ) : (
         <BlocContact affaireId={c.id} differe />
       )}
-      <a href={c.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
-        <ExternalLink size={13} /> Ouvrir dans ClickUp
-      </a>
-    </div>
+      {voitClickUp && (
+        <a href={c.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
+          <ExternalLink size={13} /> Ouvrir dans ClickUp
+        </a>
+      )}
+    </Carte>
   );
 
   const listeParEtape = (liste: Chantier[], vide: string) => (
@@ -161,7 +162,7 @@ export default function ChantiersPage() {
   );
 
   const ligneReserve = (r: Reserve) => (
-    <div key={r.id} className="rounded-[20px] p-5" style={r.enRetard ? { backgroundColor: GRIS, boxShadow: `inset 5px 0 0 ${ORANGE}` } : { backgroundColor: GRIS }}>
+    <Carte key={r.id} className={r.enRetard ? 'shadow-[inset_5px_0_0_#FF6B00]' : ''}>
       <p className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-slate-500">{r.chantier}{r.auParc ? ' · au Parc' : ''}</p>
       <p className="mt-1 text-[17px] font-bold leading-tight">{r.nom}</p>
       <p className="mt-1.5 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: r.enRetard || !r.quand ? ORANGE : CYAN }}>
@@ -174,11 +175,13 @@ export default function ChantiersPage() {
       </p>
       <div className="mt-2 flex flex-wrap gap-4">
         {!r.auParc && <a href={`/interne/fiches/${r.chantierId}`} className="text-[13px] font-bold" style={{ color: CYAN }}>Ouvrir le chantier</a>}
-        <a href={r.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
-          <ExternalLink size={13} /> Ouvrir la réserve dans ClickUp
-        </a>
+        {voitClickUp && (
+          <a href={r.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
+            <ExternalLink size={13} /> Ouvrir la réserve dans ClickUp
+          </a>
+        )}
       </div>
-    </div>
+    </Carte>
   );
 
   // Avancement : nombre de chantiers par étape (barre proportionnelle)
@@ -197,7 +200,7 @@ export default function ChantiersPage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Planning chantiers" titre="Chantiers" action={boutonRetour} />
+      <EnTeteAppli surtitre="Planning chantiers" titre="Chantiers" retour={{ href: '/interne/espace', libelle: 'Mon espace' }} />
       <ContenuAppli className="space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap gap-2">
@@ -272,9 +275,9 @@ export default function ChantiersPage() {
               <p className="text-[14px]" style={{ color: reserves.length ? ORANGE : undefined }}>🔧 Réserves à lever : <b>{reserves.length}</b></p>
             </Carte>
             {realises.length > 0 && (
-              <a href="/interne/validation" className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-white px-6 text-[15px] font-semibold ring-[1.5px] ring-[#dfe3e8]" style={{ color: CYAN }}>
+              <BoutonSecondaire href="/interne/validation" compact>
                 ✅ {realises.length} réception{realises.length > 1 ? 's' : ''} à valider
-              </a>
+              </BoutonSecondaire>
             )}
           </>
         )}
@@ -295,9 +298,9 @@ export default function ChantiersPage() {
               <Carte className="text-center"><p className="text-[15px] font-semibold">Aucun chantier ouvert avec une adresse.</p></Carte>
             )}
             {avecAdresse.length > 1 && itineraire(avecAdresse) && (
-              <a href={itineraire(avecAdresse)} target="_blank" rel="noopener noreferrer" className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 py-3.5 text-[16px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)]">
+              <LienPrincipal href={itineraire(avecAdresse)}>
                 <Navigation size={18} /> Tous les chantiers dans Google Maps ({avecAdresse.length})
-              </a>
+              </LienPrincipal>
             )}
             {chantiers.length > avecAdresse.length && (
               <p className="px-1 text-[13px]" style={{ color: ORANGE }}>{chantiers.length - avecAdresse.length} chantier{chantiers.length - avecAdresse.length > 1 ? 's' : ''} sans adresse, absent{chantiers.length - avecAdresse.length > 1 ? 's' : ''} de la carte.</p>

@@ -22,10 +22,12 @@
 // même pour la direction. Vue Direction ou Chef de chantier = toute l'équipe, avec le nom des installateurs.
 // 18/10, 22 h 20 (maquette MAQUETTE_RAPPORT-SAV_2026-10-18.png validée par Matthieu) : chaque ticket SAV a le bouton
 // orange « 🛠️ Rapport d'intervention » (/interne/rapport-sav/<id>) ; caler le dépannage passe en bouton secondaire.
+// 19/10/2026 (2e lot de cohérence) : cartes et boutons sur les briques communes (src/components/charte/Appli.tsx),
+// liens ClickUp réservés à la direction et au back-office, bouton Retour de l'en-tête commun.
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarClock, ChevronRight, Download, ExternalLink, HardHat, MapPin, Navigation, RefreshCw, WifiOff } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
-import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
+import { CalendarClock, ChevronRight, Download, ExternalLink, HardHat, MapPin, Navigation, RefreshCw, WifiOff } from 'lucide-react';
+import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere, LienPrincipal, BoutonSecondaire } from '@/components/charte/Appli';
+import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 
@@ -147,18 +149,13 @@ export default function InterventionsPage() {
   };
 
   const equipe = !!donnees?.equipe;
-
-  const boutonRetour = (
-    <a href="/interne/espace" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Mon espace
-    </a>
-  );
+  const voitClickUp = role === 'direction' || role === 'backOffice';
 
   // Pose, visite et ticket SAV ont leur bouton orange principal : l'action éventuelle passe alors en bouton secondaire
   const aBoutonPrincipal = (i: Item) => i.type === 'pose' || i.type === 'visite' || i.type === 'sav';
 
   const carte = (i: Item) => (
-    <div key={`${i.type}-${i.id}`} className="space-y-3 rounded-[20px] p-5" style={{ backgroundColor: GRIS }}>
+    <Carte key={`${i.type}-${i.id}`} className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-white" style={{ backgroundColor: i.couleurStatut || '#9aa3ad' }}>
           {i.statut}
@@ -190,35 +187,31 @@ export default function InterventionsPage() {
         </p>
       )}
       {i.type === 'pose' && (
-        <a href={`/interne/pose/${i.id}#prevu`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-white px-6 text-[15px] font-semibold ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95" style={{ color: CYAN }}>
-          📋 Ce qui est prévu
-        </a>
+        <BoutonSecondaire href={`/interne/pose/${i.id}#prevu`} compact>📋 Ce qui est prévu</BoutonSecondaire>
       )}
       {i.type === 'pose' && (
-        <a href={`/interne/pose/${i.id}`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 text-[15px] font-semibold text-white transition-transform active:scale-95">
-          📸 Saisie à la pose
-        </a>
+        <LienPrincipal href={`/interne/pose/${i.id}`} compact>📸 Saisie à la pose</LienPrincipal>
       )}
       {i.type === 'visite' && (
-        <a href={`/interne/maintenance/${i.id}`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 text-[15px] font-semibold text-white transition-transform active:scale-95">
-          🔧 Faire la visite
-        </a>
+        <LienPrincipal href={`/interne/maintenance/${i.id}`} compact>🔧 Faire la visite</LienPrincipal>
       )}
       {i.type === 'sav' && (
-        <a href={`/interne/rapport-sav/${i.id}`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 text-[15px] font-semibold text-white transition-transform active:scale-95">
-          🛠️ Rapport d’intervention
-        </a>
+        <LienPrincipal href={`/interne/rapport-sav/${i.id}`} compact>🛠️ Rapport d’intervention</LienPrincipal>
       )}
       {i.action && (
-        <a href={i.action.href} className={`flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold transition-transform active:scale-95 ${aBoutonPrincipal(i) ? 'ring-[1.5px] ring-[#dfe3e8]' : 'bg-[#FF6B00] text-white'}`} style={aBoutonPrincipal(i) ? { color: CYAN } : undefined}>
-          {i.action.libelle}
-        </a>
+        aBoutonPrincipal(i) ? (
+          <BoutonSecondaire href={i.action.href} compact>{i.action.libelle}</BoutonSecondaire>
+        ) : (
+          <LienPrincipal href={i.action.href} compact>{i.action.libelle}</LienPrincipal>
+        )
       )}
       {i.contactId && <BlocContact affaireId={i.contactId} differe />}
-      <a href={i.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
-        <ExternalLink size={13} /> Ouvrir dans ClickUp
-      </a>
-    </div>
+      {voitClickUp && (
+        <a href={i.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
+          <ExternalLink size={13} /> Ouvrir dans ClickUp
+        </a>
+      )}
+    </Carte>
   );
 
   const titre = equipe ? (vue === 'sav' ? 'Tickets SAV de l’équipe' : 'Interventions de l’équipe') : vue === 'sav' ? 'Mes tickets SAV' : 'Mes interventions';
@@ -232,7 +225,7 @@ export default function InterventionsPage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre={equipe ? 'Équipe d’installateurs' : 'Installateur'} titre={titre} action={boutonRetour} />
+      <EnTeteAppli surtitre={equipe ? 'Équipe d’installateurs' : 'Installateur'} titre={titre} retour={{ href: '/interne/espace', libelle: 'Mon espace' }} />
       <ContenuAppli className="space-y-4">
         <div className="flex gap-2">
           {(['interventions', 'sav'] as const).map((v) => (
@@ -258,26 +251,21 @@ export default function InterventionsPage() {
         {erreur && <Alerte>{erreur}</Alerte>}
 
         {vue === 'interventions' && !horsLigne && posesAPreparer.length > 0 && (
-          <div className="rounded-[20px] p-4" style={{ backgroundColor: GRIS }}>
-            <button
-              onClick={preparer}
-              disabled={prepEnCours}
-              className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-white px-6 text-[15px] font-semibold ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95"
-              style={{ color: CYAN }}
-            >
+          <Carte>
+            <BoutonSecondaire onClick={preparer} disabled={prepEnCours} compact>
               <Download size={18} /> {prepEnCours ? 'Préparation...' : 'Préparer ma journée hors ligne'}
-            </button>
+            </BoutonSecondaire>
             <p className="mt-2 text-center text-[13px]">
               {preparation ? `Dernière préparation : ${heure(preparation.le)} (${preparation.n} pose${preparation.n > 1 ? 's' : ''})` : 'Garde ce qui est prévu sur tes poses d’aujourd’hui et de demain sur le téléphone.'}
             </p>
             {prepMessage && <p className="mt-1 text-center text-[13px]" style={{ color: ORANGE }}>{prepMessage}</p>}
-          </div>
+          </Carte>
         )}
 
         {vue === 'interventions' && itineraire && (
-          <a href={itineraire} target="_blank" rel="noopener noreferrer" className="flex w-full items-center justify-center gap-3 rounded-full bg-[#FF6B00] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95">
+          <LienPrincipal href={itineraire}>
             <Navigation size={20} /> Itinéraire du jour ({adressesDuJour.length} adresse{adressesDuJour.length > 1 ? 's' : ''})
-          </a>
+          </LienPrincipal>
         )}
 
         {loading && !donnees && (
