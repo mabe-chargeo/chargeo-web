@@ -4,9 +4,9 @@
 // Aperçu : PV, rapport et photos s'ouvrent depuis l'écran (vignettes), sans passer par ClickUp (test du 13/10).
 // Envoi : toujours possible quand tout est complet (un chantier peut déjà être en ✅ réalisé sans avoir été envoyé ;
 // renvoyer ne fait que reprévenir le chargé d'opération, test du 13/10).
-// - role « poseur » (/interne/reception) : sur place, le technicien poseur fait signer le PV, dépose PV et photos, déclare
+// - role « poseur » (/interventions/rapport) : sur place, le technicien poseur fait signer le PV, dépose PV et photos, déclare
 //   les réserves (sous-tâche « 🔧 Réserve : … », responsable = 👷 Technicien du chantier), puis envoie au chargé d'opération ;
-// - role « charge » (/interne/validation) : le chargé d'opération / chef de chantier contrôle, qualifie les réserves et
+// - role « charge » (/chantiers/reception) : le chargé d'opération / chef de chantier contrôle, qualifie les réserves et
 //   valide la réception (statut 🏁 terminé). Le passage au Parc (contrat, facture de solde, avis Google) reste fait par
 //   la route existante ; ce qui est administratif part au back-office.
 // 17/10, 10 h 26 (Matthieu) : bloc 📇 Contact sur chaque chantier (Appeler, Google Voice, SMS, Gmail, Waze, Maps), lu au
@@ -15,11 +15,11 @@
 // 17/10, 15 h 34 (Matthieu : « le chef de chantier corrige, avec trace ») : une fois le PV signé et envoyé (✅ réalisé),
 // cadenas sur le PV et les réserves. Le poseur ne peut plus les changer ; le chef de chantier corrige en donnant un motif,
 // gardé en commentaire sur le chantier. Rapport de mesures et photos restent ajoutables.
-// 18/10, 14 h 41 et 15 h 08 : bloc ⚡ Mise en service, un contrôle par élément, bouton vers /interne/mise-en-service.
+// 18/10, 14 h 41 et 15 h 08 : bloc ⚡ Mise en service, un contrôle par élément, bouton vers /interventions/<id>/mise-en-service.
 // 18/10, 15 h 36 (Matthieu : « L'appli génère le rapport ») : 📊 Rapport de mise en service créé par l'appli quand tous
 // les éléments sont conformes (bouton de secours « Créer le rapport ») ; le PDF du contrôleur devient facultatif.
 // 18/10, 16 h 04 (Matthieu : « le PV de réception, que ce soit l'appli qui le génère, au doigt sur le téléphone ») :
-// bouton « Faire signer le PV sur le téléphone » (/interne/pv/<chantier>), le PV papier photographié reste en secours.
+// bouton « Faire signer le PV sur le téléphone » (/interventions/<chantier>/pv), le PV papier photographié reste en secours.
 // Ordre de la carte : mise en service, réserves, puis PV (le PV reprend les réserves déclarées), rapport et photos.
 // 18/10, 17 h 20 (validé sur maquette) : une fois envoyé, le bouton dit « Déjà envoyé · prévenir à nouveau ».
 // 19/10, 8 h 35 (passe de cohérence validée sur maquette) : PV, rapport et photos passent par la ligne document commune
@@ -35,6 +35,7 @@ import { BlocContact } from '@/components/ui/BlocContact';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 import { ActionDocument, LigneDocument, type FichierApercu } from '@/components/appli/LigneDocument';
 import { preparerFichier as preparer, TAILLE_MAX_ENVOI } from '@/lib/preparerFichier';
+import { adresses } from '@/lib/adresses';
 
 interface Reserve { id: string; nom: string; responsables: string[]; echeance: number | null; faite: boolean }
 interface Option { id: string; nom: string; orderindex: number }
@@ -171,7 +172,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
             </li>
           ))}
         </ul>
-        <a href={`/interne/mise-en-service/${c.id}`} className="mt-2 flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8]">
+        <a href={adresses.miseEnService(c.id)} className="mt-2 flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold ring-[1.5px] ring-[#dfe3e8]">
           <Zap size={16} color={CYAN} /> {complet ? 'Voir ou refaire les mesures' : 'Faire les mesures'}
         </a>
       </div>
@@ -195,7 +196,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
           icon={ClipboardCheck}
           extra={voitClickUp && c.url ? <a href={c.url} target="_blank" rel="noreferrer" aria-label="Ouvrir dans ClickUp" className="shrink-0"><ExternalLink size={18} color={CYAN} /></a> : undefined}
         >
-          <a href={`/interne/fiches/${c.id}`} className="leading-tight underline decoration-[#dfe3e8] underline-offset-4">{c.nom}</a>
+          <a href={adresses.affaire(c.id)} className="leading-tight underline decoration-[#dfe3e8] underline-offset-4">{c.nom}</a>
         </TitreCarte>
         <p className="text-[13px] font-semibold">
           <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ backgroundColor: c.couleurStatut || CYAN }} />
@@ -307,7 +308,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
               aide={aide}
             >
               {cible === 'pv' && !verrouPoseur && !bloque && (
-                <ActionDocument href={`/interne/pv/${c.id}`}>
+                <ActionDocument href={adresses.pv(c.id)}>
                   <PenLine size={16} /> {verrou ? 'Corriger : refaire signer le PV' : liste.length ? 'Refaire signer le PV' : 'Faire signer le PV sur le téléphone'}
                 </ActionDocument>
               )}
@@ -377,7 +378,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
       <EnTeteAppli
         surtitre={poseur ? 'Technicien poseur' : 'Chargé d\'opération'}
         titre={poseur ? 'Réception sur place' : 'Valider les réceptions'}
-        retour={{ href: '/interne/espace', libelle: poseur ? 'Mon travail' : 'Mon espace' }}
+        retour={{ href: adresses.aTraiter, libelle: poseur ? 'Mon travail' : 'Mon espace' }}
       />
       <ContenuAppli className="space-y-4">
         <div className="flex items-center justify-between gap-3">
