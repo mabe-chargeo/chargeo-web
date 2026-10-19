@@ -7,11 +7,16 @@
 // Lot 3.3 et point 21 : compteur de scénarios ou d'emplacements sur la carte de la fiche.
 // 13/10/2026 : le commercial cale le relevé (📅 Date Visite Technique). « Relevés planifiés » triés par date, avec
 // le jour et l'heure ; « Pas encore calées » ensuite (le commercial doit fixer le rendez-vous), toujours ouvrables.
-// 13/10/2026 (Phase 6) : accès à l'écran Feu vert chantiers du chargé d'opération (/interne/feu-vert), et lien de
-// déconnexion (connexion avec le compte ClickUp, src/proxy.ts). Réception en deux temps : le poseur collecte
-// (/interne/reception), le chargé d'opération valide (/interne/validation).
+// 13/10/2026 (Phase 6) : lien de déconnexion (connexion avec le compte ClickUp, src/proxy.ts).
+// 17/10/2026, 13 h 13 (Matthieu : les trois boutons du haut « n'ont pas lieu d'être ») : Feu vert, Réception sur place et
+// Valider les réceptions sont retirés. Ils sont dans À traiter (chef de chantier, installateur). Cette page est la vue
+// « Relevés à faire » du chef de chantier, utilisable hors ligne.
+// 17/10, 22 h 20 : plus de lien « ← Mon espace » dans la page (le bouton Retour de l'en-tête ramène à À traiter) ni de
+// « Se déconnecter » (la déconnexion est sous la pastille du rôle depuis 20 h 17).
+// 18/10, 9 h 50 (pastilles Aujourd'hui et À venir de la carte des menus) : filtres en tête, Tous, Aujourd'hui, À venir,
+// lus dans l'adresse (?vue=aujourdhui, ?vue=a-venir). « Pas encore calées » n'apparaît que sur Tous.
 import { useEffect, useState } from 'react';
-import { CalendarClock, Camera, ChevronRight, ClipboardCheck, ClipboardList, GitBranch, History, MapPin, RefreshCw, TrafficCone, Zap } from 'lucide-react';
+import { CalendarClock, ChevronRight, ClipboardList, GitBranch, History, MapPin, RefreshCw, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
 import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { relevesATerminer } from '@/lib/releveLocal';
@@ -25,6 +30,12 @@ interface Chantier {
   scenariosRecus?: number;
   typeSousReleves?: 'scenario' | 'emplacement' | null;
 }
+type Vue = 'tous' | 'aujourdhui' | 'a-venir';
+const VUES: { cle: Vue; libelle: string }[] = [
+  { cle: 'tous', libelle: 'Tous' },
+  { cle: 'aujourdhui', libelle: "Aujourd'hui" },
+  { cle: 'a-venir', libelle: 'À venir' },
+];
 
 // « mer. 14/10 à 14h30 » (heure de Paris). Date sans heure dans ClickUp : enregistrée à 4 h (heure locale), parfois
 // à minuit (vu le 13/10 sur TEST · SDC Sonnet du Lac : « 04h00 » affiché) : on n'affiche alors que le jour.
@@ -36,12 +47,15 @@ function libelleRdv(ms: number): string {
   const m = parts.find((p) => p.type === 'minute')?.value || '00';
   return m === '00' && (h === '00' || h === '04') ? jour : `${jour} à ${h}h${m}`;
 }
+// « AAAA-MM-JJ » à Paris
+const jourParis = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 
 export default function InternePage() {
   const [chantiers, setChantiers] = useState<Chantier[]>([]);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [aTerminer, setATerminer] = useState<{ id: string; nom: string; majLe: number }[]>([]);
+  const [vue, setVue] = useState<Vue>('tous');
 
   const chargerPlanning = async () => {
     setLoading(true);
@@ -62,10 +76,17 @@ export default function InternePage() {
     }
   };
 
-  // On charge juste le planning au démarrage
+  // On charge juste le planning au démarrage ; le filtre vient de l'adresse
   useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get('vue');
+    if (v === 'aujourdhui' || v === 'a-venir') setVue(v);
     chargerPlanning();
   }, []);
+
+  const choisir = (v: Vue) => {
+    setVue(v);
+    window.history.replaceState(null, '', v === 'tous' ? '/interne' : `/interne?vue=${v}`);
+  };
 
   const handleSelectChantier = (id: string) => {
     // 🚨 ASTUCE ANTI-APPLE : On utilise window.location au lieu de router.push
@@ -76,8 +97,14 @@ export default function InternePage() {
   // Relevés commencés sur ce téléphone mais absents du planning (déjà sortis de « à visiter », ou sous-relevés)
   const idsPlanning = new Set(chantiers.map((c) => c.id));
   const aReprendre = aTerminer.filter((r) => !idsPlanning.has(r.id));
+  const aujourdhui = jourParis(new Date());
+  const jourDe = (c: Chantier) => (c.dateVisite ? jourParis(new Date(c.dateVisite)) : '');
   const planifies = chantiers.filter((c) => !!c.dateVisite);
+  const duJour = planifies.filter((c) => jourDe(c) === aujourdhui);
+  const aVenir = planifies.filter((c) => jourDe(c) > aujourdhui);
+  const visibles = vue === 'aujourdhui' ? duJour : vue === 'a-venir' ? aVenir : planifies;
   const aCaler = chantiers.filter((c) => !c.dateVisite);
+  const compte: Record<Vue, number> = { tous: planifies.length, aujourdhui: duJour.length, 'a-venir': aVenir.length };
 
   const boutonActualiser = (
     <button
@@ -129,54 +156,30 @@ export default function InternePage() {
     );
   };
 
+  const titreListe = vue === 'aujourdhui' ? "Relevés d'aujourd'hui" : vue === 'a-venir' ? 'Relevés à venir' : 'Relevés planifiés';
+  const vide = vue === 'aujourdhui' ? "Aucun relevé aujourd'hui." : vue === 'a-venir' ? 'Aucun relevé à venir.' : "Aucun relevé planifié pour l'instant.";
+
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Espace technique" titre="Mon planning" action={boutonActualiser} />
+      <EnTeteAppli surtitre="Chef de chantier" titre="Relevés à faire" action={boutonActualiser} />
 
       <ContenuAppli className="space-y-4">
-        <a
-          href="/interne/feu-vert"
-          className="flex w-full items-center gap-4 rounded-[20px] bg-white p-5 text-left ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
-          style={{ boxShadow: `inset 5px 0 0 ${CYAN}` }}
-        >
-          <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
-            <TrafficCone size={22} color="#ffffff" strokeWidth={1.8} />
-          </div>
-          <div className="min-w-0 grow">
-            <p className="text-[17px] font-bold leading-tight">Feu vert chantiers</p>
-            <p className="mt-1.5 text-[13px]">Prérequis et feu vert, pour le chargé d'opération</p>
-          </div>
-          <ChevronRight size={22} className="shrink-0" color={CYAN} />
-        </a>
-        <a
-          href="/interne/reception"
-          className="flex w-full items-center gap-4 rounded-[20px] bg-white p-5 text-left ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
-          style={{ boxShadow: `inset 5px 0 0 ${CYAN}` }}
-        >
-          <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
-            <Camera size={22} color="#ffffff" strokeWidth={1.8} />
-          </div>
-          <div className="min-w-0 grow">
-            <p className="text-[17px] font-bold leading-tight">Réception sur place</p>
-            <p className="mt-1.5 text-[13px]">Pour le poseur : PV signé, photos et réserves</p>
-          </div>
-          <ChevronRight size={22} className="shrink-0" color={CYAN} />
-        </a>
-        <a
-          href="/interne/validation"
-          className="flex w-full items-center gap-4 rounded-[20px] bg-white p-5 text-left ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
-          style={{ boxShadow: `inset 5px 0 0 ${CYAN}` }}
-        >
-          <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: CYAN }}>
-            <ClipboardCheck size={22} color="#ffffff" strokeWidth={1.8} />
-          </div>
-          <div className="min-w-0 grow">
-            <p className="text-[17px] font-bold leading-tight">Valider les réceptions</p>
-            <p className="mt-1.5 text-[13px]">Pour le chargé d'opération : contrôle et passage au Parc</p>
-          </div>
-          <ChevronRight size={22} className="shrink-0" color={CYAN} />
-        </a>
-        <div className="h-2" />
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+          {VUES.map((v) => {
+            const actif = vue === v.cle;
+            return (
+              <button
+                key={v.cle}
+                onClick={() => choisir(v.cle)}
+                className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-[14px] font-bold transition-transform active:scale-95 ${actif ? 'text-white' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'}`}
+                style={actif ? { backgroundColor: CYAN } : undefined}
+              >
+                {v.libelle}
+                {!loading && <span className={`rounded-full px-2 text-[12px] ${actif ? 'bg-white/25' : 'bg-[#eceef1]'}`}>{compte[v.cle]}</span>}
+              </button>
+            );
+          })}
+        </div>
 
         {aReprendre.length > 0 && (
           <>
@@ -202,7 +205,7 @@ export default function InternePage() {
           </>
         )}
 
-        <Repere>Relevés planifiés</Repere>
+        <Repere>{titreListe}</Repere>
 
         {loading && (
           <Carte className="p-8 text-center">
@@ -213,16 +216,16 @@ export default function InternePage() {
 
         {!loading && erreur && <Alerte>{erreur}</Alerte>}
 
-        {!loading && !erreur && planifies.length === 0 && (
+        {!loading && !erreur && visibles.length === 0 && (
           <Carte className="p-8 text-center">
             <ClipboardList className="mx-auto mb-3" size={40} color={CYAN} strokeWidth={1.6} />
-            <p className="text-[15px] font-semibold">Aucun relevé planifié pour l'instant.</p>
+            <p className="text-[15px] font-semibold">{vide}</p>
           </Carte>
         )}
 
-        {!loading && !erreur && planifies.map((c) => carteChantier(c, true))}
+        {!loading && !erreur && visibles.map((c) => carteChantier(c, true))}
 
-        {!loading && !erreur && aCaler.length > 0 && (
+        {!loading && !erreur && vue === 'tous' && aCaler.length > 0 && (
           <>
             <div className="h-2" />
             <Repere>Pas encore calées</Repere>
@@ -230,10 +233,6 @@ export default function InternePage() {
             {aCaler.map((c) => carteChantier(c, false))}
           </>
         )}
-
-        <div className="pt-6 text-center">
-          <a href="/api/auth/deconnexion" className="text-[13px] font-semibold underline" style={{ color: CYAN }}>Se déconnecter</a>
-        </div>
       </ContenuAppli>
     </PageAppli>
   );

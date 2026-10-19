@@ -7,6 +7,11 @@
 // téléphone (hors ligne), alerte orange au-delà de 3 m, coffret suggéré, bouton « Prêt à chiffrer »,
 // confirmations et renommages dans la page (plus de fenêtres du navigateur, plus sûr sur téléphone).
 // Le bloc 📇 Contact est dans src/components/ui/BlocContact.tsx (l'ancienne version de ce fichier a été retirée le 16/10).
+// 18/10/2026, 11 h 43 (Matthieu : « quand je retrouve le réseau, il faut que je retourne ouvrir chaque élément pour
+// l'enregistrer. Est-ce qu'on ne peut pas faire un bouton enregistrer tous les éléments ? ») : carte « Relevés à
+// envoyer » dès qu'un élément a une saisie ou des photos gardées sur le téléphone, avec « Enregistrer tous les
+// éléments » : même envoi que le bouton de chaque élément (envoyerReleve), élément par élément ; ce qui échoue reste
+// sur le téléphone. Recompté à chaque saisie, au retour du réseau et au retour sur la page.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AlertTriangle, Archive, Camera, ChevronDown, ChevronUp, Copy, GitBranch, Layers,
@@ -108,6 +113,56 @@ function lireEnvoyees(id: string): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(cleEnvoyees(id)) || '[]')); } catch { return new Set(); }
 }
 
+// ---- Saisie gardée sur le téléphone (brouillon) et envoi d'un élément ----
+const cleBrouillonDe = (id: string) => `elementReleve_${id}`;
+function lireBrouillon(id: string): any {
+  try { return JSON.parse(localStorage.getItem(cleBrouillonDe(id)) || 'null'); } catch { return null; }
+}
+function valeursServeur(e: El): Record<string, string> {
+  const v: Record<string, string> = {};
+  for (const [k, val] of Object.entries(e.valeurs)) v[k] = val === null || val === undefined ? '' : String(val);
+  return v;
+}
+
+async function poster(url: string, corps: any): Promise<{ ok: boolean; j: any }> {
+  try {
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+    const j = await res.json().catch(() => ({}));
+    return { ok: res.ok && !!j?.success, j };
+  } catch {
+    return { ok: false, j: { error: "Pas de réseau : rien n'a été modifié" } };
+  }
+}
+
+// Envoi du relevé d'un élément : valeurs visibles et liens du cheminement, puis photos pas encore reçues, une par une.
+// La saisie et les photos ne sont effacées du téléphone que si tout est parti.
+async function envoyerReleve(e: El, v: Record<string, string>, dep: string, arr: string, ctx: ContexteReleve, photos: Photo[]): Promise<{ ok: boolean; j: any; echecs: number }> {
+  const visibles = champsVisibles(e.nature, v, ctx);
+  const valeurs: Record<string, string> = {};
+  for (const k of visibles) valeurs[k] = v[k] ?? '';
+  const corps: any = { action: 'releve', id: e.id, valeurs };
+  if (e.nature === 'cheminement') corps.liens = { depart: dep || null, arrivee: arr || null };
+  const { ok, j } = await poster(URL_ELEMENTS, corps);
+  if (!ok) return { ok: false, j, echecs: 0 };
+  const envoyees = lireEnvoyees(e.id);
+  let echecs = 0;
+  for (const ph of photos) {
+    if (envoyees.has(ph.id)) continue;
+    const fd = new FormData();
+    fd.append('taskId', e.id);
+    fd.append('photo', versBlob(ph.data), `${e.nom.replace(/[^\w-]+/g, '_')}_${ph.id.slice(0, 8)}.jpg`);
+    try {
+      const r = await fetch('/api/metre/photo', { method: 'POST', body: fd });
+      if (r.ok) { envoyees.add(ph.id); localStorage.setItem(cleEnvoyees(e.id), JSON.stringify(Array.from(envoyees))); } else echecs++;
+    } catch { echecs++; }
+  }
+  if (!echecs) {
+    try { localStorage.removeItem(cleBrouillonDe(e.id)); localStorage.removeItem(cleEnvoyees(e.id)); } catch { /* sans gravité */ }
+    await ecrirePhotos(e.id, []);
+  }
+  return { ok: true, j, echecs };
+}
+
 // ---- Briques ----
 function PetitBouton({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: ReactNode }) {
   return (
@@ -147,32 +202,14 @@ function Ligne({ titre, sousTitre, children, apres }: { titre: string; sousTitre
   );
 }
 
-async function poster(url: string, corps: any): Promise<{ ok: boolean; j: any }> {
-  try {
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
-    const j = await res.json().catch(() => ({}));
-    return { ok: res.ok && !!j?.success, j };
-  } catch {
-    return { ok: false, j: { error: "Pas de réseau : rien n'a été modifié" } };
-  }
-}
-
 // ---- Relevé d'un élément ----
 function FormulaireElement({
-  e, elements, ctx, peut, onEnregistre,
-}: { e: El; elements: El[]; ctx: ContexteReleve; peut: boolean; onEnregistre: (j: any) => Promise<void> }) {
-  const cleBrouillon = `elementReleve_${e.id}`;
-  const depuisServeur = (): Record<string, string> => {
-    const v: Record<string, string> = {};
-    for (const [k, val] of Object.entries(e.valeurs)) v[k] = val === null || val === undefined ? '' : String(val);
-    return v;
-  };
-  const brouillonLu = (): any => {
-    try { return JSON.parse(localStorage.getItem(cleBrouillon) || 'null'); } catch { return null; }
-  };
-  const [v, setV] = useState<Record<string, string>>(() => ({ ...depuisServeur(), ...(brouillonLu()?.v || {}) }));
-  const [dep, setDep] = useState<string>(() => brouillonLu()?.depart ?? (e.depart || ''));
-  const [arr, setArr] = useState<string>(() => brouillonLu()?.arrivee ?? (e.arrivee || ''));
+  e, elements, ctx, peut, onEnregistre, onBrouillon,
+}: { e: El; elements: El[]; ctx: ContexteReleve; peut: boolean; onEnregistre: (j: any) => Promise<void>; onBrouillon: () => void }) {
+  const cleBrouillon = cleBrouillonDe(e.id);
+  const [v, setV] = useState<Record<string, string>>(() => ({ ...valeursServeur(e), ...(lireBrouillon(e.id)?.v || {}) }));
+  const [dep, setDep] = useState<string>(() => lireBrouillon(e.id)?.depart ?? (e.depart || ''));
+  const [arr, setArr] = useState<string>(() => lireBrouillon(e.id)?.arrivee ?? (e.arrivee || ''));
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState('');
@@ -181,6 +218,7 @@ function FormulaireElement({
 
   const garder = (nv: Record<string, string>, nd: string, na: string) => {
     try { localStorage.setItem(cleBrouillon, JSON.stringify({ v: nv, depart: nd, arrivee: na })); } catch { /* sans gravité */ }
+    onBrouillon();
   };
   const changer = (k: string, val: string) => {
     const n = { ...v, [k]: val };
@@ -242,48 +280,31 @@ function FormulaireElement({
     const liste = [...photos, ...nouvelles];
     setPhotos(liste);
     await ecrirePhotos(e.id, liste);
+    onBrouillon();
   };
   const retirerPhoto = async (i: number) => {
     const liste = photos.filter((_, n) => n !== i);
     setPhotos(liste);
     await ecrirePhotos(e.id, liste);
+    onBrouillon();
   };
 
   const enregistrer = async () => {
     setEnvoi(true);
     setErreur('');
-    const valeurs: Record<string, string> = {};
-    for (const k of visibles) valeurs[k] = v[k] ?? '';
-    const corps: any = { action: 'releve', id: e.id, valeurs };
-    if (e.nature === 'cheminement') corps.liens = { depart: dep || null, arrivee: arr || null };
-    const { ok, j } = await poster(URL_ELEMENTS, corps);
-    if (!ok) {
-      setErreur(j?.error ? `${j.error}. Ta saisie est gardée sur le téléphone.` : "Relevé non enregistré. Ta saisie est gardée sur le téléphone, réessaie avec du réseau.");
+    const r = await envoyerReleve(e, v, dep, arr, ctx, photos);
+    if (!r.ok) {
+      setErreur(r.j?.error ? `${r.j.error}. Ta saisie est gardée sur le téléphone.` : "Relevé non enregistré. Ta saisie est gardée sur le téléphone, réessaie avec du réseau.");
       setEnvoi(false);
       return;
     }
-    // Photos pas encore reçues, une par une
-    const envoyees = lireEnvoyees(e.id);
-    let echecs = 0;
-    for (const ph of photos) {
-      if (envoyees.has(ph.id)) continue;
-      const fd = new FormData();
-      fd.append('taskId', e.id);
-      fd.append('photo', versBlob(ph.data), `${e.nom.replace(/[^\w-]+/g, '_')}_${ph.id.slice(0, 8)}.jpg`);
-      try {
-        const r = await fetch('/api/metre/photo', { method: 'POST', body: fd });
-        if (r.ok) { envoyees.add(ph.id); localStorage.setItem(cleEnvoyees(e.id), JSON.stringify(Array.from(envoyees))); } else echecs++;
-      } catch { echecs++; }
-    }
-    if (echecs) {
-      setErreur(`Relevé enregistré, mais ${echecs} photo${echecs > 1 ? 's' : ''} non envoyée${echecs > 1 ? 's' : ''}. Réessaie avec du réseau : seules les photos manquantes partiront.`);
+    if (r.echecs) {
+      setErreur(`Relevé enregistré, mais ${r.echecs} photo${r.echecs > 1 ? 's' : ''} non envoyée${r.echecs > 1 ? 's' : ''}. Réessaie avec du réseau : seules les photos manquantes partiront.`);
     } else {
-      try { localStorage.removeItem(cleBrouillon); localStorage.removeItem(cleEnvoyees(e.id)); } catch { /* sans gravité */ }
-      await ecrirePhotos(e.id, []);
       setPhotos([]);
     }
     setEnvoi(false);
-    await onEnregistre(j);
+    await onEnregistre(r.j);
   };
 
   return (
@@ -389,6 +410,9 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
   const [demande, setDemande] = useState<Demande | null>(null);
   const [renommage, setRenommage] = useState<Renommage | null>(null);
   const [ouvert, setOuvert] = useState<string | null>(null);
+  // Saisies gardées sur le téléphone, pas encore envoyées (ids des éléments)
+  const [enAttente, setEnAttente] = useState<string[]>([]);
+  const [envoiTous, setEnvoiTous] = useState(false);
   // Création des éléments par défaut
   const [segment, setSegment] = useState('');
   const [materiel, setMateriel] = useState<Materiel>('borne');
@@ -412,8 +436,26 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     }
   }, [scenarioId]);
 
+  // Éléments qui ont une saisie ou des photos gardées sur le téléphone
+  const recompterAttente = useCallback(async (els: El[]) => {
+    const ids: string[] = [];
+    for (const e of els) {
+      if (lireBrouillon(e.id)) { ids.push(e.id); continue; }
+      if ((await lirePhotos(e.id)).length) ids.push(e.id);
+    }
+    setEnAttente(ids);
+  }, []);
+
   useEffect(() => { charger(); }, [charger]);
   useEffect(() => { if (demande) refDemande.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [demande]);
+  useEffect(() => { if (d) recompterAttente(d.elements); }, [d, ouvert, recompterAttente]);
+  // Retour du réseau ou retour sur la page : on recompte (et on relit les éléments si la lecture avait échoué)
+  useEffect(() => {
+    const auRetour = () => { if (d) recompterAttente(d.elements); else charger(); };
+    window.addEventListener('online', auRetour);
+    window.addEventListener('focus', auRetour);
+    return () => { window.removeEventListener('online', auRetour); window.removeEventListener('focus', auRetour); };
+  }, [d, charger, recompterAttente]);
 
   // Action sur le serveur, puis relecture. Renvoie la réponse (ou null en cas d'échec).
   const agir = async (url: string, corps: any, recharger = true): Promise<any | null> => {
@@ -471,6 +513,7 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     .sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { numeric: true }));
   const liesA = (id: string) => cheminements.filter((c) => c.depart === id || c.arrivee === id).length;
   const incomplets = d.elements.map((e) => ({ e, m: manquants(e, ctx) })).filter((x) => x.m.length);
+  const attente = d.elements.filter((e) => enAttente.includes(e.id));
 
   const segmentChoisi: Segment = estSegment(segment) ? segment : d.scenario.segment || (estSegment(segmentInitial) ? segmentInitial : 'RES');
   const nbPlaces = Math.max(0, parseInt(places, 10) || 0);
@@ -514,20 +557,62 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     const j = await agir(URL_ELEMENTS, corps);
     if (j?.success) { setMessage(`Ajouté : ${(j.crees || []).join(', ')}.`); setDepart(''); setArrivee(''); }
   };
+  // Proposition d'archivage renvoyée par le serveur après un relevé (liaison devenue inutile)
+  const proposer = (p: any) => {
+    if (!p) return;
+    setDemande({
+      texte: `Archiver ${p.nom} ? (${p.raison})`,
+      libelle: 'Archiver la liaison',
+      action: async () => { const k = await agir(URL_ELEMENTS, { action: 'archiver', id: p.id, confirme: true }); if (k?.success) setMessage(`Archivé : ${p.nom}.`); },
+    });
+  };
   // Après le relevé d'un élément : messages des automatismes, propositions d'archivage, relecture
   const apresReleve = async (j: any) => {
     const msgs = [...(j?.crees?.length ? [`Enregistré : ${j.crees.join(', ')}`] : ['Rien de nouveau à enregistrer']), ...(j?.messages || [])];
     setMessage(`${msgs.join('. ')}.`);
     if (Array.isArray(j?.erreurs) && j.erreurs.length) setErreur(`Non enregistré : ${j.erreurs.join(', ')}.`);
-    const p = Array.isArray(j?.propositions) ? j.propositions[0] : null;
-    if (p) {
-      setDemande({
-        texte: `Archiver ${p.nom} ? (${p.raison})`,
-        libelle: 'Archiver la liaison',
-        action: async () => { const k = await agir(URL_ELEMENTS, { action: 'archiver', id: p.id, confirme: true }); if (k?.success) setMessage(`Archivé : ${p.nom}.`); },
-      });
-    }
+    proposer(Array.isArray(j?.propositions) ? j.propositions[0] : null);
     await charger();
+  };
+  // Tous les éléments saisis sur le téléphone, envoyés l'un après l'autre (ce qui échoue reste sur le téléphone)
+  const enregistrerTous = async () => {
+    if (envoiTous || !attente.length) return;
+    setOuvert(null);
+    setEnvoiTous(true);
+    setErreur('');
+    setMessage('');
+    const envoyes: string[] = [];
+    const rates: string[] = [];
+    const messages: string[] = [];
+    const erreursServeur: string[] = [];
+    const propositions: any[] = [];
+    let photosRatees = 0;
+    for (const e of attente) {
+      const b = lireBrouillon(e.id);
+      const v = { ...valeursServeur(e), ...(b?.v || {}) };
+      const dep = b?.depart ?? (e.depart || '');
+      const arr = b?.arrivee ?? (e.arrivee || '');
+      const r = await envoyerReleve(e, v, dep, arr, ctx, await lirePhotos(e.id));
+      if (!r.ok) { rates.push(e.nom); continue; }
+      envoyes.push(e.nom);
+      photosRatees += r.echecs;
+      messages.push(...(Array.isArray(r.j?.messages) ? r.j.messages : []));
+      erreursServeur.push(...(Array.isArray(r.j?.erreurs) ? r.j.erreurs : []));
+      propositions.push(...(Array.isArray(r.j?.propositions) ? r.j.propositions : []));
+    }
+    const n = envoyes.length;
+    setMessage([
+      n ? `${n} élément${n > 1 ? 's' : ''} enregistré${n > 1 ? 's' : ''} : ${envoyes.join(', ')}` : '',
+      ...messages,
+    ].filter(Boolean).join('. ') + (n || messages.length ? '.' : ''));
+    setErreur([
+      rates.length ? `Pas envoyé (gardé sur le téléphone, réessaie avec du réseau) : ${rates.join(', ')}.` : '',
+      photosRatees ? `${photosRatees} photo${photosRatees > 1 ? 's' : ''} non envoyée${photosRatees > 1 ? 's' : ''} : réessaie, seules les photos manquantes partiront.` : '',
+      erreursServeur.length ? `Non enregistré : ${erreursServeur.join(', ')}.` : '',
+    ].filter(Boolean).join(' '));
+    proposer(propositions[0]);
+    await charger();
+    setEnvoiTous(false);
   };
   const pret = async () => {
     const j = await agir(URL_ELEMENTS, { action: 'pret', scenarioId });
@@ -570,9 +655,13 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     return (
       <>
         <span>{base}</span>
-        <span className="ml-1 font-semibold" style={{ color: m.length ? '#FF6B00' : CYAN }}>
-          {m.length ? ` · à compléter : ${m.join(', ')}` : ' · complet'}
-        </span>
+        {enAttente.includes(e.id) ? (
+          <span className="ml-1 font-semibold" style={{ color: '#FF6B00' }}> · saisi sur le téléphone, pas encore envoyé</span>
+        ) : (
+          <span className="ml-1 font-semibold" style={{ color: m.length ? '#FF6B00' : CYAN }}>
+            {m.length ? ` · à compléter : ${m.join(', ')}` : ' · complet'}
+          </span>
+        )}
       </>
     );
   };
@@ -585,7 +674,7 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
       apres={(
         <>
           {champRenommage(e.id)}
-          {ouvert === e.id && <FormulaireElement e={e} elements={d.elements} ctx={ctx} peut={peut} onEnregistre={apresReleve} />}
+          {ouvert === e.id && <FormulaireElement e={e} elements={d.elements} ctx={ctx} peut={peut} onEnregistre={apresReleve} onBrouillon={() => recompterAttente(d.elements)} />}
         </>
       )}
     >
@@ -605,6 +694,19 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
         </>
       )}
     </Ligne>
+  );
+
+  // Carte « Relevés à envoyer » (en tête et avant « Prêt à chiffrer »)
+  const carteAEnvoyer = peut && attente.length > 0 && (
+    <Carte accent className="space-y-3">
+      <TitreCarte icon={Send} extra={<span className="text-[13px] font-bold">{attente.length}</span>}>Relevés à envoyer</TitreCarte>
+      <p className="text-[14px] leading-relaxed">
+        Saisi{attente.length > 1 ? 's' : ''} sur le téléphone, pas encore envoyé{attente.length > 1 ? 's' : ''} : {attente.map((e) => e.nom).join(', ')}. Avec du réseau, envoie tout d&apos;un coup.
+      </p>
+      <BoutonPrincipal type="button" onClick={enregistrerTous} disabled={envoiTous || occupe} inactif={envoiTous || occupe}>
+        <Send size={20} /> {envoiTous ? 'Envoi…' : `Enregistrer tous les éléments (${attente.length})`}
+      </BoutonPrincipal>
+    </Carte>
   );
 
   return (
@@ -655,6 +757,8 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
         </Carte>
       ) : (
         <>
+          {carteAEnvoyer}
+
           <Carte className="space-y-3">
             <TitreCarte icon={Layers} extra={<span className="text-[13px] font-bold">{equipements.length}</span>}>Équipements</TitreCarte>
             {equipements.map(ligneElement)}
@@ -705,11 +809,18 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
             </Carte>
           )}
 
+          {carteAEnvoyer}
+
           <Carte accent className="space-y-3">
             <TitreCarte icon={Send}>Prêt à chiffrer</TitreCarte>
             <p className="text-[14px] leading-relaxed">
               Vérifie qu&apos;il ne manque rien, puis passe le scénario en « devis à faire ». Statut actuel : <strong>{d.scenario.statut || '–'}</strong>.
             </p>
+            {attente.length > 0 && (
+              <p className="text-[14px] leading-relaxed" style={{ color: '#FF6B00' }}>
+                Envoie d&apos;abord les relevés gardés sur le téléphone (bouton ci-dessus).
+              </p>
+            )}
             {incomplets.length > 0 && (
               <p className="text-[14px] leading-relaxed" style={{ color: '#FF6B00' }}>
                 Encore à compléter : {incomplets.map((x) => `${x.e.nom} (${x.m.join(', ')})`).join(' ; ')}.

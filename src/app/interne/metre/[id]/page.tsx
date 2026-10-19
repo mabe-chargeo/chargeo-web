@@ -14,22 +14,30 @@ import { lireSiteRecu } from '@/lib/releveSite';
 // Cinq cas :
 // - fiche sans sous-relevé : création d'un scénario proposée (plus d'ancien formulaire depuis le 16/10) ;
 // - fiche avec scénarios : écran Scénarios, triés A, B, C ;
-// - scénario : éléments du scénario ; l'ancien relevé n'apparaît que tant qu'il n'y a pas d'éléments ;
+// - scénario : éléments du scénario seulement (plus d'ancien formulaire depuis le 18/10) ;
 // - fiche avec emplacements (point 21, ancien modèle) : liste des emplacements + relevé commun du site ;
 // - emplacement (ancien modèle) : relevé réduit à la borne.
 // Étape 3 (15/10/2026, PR #51) : éléments du scénario, scénarios archivés à restaurer.
-// Étape 4 (15/10/2026, PR #51) : bloc 📇 Contact en tête de chaque page (src/components/ui/BlocContact.tsx) ; ancien
-// relevé masqué dès que le scénario a des éléments (ses valeurs restent sur la fiche, recopiées dans les éléments à la
-// conversion) ; bandeau « ancien modèle » sur les fiches à emplacements (chaque emplacement deviendra une branche).
+// Étape 4 (15/10/2026, PR #51) : bloc 📇 Contact en tête de chaque page (src/components/ui/BlocContact.tsx) ; bandeau
+// « ancien modèle » sur les fiches à emplacements (chaque emplacement deviendra une branche).
 // Seules les sous-tâches directes de la fiche sont des sous-relevés (les éléments sont des sous-tâches des scénarios).
 // Étape 8 (16/10/2026, PR #51) : carte « Infra CHARGéO à cette adresse » sous le Contact de la fiche
 // (src/components/ui/InfraLiee.tsx) : rattacher un résident en RIC et recopier le Tarif type de l'infra.
 // 16/10, 15 h 44 (Matthieu) : sur une fiche sans scénario, l'ancien formulaire de relevé est retiré. Le relevé se fait
-// dans le scénario, élément par élément. Les valeurs déjà saisies restent dans les champs ClickUp de la fiche. L'ancien
-// relevé reste sur les scénarios sans éléments (décision du 15/10) et sur les fiches à emplacements, jusqu'à la conversion.
+// dans le scénario, élément par élément. Les valeurs déjà saisies restent dans les champs ClickUp de la fiche.
+// 17/10, 20 h 33 (Matthieu : « ce serait bien qu'il y ait la barre d'onglets là ») : la fiche sans scénario et la liste
+// des scénarios affichent la barre du bas (repère data-barre-appli lu par NavAppli). Le scénario, l'emplacement et la
+// fiche à emplacements (relevé commun du site) gardent leurs propres boutons en bas, sans la barre.
+// 18/10, 11 h 38 (Matthieu : « il y a toujours l'ancien relevé dans la fiche de relevé, il faut le virer ») : l'ancien
+// relevé n'apparaît plus sur un scénario, même sans éléments. Le relevé se fait élément par élément et le scénario
+// passe en « devis à faire » par « Prêt à chiffrer » (src/components/ui/Elements.tsx). Il ne reste que sur les fiches
+// à emplacements de l'ancien modèle, jusqu'à leur conversion.
 const SEGMENT_OPTIONS: Record<number, string> = { 0: 'RES', 1: 'DAP', 2: 'COP', 3: 'PAR', 4: 'FLT', 5: 'TER', 6: 'RIC' };
 const SEGMENT_ID = 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2';
 const BANDEAU_ANCIEN = 'Ancien modèle (emplacements) : cette fiche sera convertie en scénario avec éléments. Chaque emplacement deviendra une branche du scénario.';
+
+// Demande la barre d'onglets en bas de la page (src/components/charte/NavAppli.tsx)
+const BarreAppli = () => <span data-barre-appli="oui" hidden />;
 
 function segmentDe(tache: any): string {
   const champ = tache?.custom_fields?.find((f: any) => f.id === SEGMENT_ID);
@@ -96,8 +104,6 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
       href: `/interne/metre/${fiche.parent.id}`,
       libelle: estEmplacement ? 'Retour aux emplacements' : 'Retour aux scénarios',
     };
-    // Sur un scénario, les sous-tâches directes sont ses éléments
-    const aDesElements = !estEmplacement && fiche.sousReleves.length > 0;
     return (
       <PageAppli>
         <EnTeteAppli
@@ -107,29 +113,19 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
         />
         <ContenuAppli className="space-y-5">
           <BlocContact affaireId={fiche.parent.id} />
-          {estEmplacement && <Alerte>{BANDEAU_ANCIEN}</Alerte>}
-          {!estEmplacement && (
-            <ElementsScenario scenarioId={taskId} segmentInitial={fiche.segment || fiche.parent.segment} />
-          )}
-          {!aDesElements && (
+          {estEmplacement ? (
             <>
-              {!estEmplacement && (
-                <>
-                  <div className="h-1" />
-                  <Repere>Ancien relevé</Repere>
-                  <p className="px-1 text-[14px] leading-relaxed">
-                    Ancien formulaire, gardé tant que le scénario n&apos;a pas d&apos;éléments. Dès que tu crées les éléments, il disparaît et ses valeurs restent sur la fiche.
-                  </p>
-                </>
-              )}
+              <Alerte>{BANDEAU_ANCIEN}</Alerte>
               <MetreForm
                 taskId={taskId}
                 taskName={fiche.name}
-                initialSegment={estEmplacement ? (fiche.segment || fiche.parent.segment) : fiche.segment}
+                initialSegment={fiche.segment || fiche.parent.segment}
                 retour={retourListe}
-                mode={estEmplacement ? 'emplacement' : 'complet'}
+                mode="emplacement"
               />
             </>
+          ) : (
+            <ElementsScenario scenarioId={taskId} segmentInitial={fiche.segment || fiche.parent.segment} />
           )}
         </ContenuAppli>
       </PageAppli>
@@ -162,6 +158,7 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
   if (fiche.type === 'scenario') {
     return (
       <PageAppli>
+        <BarreAppli />
         <EnTeteAppli surtitre="Visite technique" titre={fiche.name} retour={{ href: '/interne', libelle: 'Planning' }} />
         <ContenuAppli className="space-y-5">
           <BlocContact affaireId={taskId} />
@@ -176,6 +173,7 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
   // Fiche sans sous-relevé : création d'un scénario proposée (le relevé se fait ensuite dans le scénario)
   return (
     <PageAppli>
+      <BarreAppli />
       <EnTeteAppli surtitre="Visite technique" titre={fiche.name} retour={{ href: '/interne', libelle: 'Planning' }} />
       <ContenuAppli className="space-y-5">
         <BlocContact affaireId={taskId} />

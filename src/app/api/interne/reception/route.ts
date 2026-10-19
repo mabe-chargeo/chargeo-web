@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { sessionDeRequete } from '@/lib/session';
 import { alerter } from '@/lib/alerteSite';
 import { champType } from '@/lib/typesTaches';
+import { rolesDe } from '@/lib/roles';
+import { etatMiseEnService, type EtatMes } from '@/lib/miseEnService';
+import { genererRapportMiseEnService } from '@/lib/rapportMiseEnService';
 
 // Réception en deux temps (Phase 6, décision Matthieu du 13/10/2026, page « Qui fait quoi ») :
 // - le technicien poseur collecte sur place (/interne/reception) : PV signé, photos, réserves déclarées, puis « envoyer » ;
@@ -13,15 +16,25 @@ import { champType } from '@/lib/typesTaches';
 //   - 'reserves' + optionId : règle 🧾 Réserves ;
 //   - 'reserve_ajout' + libelle + echeance (AAAA-MM-JJ) : sous-tâche « 🔧 Réserve : … », responsable = 👷 Technicien du
 //     chantier (c'est en général lui qui revient la lever), à défaut la personne connectée ;
+//   - 'rapport' : (re)crée le rapport de mise en service PDF si tous les éléments sont conformes (18/10, 15 h 36) ;
 //   - 'envoyer' (poseur) : refusé s'il manque quelque chose ; sinon statut ✅ réalisé et alerte au chargé d'opération
 //     (📣 Alerte site, relais @charge-doperation) ;
 //   - 'terminer' (chargé d'opération) : statut 🏁 terminé si tout est en règle (sinon refus avec la liste).
 // POST multipart { taskId, cible: 'pv' | 'photos' | 'rapport', fichier } : fichier déposé dans 📂 PV Réception, 📸 Photos
-//   Chantier ou 📊 Rapport de mesures (rapport du contrôleur d'installation, obligatoire : décision Matthieu du 13/10)
-//   (API v3 des pièces jointes de champ, puis rattachement au champ). Un fichier par envoi (limite Vercel 4,5 Mo).
+//   Chantier ou 📊 Rapport de mesures (API v3 des pièces jointes de champ, puis rattachement au champ). Un fichier par
+//   envoi (limite Vercel 4,5 Mo).
 // Un seul compte ClickUp pour l'instant : les deux écrans sont ouverts à toute personne connectée.
 // Preview : écriture uniquement sur les fiches dont le nom commence par « Test ».
 // Étape 2 (15/10/2026) : la réserve naît en type Réserve. Le nom « 🔧 Réserve : … » est gardé (anciennes réserves).
+// 17/10/2026, 15 h 34 (décision Matthieu : « le chef de chantier corrige, avec trace ») : PV signé et envoyé (✅ réalisé)
+// = PV et réserves verrouillés. Le poseur ne peut plus ajouter de PV, changer 🧾 Réserves ni ajouter de réserve.
+// Le chef de chantier (ou la direction) corrige avec un motif obligatoire (champ « motif ») ; chaque correction laisse
+// un commentaire « ✏️ Correction après signature du PV » (quoi, motif, qui, quand). L'ancien PV reste dans le champ.
+// Rapport de mesures et photos restent ajoutables.
+// 18/10/2026, 14 h 41 (Matthieu : « il y a une mise en service à faire sur chaque chantier »), 15 h 08 (contrôles par
+// élément) : chaque élément du scénario retenu doit être mis en service (/interne/mise-en-service) et sans défaut.
+// 15 h 36 (Matthieu : « L'appli génère le rapport ») : 📊 Rapport de mesures reçoit le rapport de mise en service créé par
+// l'appli (src/lib/rapportMiseEnService.ts) ; le PDF du contrôleur devient facultatif.
 
 const WORKSPACE_ID = process.env.CLICKUP_TEAM_ID?.trim() || '90151325642';
 const PLANNING_CHANTIERS_ID = '901520038258';
@@ -93,8 +106,10 @@ const techniciens = (t: any): { id: number; nom: string }[] => {
   return (Array.isArray(v) ? v : []).filter((u: any) => u?.id).map((u: any) => ({ id: Number(u.id), nom: String(u.username || u.email || '') }));
 };
 const ecritureAutorisee = (t: any) => process.env.VERCEL_ENV === 'production' || normal(t?.name).trim().startsWith('test');
+// PV signé et envoyé au chargé d'opération : PV et réserves verrouillés (décision du 17/10, 15 h 34)
+const verrouille = (t: any) => normal(t?.status?.status).includes('realise');
 
-function decrire(t: any, sousTaches: any[], options: Option[]) {
+function decrire(t: any, sousTaches: any[], options: Option[], mes: EtatMes[] = []) {
   const pv = fichiers(t, CHAMP_PV);
   const photos = fichiers(t, CHAMP_PHOTOS);
   const rapport = fichiers(t, CHAMP_RAPPORT);
@@ -107,12 +122,19 @@ function decrire(t: any, sousTaches: any[], options: Option[]) {
     faite: ['done', 'closed'].includes(String(s?.status?.type || '')),
   }));
   const incompletes = reserves.filter((x) => !x.responsables.length || !x.echeance).map((x) => x.nom);
-  // Mêmes motifs de refus que la route de passage au Parc
+  const aMesurer = mes.filter((m) => !m.fait).map((m) => m.nom);
+  const enDefaut = mes.filter((m) => m.fait && m.defaut).map((m) => m.nom);
+  const miseEnServiceComplete = mes.length > 0 && !aMesurer.length && !enDefaut.length;
+  // Mêmes motifs de refus que la route de passage au Parc, plus la mise en service par élément (18/10)
   const motifs: string[] = [];
   if (!r.niveau) motifs.push('🧾 Réserves pas renseigné');
   if (r.niveau === 'bloquante') motifs.push('réserve 🔴 Bloquante : pas de mise en service');
+  if (aMesurer.length) motifs.push(`⚡ Mise en service à faire (${aMesurer.join(', ')})`);
+  if (enDefaut.length) motifs.push(`⚡ défaut à la mise en service (${enDefaut.join(', ')}) : corriger puis refaire la mesure`);
   if (!pv.length) motifs.push('📂 PV Réception manquant');
-  if (!rapport.length) motifs.push('📊 Rapport de mesures manquant');
+  // Le rapport est créé par l'appli quand la mise en service est complète : on ne le réclame que s'il devrait déjà exister
+  if (!rapport.length && miseEnServiceComplete) motifs.push('📊 Rapport de mise en service pas encore créé');
+  if (!rapport.length && !mes.length) motifs.push('📊 Rapport de mesures manquant');
   if (r.niveau === 'mineure' && !reserves.length) motifs.push('réserve mineure sans sous-tâche « 🔧 Réserve : … »');
   if (r.niveau === 'mineure' && incompletes.length) motifs.push(`réserve sans responsable ou sans échéance (${incompletes.join(', ')})`);
   return {
@@ -124,6 +146,8 @@ function decrire(t: any, sousTaches: any[], options: Option[]) {
     pv,
     photos,
     rapport,
+    miseEnService: mes.map((m) => ({ id: m.id, nom: m.nom, mode: m.mode, fait: m.fait, defaut: m.defaut })),
+    miseEnServiceComplete,
     techniciens: techniciens(t).map((u) => u.nom).filter(Boolean),
     reservesOptionId: r.option?.id ?? null,
     niveau: r.niveau,
@@ -133,12 +157,19 @@ function decrire(t: any, sousTaches: any[], options: Option[]) {
     ecritureAutorisee: ecritureAutorisee(t),
     // Envoyé au chargé d'opération : ✅ réalisé et complet
     envoye: normal(t?.status?.status).includes('realise') && motifs.length === 0,
+    // PV et réserves verrouillés : correction par le chef de chantier, avec motif
+    verrouille: verrouille(t),
   };
 }
 
 async function lireChantier(token: string, id: string) {
   const res = await api(token, `/task/${encodeURIComponent(id)}?include_subtasks=true`);
   return res.ok ? res.json() : null;
+}
+
+// Mise en service du chantier : un échec de lecture ne casse jamais l'écran (liste vide)
+async function mesDe(token: string, id: string, sousTaches: any[]): Promise<EtatMes[]> {
+  try { return await etatMiseEnService(token, id, sousTaches); } catch { return []; }
 }
 
 export async function GET(request: Request) {
@@ -160,9 +191,12 @@ export async function GET(request: Request) {
       toutes.push(...lot);
       if (json?.last_page !== false || lot.length === 0) break;
     }
-    const chantiers = toutes
+    const chantiers = await Promise.all(toutes
       .filter((t) => !t.parent && ids.has(String(t?.status?.id)))
-      .map((t) => decrire(t, toutes.filter((s) => String(s.parent) === String(t.id)), l.optionsReserves));
+      .map(async (t) => {
+        const sousTaches = toutes.filter((s) => String(s.parent) === String(t.id));
+        return decrire(t, sousTaches, l.optionsReserves, await mesDe(token, String(t.id), sousTaches));
+      }));
     return NextResponse.json({ chantiers, optionsReserves: l.optionsReserves, preview: process.env.VERCEL_ENV !== 'production' });
   } catch (error) {
     console.error('Erreur écran réception (lecture) :', error);
@@ -193,6 +227,25 @@ async function chantierEcrivable(token: string, taskId: string) {
   return { tache } as const;
 }
 
+// Correction d'un PV verrouillé : chef de chantier ou direction, motif obligatoire. Renvoie l'auteur, ou une erreur.
+async function correctionAutorisee(token: string, request: Request, motif: string): Promise<{ nom: string } | { erreur: string; status: number }> {
+  const session = await sessionDeRequete(request);
+  if (!session?.id) return { erreur: 'Session expirée : reconnecte-toi', status: 401 };
+  const roles = await rolesDe(token, session.id);
+  if (!roles.includes('chargeOperation') && !roles.includes('direction')) {
+    return { erreur: '🔒 PV signé et envoyé : seul le chef de chantier peut corriger le PV ou les réserves.', status: 403 };
+  }
+  if (motif.trim().length < 5) return { erreur: 'PV signé : indique le motif de la correction.', status: 400 };
+  return { nom: String(session.nom || 'chef de chantier') };
+}
+const quand = () => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date());
+async function tracer(token: string, id: string, quoi: string, motif: string, nom: string) {
+  await api(token, `/task/${id}/comment`, 'POST', {
+    comment_text: `✏️ Correction après signature du PV : ${quoi}. Motif : ${motif.trim().slice(0, 500)}. Par ${nom}, le ${quand()}.`,
+    notify_all: false,
+  }).catch(() => null);
+}
+
 export async function POST(request: Request) {
   const token = process.env.CLICKUP_API_KEY;
   if (!token) return NextResponse.json({ error: 'Configuration serveur incomplète' }, { status: 500 });
@@ -212,25 +265,43 @@ export async function POST(request: Request) {
       const c = await chantierEcrivable(token, taskId);
       if ('erreur' in c) return NextResponse.json({ error: c.erreur }, { status: c.status });
       idEcrit = String(c.tache.id);
+      const motif = String(form.get('motif') || '');
+      let correcteur: string | null = null;
+      if (cible === 'pv' && verrouille(c.tache)) {
+        const a = await correctionAutorisee(token, request, motif);
+        if ('erreur' in a) return NextResponse.json({ error: a.erreur }, { status: a.status });
+        correcteur = a.nom;
+      }
       const echec = await deposer(token, idEcrit, CHAMPS_FICHIERS[cible], fichier);
       if (echec) return NextResponse.json({ error: `Fichier non enregistré : ${echec}` }, { status: 502 });
+      if (correcteur) await tracer(token, idEcrit, `nouveau PV déposé (« ${fichier.name} »), l'ancien reste dans le champ`, motif, correcteur);
     } else {
       const corps = await request.json().catch(() => ({}));
       const taskId = String(corps?.taskId || '');
       const action = String(corps?.action || '');
-      if (!taskId || !['reserves', 'reserve_ajout', 'envoyer', 'terminer'].includes(action)) {
+      if (!taskId || !['reserves', 'reserve_ajout', 'rapport', 'envoyer', 'terminer'].includes(action)) {
         return NextResponse.json({ error: 'Demande incomplète' }, { status: 400 });
       }
       const c = await chantierEcrivable(token, taskId);
       if ('erreur' in c) return NextResponse.json({ error: c.erreur }, { status: c.status });
       const id = String(c.tache.id);
       idEcrit = id;
+      const motif = String(corps?.motif || '');
+      let correcteur: string | null = null;
+      if ((action === 'reserves' || action === 'reserve_ajout') && verrouille(c.tache)) {
+        const a = await correctionAutorisee(token, request, motif);
+        if ('erreur' in a) return NextResponse.json({ error: a.erreur }, { status: a.status });
+        correcteur = a.nom;
+      }
 
       if (action === 'reserves') {
         const optionId = String(corps?.optionId || '');
-        if (!l.optionsReserves.some((o) => o.id === optionId)) return NextResponse.json({ error: 'Valeur inconnue' }, { status: 400 });
+        const o = l.optionsReserves.find((x) => x.id === optionId);
+        if (!o) return NextResponse.json({ error: 'Valeur inconnue' }, { status: 400 });
+        const avant = niveauReserves(c.tache, l.optionsReserves).option?.nom || 'vide';
         const res = await api(token, `/task/${id}/field/${CHAMP_RESERVES}`, 'POST', { value: optionId });
         if (!res.ok) return NextResponse.json({ error: `ClickUp a refusé la modification (${res.status})` }, { status: 502 });
+        if (correcteur) await tracer(token, id, `🧾 Réserves passé de « ${avant} » à « ${o.nom} »`, motif, correcteur);
       } else if (action === 'reserve_ajout') {
         const libelle = String(corps?.libelle || '').trim().slice(0, 200);
         const m = String(corps?.echeance || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -250,9 +321,20 @@ export async function POST(request: Request) {
           ...(await champType(token, 'reserve')),
         });
         if (!res.ok) return NextResponse.json({ error: `La réserve n'a pas pu être créée (${res.status})` }, { status: 502 });
+        if (correcteur) await tracer(token, id, `réserve ajoutée « ${libelle} »`, motif, correcteur);
+      } else if (action === 'rapport') {
+        const sousTaches = Array.isArray(c.tache.subtasks) ? c.tache.subtasks : [];
+        const mes = await mesDe(token, id, sousTaches);
+        if (!mes.length || mes.some((x) => !x.fait || x.defaut)) {
+          return NextResponse.json({ error: 'Le rapport se crée quand tous les éléments sont mis en service et conformes.' }, { status: 409 });
+        }
+        const g = await genererRapportMiseEnService(token, c.tache, mes);
+        if (!g.ok) return NextResponse.json({ error: `Rapport non créé : ${g.erreur}` }, { status: 502 });
+        await api(token, `/task/${id}/comment`, 'POST', { comment_text: `📊 Rapport de mise en service créé par l’application (${g.nom}) : ${mes.length} élément${mes.length > 1 ? 's' : ''} conforme${mes.length > 1 ? 's' : ''}.`, notify_all: false }).catch(() => null);
       } else if (action === 'envoyer') {
         const sousTaches = Array.isArray(c.tache.subtasks) ? c.tache.subtasks : [];
-        const avant = decrire(c.tache, sousTaches, l.optionsReserves);
+        const mes = await mesDe(token, id, sousTaches);
+        const avant = decrire(c.tache, sousTaches, l.optionsReserves, mes);
         if (avant.motifs.length) return NextResponse.json({ error: `Pas encore envoyable : ${avant.motifs.join(' ; ')}`, chantier: avant }, { status: 409 });
         if (!l.realise) return NextResponse.json({ error: 'Statut ✅ réalisé introuvable dans le planning' }, { status: 500 });
         if (String(c.tache?.status?.id) !== String(l.realise.id)) {
@@ -262,10 +344,11 @@ export async function POST(request: Request) {
         const session = await sessionDeRequete(request);
         const par = avant.techniciens.join(', ') || session?.nom || 'le poseur';
         const reserves = avant.niveau === 'mineure' ? `${avant.reserves.length} réserve${avant.reserves.length > 1 ? 's' : ''} mineure${avant.reserves.length > 1 ? 's' : ''}` : 'aucune réserve';
-        await alerter(token, id, `📋 Réception à valider : PV, rapport de mesures et ${avant.photos.length} photo${avant.photos.length > 1 ? 's' : ''} déposés par ${par}, ${reserves}. Contrôle et valide dans l'appli (Valider les réceptions).`);
+        const miseEnService = mes.length ? `mise en service conforme (${mes.length} élément${mes.length > 1 ? 's' : ''}) et son rapport, ` : 'rapport de mesures, ';
+        await alerter(token, id, `📋 Réception à valider : PV, ${miseEnService}${avant.photos.length} photo${avant.photos.length > 1 ? 's' : ''} déposés par ${par}, ${reserves}. Contrôle et valide dans l'appli (Valider les réceptions).`);
       } else {
         const sousTaches = Array.isArray(c.tache.subtasks) ? c.tache.subtasks : [];
-        const avant = decrire(c.tache, sousTaches, l.optionsReserves);
+        const avant = decrire(c.tache, sousTaches, l.optionsReserves, await mesDe(token, id, sousTaches));
         if (avant.motifs.length) return NextResponse.json({ error: `Réception impossible : ${avant.motifs.join(' ; ')}`, chantier: avant }, { status: 409 });
         if (!l.termine) return NextResponse.json({ error: 'Statut 🏁 terminé introuvable dans le planning' }, { status: 500 });
         const res = await api(token, `/task/${id}`, 'PUT', { status: l.termine.status });
@@ -275,7 +358,8 @@ export async function POST(request: Request) {
     }
 
     const relue = await lireChantier(token, idEcrit);
-    const chantier = relue ? decrire(relue, Array.isArray(relue.subtasks) ? relue.subtasks : [], l.optionsReserves) : null;
+    const sousTachesRelues = relue && Array.isArray(relue.subtasks) ? relue.subtasks : [];
+    const chantier = relue ? decrire(relue, sousTachesRelues, l.optionsReserves, await mesDe(token, idEcrit, sousTachesRelues)) : null;
     return NextResponse.json({ success: true, chantier });
   } catch (error) {
     console.error('Erreur écran réception (écriture) :', error);

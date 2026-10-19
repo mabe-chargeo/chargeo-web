@@ -15,6 +15,14 @@
 // 16/10, 15 h 38 (Matthieu : « SMS pour tous les portables ») : le bouton SMS ne dépend plus du rôle (le gestionnaire
 // n'en avait pas). Il s'affiche pour tout portable (France 06 / 07, Suisse 075 à 079) et pour un numéro de format
 // inconnu ; il est masqué pour un fixe français ou suisse.
+// 17/10, Matthieu : « partout où on a la fiche contact, il faut tous les boutons qu'on a codés » (10 h 20), « tu ajoutes
+// le bloc contact partout » (10 h 26). Le même bloc sert à la fiche du Pipeline (ouvertParDefaut) et aux cartes de
+// chantier et de prospect (differe). Dans une liste, differe : rien n'est lu avant le premier appui, pour ne pas lancer
+// une lecture ClickUp par carte (quota de l'API). Le relevé garde la lecture immédiate, faite avec du réseau avant de
+// descendre au sous-sol. BoutonsContact : les mêmes boutons pour une personne déjà lue (annuaire Contacts).
+// 19/10, 8 h 35 (passe de cohérence validée sur maquette) : une seule fabrique de boutons. Les personnes du bloc passent
+// par BoutonsContact, l'adresse par BoutonsAdresse (Waze, Google Maps), aussi utilisés par les fiches génériques au lieu
+// de leurs copies.
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Headphones, Mail, MapPin, MessageSquare, Navigation, Phone, Users } from 'lucide-react';
 import { Carte, TitreCarte } from '@/components/charte/Appli';
@@ -55,9 +63,10 @@ const lienGmail = (dest: string, moi: string, ios: boolean) =>
 // Waze : adresse écrite, cherchée autour du point GPS quand il existe
 const lienWaze = (texte: string, lat: number | null, lng: number | null) =>
   `https://waze.com/ul?q=${encodeURIComponent(texte)}${lat !== null && lng !== null ? `&ll=${lat},${lng}` : ''}&navigate=yes`;
+const lienMaps = (texte: string) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(texte)}`;
 
 // iPhone, iPad (y compris iPadOS qui se présente comme un Mac tactile)
-function estIOS(): boolean {
+export function estIOS(): boolean {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent || '';
   return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && (navigator as any).maxTouchPoints > 1);
@@ -78,63 +87,106 @@ function Lien({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-export function BlocContact({ affaireId }: { affaireId: string }) {
-  const [c, setC] = useState<FicheContact | null>(null);
-  const [ouvert, setOuvert] = useState(false);
+// Les boutons d'une personne déjà lue : Appeler, Google Voice, SMS (portables), Gmail
+export function BoutonsContact({ tel, email, moi = '' }: { tel: string; email: string; moi?: string }) {
   const [ios, setIos] = useState(false);
+  useEffect(() => { setIos(estIOS()); }, []);
+  if (!tel && !email) return <p className="text-[13px]">Ni téléphone ni email sur la fiche.</p>;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {tel && <Lien href={`tel:${international(tel)}`}><Phone size={14} /> Appeler</Lien>}
+      {tel && <Lien href={lienVoice(tel, moi)}><Headphones size={14} /> Google Voice</Lien>}
+      {tel && recoitSms(tel) && <Lien href={`sms:${international(tel)}`}><MessageSquare size={14} /> SMS</Lien>}
+      {email && <Lien href={lienGmail(email, moi, ios)}><Mail size={14} /> Gmail</Lien>}
+    </div>
+  );
+}
+
+// Les boutons d'une adresse : Waze (adresse écrite autour du point GPS) et Google Maps
+export function BoutonsAdresse({ texte, lat = null, lng = null }: { texte: string; lat?: number | null; lng?: number | null }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Lien href={lienWaze(texte, lat, lng)}><Navigation size={14} /> Waze</Lien>
+      <Lien href={lienMaps(texte)}><MapPin size={14} /> Google Maps</Lien>
+    </div>
+  );
+}
+
+export function BlocContact({
+  affaireId,
+  ouvertParDefaut = false,
+  differe = false,
+}: {
+  affaireId: string;
+  ouvertParDefaut?: boolean;
+  differe?: boolean;
+}) {
+  const [c, setC] = useState<FicheContact | null>(null);
+  const [ouvert, setOuvert] = useState(ouvertParDefaut);
+  const [etat, setEtat] = useState<'attente' | 'lecture' | 'lu' | 'erreur'>('attente');
+
+  const doitLire = !differe || ouvert;
 
   useEffect(() => {
-    setIos(estIOS());
+    if (!doitLire || etat === 'lecture' || etat === 'lu') return;
+    setEtat('lecture');
     (async () => {
       try {
         const res = await fetch(`/api/interne/fiche-contact?affaireId=${encodeURIComponent(affaireId)}`, { cache: 'no-store' });
         const j = await res.json().catch(() => ({}));
-        if (res.ok && j?.success) setC(j as FicheContact);
-      } catch { /* hors ligne : bloc masqué */ }
+        if (res.ok && j?.success) { setC(j as FicheContact); setEtat('lu'); }
+        else setEtat('erreur');
+      } catch { setEtat('erreur'); /* hors ligne */ }
     })();
-  }, [affaireId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [affaireId, doitLire]);
 
-  if (!c) return null;
-  const moi = c.moi || '';
-  const a = c.adresse;
-  const waze = a ? lienWaze(a.texte, a.lat, a.lng) : '';
-  const maps = a ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(a.texte)}` : '';
+  // Lecture immédiate (relevé, fiche) : bloc masqué tant que rien n'est lu, comme avant
+  if (!differe && !c) return null;
+
+  const moi = c?.moi || '';
+  const a = c?.adresse || null;
 
   const personne = (titre: string, p: Personne) => (
     <div key={`${titre}-${p.nom}`} className="space-y-2">
       <p className="text-[14px]"><strong>{titre} :</strong> {p.nom || '–'}{p.tel ? ` · ${p.tel}` : ''}</p>
-      <div className="flex flex-wrap gap-2">
-        {p.tel && <Lien href={`tel:${international(p.tel)}`}><Phone size={14} /> Appeler</Lien>}
-        {p.tel && <Lien href={lienVoice(p.tel, moi)}><Headphones size={14} /> Google Voice</Lien>}
-        {p.tel && recoitSms(p.tel) && <Lien href={`sms:${international(p.tel)}`}><MessageSquare size={14} /> SMS</Lien>}
-        {p.email && <Lien href={lienGmail(p.email, moi, ios)}><Mail size={14} /> Gmail</Lien>}
-      </div>
+      {(p.tel || p.email) && <BoutonsContact tel={p.tel} email={p.email} moi={moi} />}
     </div>
   );
 
-  return (
-    <Carte className="space-y-3">
+  const contenu = c ? (
+    <div className="space-y-4">
+      {personne('Client', { nom: c.fiche.nom, tel: c.client.tel, email: c.client.email })}
+      {c.contactSurPlace.map((p) => personne('Contact sur place', p))}
+      {c.gestionnaire.map((p) => personne('Gestionnaire', p))}
+      {a ? (
+        <div className="space-y-2">
+          <p className="flex items-start gap-2 text-[14px]"><MapPin size={16} className="mt-0.5 shrink-0" /> {a.texte}</p>
+          <BoutonsAdresse texte={a.texte} lat={a.lat} lng={a.lng} />
+        </div>
+      ) : (
+        <p className="text-[14px]">Pas d&apos;adresse sur la fiche.</p>
+      )}
+    </div>
+  ) : etat === 'erreur' ? (
+    <p className="text-[14px]">Contact illisible pour l&apos;instant (réseau ou fiche hors liste). Réessaie plus tard.</p>
+  ) : (
+    <p className="text-[14px]">Chargement du contact...</p>
+  );
+
+  // Dans une carte de liste (differe), bloc blanc pour se détacher du fond gris de la carte
+  const corps = (
+    <>
       <button type="button" onClick={() => setOuvert(!ouvert)} className="w-full text-left">
         <TitreCarte icon={Users} extra={ouvert ? <ChevronUp size={20} /> : <ChevronDown size={20} />}>📇 Contact</TitreCarte>
       </button>
-      {ouvert && (
-        <div className="space-y-4">
-          {personne('Client', { nom: c.fiche.nom, tel: c.client.tel, email: c.client.email })}
-          {c.contactSurPlace.map((p) => personne('Contact sur place', p))}
-          {c.gestionnaire.map((p) => personne('Gestionnaire', p))}
-          {a ? (
-            <div className="space-y-2">
-              <p className="flex items-start gap-2 text-[14px]"><MapPin size={16} className="mt-0.5 shrink-0" /> {a.texte}</p>
-              <div className="flex flex-wrap gap-2">
-                <Lien href={waze}><Navigation size={14} /> Waze</Lien>
-                <Lien href={maps}><MapPin size={14} /> Google Maps</Lien>
-              </div>
-            </div>
-          ) : (
-            <p className="text-[14px]">Pas d&apos;adresse sur la fiche.</p>
-          )}
-        </div>
-      )}
-    </Carte>
+      {ouvert && contenu}
+    </>
+  );
+
+  return differe ? (
+    <div className="space-y-3 rounded-[14px] bg-white p-3">{corps}</div>
+  ) : (
+    <Carte className="space-y-3">{corps}</Carte>
   );
 }
