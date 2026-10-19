@@ -4,6 +4,7 @@ import { rolesDe } from '@/lib/roles';
 import { getQualificationListId } from '@/lib/listesClickUp';
 import { PROSPECTION_ID } from '@/lib/espaces';
 import { champType, poserType } from '@/lib/typesTaches';
+import { adresses } from '@/lib/adresses';
 
 // Prospects créés et suivis depuis l'application (17/10/2026, 19 h 53, Matthieu : « tu fais bien attention à ce que le
 // type de tâche créé dans ClickUp soit prospect qui deviendra alors un projet si ça se concrétise »).
@@ -246,7 +247,7 @@ export async function POST(request: Request) {
       }
       return json({
         success: true, preview, typeProspect: type.custom_item_id !== undefined,
-        cree: { id: String(t.id), nom: String(t.name || nom), rappel: libelle(rappel), lien: '/interne/prospection?vue=chasse' },
+        cree: { id: String(t.id), nom: String(t.name || nom), rappel: libelle(rappel), lien: `${adresses.prospection}?vue=chasse` },
       });
     }
 
@@ -333,7 +334,7 @@ export async function POST(request: Request) {
       const r = await modifier(token, id, { ...(depart ? { status: depart.nom } : {}), due_date: null });
       return json({
         success: true, preview, typeOk, statutOk: r.ok,
-        fiche: { id, nom: String(lu.tache.name || ''), lien: `/interne/fiches/${id}` },
+        fiche: { id, nom: String(lu.tache.name || ''), lien: adresses.affaire(id) },
       });
     }
 
