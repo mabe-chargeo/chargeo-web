@@ -8,6 +8,7 @@ import { DATE_VISITE_ID, adresseDe, champ, dateVisiteDe, libelleDate } from '@/l
 import { agendaBranche, occupationsAgenda, poserReleve, retirerReleve } from '@/lib/googleAgenda';
 import { demiJourneesDe, segmentsPose } from '@/lib/demiJournees';
 import { dureePose, dureeRdv } from '@/lib/dureesRdv';
+import { adresses } from '@/lib/adresses';
 
 // Caler le relevé technique depuis l'application (17/10/2026, 20 h 44, choix de Matthieu : « Caler + email de
 // confirmation prêt à envoyer »). Le commercial appelle le client et fixe le rendez-vous du chef de chantier.
@@ -303,7 +304,7 @@ export async function GET(request: Request) {
       planningIncomplet: planning.incomplet,
       agenda,
       // Visite déjà calée : de quoi renvoyer la confirmation sans recaler
-      cale: email ? { quand: email.quand, chef: chefAssigne?.nom || '', lienFiche: `/interne/fiches/${t.id}` } : null,
+      cale: email ? { quand: email.quand, chef: chefAssigne?.nom || '', lienFiche: adresses.affaire(String(t.id)) } : null,
       emailConfirmation: email ? { a: email.a, sujet: email.sujet, texte: email.texte, signature: email.signature } : null,
     });
   } catch (e) {
@@ -414,7 +415,7 @@ export async function POST(request: Request) {
               mail ? `Email : ${mail}` : '',
               note ? `Accès : ${note}` : '',
               `Calé par ${auteur} depuis l'application CHARGéO.`,
-              `Fiche : ${origine}/interne/fiches/${t.id}`,
+              `Fiche : ${origine}${adresses.affaire(String(t.id))}`,
             ].filter(Boolean).join('\n'),
           });
           if (ancien) await Promise.allSettled(chefs.filter((c) => c.id !== chef.id && c.email).map((c) => retirerReleve(c.email, String(t.id))));
@@ -455,7 +456,7 @@ export async function POST(request: Request) {
       chefOk,
       agenda,
       agendaErreur,
-      cale: { quand: email.quand, chef: chef?.nom || '', lienFiche: `/interne/fiches/${t.id}` },
+      cale: { quand: email.quand, chef: chef?.nom || '', lienFiche: adresses.affaire(String(t.id)) },
       emailConfirmation: { a: email.a, sujet: email.sujet, texte: email.texte, signature: email.signature },
     });
   } catch (e) {
