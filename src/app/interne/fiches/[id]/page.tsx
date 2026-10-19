@@ -33,13 +33,15 @@
 // Chantiers, Consulter › Parc installé).
 // Structure de départ validée le 16/10 ; bloc Contact le 17/10 à 10 h 20. Retour vers la vue d'où l'on vient, sinon
 // vers Mon espace.
+// 19/10/2026 (2e lot de cohérence) : cartes et boutons sur les briques communes (src/components/charte/Appli.tsx),
+// liens ClickUp réservés à la direction et au back-office, bouton Retour de l'en-tête commun.
 import { useEffect, useState, type ElementType, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import {
   BadgeEuro, BatteryCharging, CalendarClock, CheckCircle2, ClipboardList, ExternalLink, FileText, GitBranch, HardHat,
-  ArrowLeft, Landmark, RefreshCw, ShieldCheck, TrafficCone, Wrench, XCircle,
+  Landmark, RefreshCw, ShieldCheck, TrafficCone, Wrench, XCircle,
 } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte } from '@/components/charte/Appli';
+import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte, LienPrincipal, BoutonSecondaire } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
 import { Vente } from '@/components/ui/Vente';
@@ -105,32 +107,16 @@ const ficheElement = (id: string) => `/interne/element/${encodeURIComponent(id)}
 const sePlanifie = (statut: string) => { const s = normal(statut); return s.includes('a planifier') || s.includes('preparation') || (s.includes('planifie') && !s.includes('en cours')); };
 
 const boutonAction = (href: string, libelle: string) => (
-  <a
-    href={href}
-    className="flex w-full items-center justify-center gap-3 rounded-full bg-[#FF6B00] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95"
-  >
-    {libelle}
-  </a>
+  <LienPrincipal href={href}>{libelle}</LienPrincipal>
 );
 const boutonSecondaire = (href: string, libelle: string) => (
-  <a
-    href={href}
-    className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full px-6 text-[16px] font-semibold ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95"
-    style={{ color: CYAN }}
-  >
-    {libelle}
-  </a>
+  <BoutonSecondaire href={href} compact>{libelle}</BoutonSecondaire>
 );
 // Costructor s'ouvre dans un nouvel onglet : la fiche reste ouverte derrière
 const boutonCostructor = (href: string) => (
-  <a
-    href={href}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="flex w-full items-center justify-center gap-3 rounded-full bg-[#FF6B00] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)] transition-transform active:scale-95"
-  >
+  <LienPrincipal href={href}>
     💼 Préparer le devis dans Costructor <ExternalLink size={16} />
-  </a>
+  </LienPrincipal>
 );
 
 const pastilleStatut = (statut: string, couleur: string) => (
@@ -170,17 +156,6 @@ export default function FichePage() {
   useEffect(() => {
     charger();
   }, [id, role]);
-
-  const retour = () => {
-    if (window.history.length > 1 && document.referrer.includes('/interne/')) window.history.back();
-    else window.location.href = '/interne/espace';
-  };
-
-  const boutonRetour = (
-    <button onClick={retour} className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Retour
-    </button>
-  );
 
   const ligne = (Icon: ElementType, contenu: ReactNode, couleur: string = CYAN) => (
     <p className="flex items-center gap-2 text-[15px]">
@@ -428,7 +403,7 @@ export default function FichePage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre={fiche ? [fiche.passeport.typeClient, fiche.projet.segment].filter(Boolean).join(' · ') || fiche.liste || 'Fiche' : 'Fiche'} titre={fiche?.nom || 'Fiche'} action={boutonRetour} parent={fiche ? PARENT_ETAPE[fiche.etape] : ''} />
+      <EnTeteAppli surtitre={fiche ? [fiche.passeport.typeClient, fiche.projet.segment].filter(Boolean).join(' · ') || fiche.liste || 'Fiche' : 'Fiche'} titre={fiche?.nom || 'Fiche'} retour={{ href: '/interne/espace', libelle: 'Retour' }} parent={fiche ? PARENT_ETAPE[fiche.etape] : ''} />
 
       <ContenuAppli className="space-y-4">
         {preview && <Alerte>Prévisualisation : en vente, fiche lue dans 🧪 Qualification TEST ; au chantier et au Parc, dans les vraies listes. Seules les fiches « Test · … » sont modifiées.</Alerte>}
@@ -497,11 +472,13 @@ export default function FichePage() {
               </>
             )}
 
-            <div className="pt-2 text-center">
-              <a href={fiche.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
-                <ExternalLink size={13} /> Ouvrir dans ClickUp ({fiche.liste})
-              </a>
-            </div>
+            {(role === 'direction' || role === 'backOffice') && (
+              <div className="pt-2 text-center">
+                <a href={fiche.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: CYAN }}>
+                  <ExternalLink size={13} /> Ouvrir dans ClickUp ({fiche.liste})
+                </a>
+              </div>
+            )}
           </>
         )}
       </ContenuAppli>

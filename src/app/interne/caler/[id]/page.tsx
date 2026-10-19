@@ -12,12 +12,15 @@
 //   durée ») : durée au choix (⏳ Durée relevé), créneau choisi effaçable (le toucher à nouveau, ou « Effacer »),
 //   « Annuler le rendez-vous » pour une fiche déjà calée (date vidée, événement retiré de l'agenda du chef).
 // Écrit par /api/interne/caler. Ouvert depuis « Visites à caler » et depuis la fiche affaire.
+// 19/10/2026 (2e lot de cohérence) : cartes et boutons sur les briques communes (src/components/charte/Appli.tsx),
+// détection iPhone du bloc Contact.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, CalendarCheck, CalendarX, Check, ChevronRight, Copy, Mail, MapPin, RefreshCw, X } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
+import { AlertTriangle, CalendarCheck, CalendarX, Check, ChevronRight, Copy, Mail, MapPin, RefreshCw, X } from 'lucide-react';
+import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal, BoutonSecondaire, LienPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import AgendaSemaine, { heureDe, libelleJourCourt, type BlocAgenda, type JourneeAgenda } from '@/components/ui/AgendaSemaine';
+import { estIOS } from '@/components/ui/BlocContact';
 
 type Fiche = { id: string; nom: string; statut: string; aVisiter: boolean; adresse: string; ville?: string; email: string; telephone: string; dejaCale: string; duree?: string };
 type Chef = { id: number; nom: string };
@@ -36,12 +39,6 @@ const VERT = '#16a34a';
 const TYPES: Record<TypeRdv, string> = { pose: '🏗️ Pose', visite: '🔧 Maintenance', depannage: '🚨 Dépannage', releve: '📋 Relevé' };
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-// iPhone, iPad (y compris iPadOS qui se présente comme un Mac tactile), comme src/components/ui/BlocContact.tsx
-function estIOS(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && (navigator as any).maxTouchPoints > 1);
-}
 // Nouveau message Gmail déjà rédigé : application Gmail sur iPhone et iPad, Gmail web sur le compte CHARGéO ailleurs
 const lienGmail = (e: Email, moi: string, ios: boolean) =>
   ios
@@ -184,12 +181,6 @@ export default function CalerPage() {
       {libelle}
     </button>
   );
-  const boutonRetour = (
-    <a href="/interne/fiches?vue=a-caler" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Visites à caler
-    </a>
-  );
-
   if (annule) {
     return (
       <PageAppli>
@@ -235,9 +226,9 @@ export default function CalerPage() {
 
           <Repere>Email de confirmation</Repere>
           {gmail ? (
-            <a href={gmail} target={ios ? undefined : '_blank'} rel="noopener noreferrer" className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)]">
+            <LienPrincipal href={gmail}>
               <Mail size={20} /> Ouvrir dans Gmail pour {e.a}
-            </a>
+            </LienPrincipal>
           ) : (
             <Alerte>Pas d’email sur la fiche du client : copie le texte et envoie-le par le moyen de ton choix.</Alerte>
           )}
@@ -247,9 +238,9 @@ export default function CalerPage() {
             <p className="whitespace-pre-line text-[14px] leading-relaxed">{e.texte}</p>
             <p className="text-[13px] italic text-slate-400">+ ta signature</p>
           </Carte>
-          <button onClick={copier} className="flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-[15px] font-bold ring-[1.5px] ring-[#dfe3e8]" style={{ color: CYAN }}>
+          <BoutonSecondaire compact onClick={copier}>
             {copie ? <Check size={17} /> : <Copy size={17} />} {copie ? 'Texte copié (avec ton nom)' : 'Copier le texte'}
-          </button>
+          </BoutonSecondaire>
           <a href={c.lienFiche} className="flex items-center justify-center gap-1 text-[15px] font-semibold" style={{ color: CYAN }}>Ouvrir la fiche <ChevronRight size={16} /></a>
           {renvoyee
             ? <button onClick={() => setRenvoi(false)} className="block w-full text-center text-[15px] font-semibold" style={{ color: CYAN }}>Décaler ou annuler le rendez-vous</button>
@@ -264,7 +255,7 @@ export default function CalerPage() {
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Relevé technique" titre={fiche?.nom || 'Caler le relevé'} action={boutonRetour} />
+      <EnTeteAppli surtitre="Relevé technique" titre={fiche?.nom || 'Caler le relevé'} retour={{ href: '/interne/fiches?vue=a-caler', libelle: 'Visites à caler' }} />
       <ContenuAppli className="space-y-4">
         {preview && <Alerte>Preview : seules les fiches de test (avec « Test » dans le nom) peuvent être calées.</Alerte>}
         {erreur && !fiche && <Alerte>{erreur}</Alerte>}
