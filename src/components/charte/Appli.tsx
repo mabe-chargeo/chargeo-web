@@ -5,6 +5,7 @@
 // 17/10/2026, 18 h 34 : liens ClickUp seulement pour le back-office et la direction) et le fil d'Ariane (composant
 // client FilAriane, 18/10/2026, 17 h 20).
 // Servent à /interne aujourd'hui, puis à tous les écrans par rôle d'app.chargeo.fr (Phase 6).
+// 19/10/2026 : + LienPrincipal (même allure que BoutonPrincipal, en lien) et BoutonSecondaire (contour gris, texte cyan).
 import React from "react";
 import { ArrowLeft } from "lucide-react";
 import { NAVY, CYAN, ORANGE, GRIS, CYAN_PALE, CYAN_SUR_NAVY } from "@/components/charte/couleurs";
@@ -148,6 +149,44 @@ export function BoutonPrincipal({
       {...props}
       className={`flex w-full items-center justify-center gap-3 rounded-full px-8 py-4 text-[17px] font-semibold text-white transition-transform active:scale-95 ${inactif ? "bg-slate-300" : "bg-[#FF6B00] shadow-[0_8px_22px_rgba(255,107,0,0.28)]"} ${className}`}
     >
+      {children}
+    </button>
+  );
+}
+
+// 19/10/2026 (2e lot de cohérence, demandé par Matthieu à 9 h 23 : « c'est important que l'application soit propre avant
+// qu'on la mette en production ») : les variantes de boutons recodées à la main dans les écrans passent par ces briques.
+const CLASSE_PRINCIPAL = "flex w-full items-center justify-center gap-3 rounded-full px-8 py-4 text-[17px] font-semibold text-white transition-transform active:scale-95";
+// Variante compacte (compact) : dans une carte de liste où plusieurs actions s'empilent (Mes interventions)
+const CLASSE_PRINCIPAL_COMPACT = "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold text-white transition-transform active:scale-95";
+
+// Lien principal : même allure que BoutonPrincipal, pour aller vers un écran (Faire la visite, Caler…). Un lien externe
+// (Google Maps, Waze…) s'ouvre dans un nouvel onglet.
+export function LienPrincipal({ href, inactif = false, compact = false, className = "", children }: { href: string; inactif?: boolean; compact?: boolean; className?: string; children: React.ReactNode }) {
+  const externe = href.startsWith("http");
+  return (
+    <a href={inactif ? undefined : href} target={externe ? "_blank" : undefined} rel={externe ? "noopener noreferrer" : undefined} aria-disabled={inactif || undefined} className={`${compact ? CLASSE_PRINCIPAL_COMPACT : CLASSE_PRINCIPAL} ${inactif ? "pointer-events-none bg-slate-300" : "bg-[#FF6B00] shadow-[0_8px_22px_rgba(255,107,0,0.28)]"} ${className}`}>
+      {children}
+    </a>
+  );
+}
+
+// Bouton secondaire : fond blanc, contour gris, texte cyan, pleine largeur (Étape suivante, Retour à la réception…).
+// Avec href : un lien ; sinon un bouton. compact : même hauteur que LienPrincipal compact.
+const CLASSE_SECONDAIRE = "flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 font-semibold ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95";
+export function BoutonSecondaire({
+  href,
+  compact = false,
+  className = "",
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { href?: string; compact?: boolean }) {
+  const classe = `${CLASSE_SECONDAIRE} ${compact ? "min-h-[52px] text-[15px]" : "min-h-[56px] text-[16px]"}`;
+  if (href) {
+    return <a href={href} className={`${classe} ${className}`} style={{ color: CYAN }}>{children}</a>;
+  }
+  return (
+    <button {...props} className={`${classe} ${props.disabled ? "opacity-50" : ""} ${className}`} style={{ color: CYAN }}>
       {children}
     </button>
   );
