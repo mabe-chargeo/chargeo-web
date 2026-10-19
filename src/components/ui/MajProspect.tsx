@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { CalendarCheck, Check, PencilLine, RefreshCw, Trophy } from 'lucide-react';
 import { CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN } from '@/components/charte/couleurs';
+import { adresses } from '@/lib/adresses';
 
 export type OptionsProspect = {
   statuts: { nom: string; type: string }[];
@@ -57,7 +58,7 @@ export default function MajProspect({ id, statut, options, onFait }: { id: strin
     if (!confirmer) { setConfirmer(true); return; }
     const data = await envoyer({ action: 'projet', id, note });
     if (!data) { setConfirmer(false); return; }
-    window.location.href = data.fiche?.lien || '/interne/fiches?vue=a-caler';
+    window.location.href = data.fiche?.lien || `${adresses.pipeline}?vue=a-caler`;
   };
 
   const pastille = (actif: boolean, libelle: string, changer: () => void) => (

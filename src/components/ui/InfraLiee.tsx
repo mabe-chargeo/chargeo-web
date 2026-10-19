@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Building2, Link2 } from 'lucide-react';
 import { Carte, TitreCarte, Alerte } from '@/components/charte/Appli';
 import { LABEL } from '@/components/charte/couleurs';
+import { adresses } from '@/lib/adresses';
 
 type Candidat = { id: string; nom: string; liste: string; memeAdresse: boolean; distance: number | null; tarifs: { id: string; nom: string }[] };
 type Donnees = { rattache: { id: string; nom: string } | null; candidats: Candidat[]; droits: { scenarios: boolean } };
@@ -55,7 +56,7 @@ export function InfraLiee({ affaireId }: { affaireId: string }) {
         setOccupe(false);
         return;
       }
-      if (j.scenarioId) window.location.href = `/interne/metre/${j.scenarioId}`;
+      if (j.scenarioId) window.location.href = adresses.releve(String(j.scenarioId));
       else window.location.reload();
     } catch {
       setErreur("Pas de réseau : rien n'a été rattaché.");
