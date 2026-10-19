@@ -27,12 +27,22 @@
 // 18/10, 22 h 20 (maquette MAQUETTE_RAPPORT-SAV_2026-10-18.png validée par Matthieu) : un ticket SAV ouvert a le bouton
 // « 🛠️ Rapport d'intervention » (/interne/rapport-sav/<id>) pour le chef de chantier, la direction et l'installateur ;
 // « Problème résolu » dans le rapport ferme le ticket.
+// 19/10, 8 h 35 (maquette MAQUETTE_COHERENCE-SAV_2026-10-19.png validée par Matthieu, après sa remarque du 18/10, 22 h 44 :
+// « faut que ce soit cohérent dans la présentation, utilise des blocs communs au lieu de recoder toutes les pages ») :
+// - le rapport d'intervention a sa carte « Documents », avec la ligne document de la réception (src/components/appli/
+//   LigneDocument.tsx : compteur, vignette, bouton « Faire le rapport d'intervention » tant que le ticket est ouvert) ;
+//   son PDF ne passe plus dans Liens ni dans Détails ;
+// - les liens ClickUp écrits dans la description (« Dossier : https://app.clickup.com/t/… ») ouvrent la fiche dans
+//   l'application, avec son nom ;
+// - Waze et Google Maps viennent du bloc Contact (BoutonsAdresse) au lieu d'une copie ;
+// - le bouton Retour est celui de l'en-tête commun (retour), qui garde l'écran de la liste en repli.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlignLeft, ArrowLeft, CalendarPlus, Check, ChevronDown, ChevronRight, ExternalLink, Link2, ListChecks, Mail, MapPin, Navigation, Paperclip, Phone, RefreshCw, Users } from 'lucide-react';
+import { AlignLeft, CalendarPlus, Check, ChevronDown, ChevronRight, ExternalLink, FileText, Link2, ListChecks, Mail, MapPin, Navigation, Paperclip, PenLine, Phone, RefreshCw, Users } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte } from '@/components/charte/Appli';
-import { CYAN, LABEL } from '@/components/charte/couleurs';
-import { BlocContact, BoutonsContact } from '@/components/ui/BlocContact';
+import { CYAN } from '@/components/charte/couleurs';
+import { BlocContact, BoutonsAdresse, BoutonsContact } from '@/components/ui/BlocContact';
+import { ActionDocument, LigneDocument } from '@/components/appli/LigneDocument';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 import FicheFacture from '@/components/appli/FicheFacture';
 import type { Facture } from '@/lib/factureFiche';
@@ -114,20 +124,28 @@ function Parcours({ etapes, courante }: { etapes: string[]; courante: number }) 
   );
 }
 
-const GABARIT_VIDE: Gabarit = { cles: [], parcours: null, affaire: '', contact: { tel: '', email: '', adresse: '', lat: null, lng: null, autres: [] }, moi: '', liens: [], ailleurs: [] };
+const GABARIT_VIDE: Gabarit = { cles: [], parcours: null, affaire: '', contact: { tel: '', email: '', adresse: '', lat: null, lng: null, autres: [] }, moi: '', liens: [], documents: [], ailleurs: [] };
 
-// Même pastille que le bloc Contact (src/components/ui/BlocContact.tsx)
-function LienContact({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[13px] font-semibold ring-[1.5px] ring-[#dfe3e8]" style={{ color: LABEL }}>
-      {children}
-    </a>
-  );
+// Lien ClickUp écrit dans un texte (« Dossier : https://app.clickup.com/t/… ») : ouvert dans l'application, avec le nom
+// de la fiche quand on le connaît
+const LIEN_CLICKUP = /https?:\/\/app\.clickup\.com\/t\/(?:\d+\/)?([a-z0-9]+)[^\s]*/gi;
+function TexteAvecFiches({ texte, noms }: { texte: string; noms: Record<string, string> }) {
+  const morceaux: React.ReactNode[] = [];
+  const re = new RegExp(LIEN_CLICKUP.source, 'gi');
+  let dernier = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(texte))) {
+    morceaux.push(texte.slice(dernier, m.index));
+    morceaux.push(
+      <a key={`${m[1]}-${m.index}`} href={`/interne/element/${m[1]}`} className="font-semibold" style={{ color: CYAN }}>
+        {noms[m[1]] || 'Ouvrir la fiche'} ›
+      </a>,
+    );
+    dernier = m.index + m[0].length;
+  }
+  morceaux.push(texte.slice(dernier));
+  return <>{morceaux}</>;
 }
-// Waze : adresse écrite, cherchée autour du point GPS quand il existe (règle du bloc Contact, 15/10)
-const lienWaze = (texte: string, lat: number | null, lng: number | null) =>
-  `https://waze.com/ul?q=${encodeURIComponent(texte)}${lat !== null && lng !== null ? `&ll=${lat},${lng}` : ''}&navigate=yes`;
-const lienMaps = (texte: string) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(texte)}`;
 
 // Bouton Caler / Décaler d'une visite ou d'un dépannage (ou rien)
 function actionCaler(e: Element): { href: string; libelle: string } | null {
@@ -194,16 +212,6 @@ export default function ElementPage() {
     }
   };
 
-  const retour = () => {
-    if (window.history.length > 1 && document.referrer.includes('/interne/')) window.history.back();
-    else window.location.href = element?.retour || '/interne/espace';
-  };
-  const boutonRetour = (
-    <button onClick={retour} className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Retour
-    </button>
-  );
-
   const valeur = (c: Champ) => {
     if (c.taches?.length) {
       return (
@@ -257,10 +265,16 @@ export default function ElementPage() {
   if (element?.source === 'maintenance' && !normal(element.statut).includes('rapport') && !normal(element.statut).includes('complete')) {
     etapes.push({ texte: 'Le jour J, dérouler le protocole de contrôle jusqu’au rapport.', libelle: '🔧 Faire la visite', href: `/interne/maintenance/${element.id}`, couleur: '#FF6B00' });
   }
-  // Rapport d'intervention SAV : sur place, après le dépannage, jusqu'au ticket résolu
+  // Rapport d'intervention SAV : sur place, après le dépannage, jusqu'au ticket résolu (bouton dans la carte Documents)
   const savOuvert = element?.source === 'sav' && !normal(element.statut).includes('resolu') && !normal(element.statut).includes('archive');
-  if (element && savOuvert && (role === 'direction' || role === 'chargeOperation' || role === 'poseur')) {
-    etapes.push({ texte: 'Sur place, après le dépannage : remplir le rapport et le faire signer au client. « Problème résolu » ferme le ticket.', libelle: '🛠️ Rapport d’intervention', href: `/interne/rapport-sav/${element.id}`, couleur: '#FF6B00' });
+  const faitLeRapport = role === 'direction' || role === 'chargeOperation' || role === 'poseur';
+  const documents = (g.documents || []).filter((d) => d.fichiers.length > 0 || (d.cible === 'rapportSav' && savOuvert));
+  // Noms des fiches reliées, pour les liens ClickUp de la description
+  const noms: Record<string, string> = {};
+  for (const c of champsFiche) for (const t of c.taches || []) if (t.nom) noms[t.id] = t.nom;
+  for (const l of g.liens) {
+    const m = l.genre === 'fiche' ? /\/interne\/element\/([a-z0-9]+)/i.exec(l.href) : null;
+    if (m && !noms[m[1]] && l.nom !== 'Tâche parente') noms[m[1]] = l.nom;
   }
 
   const commentaires = element && element.commentaires.length > 0 && (
@@ -280,7 +294,7 @@ export default function ElementPage() {
         surtitre={element ? `${element.emoji} ${element.liste}` : 'Fiche'}
         titre={facture?.titre || element?.nom || 'Fiche'}
         sousTitre={facture?.sousTitre}
-        action={boutonRetour}
+        retour={{ href: element?.retour || '/interne/espace', libelle: 'Retour' }}
         parent={parentDe(element?.source, role)}
       />
       <ContenuAppli className="space-y-4">
@@ -336,10 +350,7 @@ export default function ElementPage() {
                   {ct.adresse && (
                     <div className="space-y-2">
                       <p className="flex items-start gap-2 text-[14px]"><MapPin size={16} className="mt-0.5 shrink-0" /> {ct.adresse}</p>
-                      <div className="flex flex-wrap gap-2">
-                        <LienContact href={lienWaze(ct.adresse, ct.lat, ct.lng)}><Navigation size={14} /> Waze</LienContact>
-                        <LienContact href={lienMaps(ct.adresse)}><MapPin size={14} /> Google Maps</LienContact>
-                      </div>
+                      <BoutonsAdresse texte={ct.adresse} lat={ct.lat} lng={ct.lng} />
                     </div>
                   )}
                 </div>
@@ -358,6 +369,33 @@ export default function ElementPage() {
                     </a>
                   </div>
                 ))}
+              </Carte>
+            )}
+
+            {/* Documents créés par l'appli : même ligne que le PV de la réception */}
+            {documents.length > 0 && (
+              <Carte className="space-y-3">
+                <TitreCarte icon={FileText}>Documents</TitreCarte>
+                {documents.map((d) => {
+                  const aFaire = d.cible === 'rapportSav' && savOuvert;
+                  return (
+                    <LigneDocument
+                      key={d.cible}
+                      titre={d.titre}
+                      fichiers={d.fichiers}
+                      taskId={element.id}
+                      cible={d.cible}
+                      vide={aFaire ? 'à faire sur place' : 'aucun fichier'}
+                      aide={aFaire && !d.fichiers.length ? 'Sur place, après le dépannage : le client signe au doigt sur le téléphone, l’appli crée le rapport. « Problème résolu » ferme le ticket.' : undefined}
+                    >
+                      {aFaire && faitLeRapport && (
+                        <ActionDocument href={`/interne/rapport-sav/${element.id}`}>
+                          <PenLine size={16} /> {d.fichiers.length ? 'Faire un nouveau rapport d’intervention' : 'Faire le rapport d’intervention'}
+                        </ActionDocument>
+                      )}
+                    </LigneDocument>
+                  );
+                })}
               </Carte>
             )}
 
@@ -405,7 +443,7 @@ export default function ElementPage() {
                     );
                   })}
                 </div>
-                {element.description && <p className="whitespace-pre-line pt-2 text-[14px] leading-relaxed">{element.description}</p>}
+                {element.description && <p className="whitespace-pre-line pt-2 text-[14px] leading-relaxed"><TexteAvecFiches texte={element.description} noms={noms} /></p>}
               </Carte>
             )}
 
