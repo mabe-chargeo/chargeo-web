@@ -22,15 +22,20 @@
 // bouton « Faire signer le PV sur le téléphone » (/interne/pv/<chantier>), le PV papier photographié reste en secours.
 // Ordre de la carte : mise en service, réserves, puis PV (le PV reprend les réserves déclarées), rapport et photos.
 // 18/10, 17 h 20 (validé sur maquette) : une fois envoyé, le bouton dit « Déjà envoyé · prévenir à nouveau ».
+// 19/10, 8 h 35 (passe de cohérence validée sur maquette) : PV, rapport et photos passent par la ligne document commune
+// (src/components/appli/LigneDocument.tsx), la même que le rapport d'intervention d'un ticket SAV ; le lien ClickUp de la
+// carte n'est plus rendu que pour la direction et le back-office.
 import { useEffect, useState } from 'react';
 import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Lock, PenLine, Plus, RefreshCw, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
+import { useRoleAppli } from '@/components/charte/roleAppli';
+import { ActionDocument, LigneDocument, type FichierApercu } from '@/components/appli/LigneDocument';
 
 interface Reserve { id: string; nom: string; responsables: string[]; echeance: number | null; faite: boolean }
 interface Option { id: string; nom: string; orderindex: number }
-interface Fichier { id: string; nom: string; image: boolean }
+type Fichier = FichierApercu;
 interface PointMes { id: string; nom: string; mode: string; fait: boolean; defaut: boolean }
 interface Chantier {
   id: string; nom: string; statut: string; couleurStatut: string; url: string;
@@ -69,6 +74,9 @@ async function preparer(fichier: File): Promise<File> {
 
 export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
   const poseur = role === 'poseur';
+  const { role: roleAppli } = useRoleAppli();
+  // Lien ClickUp réservé à la direction et au back-office (consigne de Matthieu)
+  const voitClickUp = roleAppli === 'direction' || roleAppli === 'backOffice';
   const [chantiers, setChantiers] = useState<Chantier[]>([]);
   const [options, setOptions] = useState<Option[]>([]);
   const [preview, setPreview] = useState(false);
@@ -200,7 +208,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
       <Carte key={c.id} className="space-y-4">
         <TitreCarte
           icon={ClipboardCheck}
-          extra={<a href={c.url} target="_blank" rel="noreferrer" aria-label="Ouvrir dans ClickUp" className="shrink-0"><ExternalLink size={18} color={CYAN} /></a>}
+          extra={voitClickUp && c.url ? <a href={c.url} target="_blank" rel="noreferrer" aria-label="Ouvrir dans ClickUp" className="shrink-0"><ExternalLink size={18} color={CYAN} /></a> : undefined}
         >
           <a href={`/interne/fiches/${c.id}`} className="leading-tight underline decoration-[#dfe3e8] underline-offset-4">{c.nom}</a>
         </TitreCarte>
@@ -294,49 +302,29 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
           )}
         </div>
 
-        {/* PV, rapport et photos */}
+        {/* PV, rapport et photos : ligne document commune */}
         {([['pv', '📂 PV Réception', c.pv, FileText, 'image/*,application/pdf'], ['rapport', libelleRapport, (c.rapport || []) as Fichier[], Gauge, 'application/pdf,image/*'], ['photos', '📸 Photos Chantier', c.photos, Camera, 'image/*']] as const).map(([cible, libelle, liste, Icone, accept]) => {
           const fige = cible === 'pv' && pvFige;
           const rapportAuto = cible === 'rapport' && avecMes;
+          const aide = rapportAuto && !liste.length
+            ? 'L’appli le crée toute seule quand tous les éléments sont conformes.'
+            : cible === 'pv' && !liste.length
+              ? 'Le client signe au doigt sur le téléphone, l’appli crée le PV avec les réserves déclarées plus haut.'
+              : undefined;
           return (
-            <div key={cible} className="rounded-[14px] bg-white p-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[14px] font-bold">{libelle}{cible === 'pv' && verrou ? ' 🔒' : ''}</p>
-                <span className="text-[12px] font-semibold" style={{ color: liste.length ? '#16a34a' : ORANGE }}>
-                  {liste.length ? `${liste.length} fichier${liste.length > 1 ? 's' : ''}` : rapportAuto ? 'créé à la fin des mesures' : cible === 'pv' ? 'à faire signer' : 'aucun fichier'}
-                </span>
-              </div>
-              {rapportAuto && !liste.length && <p className="mt-1 text-[13px]">L’appli le crée toute seule quand tous les éléments sont conformes.</p>}
-              {cible === 'pv' && !liste.length && <p className="mt-1 text-[13px]">Le client signe au doigt sur le téléphone, l’appli crée le PV avec les réserves déclarées plus haut.</p>}
-              {/* Aperçu : vignette pour les images, icône pour les PDF, ouverture en grand dans un nouvel onglet */}
-              {liste.length > 0 && (
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {liste.map((f, i) => {
-                    const lien = `/api/interne/fichier?taskId=${encodeURIComponent(c.id)}&cible=${cible}&id=${encodeURIComponent(f.id)}`;
-                    return (
-                      <a key={f.id || i} href={lien} target="_blank" rel="noreferrer" title={f.nom} className="block overflow-hidden rounded-[10px] ring-[1.5px] ring-[#dfe3e8]">
-                        {f.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={`${lien}&mini=1`} alt={f.nom} loading="lazy" className="aspect-square w-full object-cover" />
-                        ) : (
-                          <div className="flex aspect-square flex-col items-center justify-center gap-1 p-2 text-center">
-                            <FileText size={22} color={CYAN} />
-                            <span className="line-clamp-2 break-all text-[11px]">{f.nom}</span>
-                          </div>
-                        )}
-                      </a>
-                    );
-                  })}
-                </div>
-              )}
+            <LigneDocument
+              key={cible}
+              titre={`${libelle}${cible === 'pv' && verrou ? ' 🔒' : ''}`}
+              fichiers={[...liste]}
+              taskId={c.id}
+              cible={cible}
+              vide={rapportAuto ? 'créé à la fin des mesures' : cible === 'pv' ? 'à faire signer' : 'aucun fichier'}
+              aide={aide}
+            >
               {cible === 'pv' && !verrouPoseur && !bloque && (
-                <a
-                  href={`/interne/pv/${c.id}`}
-                  className="mt-2 flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold text-white"
-                  style={{ backgroundColor: CYAN }}
-                >
+                <ActionDocument href={`/interne/pv/${c.id}`}>
                   <PenLine size={16} /> {verrou ? 'Corriger : refaire signer le PV' : liste.length ? 'Refaire signer le PV' : 'Faire signer le PV sur le téléphone'}
-                </a>
+                </ActionDocument>
               )}
               {rapportAuto && c.miseEnServiceComplete && !liste.length && (
                 <button
@@ -355,7 +343,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
                   <input type="file" accept={accept} multiple={cible === 'photos'} className="hidden" onChange={(e) => { deposer(c, cible, e.target.files); e.target.value = ''; }} />
                 </label>
               )}
-            </div>
+            </LigneDocument>
           );
         })}
 
