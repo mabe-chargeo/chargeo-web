@@ -4,10 +4,12 @@
 // Tickets SAV ouverts à l'adresse de l'installation du Parc liée, comme la carte des visites et celle des chantiers :
 // la carte du ticket choisi en haut, tous les tickets en dessous, et tous les dépannages dans Google Maps.
 // Chef de chantier et direction : toute l'équipe ; vue Installateur : ses tickets.
+// 19/10/2026 (2e lot de cohérence) : cartes et boutons sur les briques communes (src/components/charte/Appli.tsx),
+// bouton Retour de l'en-tête commun.
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarClock, ChevronRight, HardHat, MapPin, Navigation, RefreshCw } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte } from '@/components/charte/Appli';
-import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
+import { CalendarClock, ChevronRight, HardHat, MapPin, Navigation, RefreshCw } from 'lucide-react';
+import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, LienPrincipal } from '@/components/charte/Appli';
+import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 
 type Ticket = {
@@ -49,14 +51,8 @@ export default function CarteSavPage() {
     return `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(pts[pts.length - 1])}${etapes ? `&waypoints=${encodeURIComponent(etapes)}` : ''}`;
   })();
 
-  const boutonRetour = (
-    <a href="/interne/espace" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Mon espace
-    </a>
-  );
-
   const carte = (t: Ticket) => (
-    <div key={t.id} className="space-y-2 rounded-[20px] p-5" style={t.enRetard ? { backgroundColor: GRIS, boxShadow: `inset 5px 0 0 ${ORANGE}` } : { backgroundColor: GRIS }}>
+    <Carte key={t.id} className={`space-y-2 ${t.enRetard ? 'shadow-[inset_5px_0_0_#FF6B00]' : ''}`}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-white" style={{ backgroundColor: t.couleurStatut || '#9aa3ad' }}>{t.statut}</span>
         {t.severite && <span className="text-[12px] font-bold text-slate-500">{t.severite}</span>}
@@ -85,12 +81,12 @@ export default function CarteSavPage() {
         {t.adresse && <button onClick={() => { setChoisi(t.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-[13px] font-bold" style={{ color: CYAN }}>Voir sur la carte</button>}
         {t.installationId && <a href={`/interne/fiches/${t.installationId}`} className="text-[13px] font-bold" style={{ color: CYAN }}>Fiche de l’installation</a>}
       </div>
-    </div>
+    </Carte>
   );
 
   return (
     <PageAppli>
-      <EnTeteAppli surtitre={equipe ? 'SAV de l’équipe' : 'Mes tickets SAV'} titre="Carte du SAV" action={boutonRetour} />
+      <EnTeteAppli surtitre={equipe ? 'SAV de l’équipe' : 'Mes tickets SAV'} titre="Carte du SAV" retour={{ href: "/interne/espace", libelle: "Mon espace" }} />
       <ContenuAppli className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[13px]">Tickets ouverts, placés à l’adresse de l’installation du Parc.</p>
@@ -120,9 +116,9 @@ export default function CarteSavPage() {
           </div>
         )}
         {itineraire && (
-          <a href={itineraire} target="_blank" rel="noopener noreferrer" className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 py-3.5 text-[16px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)]">
+          <LienPrincipal href={itineraire}>
             <Navigation size={18} /> Tous les dépannages dans Google Maps ({avecAdresse.length})
-          </a>
+          </LienPrincipal>
         )}
         {tickets.map(carte)}
       </ContenuAppli>

@@ -5,10 +5,13 @@
 // pour chaque contact les mêmes boutons que le bloc 📇 Contact : Appeler, Google Voice, SMS, Gmail.
 // 17/10, 13 h 13 (Matthieu) : tous les contacts, clients compris. Les clients (Qualification, Planning, Parc) et les
 // prospects ont leur pastille de rôle et leur nom ouvre la fiche affaire unique.
+// 19/10/2026 (2e lot de cohérence) : cartes et boutons sur les briques communes (src/components/charte/Appli.tsx),
+// liens ClickUp réservés à la direction et au back-office, bouton Retour de l'en-tête commun.
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ChevronRight, ExternalLink, RefreshCw, Search } from 'lucide-react';
+import { ChevronRight, ExternalLink, RefreshCw, Search } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, CHAMP } from '@/components/charte/Appli';
-import { CYAN, GRIS } from '@/components/charte/couleurs';
+import { CYAN } from '@/components/charte/couleurs';
+import { useRoleAppli } from '@/components/charte/roleAppli';
 import { BoutonsContact } from '@/components/ui/BlocContact';
 
 type Contact = { id: string; nom: string; role: string; societe: string; tel: string; email: string; url: string; fiche: string };
@@ -18,6 +21,8 @@ const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').re
 const ORDRE = ['Client', 'Prospect'];
 
 export default function ContactsPage() {
+  const { role: roleAppli } = useRoleAppli();
+  const voitClickUp = roleAppli === 'direction' || roleAppli === 'backOffice';
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [avertissements, setAvertissements] = useState<string[]>([]);
   const [moi, setMoi] = useState('');
@@ -56,15 +61,9 @@ export default function ContactsPage() {
   const q = normal(recherche.trim());
   const visibles = contacts.filter((c) => (!role || c.role === role) && (!q || normal(`${c.nom} ${c.societe} ${c.tel} ${c.email}`).includes(q)));
 
-  const boutonRetour = (
-    <a href="/interne/espace" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Mon espace
-    </a>
-  );
-
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Annuaire" titre="Contacts" action={boutonRetour} />
+      <EnTeteAppli surtitre="Annuaire" titre="Contacts" retour={{ href: "/interne/espace", libelle: "Mon espace" }} />
       <ContenuAppli className="space-y-4">
         <div className="relative">
           <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2" color={CYAN} />
@@ -105,7 +104,7 @@ export default function ContactsPage() {
         )}
 
         {visibles.map((c) => (
-          <div key={c.id} className="space-y-2.5 rounded-[20px] p-5" style={{ backgroundColor: GRIS }}>
+          <Carte key={c.id} className="space-y-2.5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 {(c.role || c.societe) && <p className="text-[12px] font-bold text-slate-500">{[c.role, c.societe].filter(Boolean).join(' · ')}</p>}
@@ -118,10 +117,10 @@ export default function ContactsPage() {
                 )}
                 {c.tel && <p className="mt-1 text-[14px]">{c.tel}</p>}
               </div>
-              <a href={c.url} target="_blank" rel="noopener noreferrer" aria-label="Ouvrir dans ClickUp" className="shrink-0"><ExternalLink size={18} color={CYAN} /></a>
+              {voitClickUp && <a href={c.url} target="_blank" rel="noopener noreferrer" aria-label="Ouvrir dans ClickUp" className="shrink-0"><ExternalLink size={18} color={CYAN} /></a>}
             </div>
             <BoutonsContact tel={c.tel} email={c.email} moi={moi} />
-          </div>
+          </Carte>
         ))}
       </ContenuAppli>
     </PageAppli>
