@@ -29,6 +29,10 @@ export type DefSuivi = {
 // 👤 Validé par (Commandes Matériel) : l'achat validé par la direction avant « commandé » (même règle que le garde-fou
 // de la liste, qui renvoie la commande en « à commander » sans validation)
 export const VALIDE_PAR = { id: '85d92954-e954-451c-bb14-405ba83de4f4', mot: 'valide par' };
+// 📎 Bon de livraison (Commandes Matériel) : photo jointe depuis la confirmation « Reçu / vérifié » (maquette v2), une fois
+// la commande passée ; montrée ensuite dans la carte Documents de la fiche (src/lib/ficheGabarit.ts)
+export const BON_LIVRAISON = { id: '1606d8d7-265a-477a-800c-387c6bf611c9', mot: 'bon de livraison' };
+export const ETATS_BON_LIVRAISON = ['commande', 'en-livraison', 'recu'];
 
 // Commandes Matériel (statuts relus le 17/10 : à commander, commandé, en livraison, reçu / vérifié, annulé)
 const etatCommande = (s: string) =>
@@ -38,7 +42,7 @@ const etatCommande = (s: string) =>
         : s.includes('annul') ? 'annule'
           : s.includes('command') ? 'commande' : '';
 const ANNULER_COMMANDE: DefAction = { cible: 'annule', libelle: 'Annuler la commande', confirmer: 'Annuler cette commande ? Elle sort du suivi logistique.' };
-const RECU: Omit<DefAction, 'principal'> = { cible: 'recu', libelle: '📦 Reçu / vérifié', confirmer: 'Matériel reçu et vérifié ? La commande sort des Livraisons en retard.' };
+const RECU: Omit<DefAction, 'principal'> = { cible: 'recu', libelle: '📦 Reçu / vérifié', confirmer: 'Matériel reçu et vérifié ? La commande sort des Livraisons en retard. Photo du bon de livraison si tu l’as.' };
 
 // Dossiers Advenir (statuts relus le 18/10 : à réserver, offre émise, prime réservée, chantier en cours, collecte pièces,
 // dossier final soumis, en révision, validé, prime payée, annulé / expiré, dossier archivé)

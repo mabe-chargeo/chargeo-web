@@ -5,7 +5,8 @@ import { sessionDeRequete } from '@/lib/session';
 // tel quel (le lien ClickUp n'est pas donné au navigateur). Réservé aux personnes connectées.
 // 19/10/2026 (passe de cohérence validée par Matthieu) : aussi le 📄 Rapport d'intervention d'un ticket SAV, montré sur
 // la fiche du ticket par la même ligne document que le PV (src/components/appli/LigneDocument.tsx).
-// GET ?taskId=...&cible=pv|photos|rapport|rapportSav&id=<id du fichier>[&mini=1 : miniature]
+// 19/10/2026, 11 h 39 : et le 📎 Bon de livraison d'une commande de matériel (photo prise au « Reçu / vérifié »).
+// GET ?taskId=...&cible=pv|photos|rapport|rapportSav|bonLivraison&id=<id du fichier>[&mini=1 : miniature]
 
 const CHANTIER = ['901520038258', '901520038290']; // Planning Chantiers, Parc installé
 const CIBLES: Record<string, { champ: string; listes: string[] }> = {
@@ -13,6 +14,7 @@ const CIBLES: Record<string, { champ: string; listes: string[] }> = {
   photos: { champ: 'e907f3f8-c702-47bd-b523-017e684e78c1', listes: CHANTIER },
   rapport: { champ: '463edfd0-faf9-40e6-b37a-9ee126c2b449', listes: CHANTIER }, // 📊 Rapport de mesures
   rapportSav: { champ: '8dbf671d-4a53-4870-be35-d2e866c73ede', listes: ['901520038282'] }, // 📄 Rapport d'intervention, Tickets SAV
+  bonLivraison: { champ: '1606d8d7-265a-477a-800c-387c6bf611c9', listes: ['901520038249'] }, // 📎 Bon de livraison, Commandes Matériel
 };
 
 export const dynamic = 'force-dynamic';
