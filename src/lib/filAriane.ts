@@ -10,7 +10,10 @@
 // visite → Pipeline ; Planifier un chantier → Chantiers ; Caler ou décaler un rendez-vous et Rapport d'intervention →
 // SAV (l'écran du rapport impose Mes interventions pour l'installateur). Nouveau projet et les créations restent sous
 // l'onglet Créer.
+// 19/10/2026, 18 h 43 (adresses propres, src/lib/adresses.ts) : la table des parents suit les nouvelles adresses ; « * »
+// remplace l'identifiant d'une fiche (/interventions/*/pv).
 import { ECRANS, MENUS, precisionActif, libelleBarre, type Ecran, type RoleAppli } from './menusAppli';
+import { estPageAppli } from './adresses';
 
 export type Miette = { libelle: string; href: string };
 
@@ -19,26 +22,33 @@ const base = (href: string) => href.split('?')[0];
 
 // Écran parent d'un chemin, quand la carte des menus ne le donne pas ('' = aucun parent)
 const PARENT_CHEMIN: [string, string][] = [
-  ['/interne/pv', 'reception'],
-  ['/interne/mise-en-service', 'reception'],
-  ['/interne/reception', 'interventions'],
-  ['/interne/pose', 'interventions'],
-  ['/interne/maintenance', 'interventions'],
-  ['/interne/validation', 'chantiers'],
-  ['/interne/feu-vert', 'chantiers'],
-  ['/interne/element', 'chantiers'],
-  ['/interne/prospection/nouveau', ''],
-  ['/interne/prospection', 'pipeline'],
-  ['/interne/metre', 'releves'],
-  ['/interne/caler', 'pipeline'],
-  ['/interne/planifier', 'chantiers'],
-  ['/interne/rdv', 'sav'],
-  ['/interne/rapport-sav', 'sav'],
+  ['/interventions/*/pv', 'reception'],
+  ['/interventions/*/mise-en-service', 'reception'],
+  ['/interventions/rapport', 'interventions'],
+  ['/interventions/*/pose', 'interventions'],
+  ['/interventions/*/maintenance', 'interventions'],
+  ['/chantiers/reception', 'chantiers'],
+  ['/chantiers/feu-vert', 'chantiers'],
+  ['/fiche', 'chantiers'],
+  ['/sav/carte', ''],
+  ['/prospection', 'pipeline'],
+  ['/releves/*', 'releves'],
+  ['/affaires/*/caler', 'pipeline'],
+  ['/affaires/*', 'pipeline'],
+  ['/chantiers/*/planifier', 'chantiers'],
+  ['/sav/*/caler', 'sav'],
+  ['/maintenance/*/caler', 'sav'],
+  ['/sav/*/rapport', 'sav'],
 ];
 // Écran parent d'un écran : on remonte la chaîne
 const PARENT_ECRAN: Record<string, string> = { reception: 'interventions', validation: 'chantiers', feuVert: 'chantiers' };
 
-const correspond = (p: string, chemin: string) => chemin === p || chemin.startsWith(`${p}/`);
+// Le chemin est le motif ou une page en dessous ; « * » vaut un segment quelconque (identifiant d'une fiche)
+const correspond = (p: string, chemin: string) => {
+  const motif = p.split('/');
+  const segments = chemin.split('/');
+  return motif.length <= segments.length && motif.every((s, i) => s === '*' || s === segments[i]);
+};
 
 // Écrans de l'onglet Consulter pour le rôle (tous rôles confondus si le rôle n'est pas connu)
 const dansConsulter = (cle: string, role?: RoleAppli | null) =>
@@ -56,7 +66,7 @@ function ongletDe(chemin: string): Ecran | null {
 }
 
 export function filAriane(chemin: string, o: { parent?: string; role?: RoleAppli | null } = {}): Miette[] {
-  if (!chemin.startsWith('/interne')) return [];
+  if (!estPageAppli(chemin)) return [];
   // Écran racine de la barre : pas de fil
   if (BARRE.some((cle) => ECRANS[cle] && base(ECRANS[cle].href) === chemin)) return [];
 
@@ -68,7 +78,7 @@ export function filAriane(chemin: string, o: { parent?: string; role?: RoleAppli
     let long = 0;
     for (const e of Object.values(ECRANS)) {
       const b = base(e.href);
-      if (BARRE.includes(e.cle) || b === '/interne' || !chemin.startsWith(`${b}/`)) continue;
+      if (BARRE.includes(e.cle) || !chemin.startsWith(`${b}/`)) continue;
       if (b.length > long) { long = b.length; cle = e.cle; }
     }
   }
