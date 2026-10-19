@@ -36,6 +36,10 @@
 //   l'application, avec son nom ;
 // - Waze et Google Maps viennent du bloc Contact (BoutonsAdresse) au lieu d'une copie ;
 // - le bouton Retour est celui de l'en-tête commun (retour), qui garde l'écran de la liste en repli.
+// 19/10, 11 h 03 (maquette MAQUETTE_SUIVI-COMMANDE-ADVENIR_2026-10-19_v2.png validée par Matthieu, après sa remarque de
+// 10 h 46 : « l'appli CHARGéO ne me permet pas de mettre à jour quoi que ce soit ») : une commande de matériel et un
+// dossier ADVENIR ont leurs deux cartes de suivi sous le contact (src/components/ui/Suivi.tsx, mêmes cartes que la
+// vente) ; leurs champs n'apparaissent plus en double dans Détails.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AlignLeft, CalendarPlus, Check, ChevronDown, ChevronRight, ExternalLink, FileText, Link2, ListChecks, Mail, MapPin, Navigation, Paperclip, PenLine, Phone, RefreshCw, Users } from 'lucide-react';
@@ -45,6 +49,8 @@ import { BlocContact, BoutonsAdresse, BoutonsContact } from '@/components/ui/Blo
 import { ActionDocument, LigneDocument } from '@/components/appli/LigneDocument';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 import FicheFacture from '@/components/appli/FicheFacture';
+import { Suivi } from '@/components/ui/Suivi';
+import { CHAMPS_SUIVI, rolesSuivi } from '@/lib/suivi';
 import type { Facture } from '@/lib/factureFiche';
 import type { Gabarit } from '@/lib/ficheGabarit';
 
@@ -235,6 +241,8 @@ export default function ElementPage() {
   const voitClickUp = role === 'direction' || role === 'backOffice';
   const caler = element && (role === 'direction' || role === 'chargeOperation') ? actionCaler(element) : null;
   const facture = element?.facture;
+  // Commande de matériel ou dossier ADVENIR : cartes de suivi pour les rôles qui les font avancer
+  const suivi = !!element && !facture && !!role && rolesSuivi(element.source).includes(role);
 
   // Gabarit commun : infos clés, détails, raccourcis, étapes
   const g: Gabarit = element?.gabarit || {
@@ -246,7 +254,7 @@ export default function ElementPage() {
   };
   const champsFiche = element?.champs || [];
   const cles = g.cles.map((id) => champsFiche.find((c) => c.id === id)).filter((c): c is Champ => !!c);
-  const details = champsFiche.filter((c) => !g.cles.includes(c.id) && !g.ailleurs.includes(c.id));
+  const details = champsFiche.filter((c) => !g.cles.includes(c.id) && !g.ailleurs.includes(c.id) && !(suivi && CHAMPS_SUIVI.includes(c.id)));
   const montrerEcheance = !!element?.echeance && !cles.some((c) => normal(c.nom).includes('echeance'));
   const ct = g.contact;
   const contactPropre = !!(ct.tel || ct.email || ct.adresse || ct.autres.length);
@@ -356,6 +364,9 @@ export default function ElementPage() {
                 </div>
               </Carte>
             )}
+
+            {/* Suivi d'une commande ou d'un dossier ADVENIR : mêmes cartes que la vente */}
+            {suivi && <Suivi ficheId={element.id} onChange={charger} />}
 
             {/* Prochaine étape : caler, faire la visite */}
             {etapes.length > 0 && (
