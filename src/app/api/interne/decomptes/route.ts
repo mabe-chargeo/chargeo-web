@@ -5,6 +5,7 @@ import { LISTES } from '@/lib/espaces';
 import { adresseDe } from '@/lib/vuesFiches';
 import { aujourdhuiParis } from '@/lib/joursOuvres';
 import { MARQUE_ENVOYE, MARQUE_PREPARE, cleJour, libellePeriode, reperePdf, suiviDecompte, texteMarque } from '@/lib/decomptes';
+import { adresses } from '@/lib/adresses';
 
 // Décomptes énergétiques (décision de Matthieu du 17/10/2026, 15 h 22 : depuis le Parc, sans nouvelle liste).
 // GET : bornes du Parc suivies en relevé, avec leur dernière période écoulée et son étape :
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
         if (t.parent) continue;
         const s = suiviDecompte(t, aujourdhui);
         if (s.etat === 'hors') continue;
-        const base = { id: String(t.id), nom: String(t.name || ''), adresse: adresseDe(t), lien: `/interne/fiches/${t.id}`, ecritureAutorisee: ecritureAutorisee(t) };
+        const base = { id: String(t.id), nom: String(t.name || ''), adresse: adresseDe(t), lien: adresses.affaire(String(t.id)), ecritureAutorisee: ecritureAutorisee(t) };
         if (s.etat === 'a-completer') { items.push({ ...base, etape: 'a-completer', manque: s.manque }); continue; }
         const textes = await commentaires(token, String(t.id));
         const envoi = textes.find((x) => x.includes(texteMarque(MARQUE_ENVOYE, s.debut, s.fin)));
