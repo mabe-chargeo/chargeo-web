@@ -22,6 +22,11 @@ import { COOKIE_SESSION, lireSession } from '@/lib/session';
 // l'ancienne adresse d'entrée chargeo.fr/interne (favoris, anciens messages) bascule sur Ma journée. Les liens vers une
 // page précise (chargeo.fr/interne/element/…, /interne/fiches/…) gardent leur page. Dans l'appli, /interne reste la page
 // Relevés à faire (menu À traiter).
+// 19/10/2026, 14 h 20 (Matthieu : « ça ne fonctionne toujours pas, j'arrive toujours sur mes relevés » ; le navigateur
+// propose app.chargeo.fr/interne depuis son historique) : toute ENTRÉE dans l'appli sur /interne, sur n'importe quelle
+// adresse, ouvre Ma journée. Une entrée = navigation qui ne vient pas d'une page de l'appli (barre d'adresse, favori,
+// historique, lien d'un message ou de ClickUp) : en-tête Sec-Fetch-Site différent de « same-origin ». Depuis l'appli
+// (menu À traiter, pastilles Aujourd'hui et À venir), /interne reste Relevés à faire.
 
 const APP_HOTE = (process.env.APP_HOTE || 'app.chargeo.fr').trim().toLowerCase();
 const SITE_PUBLIC = (process.env.CHARGEO_SITE_URL || 'https://chargeo.fr').trim().replace(/\/$/, '');
@@ -33,13 +38,21 @@ const protege = (p: string) => p === '/interne' || p.startsWith('/interne/') || 
 const pageAppli = (p: string) => p === '/interne' || p.startsWith('/interne/') || p === '/connexion' || p.startsWith('/connexion/');
 // Ce que app.chargeo.fr sert lui-même : l'application, la connexion, toutes les API, les fichiers (sw.js, manifeste, icônes)
 const servieParAppli = (p: string) => pageAppli(p) || p.startsWith('/api/') || p.startsWith('/_next/') || /\.[a-z0-9]+$/i.test(p);
+// Adresse d'entrée de l'appli (ancienne page d'accueil, aujourd'hui Relevés à faire)
+const entreeAppli = (p: string) => p === '/interne' || p === '/interne/';
+// Navigation qui arrive de l'extérieur de l'appli (barre d'adresse, favori, historique, lien d'un autre site)
+function arriveeDeDehors(request: NextRequest): boolean {
+  const site = request.headers.get('sec-fetch-site');
+  const mode = request.headers.get('sec-fetch-mode');
+  return mode === 'navigate' && !!site && site !== 'same-origin';
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const hote = request.nextUrl.hostname.toLowerCase();
 
   if (hote === APP_HOTE) {
-    if (pathname === '/') {
+    if (pathname === '/' || (entreeAppli(pathname) && arriveeDeDehors(request))) {
       const url = request.nextUrl.clone();
       url.pathname = ACCUEIL_APPLI;
       url.search = '';
@@ -48,8 +61,14 @@ export async function proxy(request: NextRequest) {
     if (!servieParAppli(pathname)) return NextResponse.redirect(`${SITE_PUBLIC}${pathname}${search}`);
   } else if (process.env.APP_CHARGEO_ACTIF === '1' && process.env.VERCEL_ENV === 'production' && pageAppli(pathname)) {
     // Ancienne adresse d'entrée de l'appli : Ma journée ; une page précise garde son chemin
-    if (pathname === '/interne' || pathname === '/interne/') return NextResponse.redirect(`https://${APP_HOTE}${ACCUEIL_APPLI}`);
+    if (entreeAppli(pathname)) return NextResponse.redirect(`https://${APP_HOTE}${ACCUEIL_APPLI}`);
     return NextResponse.redirect(`https://${APP_HOTE}${pathname}${search}`);
+  } else if (entreeAppli(pathname) && arriveeDeDehors(request)) {
+    // chargeo.fr avant la bascule et préversion : même règle d'entrée
+    const url = request.nextUrl.clone();
+    url.pathname = ACCUEIL_APPLI;
+    url.search = '';
+    return NextResponse.redirect(url);
   }
 
   if (!protege(pathname)) return NextResponse.next();
