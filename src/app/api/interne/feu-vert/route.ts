@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { blocageResident, estResident, lireTache } from '@/lib/residentInfra';
 import { sessionDeRequete } from '@/lib/session';
 
-// Écran Feu vert du chargé d'opération (Phase 6, 13/10/2026), /interne/feu-vert.
+// Écran Feu vert du chargé d'opération (Phase 6, 13/10/2026), /chantiers/feu-vert (src/lib/adresses.ts).
 // Accès réservé aux personnes connectées avec leur compte ClickUp (src/proxy.ts). Les écritures passent par la clé du
 // site ; 👤 Validé par reçoit la personne connectée.
 // GET : fiches principales ouvertes de Planning Chantiers, avec les 5 prérequis, le blocage borne résident, 👤 Validé par

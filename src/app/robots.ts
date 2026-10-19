@@ -1,6 +1,7 @@
 // src/app/robots.ts
 // Génère /robots.txt : autorise tout le site, bloque seulement les routes API.
-// Les pages internes (/interne, /suivi) sont exclues de Google via un noindex dans leur layout.
+// Les pages de l'application équipe (src/app/(appli), adresses dans src/lib/adresses.ts) et /suivi sont exclues de
+// Google via un noindex dans leur layout.
 import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {

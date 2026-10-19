@@ -3,7 +3,7 @@
 // dossiers de src/app/(appli) portent les adresses (le dossier = l'adresse, sans /interne), et TOUS les liens de
 // l'application passent par ce fichier. Renommer un écran = déplacer son dossier et changer une ligne ici.
 // Les anciennes adresses /interne/… (liens déjà partis dans ClickUp, les emails, les agendas Google, Costructor) sont
-// renvoyées vers les nouvelles par src/proxy.ts (adresseDepuisAncienne, redirection permanente). À garder pour toujours.
+// renvoyées vers les nouvelles par src/proxy.ts (adresseDepuisAncienne, redirection temporaire 307). À garder pour toujours.
 // Suivi : sous-tâche « Ranger les adresses de l'application » de « Construire l'application équipe CHARGéO ».
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone, côté serveur et dans src/proxy.ts.
 
