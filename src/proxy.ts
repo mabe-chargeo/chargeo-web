@@ -18,6 +18,10 @@ import { COOKIE_SESSION, lireSession } from '@/lib/session';
 // La session est un cookie propre à chaque adresse : une seule reconnexion par personne au passage sur app.chargeo.fr.
 // 19/10/2026, 13 h 24 (Matthieu, premier essai sur app.chargeo.fr : « je voudrais que la page d'accueil soit la page de
 // ma journée ») : « / » ouvrait /interne (Relevés à faire), il ouvre maintenant Ma journée.
+// 19/10/2026, 13 h 37 (Matthieu : « ton lien bascule vers les relevés à faire il faut que ça bascule vers ma journée ») :
+// l'ancienne adresse d'entrée chargeo.fr/interne (favoris, anciens messages) bascule sur Ma journée. Les liens vers une
+// page précise (chargeo.fr/interne/element/…, /interne/fiches/…) gardent leur page. Dans l'appli, /interne reste la page
+// Relevés à faire (menu À traiter).
 
 const APP_HOTE = (process.env.APP_HOTE || 'app.chargeo.fr').trim().toLowerCase();
 const SITE_PUBLIC = (process.env.CHARGEO_SITE_URL || 'https://chargeo.fr').trim().replace(/\/$/, '');
@@ -43,6 +47,8 @@ export async function proxy(request: NextRequest) {
     }
     if (!servieParAppli(pathname)) return NextResponse.redirect(`${SITE_PUBLIC}${pathname}${search}`);
   } else if (process.env.APP_CHARGEO_ACTIF === '1' && process.env.VERCEL_ENV === 'production' && pageAppli(pathname)) {
+    // Ancienne adresse d'entrée de l'appli : Ma journée ; une page précise garde son chemin
+    if (pathname === '/interne' || pathname === '/interne/') return NextResponse.redirect(`https://${APP_HOTE}${ACCUEIL_APPLI}`);
     return NextResponse.redirect(`https://${APP_HOTE}${pathname}${search}`);
   }
 
