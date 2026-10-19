@@ -9,6 +9,7 @@ import {
   CHAMPS_CONTACTS, LIBELLE_LIEN, ROLES_CONTACT, cleEmail, cleTel, lienDuRole, roleDeCle, roleDeTache, telClickUp,
   type CleRoleContact, type LienProjet,
 } from '@/lib/rolesContact';
+import { adresses } from '@/lib/adresses';
 
 // Écran Nouveau projet de l'application équipe (parcours validé par Matthieu le 17/10/2026, 14 h 08).
 // 1. Qui appelle ? On relie un contact existant de la liste Contacts 👥 (son rôle est déjà connu) ou on en crée un, avec
@@ -128,7 +129,7 @@ async function doublons(token: string, cible: { lat: number; lng: number; label:
       const d = Number.isFinite(lat) && Number.isFinite(lng) && Number.isFinite(cible.lat) && Number.isFinite(cible.lng) ? distanceM(cible, { lat, lng }) : null;
       const memeTexte = !!cible.label && normal(label).startsWith(normal(cible.label).split(' ').slice(0, 4).join(' ')) && normal(label).includes(normal(cible.label).split(' ').slice(-1)[0] || '#');
       if ((d !== null && d <= RAYON_DOUBLON_M) || memeTexte) {
-        trouves.push({ id: String(t.id), nom: texte(t.name), etape: sources[i].etape, statut: texte(t?.status?.status), adresse: label, distance: d === null ? null : Math.round(d), lien: `/interne/fiches/${t.id}` });
+        trouves.push({ id: String(t.id), nom: texte(t.name), etape: sources[i].etape, statut: texte(t?.status?.status), adresse: label, distance: d === null ? null : Math.round(d), lien: adresses.affaire(String(t.id)) });
       }
     }
   });
@@ -322,7 +323,7 @@ export async function POST(request: Request) {
       const { retenus, erreurs } = await resoudreContacts(token, demandes.map((x) => ({ ...x, principal: false })), annuaire, preview);
       if (!retenus.length) return json({ success: false, error: erreurs.join(' ; ') || 'Aucun contact à relier' }, 400);
       const erreursLien = await relier(token, String(lu.tache.id), retenus, preview, auteur, false);
-      return json({ success: true, preview, fiche: { id: String(lu.tache.id), nom: texte(lu.tache.name), lien: `/interne/fiches/${lu.tache.id}` }, contacts: retenus, avertissements: [...erreurs, ...erreursLien] });
+      return json({ success: true, preview, fiche: { id: String(lu.tache.id), nom: texte(lu.tache.name), lien: adresses.affaire(String(lu.tache.id)) }, contacts: retenus, avertissements: [...erreurs, ...erreursLien] });
     }
 
     // ── Créer un projet ──
@@ -366,7 +367,7 @@ export async function POST(request: Request) {
       return json({ success: false, error: `ClickUp a refusé la création du projet (${res.status})`, contacts: retenus }, 502);
     }
     const erreursLien = await relier(token, String(fiche.id), retenus, preview, auteur, true);
-    return json({ success: true, preview, fiche: { id: String(fiche.id), nom, lien: `/interne/fiches/${fiche.id}` }, contacts: retenus, avertissements: [...erreurs, ...erreursLien] });
+    return json({ success: true, preview, fiche: { id: String(fiche.id), nom, lien: adresses.affaire(String(fiche.id)) }, contacts: retenus, avertissements: [...erreurs, ...erreursLien] });
   } catch (e) {
     console.error('Nouveau projet (écriture)', e);
     return json({ success: false, error: 'Erreur serveur' }, 500);
