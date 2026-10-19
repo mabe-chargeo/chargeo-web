@@ -284,7 +284,7 @@ export const MENUS: Record<RoleAppli, { barre: string[]; consulter: string[]; pl
 
 // Créations possibles par rôle, dans l'onglet Créer.
 // 19 h 10 : + Salarié et + Candidat pour le back-office et la direction (données RH sensibles).
-// 20 h 14 : + Prospect (commercial, direction) et + Tâche (direction, la To-Do est dans l'espace DIRECTION).
+// 20 h 17 : + Prospect (commercial, direction) et + Tâche (direction, la To-Do est dans l'espace DIRECTION).
 export const CREER: Record<RoleAppli, string[]> = {
   commercial: ['lead', 'prospect', 'kaizen'],
   chargeOperation: ['ticketSav', 'kaizen'],
