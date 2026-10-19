@@ -21,11 +21,13 @@
 // S'il en manque, le premier appui sur Valider avertit, le second valide sans elles. Jamais bloquant.
 // 12/10/2026 : « Prends-la » / « Prends-les » selon le nombre de photos conseillées manquantes.
 // Les attributs value des menus ne changent pas (la route /api/metre les convertit en index ClickUp).
+// 19/10/2026 (adresses propres) : liens de l'écran de succès lus dans src/lib/adresses.ts.
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Send, CheckCircle, Zap, Ruler, Hammer, FileText, Building2, Tag, X, Plug } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { NAVY, CYAN, LABEL, CYAN_PALE, ORANGE } from '@/components/charte/couleurs';
 import { noterModification, noterConfirmation, relevesAPurger, retirerDeIndex } from '@/lib/releveLocal';
+import { adresses } from '@/lib/adresses';
 
 // Regle de depart : COP = toujours infra ; FLT/TER = borne complete
 const INFRA_SEGMENTS = ['COP'];
@@ -427,7 +429,7 @@ export function MetreForm({
         <h2 className="text-[24px] font-bold">{estSite ? 'Relevé du site transmis !' : 'Relevé transmis !'}</h2>
         <p className="text-[15px] leading-relaxed">Mesures et photos bien reçues dans la fiche de {taskName}.</p>
         <p className="text-[13px] leading-relaxed">Une copie reste sur ce téléphone pendant 7 jours.</p>
-        <a href={estSite ? `/interne/metre/${taskId}` : (retour?.href || '/interne')} className="mt-2 text-[15px] font-semibold underline underline-offset-4" style={{ color: LABEL }}>
+        <a href={estSite ? adresses.releve(taskId) : (retour?.href || adresses.releves)} className="mt-2 text-[15px] font-semibold underline underline-offset-4" style={{ color: LABEL }}>
           {estSite ? 'Voir les emplacements' : (retour?.libelle || 'Retour au planning')}
         </a>
       </Carte>
