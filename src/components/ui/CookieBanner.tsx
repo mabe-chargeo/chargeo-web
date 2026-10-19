@@ -3,9 +3,12 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import CookieConsent from "react-cookie-consent";
+import { estPageAppli } from "@/lib/adresses";
 
 export function CookieBanner() {
-  // 10/10/2026 : pas de bandeau sur l'outil terrain interne (/interne), il masquait le bouton Valider.
+  // 10/10/2026 : pas de bandeau sur l'outil terrain interne, il masquait le bouton Valider.
+  // 19/10/2026 (adresses propres) : les écrans de l'application n'ont plus /interne dans l'adresse : on teste leurs
+  // premiers segments (estPageAppli, src/lib/adresses.ts), et /interne pour les anciennes adresses.
   const pathname = usePathname();
 
   React.useEffect(() => {
@@ -24,7 +27,7 @@ export function CookieBanner() {
     }
   }, []);
 
-  if (pathname?.startsWith("/interne")) return null;
+  if (pathname && (estPageAppli(pathname) || pathname.startsWith("/interne"))) return null;
 
   return (
     <CookieConsent
