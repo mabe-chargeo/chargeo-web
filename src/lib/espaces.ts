@@ -12,12 +12,12 @@
 // comme la vue ClickUp 📱 MODE TECH), lisible hors ligne.
 // Espace Back-office validé le 17/10 à 11 h 28 (8 vues). Costructor reste la référence des factures et règlements :
 // les vues lisent ce que ClickUp en reçoit.
-// Espace Direction validé le 17/10 à 11 h 37 (6 vues) ; Plus ouvre l'espace de chaque rôle (/interne/espace?role=…).
+// Espace Direction validé le 17/10 à 11 h 37 (6 vues) ; Plus ouvre l'espace de chaque rôle (/a-traiter?role=…).
 // 17/10, 14 h 28 (lot « écrans qui manquent ») : les vues qui ouvraient ClickUp ouvrent l'écran de liste de
-// l'application (/interne/liste/<source>?vue=<clé>, src/lib/listesAppli.ts), avec la fiche générique. Le bouton de
-// création du commercial ouvre Nouveau projet. Planning construit (/interne/planning, compteur = chantiers en travaux)
-// et Agenda des visites ajouté au commercial (/interne/agenda, compteur = relevés planifiés).
-// 17/10, 15 h 22 : Décomptes construit depuis le Parc, sans nouvelle liste (/interne/decomptes, src/lib/decomptes.ts) ;
+// l'application (/<liste>?vue=<clé>, src/lib/listesAppli.ts), avec la fiche générique. Le bouton de
+// création du commercial ouvre Nouveau projet. Planning construit (/planning, compteur = chantiers en travaux)
+// et Agenda des visites ajouté au commercial (/agenda, compteur = relevés planifiés).
+// 17/10, 15 h 22 : Décomptes construit depuis le Parc, sans nouvelle liste (/decomptes, src/lib/decomptes.ts) ;
 // compteur = bornes suivies en relevé.
 // 17/10, 16 h 11 (Matthieu : « en mode direction, je ne veux pas avoir des boutons ou des raccourcis espace commercial,
 // espace chef de chantier etc., je veux voir directement leurs écrans dans l'ordre du workflow ») : l'espace Direction
@@ -40,12 +40,14 @@
 // 17/10, 19 h 38 et 19 h 42 (choix de Matthieu) : « Factures non réglées » (à émettre, émises, partiellement payées, en
 // litige) et « Factures à relancer » (émises ou partiellement payées dont le rappel de relance, échéance de la tâche,
 // est arrivé ; la date limite de paiement est le champ 📅 Date d'échéance).
+// 19/10/2026, 18 h 43 (adresses propres) : toutes les adresses des vues sont lues dans src/lib/adresses.ts.
 // Clé de vue : « cle » dans la source de la vue, ou « source:cle » pour additionner une autre liste.
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit.
 import type { Jour } from '@/lib/joursOuvres';
 import { aujourdhuiParis, ajouterJours, comparer } from '@/lib/joursOuvres';
 import { champ, nomOption } from '@/lib/vuesFiches';
 import { suivieEnReleve } from '@/lib/decomptes';
+import { adresses } from '@/lib/adresses';
 
 export type SourceVue =
   | 'qualification' | 'prospection' | 'contacts' | 'planning' | 'commandes' | 'sav' | 'maintenance'
@@ -105,8 +107,11 @@ export const CHAMPS_INTERVENTION = {
   severite: 'c2ae4e08-6903-4698-af96-a40082c11b39', // 🔥 Sévérité (Tickets SAV)
 };
 
-// Écran de liste de l'application (src/app/interne/liste/[source])
-const ecran = (source: string, vue: string) => `/interne/liste/${source}?vue=${vue}`;
+// Écran de liste de l'application (src/app/(appli)/<liste>, adresse dans src/lib/adresses.ts)
+const ecran = (source: string, vue: string) => `${adresses.liste(source)}?vue=${vue}`;
+// Pipeline (Qualification) et Prospection, filtrés par vue
+const fiches = (vue: string) => `${adresses.pipeline}?vue=${vue}`;
+const prospects = (vue: string) => `${adresses.prospection}?vue=${vue}`;
 // Contacts : la liste Contacts + les fiches clients, de la Prospection au Parc (même périmètre que /api/interne/contacts)
 const VUES_CONTACTS = ['tous', 'prospection:chasse', 'qualification:toutes', 'planning:tous', 'parc:tous'];
 const CONTACTS_DESCRIPTION = 'Clients, syndics, conseils syndicaux, gestionnaires';
@@ -130,27 +135,27 @@ const DIRECTION = 'Direction';
 export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur' | 'backOffice' | 'direction', Espace>> = {
   commercial: {
     titre: 'Espace commercial',
-    creer: { libelle: 'Nouveau projet', href: '/interne/projet/nouveau' },
+    creer: { libelle: 'Nouveau projet', href: adresses.creerProjet },
     vues: [
-      { cle: 'a-appeler', emoji: '📞', libelle: "À appeler aujourd'hui", description: 'Prospects dont la date de rappel est aujourd’hui ou passée', href: '/interne/prospection?vue=a-appeler', source: 'prospection', vues: ['a-appeler'], urgent: true },
-      { cle: 'chasse', emoji: '🚀', libelle: 'Pipeline chasse', description: 'Tous les prospects par étape, filtre LinkedIn', href: '/interne/prospection?vue=chasse', source: 'prospection', vues: ['chasse'] },
-      { cle: 'a-caler', emoji: '📅', libelle: 'Visites à caler', description: 'Appeler le client et fixer la date du relevé technique du chef de chantier', href: '/interne/fiches?vue=a-caler', source: 'qualification', vues: ['a-caler'], urgent: true },
-      { cle: 'agenda', emoji: '🗓️', libelle: 'Agenda des visites', description: 'Relevés calés : jour, semaine, carte et itinéraire', href: '/interne/agenda', source: 'qualification', vues: ['planifies'] },
-      { cle: 'devis-a-chiffrer', emoji: '📝', libelle: 'Devis à chiffrer', description: 'Relevé finalisé par le chef de chantier, devis à faire dans Costructor', href: '/interne/fiches?vue=devis-a-chiffrer', source: 'qualification', vues: ['devis-a-chiffrer'] },
-      { cle: 'relances-echues', emoji: '📩', libelle: 'Relances devis', description: 'Relance du jour ou en retard', href: '/interne/fiches?vue=relances-echues', source: 'qualification', vues: ['relances-echues'], urgent: true },
-      { cle: 'en-negociation', emoji: '🔥', libelle: 'En négociation', description: 'Devis discutés avec le client', href: '/interne/fiches?vue=en-negociation', source: 'qualification', vues: ['en-negociation'] },
-      { cle: 'toutes', emoji: '💰', libelle: 'Pipeline vente', description: 'Toutes les affaires, rangées par étape', href: '/interne/fiches?vue=toutes', source: 'qualification', vues: ['toutes'] },
-      { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: CONTACTS_DESCRIPTION, href: '/interne/contacts', source: 'contacts', vues: VUES_CONTACTS },
+      { cle: 'a-appeler', emoji: '📞', libelle: "À appeler aujourd'hui", description: 'Prospects dont la date de rappel est aujourd’hui ou passée', href: prospects('a-appeler'), source: 'prospection', vues: ['a-appeler'], urgent: true },
+      { cle: 'chasse', emoji: '🚀', libelle: 'Pipeline chasse', description: 'Tous les prospects par étape, filtre LinkedIn', href: prospects('chasse'), source: 'prospection', vues: ['chasse'] },
+      { cle: 'a-caler', emoji: '📅', libelle: 'Visites à caler', description: 'Appeler le client et fixer la date du relevé technique du chef de chantier', href: fiches('a-caler'), source: 'qualification', vues: ['a-caler'], urgent: true },
+      { cle: 'agenda', emoji: '🗓️', libelle: 'Agenda des visites', description: 'Relevés calés : jour, semaine, carte et itinéraire', href: adresses.agenda, source: 'qualification', vues: ['planifies'] },
+      { cle: 'devis-a-chiffrer', emoji: '📝', libelle: 'Devis à chiffrer', description: 'Relevé finalisé par le chef de chantier, devis à faire dans Costructor', href: fiches('devis-a-chiffrer'), source: 'qualification', vues: ['devis-a-chiffrer'] },
+      { cle: 'relances-echues', emoji: '📩', libelle: 'Relances devis', description: 'Relance du jour ou en retard', href: fiches('relances-echues'), source: 'qualification', vues: ['relances-echues'], urgent: true },
+      { cle: 'en-negociation', emoji: '🔥', libelle: 'En négociation', description: 'Devis discutés avec le client', href: fiches('en-negociation'), source: 'qualification', vues: ['en-negociation'] },
+      { cle: 'toutes', emoji: '💰', libelle: 'Pipeline vente', description: 'Toutes les affaires, rangées par étape', href: fiches('toutes'), source: 'qualification', vues: ['toutes'] },
+      { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: CONTACTS_DESCRIPTION, href: adresses.contacts, source: 'contacts', vues: VUES_CONTACTS },
     ],
   },
   chargeOperation: {
     titre: 'Espace chef de chantier',
     vues: [
-      { cle: 'releves', emoji: '📋', libelle: 'Relevés à faire', description: 'Visites calées par le commercial : du jour, en retard et à venir, utilisables hors ligne', href: '/interne', source: 'qualification', vues: ['planifies', 'en-retard'], urgent: true },
-      { cle: 'feu-vert', emoji: '🚦', libelle: 'Feu vert à donner', description: 'Chantiers dont les 5 prérequis sont OK', href: '/interne/feu-vert', source: 'planning', vues: ['feu-vert'] },
-      { cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Poses, dépannages, visites et relevés par jour et par technicien', href: '/interne/planning', source: 'planning', vues: ['en-cours'] },
-      { cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux, prêts, en cours, réserves à lever, avancement, carte', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
-      { cle: 'receptions', emoji: '✅', libelle: 'Réceptions à valider', description: 'PV, rapport de mesures et photos déposés par le poseur', href: '/interne/validation', source: 'planning', vues: ['receptions'], urgent: true },
+      { cle: 'releves', emoji: '📋', libelle: 'Relevés à faire', description: 'Visites calées par le commercial : du jour, en retard et à venir, utilisables hors ligne', href: adresses.releves, source: 'qualification', vues: ['planifies', 'en-retard'], urgent: true },
+      { cle: 'feu-vert', emoji: '🚦', libelle: 'Feu vert à donner', description: 'Chantiers dont les 5 prérequis sont OK', href: adresses.feuVert, source: 'planning', vues: ['feu-vert'] },
+      { cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Poses, dépannages, visites et relevés par jour et par technicien', href: adresses.planning, source: 'planning', vues: ['en-cours'] },
+      { cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux, prêts, en cours, réserves à lever, avancement, carte', href: adresses.chantiers, source: 'planning', vues: ['en-cours'] },
+      { cle: 'receptions', emoji: '✅', libelle: 'Réceptions à valider', description: 'PV, rapport de mesures et photos déposés par le poseur', href: adresses.receptionChantiers, source: 'planning', vues: ['receptions'], urgent: true },
       { cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: 'Commandes en « à commander », suivi logistique, réceptions sous 7 jours, livraisons en retard', href: ecran('commandes', 'a-commander'), source: 'commandes', vues: ['a-commander'] },
       { cle: 'sav', emoji: '🚨', libelle: 'SAV urgences et tri', description: 'Tickets pas encore résolus, planning dépannage', href: ecran('sav', 'a-traiter'), source: 'sav', vues: ['a-traiter'], urgent: true },
       { cle: 'maintenance', emoji: '🔧', libelle: 'Visites de maintenance (J-30)', description: 'À planifier, échéance dans les 30 jours ou dépassée', href: ecran('maintenance', 'j-30'), source: 'maintenance', vues: ['j-30'] },
@@ -159,9 +164,9 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
   poseur: {
     titre: 'Mon travail',
     vues: [
-      { cle: 'interventions', emoji: '📱', libelle: 'Mes interventions', description: 'Poses et visites de maintenance : aujourd’hui, demain, la semaine, avec l’itinéraire du jour', href: '/interne/interventions', source: 'planning', vues: ['mes-interventions', 'maintenance:mes-visites'] },
-      { cle: 'reception', emoji: '📸', libelle: 'Réception sur place', description: 'PV signé, rapport de mesures, photos et réserves', href: '/interne/reception', source: 'planning', vues: ['mes-receptions'], urgent: true },
-      { cle: 'sav', emoji: '🔧', libelle: 'Mes tickets SAV', description: 'Tickets qui me sont affectés, pas encore résolus', href: '/interne/interventions?vue=sav', source: 'sav', vues: ['mes-tickets'], urgent: true },
+      { cle: 'interventions', emoji: '📱', libelle: 'Mes interventions', description: 'Poses et visites de maintenance : aujourd’hui, demain, la semaine, avec l’itinéraire du jour', href: adresses.interventions, source: 'planning', vues: ['mes-interventions', 'maintenance:mes-visites'] },
+      { cle: 'reception', emoji: '📸', libelle: 'Réception sur place', description: 'PV signé, rapport de mesures, photos et réserves', href: adresses.rapportSignature, source: 'planning', vues: ['mes-receptions'], urgent: true },
+      { cle: 'sav', emoji: '🔧', libelle: 'Mes tickets SAV', description: 'Tickets qui me sont affectés, pas encore résolus', href: `${adresses.interventions}?vue=sav`, source: 'sav', vues: ['mes-tickets'], urgent: true },
     ],
   },
   backOffice: {
@@ -173,8 +178,8 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
       { cle: 'livraisons', emoji: '🚚', libelle: 'Livraisons en retard', description: LIVRAISONS_DESCRIPTION, href: ecran('commandes', 'livraisons-retard'), source: 'commandes', vues: ['livraisons-retard'], urgent: true },
       { cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: 'Compteur : dossiers en cours dont la date limite tombe dans les 30 jours. Aussi : suivi, primes à encaisser', href: ecran('advenir', 'alertes'), source: 'advenir', vues: ['alertes'], urgent: true },
       { cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: 'Échéance annuelle dans les 30 jours ou dépassée. Aussi : base du Parc, abonnements de supervision', href: ecran('parc', 'contrats'), source: 'parc', vues: ['contrats'] },
-      { cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Bornes en relevé : à préparer, à valider, envoyés au gestionnaire (compteur : bornes suivies)', href: '/interne/decomptes', source: 'parc', vues: ['releve'] },
-      { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: CONTACTS_DESCRIPTION, href: '/interne/contacts', source: 'contacts', vues: VUES_CONTACTS },
+      { cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Bornes en relevé : à préparer, à valider, envoyés au gestionnaire (compteur : bornes suivies)', href: adresses.decomptes, source: 'parc', vues: ['releve'] },
+      { cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: CONTACTS_DESCRIPTION, href: adresses.contacts, source: 'contacts', vues: VUES_CONTACTS },
       { cle: 'rh', emoji: '👔', libelle: 'Demandes RH', description: 'Compteur : demandes RH nouvelles ou en examen', href: ecran('rh', 'demandes'), source: 'rh', vues: ['demandes'] },
       { cle: 'recrutement', emoji: '👷', libelle: 'Candidatures à traiter', description: RECRUTEMENT_DESCRIPTION, href: ecran('recrutement', 'a-traiter'), source: 'recrutement', vues: ['a-traiter'], urgent: true },
       { cle: 'salaries', emoji: '👥', libelle: 'Salariés', description: SALARIES_DESCRIPTION, href: ecran('salaries', 'a-suivre'), source: 'salaries', vues: ['a-suivre'], urgent: true },
@@ -183,38 +188,38 @@ export const ESPACES: Partial<Record<'commercial' | 'chargeOperation' | 'poseur'
   // Direction : les écrans de tous les rôles, une rangée par rôle, chacune dans l'ordre du workflow (16 h 49)
   direction: {
     titre: 'Espace direction',
-    creer: { libelle: 'Nouveau projet', href: '/interne/projet/nouveau' },
+    creer: { libelle: 'Nouveau projet', href: adresses.creerProjet },
     vues: [
       // Commercial : prospection, visite à caler, devis, relance, négociation, contacts
-      { etape: COMMERCIAL, cle: 'a-appeler', emoji: '📞', libelle: "À appeler aujourd'hui", description: 'Prospects dont la date de rappel est aujourd’hui ou passée', href: '/interne/prospection?vue=a-appeler', source: 'prospection', vues: ['a-appeler'], urgent: true },
-      { etape: COMMERCIAL, cle: 'chasse', emoji: '🚀', libelle: 'Pipeline chasse', description: 'Tous les prospects par étape, filtre LinkedIn', href: '/interne/prospection?vue=chasse', source: 'prospection', vues: ['chasse'] },
-      { etape: COMMERCIAL, cle: 'a-caler', emoji: '📅', libelle: 'Visites à caler', description: 'Le commercial fixe la date du relevé technique', href: '/interne/fiches?vue=a-caler', source: 'qualification', vues: ['a-caler'], urgent: true },
-      { etape: COMMERCIAL, cle: 'agenda', emoji: '🗓️', libelle: 'Agenda des visites', description: 'Relevés calés : jour, semaine, carte et itinéraire', href: '/interne/agenda', source: 'qualification', vues: ['planifies'] },
-      { etape: COMMERCIAL, cle: 'devis-a-chiffrer', emoji: '📝', libelle: 'Devis à chiffrer', description: 'Relevé finalisé, devis à faire dans Costructor', href: '/interne/fiches?vue=devis-a-chiffrer', source: 'qualification', vues: ['devis-a-chiffrer'] },
-      { etape: COMMERCIAL, cle: 'relances-echues', emoji: '📩', libelle: 'Relances devis', description: 'Relance du jour ou en retard', href: '/interne/fiches?vue=relances-echues', source: 'qualification', vues: ['relances-echues'], urgent: true },
-      { etape: COMMERCIAL, cle: 'en-negociation', emoji: '🔥', libelle: 'En négociation', description: 'Devis discutés avec le client', href: '/interne/fiches?vue=en-negociation', source: 'qualification', vues: ['en-negociation'] },
-      { etape: COMMERCIAL, cle: 'toutes', emoji: '💰', libelle: 'Pipeline vente', description: 'Toutes les affaires, rangées par étape', href: '/interne/fiches?vue=toutes', source: 'qualification', vues: ['toutes'] },
-      { etape: COMMERCIAL, cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: CONTACTS_DESCRIPTION, href: '/interne/contacts', source: 'contacts', vues: VUES_CONTACTS },
+      { etape: COMMERCIAL, cle: 'a-appeler', emoji: '📞', libelle: "À appeler aujourd'hui", description: 'Prospects dont la date de rappel est aujourd’hui ou passée', href: prospects('a-appeler'), source: 'prospection', vues: ['a-appeler'], urgent: true },
+      { etape: COMMERCIAL, cle: 'chasse', emoji: '🚀', libelle: 'Pipeline chasse', description: 'Tous les prospects par étape, filtre LinkedIn', href: prospects('chasse'), source: 'prospection', vues: ['chasse'] },
+      { etape: COMMERCIAL, cle: 'a-caler', emoji: '📅', libelle: 'Visites à caler', description: 'Le commercial fixe la date du relevé technique', href: fiches('a-caler'), source: 'qualification', vues: ['a-caler'], urgent: true },
+      { etape: COMMERCIAL, cle: 'agenda', emoji: '🗓️', libelle: 'Agenda des visites', description: 'Relevés calés : jour, semaine, carte et itinéraire', href: adresses.agenda, source: 'qualification', vues: ['planifies'] },
+      { etape: COMMERCIAL, cle: 'devis-a-chiffrer', emoji: '📝', libelle: 'Devis à chiffrer', description: 'Relevé finalisé, devis à faire dans Costructor', href: fiches('devis-a-chiffrer'), source: 'qualification', vues: ['devis-a-chiffrer'] },
+      { etape: COMMERCIAL, cle: 'relances-echues', emoji: '📩', libelle: 'Relances devis', description: 'Relance du jour ou en retard', href: fiches('relances-echues'), source: 'qualification', vues: ['relances-echues'], urgent: true },
+      { etape: COMMERCIAL, cle: 'en-negociation', emoji: '🔥', libelle: 'En négociation', description: 'Devis discutés avec le client', href: fiches('en-negociation'), source: 'qualification', vues: ['en-negociation'] },
+      { etape: COMMERCIAL, cle: 'toutes', emoji: '💰', libelle: 'Pipeline vente', description: 'Toutes les affaires, rangées par étape', href: fiches('toutes'), source: 'qualification', vues: ['toutes'] },
+      { etape: COMMERCIAL, cle: 'contacts', emoji: '👥', libelle: 'Contacts', description: CONTACTS_DESCRIPTION, href: adresses.contacts, source: 'contacts', vues: VUES_CONTACTS },
       // Chef de chantier : relevé, feu vert, matériel, planning, travaux, réception, SAV, maintenance
-      { etape: CHEF, cle: 'releves', emoji: '📋', libelle: 'Relevés à faire', description: 'Visites du chef de chantier : du jour, en retard et à venir', href: '/interne', source: 'qualification', vues: ['planifies', 'en-retard'], urgent: true },
-      { etape: CHEF, cle: 'feu-vert', emoji: '🚦', libelle: 'Feu vert à donner', description: 'Chantiers dont les 5 prérequis sont OK', href: '/interne/feu-vert', source: 'planning', vues: ['feu-vert'] },
+      { etape: CHEF, cle: 'releves', emoji: '📋', libelle: 'Relevés à faire', description: 'Visites du chef de chantier : du jour, en retard et à venir', href: adresses.releves, source: 'qualification', vues: ['planifies', 'en-retard'], urgent: true },
+      { etape: CHEF, cle: 'feu-vert', emoji: '🚦', libelle: 'Feu vert à donner', description: 'Chantiers dont les 5 prérequis sont OK', href: adresses.feuVert, source: 'planning', vues: ['feu-vert'] },
       { etape: CHEF, cle: 'a-commander', emoji: '📦', libelle: 'Matériel à commander', description: 'Commandes en « à commander », suivi logistique, réceptions sous 7 jours', href: ecran('commandes', 'a-commander'), source: 'commandes', vues: ['a-commander'] },
       { etape: CHEF, cle: 'livraisons', emoji: '🚚', libelle: 'Livraisons en retard', description: LIVRAISONS_DESCRIPTION, href: ecran('commandes', 'livraisons-retard'), source: 'commandes', vues: ['livraisons-retard'], urgent: true },
-      { etape: CHEF, cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Poses, dépannages, visites et relevés par jour et par technicien', href: '/interne/planning', source: 'planning', vues: ['en-cours'] },
-      { etape: CHEF, cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux, prêts, en cours, réserves à lever, avancement, carte', href: '/interne/chantiers', source: 'planning', vues: ['en-cours'] },
-      { etape: CHEF, cle: 'receptions', emoji: '✅', libelle: 'Réceptions à valider', description: 'PV, rapport de mesures et photos déposés par le poseur', href: '/interne/validation', source: 'planning', vues: ['receptions'], urgent: true },
+      { etape: CHEF, cle: 'planning', emoji: '📅', libelle: 'Master planning et Planning techs', description: 'Poses, dépannages, visites et relevés par jour et par technicien', href: adresses.planning, source: 'planning', vues: ['en-cours'] },
+      { etape: CHEF, cle: 'chantiers', emoji: '🏗️', libelle: 'Chantiers en cours', description: 'Suivi travaux, prêts, en cours, réserves à lever, avancement, carte', href: adresses.chantiers, source: 'planning', vues: ['en-cours'] },
+      { etape: CHEF, cle: 'receptions', emoji: '✅', libelle: 'Réceptions à valider', description: 'PV, rapport de mesures et photos déposés par le poseur', href: adresses.receptionChantiers, source: 'planning', vues: ['receptions'], urgent: true },
       { etape: CHEF, cle: 'sav', emoji: '🚨', libelle: 'SAV urgences et tri', description: 'Tickets pas encore résolus, planning dépannage', href: ecran('sav', 'a-traiter'), source: 'sav', vues: ['a-traiter'], urgent: true },
       { etape: CHEF, cle: 'maintenance', emoji: '🔧', libelle: 'Visites de maintenance (J-30)', description: 'À planifier, échéance dans les 30 jours ou dépassée', href: ecran('maintenance', 'j-30'), source: 'maintenance', vues: ['j-30'] },
       // Installateur : interventions puis réception sur place (compteurs de toute l'équipe)
-      { etape: INSTALLATEUR, cle: 'interventions', emoji: '📱', libelle: 'Interventions de l’équipe', description: 'Poses et visites de maintenance des installateurs, par jour, avec l’itinéraire', href: '/interne/interventions', source: 'planning', vues: ['interventions-equipe', 'maintenance:visites-equipe'] },
-      { etape: INSTALLATEUR, cle: 'reception', emoji: '📸', libelle: 'Réception sur place', description: 'Chantiers en cours : PV signé, rapport de mesures, photos et réserves du poseur', href: '/interne/reception', source: 'planning', vues: ['en-chantier'] },
+      { etape: INSTALLATEUR, cle: 'interventions', emoji: '📱', libelle: 'Interventions de l’équipe', description: 'Poses et visites de maintenance des installateurs, par jour, avec l’itinéraire', href: adresses.interventions, source: 'planning', vues: ['interventions-equipe', 'maintenance:visites-equipe'] },
+      { etape: INSTALLATEUR, cle: 'reception', emoji: '📸', libelle: 'Réception sur place', description: 'Chantiers en cours : PV signé, rapport de mesures, photos et réserves du poseur', href: adresses.rapportSignature, source: 'planning', vues: ['en-chantier'] },
       // Back-office : achats, aides, facturation, contrats, décomptes, RH
       { etape: BACK_OFFICE, cle: 'achats', emoji: '🧾', libelle: 'Achats à valider', description: ACHATS_DESCRIPTION, href: ecran('achats', 'a-valider'), source: 'achats', vues: ['a-valider'], urgent: true },
       { etape: BACK_OFFICE, cle: 'advenir', emoji: '📄', libelle: 'Aides ADVENIR', description: 'Compteur : dossiers en cours dont la date limite tombe dans les 30 jours. Aussi : suivi, primes à encaisser', href: ecran('advenir', 'alertes'), source: 'advenir', vues: ['alertes'], urgent: true },
       { etape: BACK_OFFICE, cle: 'factures', emoji: '💰', libelle: 'Factures non réglées', description: NON_REGLEES_DESCRIPTION, href: ecran('factures', 'ouvertes'), source: 'factures', vues: ['ouvertes'] },
       { etape: BACK_OFFICE, cle: 'factures-retard', emoji: '⏰', libelle: 'Factures à relancer', description: RELANCER_DESCRIPTION, href: ecran('factures', 'retard'), source: 'factures', vues: ['retard'], urgent: true },
       { etape: BACK_OFFICE, cle: 'contrats', emoji: '📜', libelle: 'Contrats à renouveler', description: 'Échéance annuelle dans les 30 jours ou dépassée. Aussi : base du Parc, abonnements de supervision', href: ecran('parc', 'contrats'), source: 'parc', vues: ['contrats'] },
-      { etape: BACK_OFFICE, cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Bornes en relevé : à préparer, à valider, envoyés (compteur : bornes suivies)', href: '/interne/decomptes', source: 'parc', vues: ['releve'] },
+      { etape: BACK_OFFICE, cle: 'decomptes', emoji: '⚡', libelle: 'Décomptes énergétiques', description: 'Bornes en relevé : à préparer, à valider, envoyés (compteur : bornes suivies)', href: adresses.decomptes, source: 'parc', vues: ['releve'] },
       { etape: BACK_OFFICE, cle: 'rh', emoji: '👔', libelle: 'Demandes RH', description: 'Compteur : demandes RH nouvelles ou en examen', href: ecran('rh', 'demandes'), source: 'rh', vues: ['demandes'] },
       { etape: BACK_OFFICE, cle: 'recrutement', emoji: '👷', libelle: 'Candidatures à traiter', description: RECRUTEMENT_DESCRIPTION, href: ecran('recrutement', 'a-traiter'), source: 'recrutement', vues: ['a-traiter'], urgent: true },
       { etape: BACK_OFFICE, cle: 'salaries', emoji: '👥', libelle: 'Salariés', description: SALARIES_DESCRIPTION, href: ecran('salaries', 'a-suivre'), source: 'salaries', vues: ['a-suivre'], urgent: true },
