@@ -9,6 +9,9 @@
 // 19/10, 11 h 39 : « Photo du bon de livraison » dans la confirmation « Reçu / vérifié » (maquette v2), avec les briques
 // existantes : BoutonFichier (Appli.tsx), la préparation des photos de la réception (src/lib/preparerFichier.ts) et la
 // ligne document commune (LigneDocument.tsx) pour la vignette.
+// 19/10, 12 h 13 (Matthieu : « Il n'y a pas la carte photo », commande déjà reçue) : une fois la commande reçue, la ligne
+// « 📎 Bon de livraison » reste dans « Suite de la commande », avec le même bouton, pour joindre la photo après coup
+// (une fois jointe, la photo est montrée par la carte Documents de la fiche, pas en double ici).
 // Champs, étapes et boutons : src/lib/suivi.ts ; lecture et écriture : /api/interne/suivi. Sans les droits, rien ne
 // s'affiche (la fiche reste en lecture).
 import { useEffect, useState } from 'react';
@@ -24,7 +27,7 @@ type ActionSuivi = { cible: string; libelle: string; principal: boolean; confirm
 type Etat = {
   titre: string; titreSuite: string; enregistrer: string; enregistre: string; statut: string; close: string;
   champs: ChampSuivi[]; actions: ActionSuivi[]; validation: { par: string; peutValider: boolean } | null;
-  bonLivraison?: { fichiers: FichierApercu[] } | null;
+  bonLivraison?: { fichiers: FichierApercu[]; recu?: boolean } | null;
 };
 const URL = '/api/interne/suivi';
 const VERT = '#16a34a';
@@ -173,6 +176,15 @@ export function Suivi({ ficheId, onChange }: { ficheId: string; onChange?: () =>
           {e.validation && (e.validation.par ? <> Achat validé par {e.validation.par}.</> : <> Achat validé par : <strong style={{ color: ORANGE }}>personne</strong>.</>)}
         </p>
         {e.close && <p className="text-[14px]">{e.close}</p>}
+        {e.bonLivraison?.recu && !e.bonLivraison.fichiers.length && (
+          <LigneDocument titre="📎 Bon de livraison" fichiers={[]} taskId={ficheId} cible="bonLivraison" vide="pas encore de photo">
+            <div className="mt-2">
+              <BoutonFichier accept="image/*,application/pdf" inactif={envoi} onFichiers={deposerBonLivraison}>
+                <Camera size={18} /> {envoi ? 'Envoi…' : 'Photo du bon de livraison'}
+              </BoutonFichier>
+            </div>
+          </LigneDocument>
+        )}
         {e.validation && !e.validation.par && e.validation.peutValider && !confirmer && (
           <BoutonSecondaire compact onClick={valider} disabled={envoi}><Check size={18} /> Je valide l’achat</BoutonSecondaire>
         )}

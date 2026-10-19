@@ -17,6 +17,7 @@ import { deposerDansChamp, horodatage, slugFichier } from '@/lib/champFichier';
 // POST multipart { id, fichier } (19/10, 11 h 39) : photo ou PDF du 📎 Bon de livraison d'une commande passée, déposé
 //   dans son champ par src/lib/champFichier.ts (comme le PV et le rapport de mise en service), nommé à la charte
 //   (CMD_BON-LIVRAISON_<commande>_<date>), 4 Mo au plus (le téléphone réduit la photo avant, src/lib/preparerFichier.ts).
+//   12 h 13 (Matthieu : « Il n'y a pas la carte photo » sur une commande déjà reçue) : aussi après le « Reçu / vérifié ».
 // Droits : src/lib/suivi.ts (commandes : chef de chantier, back-office, direction ; ADVENIR : back-office, direction).
 // En preview, seules les tâches avec « Test » dans le nom sont modifiées.
 
@@ -99,7 +100,7 @@ function etatPublic(def: DefSuivi, t: any, roles: string[]) {
     ? { par: personnes(champ(t, VALIDE_PAR)).join(', '), peutValider: roles.includes('direction') && etat === 'a-commander' }
     : null;
   const bonLivraison = def.source === 'commandes' && ETATS_BON_LIVRAISON.includes(etat) && champ(t, BON_LIVRAISON)
-    ? { fichiers: fichiersDe(champ(t, BON_LIVRAISON)) }
+    ? { fichiers: fichiersDe(champ(t, BON_LIVRAISON)), recu: etat === 'recu' }
     : null;
   return {
     bonLivraison,
