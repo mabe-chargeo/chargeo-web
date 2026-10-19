@@ -6,12 +6,17 @@
 // - « La commande » / « Le dossier », comme « Le projet » : les champs de l'étape, puis Enregistrer ;
 // - « Suite de la commande » / « Suite du dossier », comme « Suite de la vente » : statut actuel, bouton orange de
 //   l'étape suivante, boutons blancs, confirmation dans le cadre orange pour les étapes qui ferment.
+// 19/10, 11 h 39 : « Photo du bon de livraison » dans la confirmation « Reçu / vérifié » (maquette v2), avec les briques
+// existantes : BoutonFichier (Appli.tsx), la préparation des photos de la réception (src/lib/preparerFichier.ts) et la
+// ligne document commune (LigneDocument.tsx) pour la vignette.
 // Champs, étapes et boutons : src/lib/suivi.ts ; lecture et écriture : /api/interne/suivi. Sans les droits, rien ne
 // s'affiche (la fiche reste en lecture).
 import { useEffect, useState } from 'react';
-import { Check, ClipboardList, RefreshCw, Send } from 'lucide-react';
-import { Carte, TitreCarte, Alerte, BoutonPrincipal, BoutonSecondaire, PastilleChoix, CadreConfirmation, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
+import { Camera, Check, ClipboardList, RefreshCw, Send } from 'lucide-react';
+import { Carte, TitreCarte, Alerte, BoutonPrincipal, BoutonSecondaire, BoutonFichier, PastilleChoix, CadreConfirmation, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
+import { LigneDocument, type FichierApercu } from '@/components/appli/LigneDocument';
+import { preparerFichier, TAILLE_MAX_ENVOI } from '@/lib/preparerFichier';
 import type { GenreChamp } from '@/lib/suivi';
 
 type ChampSuivi = { cle: string; libelle: string; genre: GenreChamp; valeur: string; exemple?: string; absent?: boolean; options?: string[]; aide?: { texte: string; orange?: boolean } };
@@ -19,6 +24,7 @@ type ActionSuivi = { cible: string; libelle: string; principal: boolean; confirm
 type Etat = {
   titre: string; titreSuite: string; enregistrer: string; enregistre: string; statut: string; close: string;
   champs: ChampSuivi[]; actions: ActionSuivi[]; validation: { par: string; peutValider: boolean } | null;
+  bonLivraison?: { fichiers: FichierApercu[] } | null;
 };
 const URL = '/api/interne/suivi';
 const VERT = '#16a34a';
@@ -91,6 +97,24 @@ export function Suivi({ ficheId, onChange }: { ficheId: string; onChange?: () =>
     const { ok, j } = await poster({ id: ficheId, action: 'statut', cible: a.cible });
     apres('suite', ok, j, `Passé en ${sansEmoji(String(j?.statut || a.libelle)).toLowerCase()}.`);
     setConfirmer(null);
+    setEnvoi(false);
+  };
+  // Photo du bon de livraison : réduite sur le téléphone, puis déposée dans son champ
+  const deposerBonLivraison = async (liste: FileList | null) => {
+    if (!liste?.length) return;
+    debut();
+    const fichier = await preparerFichier(liste[0]);
+    if (fichier.size > TAILLE_MAX_ENVOI) { setErreur({ carte: 'suite', texte: 'Fichier trop lourd (4 Mo maximum).' }); setEnvoi(false); return; }
+    const form = new FormData();
+    form.append('id', ficheId);
+    form.append('fichier', fichier);
+    try {
+      const res = await fetch(URL, { method: 'POST', body: form });
+      const j = await res.json().catch(() => ({}));
+      apres('suite', res.ok && !!j?.success, j, 'Bon de livraison enregistré.');
+    } catch {
+      setErreur({ carte: 'suite', texte: 'Pas de réseau : la photo n’a pas été envoyée.' });
+    }
     setEnvoi(false);
   };
   const choisir = (a: ActionSuivi) => (a.confirmer ? setConfirmer(a) : passer(a));
@@ -171,6 +195,14 @@ export function Suivi({ ficheId, onChange }: { ficheId: string; onChange?: () =>
         {confirmer && (
           <CadreConfirmation>
             <p className="text-[15px] font-semibold leading-relaxed">{confirmer.confirmer}</p>
+            {confirmer.cible === 'recu' && e.bonLivraison && (
+              <>
+                {e.bonLivraison.fichiers.length > 0 && <LigneDocument titre="📎 Bon de livraison" fichiers={e.bonLivraison.fichiers} taskId={ficheId} cible="bonLivraison" />}
+                <BoutonFichier accept="image/*,application/pdf" inactif={envoi} onFichiers={deposerBonLivraison}>
+                  <Camera size={18} /> {envoi ? 'Envoi…' : e.bonLivraison.fichiers.length ? 'Ajouter une autre photo' : 'Photo du bon de livraison'}
+                </BoutonFichier>
+              </>
+            )}
             <BoutonPrincipal type="button" onClick={() => passer(confirmer)} disabled={envoi} inactif={envoi}>
               {envoi ? 'Envoi…' : `Confirmer : ${sansEmoji(confirmer.libelle).toLowerCase()}`}
             </BoutonPrincipal>

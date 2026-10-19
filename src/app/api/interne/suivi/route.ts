@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { sessionDeRequete } from '@/lib/session';
 import { rolesDe } from '@/lib/roles';
 import { LISTES } from '@/lib/espaces';
-import { SUIVIS, VALIDE_PAR, type DefAction, type DefChamp, type DefSuivi, type SourceSuivi } from '@/lib/suivi';
+import { BON_LIVRAISON, ETATS_BON_LIVRAISON, SUIVIS, VALIDE_PAR, type DefAction, type DefChamp, type DefSuivi, type SourceSuivi } from '@/lib/suivi';
+import { deposerDansChamp, horodatage, slugFichier } from '@/lib/champFichier';
 
 // Suivi d'une commande de matériel ou d'un dossier ADVENIR depuis la fiche de l'application (19/10/2026, maquette
 // MAQUETTE_SUIVI-COMMANDE-ADVENIR_2026-10-19_v2.png validée par Matthieu à 11 h 03). Champs, étapes et boutons :
@@ -13,6 +14,9 @@ import { SUIVIS, VALIDE_PAR, type DefAction, type DefChamp, type DefSuivi, type 
 // POST { id, action: 'statut', cible } : seulement un bouton de l'étape actuelle, et seulement si rien ne manque
 //   (« commandé » demande l'achat validé et la date de livraison prévue, comme le garde-fou de la liste). Nom du statut
 //   relu dans la liste. Les suites (garde-fous, alertes) partent comme un changement fait dans ClickUp.
+// POST multipart { id, fichier } (19/10, 11 h 39) : photo ou PDF du 📎 Bon de livraison d'une commande passée, déposé
+//   dans son champ par src/lib/champFichier.ts (comme le PV et le rapport de mise en service), nommé à la charte
+//   (CMD_BON-LIVRAISON_<commande>_<date>), 4 Mo au plus (le téléphone réduit la photo avant, src/lib/preparerFichier.ts).
 // Droits : src/lib/suivi.ts (commandes : chef de chantier, back-office, direction ; ADVENIR : back-office, direction).
 // En preview, seules les tâches avec « Test » dans le nom sont modifiées.
 
@@ -43,6 +47,13 @@ function valeurDe(f: any, c: DefChamp): string {
   if (c.genre === 'nombre') { const n = Number(v); return Number.isFinite(n) ? String(n) : ''; }
   return texte(v, 500);
 }
+const IMAGE = /\.(jpe?g|png|webp|gif|heic|heif)$/i;
+// Fichiers d'un champ Fichiers, pour la ligne document commune (src/components/appli/LigneDocument.tsx)
+const fichiersDe = (f: any): { id: string; nom: string; image: boolean }[] =>
+  (Array.isArray(f?.value) ? f.value : f?.value ? [f.value] : []).map((x: any) => {
+    const nom = String(x?.title || x?.name || 'fichier');
+    return { id: String(x?.id || ''), nom, image: String(x?.mimetype || '').startsWith('image/') || IMAGE.test(nom) };
+  }).filter((x: { id: string }) => !!x.id);
 const personnes = (f: any): string[] => (Array.isArray(f?.value) ? f.value : []).map((u: any) => String(u?.username || u?.email || '').trim()).filter(Boolean);
 
 // Ce qui manque pour un bouton (null = rien)
@@ -87,7 +98,11 @@ function etatPublic(def: DefSuivi, t: any, roles: string[]) {
   const validation = def.source === 'commandes'
     ? { par: personnes(champ(t, VALIDE_PAR)).join(', '), peutValider: roles.includes('direction') && etat === 'a-commander' }
     : null;
+  const bonLivraison = def.source === 'commandes' && ETATS_BON_LIVRAISON.includes(etat) && champ(t, BON_LIVRAISON)
+    ? { fichiers: fichiersDe(champ(t, BON_LIVRAISON)) }
+    : null;
   return {
+    bonLivraison,
     source: def.source, titre: def.titre, titreSuite: def.titreSuite, enregistrer: def.enregistrer, enregistre: def.enregistre,
     statut, close: def.fermes.includes(etat) ? def.close : '', champs, actions, validation,
   };
@@ -122,9 +137,40 @@ export async function GET(request: Request) {
   return json({ success: true, ...etatPublic(o.def, o.t, o.roles) });
 }
 
+// Photo (ou PDF) du bon de livraison
+async function deposerBonLivraison(request: Request, token: string) {
+  try {
+    const form = await request.formData();
+    const o = await ouvrir(request, token, texte(form.get('id'), 30));
+    if (!o.ok) return o.reponse;
+    const { t, def, roles } = o;
+    if (def.source !== 'commandes') return json({ success: false, error: 'Le bon de livraison se joint à une commande de matériel.' }, 400);
+    if (process.env.VERCEL_ENV !== 'production' && !/\btest\b/i.test(String(t?.name || ''))) return json({ success: false, error: 'En preview, seules les fiches de test (avec « Test » dans le nom) peuvent être modifiées.' }, 403);
+    if (!ETATS_BON_LIVRAISON.includes(def.etat(normal(t?.status?.status)))) return json({ success: false, error: 'Le bon de livraison se joint une fois la commande passée.' }, 400);
+    const f = form.get('fichier') as any;
+    if (!f || typeof f.arrayBuffer !== 'function') return json({ success: false, error: 'Aucun fichier reçu.' }, 400);
+    const type = String(f.type || '');
+    if (!type.startsWith('image/') && type !== 'application/pdf') return json({ success: false, error: 'Une photo ou un PDF seulement.' }, 400);
+    if (Number(f.size) > 4 * 1024 * 1024) return json({ success: false, error: 'Fichier trop lourd (4 Mo maximum).' }, 413);
+    const c = champ(t, BON_LIVRAISON);
+    if (!c) return json({ success: false, error: 'Le champ 📎 Bon de livraison est absent de cette liste' }, 500);
+    const ext = type === 'application/pdf' ? 'pdf' : type === 'image/png' ? 'png' : 'jpg';
+    const nom = `CMD_BON-LIVRAISON_${slugFichier(t?.name) || 'COMMANDE'}_${horodatage().jour}.${ext}`;
+    const erreur = await deposerDansChamp(token, String(t.id), c.id, new Uint8Array(await f.arrayBuffer()), nom, type);
+    if (erreur) return json({ success: false, error: `Bon de livraison non enregistré : ${erreur}.` }, 502);
+    const auteur = texte((o.session as any).nom) || texte((o.session as any).email) || 'CHARGéO';
+    await fetch(`${API}/task/${encodeURIComponent(String(t.id))}/comment`, { method: 'POST', headers: { Authorization: token, 'Content-Type': 'application/json' }, body: JSON.stringify({ comment_text: `📎 Bon de livraison joint depuis l'application par ${auteur} (${nom}).`, notify_all: false }), cache: 'no-store' }).catch(() => null);
+    return json({ success: true, ...etatPublic(def, (await lire(token, String(t.id))) || t, roles) });
+  } catch (e) {
+    console.error('Suivi (bon de livraison)', e);
+    return json({ success: false, error: 'Erreur serveur' }, 500);
+  }
+}
+
 export async function POST(request: Request) {
   const token = process.env.CLICKUP_API_KEY;
   if (!token) return json({ success: false, error: 'Configuration serveur incomplète' }, 500);
+  if ((request.headers.get('content-type') || '').includes('multipart/form-data')) return deposerBonLivraison(request, token);
   try {
     const corps = await request.json().catch(() => ({}));
     const o = await ouvrir(request, token, texte(corps?.id, 30));
