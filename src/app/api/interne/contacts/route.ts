@@ -4,6 +4,7 @@ import { rolesDe } from '@/lib/roles';
 import { getQualificationListId } from '@/lib/listesClickUp';
 import { CHAMPS } from '@/lib/champsClickUp';
 import { LISTES } from '@/lib/espaces';
+import { adresses } from '@/lib/adresses';
 
 // Annuaire de l'espace Commercial (validé par Matthieu le 17/10/2026), partagé avec le back-office. LECTURE SEULE.
 // GET : tous les contacts, triés par nom :
@@ -98,7 +99,7 @@ export async function GET(request: Request) {
             tel: texte(valeur(t, CHAMPS.telephone)),
             email: texte(valeur(t, CHAMPS.email)),
             url: String(t?.url || `https://app.clickup.com/t/${t.id}`),
-            fiche: `/interne/fiches/${t.id}`,
+            fiche: adresses.affaire(String(t.id)),
           });
         }
       }

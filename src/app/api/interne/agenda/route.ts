@@ -5,6 +5,7 @@ import { getQualificationListId, estAVisiter } from '@/lib/listesClickUp';
 import { aujourdhuiParis } from '@/lib/joursOuvres';
 import { CHAMPS } from '@/lib/champsClickUp';
 import { adresseDe, dateVisiteDe, nomOption, sansEmoji, vueDe } from '@/lib/vuesFiches';
+import { adresses } from '@/lib/adresses';
 
 // Agenda des visites (lot B des écrans manquants, 17/10/2026) : AGENDA VISITES et CARTE DES AUDITS de Qualification.
 // LECTURE SEULE. Les relevés techniques calés par le commercial (fiches 📍 à visiter avec une 📅 Date Visite Technique),
@@ -70,7 +71,7 @@ export async function GET(request: Request) {
           adresse: adresseDe(t),
           lat: Number(adresse?.location?.lat) || null,
           lng: Number(adresse?.location?.lng) || null,
-          lien: `/interne/fiches/${t.id}`,
+          lien: adresses.affaire(String(t.id)),
         };
       })
       .sort((x, y) => x.ms - y.ms);
