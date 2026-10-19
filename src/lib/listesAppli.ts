@@ -1,8 +1,9 @@
 // Écrans de liste de l'application (lot « écrans qui manquent », lancé par Matthieu le 17/10/2026 à 14 h 28 : « on crée
 // tout d'un coup au fur et à mesure »). Un seul moteur pour toutes les listes ClickUp qui s'ouvraient encore dans ClickUp :
 // Commandes, SAV, Maintenance, Factures, Achats, ADVENIR, Parc, RH, Salariés, Recrutement, CODIR, OKR, Kaizen, To-Do.
-// Écran /interne/liste/<source>?vue=<clé> : pastilles (vues de l'espace + une par statut), cartes avec les champs clés,
-// et la fiche générique /interne/element/<id> (tous les champs remplis, description, commentaires, liens).
+// Écran /<liste>?vue=<clé> (adresse de chaque liste dans src/lib/adresses.ts) : pastilles (vues de l'espace + une par
+// statut), cartes avec les champs clés, et la fiche générique /fiche/<id> (tous les champs remplis, description,
+// commentaires, liens).
 // Les vues et leurs compteurs sont ceux de src/lib/espaces.ts (FILTRES) : mêmes chiffres que Mon espace.
 // 17/10/2026, 18 h 02 (Matthieu : « il faut créer tous les écrans qui manquent ») : vues de la liste du 11/10 ajoutées,
 // Suivi logistique et Réceptions sous 7 jours (Matériel), Planning dépannage (SAV), À valider et En cours (Achats),
@@ -23,10 +24,12 @@
 // 19 h 42 (choix de Matthieu) : « En retard » des Factures devient « À relancer ». L'échéance de la tâche est la date
 // du rappel de relance (J+3, J+10, J+15, src/lib/controleReglements.ts), le champ 📅 Date d'échéance la date limite de
 // paiement : la carte les étiquette (libelleEcheance = « Relance le », etiquettes = « Paiement dû le »).
-// 20 h 14 (Matthieu) : + Tâche en tête de la To-Do (/interne/creer/tache).
+// 20 h 14 (Matthieu) : + Tâche en tête de la To-Do (/creer/tache).
+// 19/10/2026, 18 h 43 (adresses propres) : adresses lues dans src/lib/adresses.ts (Recrutement s'affiche sur /candidatures).
 // Fichier pur : utilisable côté téléphone comme côté serveur. L'affichage ne donne aucun droit : les routes
 // /api/interne/listes et /api/interne/elements contrôlent les rôles.
 import { LISTES, FILTRES, type Filtre, type SourceVue } from '@/lib/espaces';
+import { adresses } from '@/lib/adresses';
 
 export type RoleListe = 'direction' | 'commercial' | 'chargeOperation' | 'backOffice' | 'poseur';
 export type SourceListe = Exclude<SourceVue, 'qualification' | 'aucune' | 'prospection' | 'contacts' | 'planning'>;
@@ -136,7 +139,7 @@ export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
       { cle: 'presents', libelle: 'Effectif' },
     ],
     champs: ['poste', 'type de contrat', "date d'entree", 'expiration habilitation'],
-    creer: { libelle: '+ Salarié', href: '/interne/creer/salarie' },
+    creer: { libelle: '+ Salarié', href: adresses.creerSalarie },
     note: 'Une personne = une fiche, de son arrivée à son départ. Données RH : visibles du back-office et de la direction seulement.',
   },
   recrutement: {
@@ -146,7 +149,7 @@ export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
       { cle: 'pipeline', libelle: 'Pipeline' },
     ],
     champs: ['poste', 'disponibilite', 'telephone', 'habilitation'],
-    creer: { libelle: '+ Candidat', href: '/interne/creer/candidat' },
+    creer: { libelle: '+ Candidat', href: adresses.creerCandidat },
     note: 'Les candidatures de chargeo.fr/recrutement arrivent ici. Un candidat répond sous 48 h ou il est perdu.',
   },
   codir: { titre: 'Réunions CODIR', emoji: '🗣️', roles: [], vues: [{ cle: 'a-venir', libelle: 'À venir' }], champs: ['date', 'participants'] },
@@ -157,7 +160,7 @@ export const CONFIG_LISTES: Record<SourceListe, ConfigListe> = {
   },
   todo: {
     titre: 'To-Do', emoji: '📝', roles: [], vues: [{ cle: 'en-retard', libelle: 'En retard' }], champs: [],
-    creer: { libelle: '+ Tâche', href: '/interne/creer/tache' },
+    creer: { libelle: '+ Tâche', href: adresses.creerTache },
   },
 };
 
@@ -182,4 +185,4 @@ export function seulementMoi(s: SourceListe, roles: string[]): boolean {
 // Source d'une liste ClickUp par son identifiant (fiche générique)
 export const sourceDeListe = (listId: string): SourceListe | null => SOURCES_LISTE.find((s) => LISTES[s] === String(listId)) || null;
 
-export const lienListe = (s: SourceListe, vue?: string) => `/interne/liste/${s}${vue ? `?vue=${encodeURIComponent(vue)}` : ''}`;
+export const lienListe = (s: SourceListe, vue?: string) => `${adresses.liste(s)}${vue ? `?vue=${encodeURIComponent(vue)}` : ''}`;
