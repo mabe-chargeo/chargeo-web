@@ -69,6 +69,8 @@ export async function parcoursDe(token: string, listId: string, statut: string) 
   const noms = ouverts.map((s) => String(s?.status || ''));
   if (noms.length < 2) return null;
   let courante = noms.findIndex((n) => normal(n) === normal(statut));
+  // Statut « terminé » de ClickUp (type done : ✅ problème résolu, livrée…) : l'étape est faite, pas en cours (19/10)
+  if (courante >= 0 && ouverts[courante]?.type === 'done') courante += 1;
   if (courante < 0) {
     // Fermée ou archivée : tout est fait ; annulée ou statut inconnu : pas de parcours
     const s = tous.find((x) => normal(x?.status) === normal(statut));
