@@ -4,9 +4,11 @@
 // Pastilles Jour, Semaine, Carte des visites (carte des menus). Jour : les relevés du jour avec l'itinéraire Google Maps
 // dans l'ordre des heures. Semaine : les 7 prochains jours (et les visites passées pas encore faites). Carte : la carte
 // de la visite choisie, toutes les visites à venir en dessous. Chaque visite ouvre la fiche affaire.
+// 19/10/2026 (2e lot de cohérence) : cartes et boutons sur les briques communes (src/components/charte/Appli.tsx),
+// bouton Retour de l'en-tête commun.
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarClock, ChevronRight, MapPin, Navigation, RefreshCw } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte } from '@/components/charte/Appli';
+import { CalendarClock, ChevronRight, MapPin, Navigation, RefreshCw } from 'lucide-react';
+import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, LienPrincipal } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 
 type Visite = { id: string; nom: string; jour: string; heure: string; ms: number; typeClient: string; adresse: string; lat: number | null; lng: number | null; lien: string };
@@ -94,21 +96,15 @@ export default function AgendaPage() {
   const boutonItineraire = (vs: Visite[]) => {
     const url = itineraire(vs);
     return url ? (
-      <a href={url} target="_blank" rel="noopener noreferrer" className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF6B00] px-6 py-3.5 text-[16px] font-semibold text-white shadow-[0_8px_22px_rgba(255,107,0,0.28)]">
+      <LienPrincipal href={url}>
         <Navigation size={18} /> Itinéraire ({vs.length} visite{vs.length > 1 ? 's' : ''})
-      </a>
+      </LienPrincipal>
     ) : null;
   };
 
-  const boutonRetour = (
-    <a href="/interne/espace" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Mon espace
-    </a>
-  );
-
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Relevés techniques" titre="Agenda des visites" action={boutonRetour} />
+      <EnTeteAppli surtitre="Relevés techniques" titre="Agenda des visites" retour={{ href: "/interne/espace", libelle: "Mon espace" }} />
       <ContenuAppli className="space-y-4">
         {preview && <Alerte>Preview : visites lues dans 🧪 Qualification TEST.</Alerte>}
         <div className="grid grid-cols-3 gap-1 rounded-full bg-[#eef1f4] p-1">

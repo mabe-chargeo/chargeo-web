@@ -14,10 +14,12 @@
 //   direction). Les boutons suivent les rôles de /api/interne/moi ; chaque route contrôle elle-même les droits.
 // 18/10, 8 h 31 (Matthieu : « Fais maintenance et SAV ») : visite de maintenance (à planifier ou rdv confirmé) et
 //   dépannage (ticket ouvert) : « Caler » ou « Décaler » (/interne/rdv/<visite|depannage>/<id> : chef de chantier, direction).
+// 19/10/2026 (2e lot de cohérence) : cartes et boutons sur les briques communes (src/components/charte/Appli.tsx),
+// bouton Retour de l'en-tête commun.
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarPlus, ChevronRight, MapPin, RefreshCw, User } from 'lucide-react';
+import { CalendarPlus, ChevronRight, MapPin, RefreshCw, User } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte } from '@/components/charte/Appli';
-import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
+import { CYAN, ORANGE } from '@/components/charte/couleurs';
 
 type Type = 'pose' | 'visite' | 'depannage' | 'releve';
 type Item = { id: string; type: Type; nom: string; statut: string; couleurStatut: string; jour: string; heure: string; techniciens: { id: string; nom: string }[]; adresse: string; lien: string };
@@ -149,15 +151,9 @@ export default function PlanningPage() {
       </div>
     ));
 
-  const boutonRetour = (
-    <a href="/interne/espace" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Mon espace
-    </a>
-  );
-
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Interventions planifiées avec les clients" titre="Planning" action={boutonRetour} />
+      <EnTeteAppli surtitre="Interventions planifiées avec les clients" titre="Planning" retour={{ href: "/interne/espace", libelle: "Mon espace" }} />
       <ContenuAppli className="space-y-4">
         <div className="grid grid-cols-2 gap-2 rounded-full bg-[#eef1f4] p-1">
           {(['master', 'techs'] as const).map((v) => (
@@ -199,17 +195,17 @@ export default function PlanningPage() {
             {techniciens.map((t) => {
               const siens = visibles.filter((i) => i.techniciens.some((x) => x.id === t.id));
               return (
-                <div key={t.id} className="space-y-3 rounded-[20px] p-4" style={{ backgroundColor: GRIS }}>
+                <Carte key={t.id} className="space-y-3">
                   <Repere>{t.nom} · {siens.length}</Repere>
                   {blocJours(siens, false)}
-                </div>
+                </Carte>
               );
             })}
             {nonAffectes.length > 0 && (
-              <div className="space-y-3 rounded-[20px] p-4" style={{ backgroundColor: GRIS }}>
+              <Carte className="space-y-3">
                 <Repere>Non affecté · {nonAffectes.length}</Repere>
                 {blocJours(nonAffectes, false)}
-              </div>
+              </Carte>
             )}
           </>
         )}
