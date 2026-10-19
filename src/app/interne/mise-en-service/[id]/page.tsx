@@ -7,11 +7,14 @@
 // en service (plus de PDF du contrôleur obligatoire). 15 h 56 (test) : « Enregistrer » reste grisé tant qu'un contrôle
 // n'est pas rempli (valeur, OK, Défaut ou NA), et une fois enregistré tant que rien ne change (pas de double envoi).
 // Brouillon gardé sur le téléphone ; « Enregistrer » passe par la file d'envoi hors ligne (src/lib/fileEnvoi.ts).
+// 19/10/2026, 8 h 35 (passe de cohérence validée sur maquette) : bloc 📇 Contact commun du chantier en haut et bouton
+// Retour de l'en-tête commun.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, Camera, Check, CloudOff, MapPin, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Camera, Check, CloudOff, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, GRIS, NAVY, ORANGE } from '@/components/charte/couleurs';
+import { BlocContact } from '@/components/ui/BlocContact';
 import { OBJET, aDuTri, appareilDe, cleValeur, defauts, etapesDe, manquants, type ModeProtocole, type Resultats } from '@/lib/protocoleMaintenance';
 import { ajouter, envoyerTout, lister, nouvelleCle, reprendre, type Envoi } from '@/lib/fileEnvoi';
 
@@ -153,15 +156,9 @@ export default function MiseEnServicePage() {
   const inactif = bloque || reste > 0 || enregistre;
   const conformes = points.filter((p) => p.fait && !p.defaut).length;
 
-  const boutonRetour = (
-    <a href="/interne/reception" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Réception
-    </a>
-  );
-
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Mise en service" titre={chantier?.nom || 'Chantier'} action={boutonRetour} />
+      <EnTeteAppli surtitre="Mise en service" titre={chantier?.nom || 'Chantier'} retour={{ href: '/interne/reception', libelle: 'Réception' }} />
       <ContenuAppli className="space-y-4">
         {preview && chantier && !chantier.ecritureAutorisee && <Alerte>Preview : seuls les chantiers « Test … » peuvent être enregistrés.</Alerte>}
         {erreur && <Alerte>{erreur}</Alerte>}
@@ -171,6 +168,9 @@ export default function MiseEnServicePage() {
             <p className="mt-3 text-[15px] font-semibold">Chargement du chantier...</p>
           </Carte>
         )}
+
+        {/* Contact du chantier : bloc commun (lu avec du réseau) */}
+        {id && <BlocContact affaireId={id} ouvertParDefaut />}
 
         {chantier && (
           <Carte className="space-y-1.5">
