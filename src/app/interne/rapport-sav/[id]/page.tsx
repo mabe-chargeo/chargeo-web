@@ -6,12 +6,16 @@
 // charte dans 📄 Rapport d'intervention du ticket. « Problème résolu » ferme le ticket (l'installation repasse en
 // service au Parc), « Pièce à commander » le met en attente pièce, « À revenir » le laisse ouvert.
 // Envoi par la file hors ligne (src/lib/fileEnvoi.ts) : sans réseau, le rapport signé attend sur le téléphone.
+// 19/10/2026, 8 h 35 (passe de cohérence validée sur maquette) : bloc 📇 Contact commun de l'installation sous « Le
+// ticket », bouton Retour et fil d'Ariane de l'en-tête commun (SAV, ou Mes interventions pour l'installateur).
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Check, CloudOff, FileText, MapPin, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Check, CloudOff, FileText, MapPin, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, GRIS, NAVY, ORANGE } from '@/components/charte/couleurs';
 import PadSignature from '@/components/interne/PadSignature';
+import { BlocContact } from '@/components/ui/BlocContact';
+import { useRoleAppli } from '@/components/charte/roleAppli';
 import { ajouter, envoyerTout, lister, nouvelleCle, oublier, reprendre } from '@/lib/fileEnvoi';
 
 type Ticket = {
@@ -52,6 +56,7 @@ function Etape({ n, titre }: { n: number; titre: string }) {
 export default function RapportSavPage() {
   const params = useParams<{ id: string }>();
   const id = String(params?.id || '');
+  const { role } = useRoleAppli();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [causes, setCauses] = useState<string[]>([]);
   const [prises, setPrises] = useState<string[]>([]);
@@ -160,15 +165,9 @@ export default function RapportSavPage() {
   const inactif = bloque || manque.length > 0 || envoi === 'encours' || envoi === 'fait';
   const lienTicket = `/interne/element/${id}`;
 
-  const retour = (
-    <a href={lienTicket} className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Ticket
-    </a>
-  );
-
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="Rapport d’intervention" titre={ticket?.nom || 'Ticket SAV'} action={retour} />
+      <EnTeteAppli surtitre="Rapport d’intervention" titre={ticket?.nom || 'Ticket SAV'} retour={{ href: lienTicket, libelle: 'Ticket' }} parent={role === 'poseur' ? 'interventions' : 'sav'} />
       <ContenuAppli className="space-y-4">
         {preview && ticket && !ticket.ecritureAutorisee && <Alerte>Preview : seuls les tickets « Test » peuvent être signés.</Alerte>}
         {ticket?.ferme && envoi !== 'fait' && <Alerte>Ce ticket est déjà résolu ou archivé : plus de rapport à faire.</Alerte>}
@@ -199,6 +198,8 @@ export default function RapportSavPage() {
               {ticket.demande && <p className="italic">Message du client : « {ticket.demande} »</p>}
               {ticket.rapports.length > 0 && <p className="font-semibold" style={{ color: ORANGE }}>Déjà {ticket.rapports.length} rapport{ticket.rapports.length > 1 ? 's' : ''} sur ce ticket : celui-ci s’ajoute.</p>}
             </div>
+
+            {ticket.installation && <BlocContact affaireId={ticket.installation.id} ouvertParDefaut />}
 
             <div className="space-y-4">
               <div>

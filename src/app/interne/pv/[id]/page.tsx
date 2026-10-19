@@ -4,12 +4,15 @@
 // qui le génère » ; 16 h 04 : « au doigt sur le téléphone »). Le poseur montre au client ce que le PV va dire (ouvrages,
 // mise en service, réserves), fait signer le client puis signe, et l'appli crée le PDF à la charte dans 📂 PV Réception.
 // Envoi par la file hors ligne (src/lib/fileEnvoi.ts) : sans réseau, le PV signé attend sur le téléphone.
+// 19/10/2026, 8 h 35 (passe de cohérence validée sur maquette) : bloc 📇 Contact commun du chantier sous « Ce que dit le
+// PV », comme le rapport d'intervention SAV, et bouton Retour de l'en-tête commun.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, Check, CloudOff, FileText, MapPin, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Check, CloudOff, FileText, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, GRIS, NAVY, ORANGE } from '@/components/charte/couleurs';
 import PadSignature from '@/components/interne/PadSignature';
+import { BlocContact } from '@/components/ui/BlocContact';
 import { ajouter, envoyerTout, lister, nouvelleCle, oublier, reprendre } from '@/lib/fileEnvoi';
 
 type Reserve = { libelle: string; echeance?: string };
@@ -108,15 +111,9 @@ export default function PvPage() {
   const bloque = !chantier?.ecritureAutorisee || !!pv?.blocages.length;
   const inactif = bloque || manque.length > 0 || envoi === 'encours' || envoi === 'fait';
 
-  const retour = (
-    <a href="/interne/reception" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px] font-semibold text-white">
-      <ArrowLeft size={16} /> Réception
-    </a>
-  );
-
   return (
     <PageAppli>
-      <EnTeteAppli surtitre="PV de réception" titre={chantier?.nom || 'Chantier'} action={retour} />
+      <EnTeteAppli surtitre="PV de réception" titre={chantier?.nom || 'Chantier'} retour={{ href: '/interne/reception', libelle: 'Réception' }} />
       <ContenuAppli className="space-y-4">
         {preview && chantier && !chantier.ecritureAutorisee && <Alerte>Preview : seuls les chantiers « Test … » peuvent être signés.</Alerte>}
         {erreur && <Alerte>{erreur}</Alerte>}
@@ -158,6 +155,8 @@ export default function PvPage() {
                 )}
               </div>
             </div>
+
+            {chantier && <BlocContact affaireId={chantier.id} ouvertParDefaut />}
 
             {pv.blocages.length > 0 && (
               <Alerte>
