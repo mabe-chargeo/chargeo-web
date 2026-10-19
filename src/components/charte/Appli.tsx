@@ -8,6 +8,7 @@
 // 19/10/2026 : + LienPrincipal (même allure que BoutonPrincipal, en lien) et BoutonSecondaire (contour gris, texte cyan).
 // 19/10/2026, 11 h 03 : + PastilleChoix et CadreConfirmation, sortis de la vente (src/components/ui/Vente.tsx) pour servir
 // aussi au suivi des commandes et des dossiers ADVENIR (src/components/ui/Suivi.tsx).
+// 19/10/2026, 11 h 39 : + BoutonFichier (même allure que BoutonSecondaire, ouvre l'appareil photo ou les fichiers).
 import React from "react";
 import { ArrowLeft } from "lucide-react";
 import { NAVY, CYAN, ORANGE, GRIS, CYAN_PALE, CYAN_SUR_NAVY, LABEL } from "@/components/charte/couleurs";
@@ -206,4 +207,15 @@ export function PastilleChoix({ actif, onClick, children }: { actif: boolean; on
 // Cadre de confirmation dans la page (Gagné, Perdu, Reçu / vérifié, Prime payée…) : fond blanc, filet orange.
 export function CadreConfirmation({ children }: { children: React.ReactNode }) {
   return <div className="space-y-3 rounded-[16px] bg-white p-4 ring-2 ring-[#FF6B00]">{children}</div>;
+}
+
+// Bouton blanc qui ouvre l'appareil photo ou les fichiers du téléphone (Photo du bon de livraison…) : même allure que
+// BoutonSecondaire compact.
+export function BoutonFichier({ accept, multiple = false, inactif = false, onFichiers, children }: { accept: string; multiple?: boolean; inactif?: boolean; onFichiers: (liste: FileList | null) => void; children: React.ReactNode }) {
+  return (
+    <label className={`${CLASSE_SECONDAIRE} min-h-[52px] cursor-pointer text-[15px] ${inactif ? "pointer-events-none opacity-50" : ""}`} style={{ color: CYAN }}>
+      {children}
+      <input type="file" accept={accept} multiple={multiple} className="hidden" onChange={(e) => { onFichiers(e.target.files); e.target.value = ""; }} />
+    </label>
+  );
 }

@@ -19,6 +19,7 @@ import { LISTES } from '@/lib/espaces';
 // par l'appli (📄 Rapport d'intervention d'un ticket SAV) ont leur ligne « Documents », comme le PV et le rapport de mise
 // en service de la réception (src/components/appli/LigneDocument.tsx). Leur PDF ne passe plus dans les Liens (« Pièce
 // jointe », lien ClickUp brut) ni dans les Détails (« 1 fichier(s) »).
+// 19/10, 11 h 39 : même ligne pour le 📎 Bon de livraison d'une commande (photo prise au « Reçu / vérifié »).
 // Lecture seule. Un échec réseau ne casse pas la fiche : parcours ou affaire absents.
 
 const API = 'https://api.clickup.com/api/v2';
@@ -32,6 +33,7 @@ const CONTACTS = ['phone', 'email', 'location'];
 // Documents par liste : champ fichier ClickUp et cible de l'aperçu (/api/interne/fichier)
 const DOCUMENTS: Record<string, { cible: string; champ: string; titre: string }[]> = {
   sav: [{ cible: 'rapportSav', champ: '8dbf671d-4a53-4870-be35-d2e866c73ede', titre: '📄 Rapport d’intervention' }],
+  commandes: [{ cible: 'bonLivraison', champ: '1606d8d7-265a-477a-800c-387c6bf611c9', titre: '📎 Bon de livraison' }],
 };
 const IMAGE = /\.(jpe?g|png|webp|gif|heic|heif)$/i;
 
