@@ -1,11 +1,13 @@
 {
+  "id": "/",
   "name": "CHARGéO Terrain",
   "short_name": "CHARGéO",
   "description": "Application d'intervention terrain",
   "display": "standalone",
   "background_color": "#032b60",
   "theme_color": "#0097b2",
-  "start_url": "/interne",
+  "start_url": "/",
+  "scope": "/",
   "icons": [
     {
       "src": "/icon-192.png",
