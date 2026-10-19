@@ -10,9 +10,11 @@
 // 18/10, 12 h 25 : « Devis des scénarios », le lien du devis à coller sous chaque scénario (l'alerte le demandait sans
 //   endroit pour le faire) ; la confirmation du gagné fait choisir le scénario retenu parmi ceux qui ont un lien.
 // La date du permis affiche sa conséquence ADVENIR sous le champ (une année mal tapée se voit tout de suite).
+// 19/10/2026, 11 h 03 : pastilles, bouton blanc et cadre de confirmation pris dans les briques communes
+// (src/components/charte/Appli.tsx), les mêmes que le suivi des commandes et des dossiers ADVENIR (Suivi.tsx).
 import { useEffect, useState } from 'react';
 import { Building2, Check, Flame, Link2, RefreshCw, Send, Trophy, XCircle } from 'lucide-react';
-import { Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
+import { Carte, TitreCarte, Alerte, BoutonPrincipal, BoutonSecondaire, PastilleChoix as Pastille, CadreConfirmation, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, LABEL, ORANGE } from '@/components/charte/couleurs';
 
 type Scenario = { id: string; nom: string; statut: string; lien: string; retenu: boolean };
@@ -45,21 +47,6 @@ async function poster(corps: any): Promise<{ ok: boolean; j: any }> {
   } catch {
     return { ok: false, j: { error: 'Pas de réseau : rien n’a été modifié' } };
   }
-}
-
-function Pastille({ actif, onClick, children }: { actif: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} className={`rounded-full px-5 py-2.5 text-[15px] font-bold ${actif ? 'text-white' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'}`} style={actif ? { backgroundColor: CYAN } : { color: LABEL }}>
-      {children}
-    </button>
-  );
-}
-function BoutonSecondaire({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} disabled={disabled} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-white px-6 text-[16px] font-semibold ring-[1.5px] ring-[#dfe3e8] disabled:opacity-50" style={{ color: CYAN }}>
-      {children}
-    </button>
-  );
 }
 
 export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 'projet' | 'suite'; onChange?: () => void }) {
@@ -213,7 +200,7 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
               <div key={sc.id} className="space-y-2">
                 <label className={ETIQUETTE} htmlFor={`lien-${sc.id}`}>{sc.nom}</label>
                 <input id={`lien-${sc.id}`} type="url" inputMode="url" className={CHAMP} value={liens[sc.id] || ''} onChange={(ev) => setLiens({ ...liens, [sc.id]: ev.target.value })} placeholder="https://…" />
-                {modifie && <BoutonSecondaire onClick={() => enregistrerLien(sc)} disabled={envoi}><Check size={18} /> Enregistrer le lien</BoutonSecondaire>}
+                {modifie && <BoutonSecondaire compact onClick={() => enregistrerLien(sc)} disabled={envoi}><Check size={18} /> Enregistrer le lien</BoutonSecondaire>}
                 {!modifie && sc.lien && <p className="ml-1 text-[13px] font-semibold" style={{ color: '#16a34a' }}>Lien enregistré.</p>}
               </div>
             );
@@ -231,11 +218,11 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
               <Send size={20} /> 📩 Devis envoyé
             </BoutonPrincipal>
           )}
-          {envoye && <BoutonSecondaire onClick={() => passer('negociation')} disabled={envoi}><Flame size={18} /> En négociation</BoutonSecondaire>}
+          {envoye && <BoutonSecondaire compact onClick={() => passer('negociation')} disabled={envoi}><Flame size={18} /> En négociation</BoutonSecondaire>}
           {(envoye || nego) && (
             <>
               <BoutonPrincipal type="button" onClick={() => setConfirmer('gagne')} disabled={envoi} inactif={envoi}><Trophy size={20} /> Gagné</BoutonPrincipal>
-              <BoutonSecondaire onClick={() => setConfirmer('perdu')} disabled={envoi}><XCircle size={18} /> Perdu</BoutonSecondaire>
+              <BoutonSecondaire compact onClick={() => setConfirmer('perdu')} disabled={envoi}><XCircle size={18} /> Perdu</BoutonSecondaire>
             </>
           )}
           {!envoye && !nego && <p className="px-1 text-[12px] text-slate-500">Le devis part encore à la main : ce bouton dit qu’il est envoyé et lance la relance J+3.</p>}
@@ -243,7 +230,7 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
       )}
 
       {confirmer === 'gagne' && (
-        <div className="space-y-3 rounded-[16px] bg-white p-4 ring-2 ring-[#FF6B00]">
+        <CadreConfirmation>
           <p className="text-[15px] font-semibold leading-relaxed">Projet gagné ? L’acompte, le chantier, la commande et le dossier ADVENIR partent du scénario retenu.</p>
           {aTrancher.length > 0 && avecLien.length === 0 && <Alerte>Colle d’abord le lien du devis du scénario retenu, dans « Devis des scénarios ».</Alerte>}
           {avecLien.length > 1 && (
@@ -259,20 +246,20 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
             const bloque = envoi || (aTrancher.length > 0 && !retenuEffectif);
             return <BoutonPrincipal type="button" onClick={() => passer('gagne')} disabled={bloque} inactif={bloque}><Trophy size={20} /> {envoi ? 'Envoi…' : 'Confirmer : gagné'}</BoutonPrincipal>;
           })()}
-          <BoutonSecondaire onClick={() => setConfirmer(null)} disabled={envoi}>Annuler</BoutonSecondaire>
-        </div>
+          <BoutonSecondaire compact onClick={() => setConfirmer(null)} disabled={envoi}>Annuler</BoutonSecondaire>
+        </CadreConfirmation>
       )}
 
       {confirmer === 'perdu' && (
-        <div className="space-y-3 rounded-[16px] bg-white p-4 ring-2 ring-[#FF6B00]">
+        <CadreConfirmation>
           <p className={ETIQUETTE}>Motif du refus</p>
           <div className="flex flex-wrap gap-2">
             {e.motifs.map((m) => <Pastille key={m} actif={motif === m} onClick={() => setMotif(m)}>{m}</Pastille>)}
           </div>
           <p className="text-[13px]">Le relevé calé sort de l’agenda Google, la fiche passe dans Perdues.</p>
           <BoutonPrincipal type="button" onClick={() => passer('perdu')} disabled={envoi || !motif} inactif={envoi || !motif}><XCircle size={20} /> {envoi ? 'Envoi…' : 'Confirmer : perdu'}</BoutonPrincipal>
-          <BoutonSecondaire onClick={() => { setConfirmer(null); setMotif(''); }} disabled={envoi}>Annuler</BoutonSecondaire>
-        </div>
+          <BoutonSecondaire compact onClick={() => { setConfirmer(null); setMotif(''); }} disabled={envoi}>Annuler</BoutonSecondaire>
+        </CadreConfirmation>
       )}
     </Carte>
   );

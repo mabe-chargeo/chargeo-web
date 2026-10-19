@@ -6,9 +6,11 @@
 // client FilAriane, 18/10/2026, 17 h 20).
 // Servent à /interne aujourd'hui, puis à tous les écrans par rôle d'app.chargeo.fr (Phase 6).
 // 19/10/2026 : + LienPrincipal (même allure que BoutonPrincipal, en lien) et BoutonSecondaire (contour gris, texte cyan).
+// 19/10/2026, 11 h 03 : + PastilleChoix et CadreConfirmation, sortis de la vente (src/components/ui/Vente.tsx) pour servir
+// aussi au suivi des commandes et des dossiers ADVENIR (src/components/ui/Suivi.tsx).
 import React from "react";
 import { ArrowLeft } from "lucide-react";
-import { NAVY, CYAN, ORANGE, GRIS, CYAN_PALE, CYAN_SUR_NAVY } from "@/components/charte/couleurs";
+import { NAVY, CYAN, ORANGE, GRIS, CYAN_PALE, CYAN_SUR_NAVY, LABEL } from "@/components/charte/couleurs";
 import RoleActif from "@/components/charte/RoleActif";
 import BoutonRetour from "@/components/charte/BoutonRetour";
 import MasqueClickUp from "@/components/charte/MasqueClickUp";
@@ -190,4 +192,18 @@ export function BoutonSecondaire({
       {children}
     </button>
   );
+}
+
+// Pastille de choix (zone Z1 Z2 Z3, motif de refus, scénario retenu, fournisseur…) : turquoise quand elle est choisie.
+export function PastilleChoix({ actif, onClick, children }: { actif: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className={`rounded-full px-5 py-2.5 text-[15px] font-bold ${actif ? "text-white" : "bg-white ring-[1.5px] ring-[#dfe3e8]"}`} style={actif ? { backgroundColor: CYAN } : { color: LABEL }}>
+      {children}
+    </button>
+  );
+}
+
+// Cadre de confirmation dans la page (Gagné, Perdu, Reçu / vérifié, Prime payée…) : fond blanc, filet orange.
+export function CadreConfirmation({ children }: { children: React.ReactNode }) {
+  return <div className="space-y-3 rounded-[16px] bg-white p-4 ring-2 ring-[#FF6B00]">{children}</div>;
 }
