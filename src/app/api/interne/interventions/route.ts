@@ -4,6 +4,7 @@ import { sessionDeRequete } from '@/lib/session';
 import { rolesDe } from '@/lib/roles';
 import { adresseDe, champ, libelleDate, nomOption, sansEmoji } from '@/lib/vuesFiches';
 import { CHAMPS_INTERVENTION, LISTES, chantierAMoi, etapePlanning, ticketAMoi, visiteAMoi } from '@/lib/espaces';
+import { adresses } from '@/lib/adresses';
 
 // Mes interventions de l'espace Installateur (validé par Matthieu le 17/10/2026, 11 h 18). LECTURE SEULE.
 // GET ?vue=interventions : chantiers (Planning Chantiers 🚧, 👷 Technicien = moi, préparation à en cours) et visites de
@@ -89,7 +90,7 @@ export async function GET(request: Request) {
           id: String(t.id), type: 'pose', nom: String(t.name || ''), statut: String(t?.status?.status || ''), couleurStatut: String(t?.status?.color || ''),
           date: ms, jour: cleJour(ms), quand: ms ? libelleDate(ms) : '', detail: 'Pose', techniciens: noms(champ(t, CHAMPS_INTERVENTION.technicienChantier)?.value),
           adresse: adresseDe(t), contactId: String(t.id), url: String(t?.url || `https://app.clickup.com/t/${t.id}`),
-          action: enCours ? { libelle: 'Réception sur place', href: '/interne/reception' } : null,
+          action: enCours ? { libelle: 'Réception sur place', href: adresses.rapportSignature } : null,
         };
       });
     const maintenances = visites

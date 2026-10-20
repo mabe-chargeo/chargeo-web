@@ -2,6 +2,7 @@
 // Cookie signé (HMAC SHA-256) : identifiant, nom et email ClickUp de la personne, expiration 30 jours.
 // Clé : SESSION_SECRET, sinon CLICKUP_OAUTH_CLIENT_SECRET (une variable de moins à créer dans Vercel).
 // Web Crypto uniquement : utilisable dans src/proxy.ts comme dans les routes.
+import { adresses } from '@/lib/adresses';
 export const COOKIE_SESSION = 'chargeo_session';
 export const DUREE_SESSION_S = 30 * 24 * 3600;
 
@@ -65,7 +66,8 @@ export async function sessionDeRequete(request: Request): Promise<Session | null
 
 // Adresse de retour après connexion : chemin interne uniquement (pas de redirection vers un autre site).
 // Sans page demandée : Ma journée, la page d'accueil de l'application (Matthieu, 19/10/2026, 13 h 24).
+// 19/10/2026, 18 h 43 : adresse lue dans src/lib/adresses.ts.
 export function cheminSur(suivant: string | null | undefined): string {
   const s = String(suivant || '');
-  return s.startsWith('/') && !s.startsWith('//') && !s.startsWith('/\\') ? s : '/interne/journee';
+  return s.startsWith('/') && !s.startsWith('//') && !s.startsWith('/\\') ? s : adresses.journee;
 }

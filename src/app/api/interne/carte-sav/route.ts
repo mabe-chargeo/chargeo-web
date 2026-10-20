@@ -3,6 +3,7 @@ import { sessionDeRequete } from '@/lib/session';
 import { rolesDe } from '@/lib/roles';
 import { adresseDe, champ, libelleDate, nomOption, sansEmoji } from '@/lib/vuesFiches';
 import { CHAMPS_INTERVENTION, LISTES, ticketAMoi } from '@/lib/espaces';
+import { adresses } from '@/lib/adresses';
 
 // Carte du SAV (17/10/2026, 18 h 27, demandée par Matthieu). LECTURE SEULE.
 // GET : tickets SAV ni résolus ni archivés, placés à l'adresse de l'installation du Parc liée (🔗 Fiche Installation),
@@ -69,7 +70,7 @@ export async function GET(request: Request) {
           installationId: lie ? String(lie.id) : '',
           adresse: installation ? adresseDe(installation) : adresseDe(t),
           techniciens: (Array.isArray(t?.assignees) ? t.assignees : []).map((u: any) => String(u?.username || u?.email || '')).filter(Boolean),
-          lien: `/interne/element/${t.id}`,
+          lien: adresses.fiche(String(t.id)),
         };
       })
       .sort((a, b) => (a.enRetard === b.enRetard ? 0 : a.enRetard ? -1 : 1) || a.nom.localeCompare(b.nom, 'fr'));

@@ -7,6 +7,7 @@ import { adresseDe, champ, dateVisiteDe } from '@/lib/vuesFiches';
 import { agendaBranche, idEvenement, occupationsAgenda, poserEvenement, retirerEvenement, type GarderNos } from '@/lib/googleAgenda';
 import { DEPARTS_POSE, demiJourneesDe, jourEtMinutes, libellePose, parisVersMs, segmentsPose, villeDe, type Segment } from '@/lib/demiJournees';
 import { dureeRdv, dureeReleve } from '@/lib/dureesRdv';
+import { adresses } from '@/lib/adresses';
 
 // Planifier la pose d'un chantier (17/10/2026, 22 h 49, Matthieu : « il faut que ça fonctionne de la même manière pour
 // les installateurs pour leur caler les chantiers » ; durée choisie à chaque chantier, ½ j à 5 j).
@@ -334,7 +335,7 @@ export async function POST(request: Request) {
     if (agendaBranche()) {
       const origine = new URL(request.url).origin;
       const equipe = personnes.filter((p) => choisis.includes(p.id)).map((p) => p.nom);
-      const description = [`Installateurs : ${equipe.join(', ')}`, `Durée : ${option.nom}`, `Planifié par ${auteur} depuis l'application CHARGéO.`, `Fiche : ${origine}/interne/fiches/${t.id}`].join('\n');
+      const description = [`Installateurs : ${equipe.join(', ')}`, `Durée : ${option.nom}`, `Planifié par ${auteur} depuis l'application CHARGéO.`, `Fiche : ${origine}${adresses.affaire(String(t.id))}`].join('\n');
       const concernes = personnes.filter((p) => p.email && (choisis.includes(p.id) || anciens.includes(p.id)));
       for (const p of concernes) {
         try {
@@ -377,7 +378,7 @@ export async function POST(request: Request) {
       cache: 'no-store',
     }).catch(() => null);
 
-    return json({ success: true, preview, quand, duree: option.nom, statut, equipe: noms, agenda, avertissements, lienFiche: `/interne/fiches/${t.id}` });
+    return json({ success: true, preview, quand, duree: option.nom, statut, equipe: noms, agenda, avertissements, lienFiche: adresses.affaire(String(t.id)) });
   } catch (e) {
     console.error('Planifier la pose (écriture)', e);
     return json({ success: false, error: 'Erreur serveur' }, 500);

@@ -4,6 +4,7 @@ import { rolesDe } from '@/lib/roles';
 import { CHAMPS_INTERVENTION, LISTES, estAMoi } from '@/lib/espaces';
 import { adresseDe } from '@/lib/vuesFiches';
 import { PROTOCOLE, defauts, texteResultats, type Resultats } from '@/lib/protocoleMaintenance';
+import { adresses } from '@/lib/adresses';
 
 // Visite de maintenance (lot D, protocole Sefram MW9665 + A1532-XA décidé par Matthieu le 17/10/2026 à 14 h 50).
 // GET ?id=<visite> : la visite (liste Maintenance 🛠️), la borne visitée (🔋 Borne visitée → Parc : modèle, nombre de
@@ -95,7 +96,7 @@ export async function GET(request: Request) {
         url: String(t.url || `https://app.clickup.com/t/${t.id}`),
         ecritureAutorisee: ecritureAutorisee(t),
       },
-      borne: borne ? { id: String(borne.id), nom: String(borne.name || ''), modele, lien: `/interne/fiches/${borne.id}` } : null,
+      borne: borne ? { id: String(borne.id), nom: String(borne.name || ''), modele, lien: adresses.affaire(String(borne.id)) } : null,
       points,
       saisis,
       protocole: PROTOCOLE.length,

@@ -1,6 +1,7 @@
 import { champsCles, champsLus } from '@/lib/champsGeneriques';
 import { getQualificationListId } from '@/lib/listesClickUp';
 import { LISTES } from '@/lib/espaces';
+import { adresses } from '@/lib/adresses';
 
 // Gabarit commun des fiches génériques (maquette MAQUETTE_GABARIT-FICHES_2026-10-18.png validée par Matthieu le
 // 18/10/2026, 19 h 50, après « la page des factures est plus travaillée que toutes les autres pages… j'aimerais bien
@@ -20,6 +21,7 @@ import { LISTES } from '@/lib/espaces';
 // en service de la réception (src/components/appli/LigneDocument.tsx). Leur PDF ne passe plus dans les Liens (« Pièce
 // jointe », lien ClickUp brut) ni dans les Détails (« 1 fichier(s) »).
 // 19/10, 11 h 39 : même ligne pour le 📎 Bon de livraison d'une commande (photo prise au « Reçu / vérifié »).
+// 19/10/2026 (adresses propres) : les fiches reliées et la tâche parente s'ouvrent sur /fiche/<id> (src/lib/adresses.ts).
 // Lecture seule. Un échec réseau ne casse pas la fiche : parcours ou affaire absents.
 
 const API = 'https://api.clickup.com/api/v2';
@@ -145,7 +147,7 @@ export async function lireGabarit(token: string, t: any, motsCles: string[], moi
     for (const r of c.taches || []) {
       if (reliees.some((x) => x.id === r.id)) continue;
       reliees.push(r);
-      liens.push({ nom: r.nom || 'Fiche reliée', sous: sansEmoji(c.nom) || 'Fiche reliée', href: `/interne/element/${r.id}`, genre: 'fiche' });
+      liens.push({ nom: r.nom || 'Fiche reliée', sous: sansEmoji(c.nom) || 'Fiche reliée', href: adresses.fiche(r.id), genre: 'fiche' });
     }
   }
 
@@ -169,7 +171,7 @@ export async function lireGabarit(token: string, t: any, motsCles: string[], moi
     if ((a?.id && dejaMontres.has(String(a.id))) || (a?.title && dejaMontres.has(String(a.title)))) continue;
     if (url) liens.push({ nom: String(a?.title || 'Fichier'), sous: 'Pièce jointe', href: url, genre: 'fichier' });
   }
-  if (t?.parent) liens.push({ nom: 'Tâche parente', sous: 'Fiche principale', href: `/interne/element/${t.parent}`, genre: 'fiche' });
+  if (t?.parent) liens.push({ nom: 'Tâche parente', sous: 'Fiche principale', href: adresses.fiche(String(t.parent)), genre: 'fiche' });
 
   const parcours = await parcoursDe(token, String(t?.list?.id || ''), String(t?.status?.status || ''));
   return { cles, parcours, affaire, contact, moi, liens, documents, ailleurs };

@@ -6,7 +6,7 @@
   "display": "standalone",
   "background_color": "#032b60",
   "theme_color": "#0097b2",
-  "start_url": "/",
+  "start_url": "/journee",
   "scope": "/",
   "icons": [
     {

@@ -1,7 +1,7 @@
 "use client";
 
 // Écran facture (maquette MAQUETTE_ECRAN-FACTURE_2026-10-18.png validée par Matthieu le 18/10/2026, 18 h 19).
-// Dans la fiche générique /interne/element/<id> d'une tâche de Factures Clients : type, statut et montant en gros,
+// Dans la fiche générique /fiche/<id> d'une tâche de Factures Clients : type, statut et montant en gros,
 // dates utiles, parcours À émettre · Émise · Relances · Payée, alerte en encadré orange, prochaine étape (à émettre :
 // saisie du n° de facture, du montant et du paiement dû puis « Marquer comme émise », back-office et direction),
 // relances J+3 / J+10 / J+15 datées, liens vers le chantier et les autres factures du même devis.
@@ -14,6 +14,7 @@ import { Check, ChevronRight, Euro, ExternalLink, Link2, Bell, RefreshCw } from 
 import { Carte, TitreCarte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
 import { CYAN } from '@/components/charte/couleurs';
 import type { Facture } from '@/lib/factureFiche';
+import { adresses } from '@/lib/adresses';
 
 const COULEUR_TYPE: Record<string, string> = { acompte: CYAN, solde: '#7c3aed', situation: '#FF6B00' };
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -234,13 +235,13 @@ export default function FicheFacture({ id, facture: f, peutEcrire, onEmise }: { 
         <Carte className="space-y-2.5">
           <TitreCarte icon={Link2}>Liens</TitreCarte>
           {f.affaires.map((a) => (
-            <a key={a.id} href={`/interne/element/${a.id}`} className="flex items-center justify-between gap-3 rounded-[14px] bg-white p-3 ring-[1.5px] ring-[#dfe3e8]">
+            <a key={a.id} href={adresses.fiche(a.id)} className="flex items-center justify-between gap-3 rounded-[14px] bg-white p-3 ring-[1.5px] ring-[#dfe3e8]">
               <span className="min-w-0"><span className="block truncate text-[15px] font-bold">{a.nom.replace(/^\s*test\s*·\s*/i, '') || 'Chantier'}</span><span className="text-[12px] text-slate-500">Fiche du chantier</span></span>
               <ChevronRight size={18} className="shrink-0" color={CYAN} />
             </a>
           ))}
           {f.autres.map((a) => (
-            <a key={a.id} href={`/interne/element/${a.id}`} className="flex items-center justify-between gap-3 rounded-[14px] bg-white p-3 ring-[1.5px] ring-[#dfe3e8]">
+            <a key={a.id} href={adresses.fiche(a.id)} className="flex items-center justify-between gap-3 rounded-[14px] bg-white p-3 ring-[1.5px] ring-[#dfe3e8]">
               <span className="min-w-0"><span className="block truncate text-[15px] font-bold">{a.nom}</span><span className="text-[12px] text-slate-500">{a.statut}</span></span>
               <ChevronRight size={18} className="shrink-0" color={CYAN} />
             </a>

@@ -4,7 +4,7 @@
 // (composant client BoutonRetour, 17/10/2026, 16 h 19), le masque des liens ClickUp (composant client MasqueClickUp,
 // 17/10/2026, 18 h 34 : liens ClickUp seulement pour le back-office et la direction) et le fil d'Ariane (composant
 // client FilAriane, 18/10/2026, 17 h 20).
-// Servent à /interne aujourd'hui, puis à tous les écrans par rôle d'app.chargeo.fr (Phase 6).
+// Servent à tous les écrans par rôle d'app.chargeo.fr (src/app/(appli), adresses dans src/lib/adresses.ts).
 // 19/10/2026 : + LienPrincipal (même allure que BoutonPrincipal, en lien) et BoutonSecondaire (contour gris, texte cyan).
 // 19/10/2026, 11 h 03 : + PastilleChoix et CadreConfirmation, sortis de la vente (src/components/ui/Vente.tsx) pour servir
 // aussi au suivi des commandes et des dossiers ADVENIR (src/components/ui/Suivi.tsx).
@@ -16,6 +16,7 @@ import RoleActif from "@/components/charte/RoleActif";
 import BoutonRetour from "@/components/charte/BoutonRetour";
 import MasqueClickUp from "@/components/charte/MasqueClickUp";
 import FilAriane from "@/components/charte/FilAriane";
+import { adresses } from "@/lib/adresses";
 
 // Champ de saisie et étiquette : mêmes réglages que le formulaire de contact du site (texte 16 px pour éviter le zoom iPhone).
 export const CHAMP =
@@ -64,7 +65,7 @@ export function EnTeteAppli({
   parent?: string;
 }) {
   const ancien = ancienRetour(action);
-  const repli = retour?.href || ancien?.repli || '/interne/espace';
+  const repli = retour?.href || ancien?.repli || adresses.aTraiter;
   const droite = ancien ? null : action;
   return (
     <header className="mb-6 px-6 pb-8 pt-10" style={{ backgroundColor: NAVY }}>

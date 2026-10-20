@@ -7,6 +7,7 @@ import { CONFIG_LISTES, lienListe, peutLire, seulementMoi, sourceDeListe } from 
 import { champsLus, dateCourte, estAMoiPartout } from '@/lib/champsGeneriques';
 import { lireFacture } from '@/lib/factureFiche';
 import { lireGabarit } from '@/lib/ficheGabarit';
+import { adresses } from '@/lib/adresses';
 
 // Fiche générique (lot « écrans qui manquent » du 17/10/2026, 14 h 28). LECTURE SEULE.
 // GET ?id=<tâche> : une tâche d'une liste de src/lib/listesAppli.ts (commande, ticket SAV, visite, facture, achat, dossier
@@ -19,7 +20,7 @@ import { lireGabarit } from '@/lib/ficheGabarit';
 // 19/10, 8 h 35 (passe de cohérence validée sur maquette) : et les documents de la liste (📄 Rapport d'intervention d'un
 // ticket SAV), présentés comme le PV de la réception.
 // Une fiche affaire (Prospection, Qualification, Planning, Parc) renvoie { fiche } : l'écran bascule sur la fiche
-// affaire unique /interne/fiches/<id>, qui garde le bloc Contact et les sections par étape.
+// affaire unique /affaires/<id> (src/lib/adresses.ts), qui garde le bloc Contact et les sections par étape.
 // (/api/interne/elements est déjà pris par les éléments des scénarios du relevé.)
 
 export const dynamic = 'force-dynamic';
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
     const listId = String(t?.list?.id || '');
     const fichesAffaire = [getQualificationListId(), LISTES.prospection, LISTES.planning, LISTES.parc].filter(Boolean).map(String);
     const source = sourceDeListe(listId);
-    if (fichesAffaire.includes(listId)) return json({ fiche: `/interne/fiches/${t.id}` });
+    if (fichesAffaire.includes(listId)) return json({ fiche: adresses.affaire(String(t.id)) });
     if (!source) return json({ error: 'Cette liste n’a pas encore d’écran dans l’application', url: String(t.url || '') }, 404);
 
     const roles = await rolesDe(token, session.id);

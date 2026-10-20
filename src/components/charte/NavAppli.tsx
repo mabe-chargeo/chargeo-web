@@ -6,14 +6,16 @@
 // pastille du rôle). Un seul onglet actif : le plus précis quand deux correspondent.
 // Libellés courts en 12 px minimum (recherche bonnes pratiques du 17/10 : gants, plein soleil).
 // Sans rôle connu (première ouverture hors ligne), barre minimale : Ma journée, Relevés, Créer.
-// Relevé (/interne/metre/...) : masquée par défaut (le scénario et l'ancien formulaire ont leurs propres boutons en
+// Relevé (/releves/<id>) : masquée par défaut (le scénario et l'ancien formulaire ont leurs propres boutons en
 // bas d'écran). 17/10, 20 h 33 (Matthieu : « ce serait bien qu'il y ait la barre d'onglets là ») : visible quand la
 // page le demande par un repère data-barre-appli="oui" (fiche sans scénario, liste des scénarios), avec À traiter actif.
+// 19/10/2026, 18 h 43 : adresse du relevé lue dans src/lib/adresses.ts.
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { BookOpen, ListTodo, PlusCircle } from 'lucide-react';
 import { CYAN, NAVY } from '@/components/charte/couleurs';
 import { ECRANS, MENUS, libelleBarre, precisionActif } from '@/lib/menusAppli';
+import { adresses } from '@/lib/adresses';
 import { ICONES } from '@/components/charte/iconesAppli';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 
@@ -23,7 +25,7 @@ const ICONES_BARRE: Record<string, any> = { espace: ListTodo, consulter: BookOpe
 export default function NavAppli() {
   const chemin = usePathname() || '';
   const { role } = useRoleAppli();
-  const releve = chemin.startsWith('/interne/metre');
+  const releve = chemin.startsWith(`${adresses.releves}/`);
   const [barreDemandee, setBarreDemandee] = useState(false);
 
   // Dans le relevé, la page dit si elle veut la barre (repère rendu par la page)

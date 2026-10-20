@@ -16,6 +16,7 @@ import { CheckCircle, ChevronRight, ClipboardList, GitBranch, Info, Plus, Zap } 
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, Repere, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE, GRIS, LABEL, CYAN_PALE } from '@/components/charte/couleurs';
 import { estAVisiter, trierScenarios, type ScenarioResume, type TypeSousReleve } from '@/lib/scenarios';
+import { adresses } from '@/lib/adresses';
 
 export type { ScenarioResume };
 
@@ -82,7 +83,7 @@ function FormulaireAjout({ affaireId, type, versScenario = false }: { affaireId:
         return;
       }
       // Premier scénario : on ouvre directement sa page pour créer ses éléments
-      if (versScenario) { window.location.href = `/interne/metre/${d.id}`; return; }
+      if (versScenario) { window.location.href = adresses.releve(String(d.id)); return; }
       window.location.reload();
     } catch {
       setErreur(t.reseau);
@@ -181,7 +182,7 @@ export function Scenarios({
           <button
             key={s.id}
             type="button"
-            onClick={() => { window.location.href = `/interne/metre/${s.id}`; }}
+            onClick={() => { window.location.href = adresses.releve(s.id); }}
             className="flex w-full items-center gap-4 rounded-[20px] p-5 text-left transition-transform active:scale-[0.98]"
             style={{ backgroundColor: GRIS }}
           >

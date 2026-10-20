@@ -4,6 +4,7 @@ import { rolesDe } from '@/lib/roles';
 import { LISTES } from '@/lib/espaces';
 import { champType } from '@/lib/typesTaches';
 import { adresseDe } from '@/lib/vuesFiches';
+import { adresses } from '@/lib/adresses';
 
 // Créations du bouton + (lot C des écrans manquants, 17/10/2026) : Ticket SAV et Idée Kaizen (carte des menus).
 // GET ?installations=1 : installations du Parc (nom, adresse) pour rattacher le ticket.
@@ -84,7 +85,7 @@ export async function POST(request: Request) {
       const description = `${texte(corps.description)}\n\nProposée depuis l'application équipe par ${auteur}.`.trim();
       const r = await creerTache(token, LISTES.kaizen, { name: prefixe(titre), description });
       if (!r.ok) return json({ error: `ClickUp a refusé la création (${r.status})` }, 502);
-      return json({ success: true, preview, cree: { id: String(r.tache.id), nom: String(r.tache.name), lien: `/interne/element/${r.tache.id}` } });
+      return json({ success: true, preview, cree: { id: String(r.tache.id), nom: String(r.tache.name), lien: adresses.fiche(String(r.tache.id)) } });
     }
 
     if (corps?.type === 'sav') {
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
       const nom = `${String(inst.name || 'Installation')} · ${PANNES[typePanne]}`;
       const r = await creerTache(token, LISTES.sav, { name: prefixe(nom), description, ...type, custom_fields: champs, ...(severite === 2 ? { priority: 1 } : {}) });
       if (!r.ok) return json({ error: `ClickUp a refusé la création du ticket (${r.status})` }, 502);
-      return json({ success: true, preview, cree: { id: String(r.tache.id), nom: String(r.tache.name), lien: `/interne/element/${r.tache.id}` } });
+      return json({ success: true, preview, cree: { id: String(r.tache.id), nom: String(r.tache.name), lien: adresses.fiche(String(r.tache.id)) } });
     }
 
     return json({ error: 'Création inconnue' }, 400);

@@ -6,6 +6,7 @@ import { CHAMPS_INTERVENTION, LISTES, etapePlanning } from '@/lib/espaces';
 import { adresseDe, champ, dateVisiteDe } from '@/lib/vuesFiches';
 import { agendaBranche, idEvenement, occupationsAgenda, poserEvenement, retirerEvenement, type GarderNos } from '@/lib/googleAgenda';
 import { demiJourneesDe, jourEtMinutes, libelleJour, parisVersMs, segmentsPose, villeDe } from '@/lib/demiJournees';
+import { adresses } from '@/lib/adresses';
 
 // Caler une visite de maintenance ou un dépannage SAV (18/10/2026, 8 h 31, Matthieu : « Fais maintenance et SAV », suite
 // de « il faut que ça fonctionne de la même manière pour les installateurs pour leur caler les chantiers et
@@ -354,7 +355,7 @@ export async function POST(request: Request) {
     if (agendaBranche()) {
       const origine = new URL(request.url).origin;
       const equipe = personnes.filter((p) => choisis.includes(p.id)).map((p) => p.nom);
-      const description = [`Techniciens : ${equipe.join(', ')}`, `Durée : ${option?.nom || `${duree} min`}`, `Calé par ${auteur} depuis l'application CHARGéO.`, `Fiche : ${origine}/interne/element/${t.id}`].join('\n');
+      const description = [`Techniciens : ${equipe.join(', ')}`, `Durée : ${option?.nom || `${duree} min`}`, `Calé par ${auteur} depuis l'application CHARGéO.`, `Fiche : ${origine}${adresses.fiche(String(t.id))}`].join('\n');
       for (const p of personnes.filter((x) => x.email && (choisis.includes(x.id) || anciens.includes(x.id)))) {
         try {
           if (!choisis.includes(p.id)) { await retirerEvenement(p.email, idGoogle); agenda.push({ nom: p.nom, statut: 'retiré' }); continue; }
@@ -377,7 +378,7 @@ export async function POST(request: Request) {
       avertissements.length ? `⚠️ ${avertissements.join(' ')}` : '',
     ]);
 
-    return json({ success: true, preview, quand, duree: option?.nom || `${duree} min`, statut, equipe: noms, agenda, avertissements, lienFiche: `/interne/element/${t.id}` });
+    return json({ success: true, preview, quand, duree: option?.nom || `${duree} min`, statut, equipe: noms, agenda, avertissements, lienFiche: adresses.fiche(String(t.id)) });
   } catch (e) {
     console.error('Caler un rendez-vous (écriture)', e);
     return json({ success: false, error: 'Erreur serveur' }, 500);

@@ -5,6 +5,7 @@ import { aujourdhuiParis } from '@/lib/joursOuvres';
 import { getQualificationListId } from '@/lib/listesClickUp';
 import { adresseDe, champ, dateVisiteDe } from '@/lib/vuesFiches';
 import { CHAMPS_INTERVENTION, LISTES, etapePlanning } from '@/lib/espaces';
+import { adresses } from '@/lib/adresses';
 
 // Planning (lot B des écrans manquants, 17/10/2026) : Master planning (par date) et Planning techs (par installateur).
 // LECTURE SEULE. Le planning sert à planifier avec les clients (Matthieu, 17/10, 18 h 34) : interventions chantier,
@@ -86,7 +87,7 @@ export async function GET(request: Request) {
     if (rPlanning.status === 'fulfilled') {
       for (const t of rPlanning.value) {
         if (etapePlanning(String(t?.status?.status || '')) > 3) continue;
-        pousser(t, 'pose', champ(t, CHAMPS_INTERVENTION.dateChantier)?.value, personnes(champ(t, CHAMPS_INTERVENTION.technicienChantier)?.value), `/interne/fiches/${t.id}`);
+        pousser(t, 'pose', champ(t, CHAMPS_INTERVENTION.dateChantier)?.value, personnes(champ(t, CHAMPS_INTERVENTION.technicienChantier)?.value), adresses.affaire(String(t.id)));
       }
     } else avertissements.push('Planning Chantiers illisible pour l’instant');
 
@@ -94,7 +95,7 @@ export async function GET(request: Request) {
       for (const t of rVisites.value) {
         const s = normal(t?.status?.status);
         if (!s.includes('a planifier') && !s.includes('rdv confirme')) continue;
-        pousser(t, 'visite', champ(t, CHAMPS_INTERVENTION.dateVisite)?.value, personnes(champ(t, CHAMPS_INTERVENTION.technicienVisite)?.value), `/interne/element/${t.id}`);
+        pousser(t, 'visite', champ(t, CHAMPS_INTERVENTION.dateVisite)?.value, personnes(champ(t, CHAMPS_INTERVENTION.technicienVisite)?.value), adresses.fiche(String(t.id)));
       }
     } else avertissements.push('Maintenance illisible pour l’instant');
 
@@ -102,7 +103,7 @@ export async function GET(request: Request) {
       for (const t of rSav.value) {
         const s = normal(t?.status?.status);
         if (s.includes('resolu') || s.includes('archive')) continue;
-        pousser(t, 'depannage', t?.due_date, personnes(t?.assignees), `/interne/element/${t.id}`);
+        pousser(t, 'depannage', t?.due_date, personnes(t?.assignees), adresses.fiche(String(t.id)));
       }
     } else avertissements.push('Tickets SAV illisibles pour l’instant');
 
@@ -112,7 +113,7 @@ export async function GET(request: Request) {
         if (!normal(t?.status?.status).includes('a visiter')) continue;
         const visite = dateVisiteDe(t);
         if (!visite) continue;
-        pousser(t, 'releve', visite, personnes(t?.assignees), `/interne/fiches/${t.id}`);
+        pousser(t, 'releve', visite, personnes(t?.assignees), adresses.affaire(String(t.id)));
       }
     } else avertissements.push('Relevés techniques illisibles pour l’instant');
 
