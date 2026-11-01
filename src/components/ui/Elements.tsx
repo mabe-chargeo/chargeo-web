@@ -15,6 +15,8 @@
 // 01/11/2026 (Phase 8, étape 4) : menus réduits à ce qui a un ouvrage (optionsVisibles : bornes, prises, TD IRVE en
 // PAR/FLT/TER, Colonne Enedis en RIC, 35 mm² masqué en mono), cases à cocher (passage en façade), choix d'un TD IRVE
 // = gestionnaire de grappe posé d'office, élément « Dépose d'une borne existante » dans « Ajouter un élément ».
+// 01/11/2026, 20 h 50 (Mathieu : « quand je clique sur Prêt à chiffrer, ça ne fait rien ») : la réponse s'affichait en
+// haut de la page, hors de vue ; elle s'affiche maintenant sous le bouton, et l'écran y descend.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AlertTriangle, Archive, Camera, ChevronDown, ChevronUp, Copy, GitBranch, Layers,
@@ -430,6 +432,8 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
   // Saisies gardées sur le téléphone, pas encore envoyées (ids des éléments)
   const [enAttente, setEnAttente] = useState<string[]>([]);
   const [envoiTous, setEnvoiTous] = useState(false);
+  // Réponse de « Prêt à chiffrer », affichée sous le bouton
+  const [retourPret, setRetourPret] = useState<{ ok: boolean; texte: string } | null>(null);
   // Création des éléments par défaut
   const [segment, setSegment] = useState('');
   const [materiel, setMateriel] = useState<Materiel>('borne');
@@ -441,6 +445,7 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
   const [typeCh, setTypeCh] = useState('alimentation');
   const [voirArchives, setVoirArchives] = useState(false);
   const refDemande = useRef<HTMLDivElement>(null);
+  const refPret = useRef<HTMLDivElement>(null);
 
   const charger = useCallback(async () => {
     try {
@@ -465,6 +470,7 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
 
   useEffect(() => { charger(); }, [charger]);
   useEffect(() => { if (demande) refDemande.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [demande]);
+  useEffect(() => { if (retourPret) refPret.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [retourPret]);
   useEffect(() => { if (d) recompterAttente(d.elements); }, [d, ouvert, recompterAttente]);
   // Retour du réseau ou retour sur la page : on recompte (et on relit les éléments si la lecture avait échoué)
   useEffect(() => {
@@ -631,9 +637,20 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     await charger();
     setEnvoiTous(false);
   };
+  // « Prêt à chiffrer » : la réponse (brief posté, statuts passés, ou erreur) s'affiche sous le bouton
   const pret = async () => {
-    const j = await agir(URL_ELEMENTS, { action: 'pret', scenarioId });
-    if (j?.success) setMessage(`${(j.messages || ['Prêt à chiffrer']).join('. ')}.`);
+    setOccupe(true);
+    setRetourPret(null);
+    const { ok, j } = await poster(URL_ELEMENTS, { action: 'pret', scenarioId });
+    if (!ok) {
+      setRetourPret({ ok: false, texte: j?.error ? `${j.error}.` : "Pas abouti. Réessaie avec du réseau." });
+      setOccupe(false);
+      return;
+    }
+    const reprises = Array.isArray(j?.erreurs) && j.erreurs.length ? ` À reprendre à la main dans ClickUp : ${j.erreurs.join(', ')}.` : '';
+    setRetourPret({ ok: true, texte: `${(j.messages || ['Prêt à chiffrer']).join('. ')}.${reprises}` });
+    await charger();
+    setOccupe(false);
   };
 
   // Scénario
@@ -846,8 +863,15 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
             )}
             {peut && (
               <BoutonPrincipal type="button" onClick={pret} disabled={occupe || incomplets.length > 0} inactif={occupe || incomplets.length > 0}>
-                <Send size={20} /> {incomplets.length > 0 ? 'Relevé incomplet' : 'Prêt à chiffrer'}
+                <Send size={20} /> {occupe ? 'Envoi…' : incomplets.length > 0 ? 'Relevé incomplet' : 'Prêt à chiffrer'}
               </BoutonPrincipal>
+            )}
+            {retourPret && (
+              <div ref={refPret}>
+                {retourPret.ok
+                  ? <p className="text-[14px] font-semibold leading-relaxed" style={{ color: CYAN }}>✅ {retourPret.texte}</p>
+                  : <Alerte>{retourPret.texte}</Alerte>}
+              </div>
             )}
           </Carte>
         </>
