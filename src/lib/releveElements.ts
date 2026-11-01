@@ -16,6 +16,10 @@
 // - case 🏢 Passage en façade sur le cheminement (JUR-AUTORISATION-FACADE) ; la dépose d'une borne existante est un
 //   élément Autre « Dépose d'une borne existante » (DEPOSE-BORNE), décision de Mathieu du 01/11, 19 h 11.
 // Une option masquée déjà saisie reste affichée (jamais effacée en silence) ; le brief la signale.
+// 01/11, 21 h 55 (Mathieu) : le TD de borne partagée contient le HUB 10 Charge Unix et un switch, pas de 4G. Il faut
+// toujours un modem 4G séparé : connectivité « Modem déporté » (INFRA-COP-ROUTEUR), « Intégrée au TD IRVE » masquée
+// (option ClickUp gardée, index 2). La SIM intégrée à la borne ne marche que pour une borne seule. Taille du HUB : toujours
+// HUB 10 avec ce TD (plus de 10 points de charge en borne partagée est rare), donc la question n'est pas posée.
 import type { Nature, Segment } from '@/lib/champsClickUp';
 
 export type TypeSaisie = 'menu' | 'nombre' | 'texte' | 'case';
@@ -33,8 +37,10 @@ export type ElementReleve = {
 // prise : le scénario n'a que des prises renforcées (aucune borne), donc pas de gestion de charge au coffret
 // mono : raccordement monophasé (section 35 mm² masquée) ; source : source du raccordement
 // gestion et mesure : gestion de charge et mesure de puissance du site (élément Communication, ou TD d'un ancien relevé)
+// tdPartage : un TD de borne partagée est choisi (HUB 10 compris) ; bornes : nombre de bornes du scénario
 export type ContexteReleve = {
   segment: Segment | null; grappe: boolean; prise?: boolean; mono?: boolean; source?: string | null; gestion?: string; mesure?: string;
+  tdPartage?: boolean; bornes?: number;
 };
 
 // Bornes proposées (D2) : uniquement les couples marque × puissance qui ont un ouvrage. Liste extensible : une nouvelle
@@ -56,7 +62,7 @@ export const BORNES: LigneBorne[] = [
 ];
 // Prises renforcées proposées (D3) : marque → ouvrage
 export const PRISES: Record<string, string> = { hager: 'PRISE-HAG-3K', schneider: 'PRISE-SCH-3K', legrand: 'PRISE-LEG-3K' };
-// TD de borne partagée (D15) : gestionnaire de grappe et 4G compris, proposés en PAR, FLT et TER
+// TD de borne partagée (D15) : HUB 10 Charge Unix et switch compris (pas de 4G, 01/11 21 h 55), proposés en PAR, FLT et TER
 export const COFFRETS_TD = ['INFRA-TD-TRI-2D22-H10', 'INFRA-TD-TRI-3D22-H10'];
 export const SEGMENTS_TD: Segment[] = ['PAR', 'FLT', 'TER'];
 export const estCoffretTd = (ref: unknown) => COFFRETS_TD.includes(String(ref ?? ''));
@@ -158,6 +164,8 @@ export function contexteReleve(segment: Segment | null, elements: ElementReleve[
     grappe: site.gestion === 'gestionnaireGrappe',
     gestion: site.gestion,
     mesure: site.mesure,
+    tdPartage: elements.some((e) => e.nature === 'tdIrveCoffret' && estCoffretTd(e.valeurs.coffretIrve)),
+    bornes: elements.filter((e) => e.nature === 'borne').length,
     prise: elements.some((e) => e.nature === 'priseRenforcee') && !elements.some((e) => e.nature === 'borne'),
     mono: texte(racc?.valeurs.typeRaccordement) === 'mono',
     source: texte(racc?.valeurs.sourceRaccordement) || null,
@@ -180,6 +188,10 @@ export function optionsVisibles(cle: string, v: Valeurs, ctx: ContexteReleve, na
       break;
     case 'sectionForcee':
       garder = (c) => c !== '35' || !ctx.mono;
+      break;
+    case 'connectivite':
+      // Pas de 4G dans le TD IRVE ; SIM de la borne pour une borne seule (hors COP)
+      garder = (c) => c !== 'integreeTdIrve' && (c !== 'simIntegree' || (ctx.segment !== 'COP' && (ctx.bornes ?? 0) <= 1));
       break;
     case 'marqueBorne':
       garder = nature === 'priseRenforcee'
@@ -231,7 +243,7 @@ export function champsVisibles(nature: Nature | null, v: Valeurs, ctx: ContexteR
       return [
         ...(ctx.prise ? [] : ['gestionCharge']),
         ...(gestion && gestion !== 'aucune' ? ['mesurePuissance'] : []),
-        ...(cop || gestion === 'gestionnaireGrappe' ? ['tailleHub'] : []),
+        ...(cop || (gestion === 'gestionnaireGrappe' && !ctx.tdPartage) ? ['tailleHub'] : []),
         'connectivite', 'reseau', 'notesCheminement',
       ];
     }
@@ -300,6 +312,8 @@ export function manquants(e: ElementReleve, ctx: ContexteReleve): string[] {
     case 'communication':
       if (!ctx.prise && !v.gestionCharge && !ctx.gestion) m.push('gestion de charge');
       if (!v.connectivite) m.push('connectivité');
+      else if (v.connectivite === 'integreeTdIrve') m.push('connectivité (pas de 4G dans le TD IRVE : modem déporté)');
+      else if (v.connectivite === 'simIntegree' && (ctx.bornes ?? 0) > 1) m.push('connectivité (SIM de la borne pour une borne seule : modem déporté)');
       break;
     case 'autre':
       if (!v.quantite) m.push('quantité');
