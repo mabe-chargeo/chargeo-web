@@ -32,7 +32,10 @@ export type ElementReleve = {
 };
 // prise : le scénario n'a que des prises renforcées (aucune borne), donc pas de gestion de charge au coffret
 // mono : raccordement monophasé (section 35 mm² masquée) ; source : source du raccordement
-export type ContexteReleve = { segment: Segment | null; grappe: boolean; prise?: boolean; mono?: boolean; source?: string | null };
+// gestion et mesure : gestion de charge et mesure de puissance du site (élément Communication, ou TD d'un ancien relevé)
+export type ContexteReleve = {
+  segment: Segment | null; grappe: boolean; prise?: boolean; mono?: boolean; source?: string | null; gestion?: string; mesure?: string;
+};
 
 // Bornes proposées (D2) : uniquement les couples marque × puissance qui ont un ouvrage. Liste extensible : une nouvelle
 // borne = une ligne ici + une option ajoutée EN FIN du menu 🔋 Modèle de borne dans ClickUp, puis dans OPTIONS.modeleBorne.
@@ -130,18 +133,31 @@ export const SAISIES_NATURE: Record<Nature, string[]> = {
   tdIrveCoffret: ['coffretIrve', 'gestionCharge', 'mesurePuissance', 'emplacement', 'notesCheminement'],
   borne: ['puissanceVisee', 'marqueBorne', 'modeleBorne', 'supportBorne', 'notesCheminement'],
   priseRenforcee: ['puissanceVisee', 'marqueBorne', 'supportBorne', 'notesCheminement'],
-  communication: ['connectivite', 'reseau', 'tailleHub', 'notesCheminement'],
+  communication: ['gestionCharge', 'mesurePuissance', 'tailleHub', 'connectivite', 'reseau', 'notesCheminement'],
   boiteDerivation: ['notesCheminement'],
   autre: ['quantite', 'notesCheminement'],
 };
 
 const texte = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 
+// 01/11/2026, 21 h 35 (Mathieu : « toutes les questions concernant le gestionnaire de charge devraient être dans l'élément
+// communication ») : gestion de charge, mesure de puissance et taille du HUB se relèvent dans l'élément Communication.
+// Un relevé fait avant les avait sur le TD IRVE / coffret : il reste lu (Communication d'abord, sinon TD).
+export function gestionDuSite(elements: ElementReleve[]): { gestion: string; mesure: string } {
+  const porteur = elements.find((e) => e.nature === 'communication' && texte(e.valeurs.gestionCharge))
+    ?? elements.find((e) => e.nature === 'tdIrveCoffret' && texte(e.valeurs.gestionCharge));
+  const gestion = texte(porteur?.valeurs.gestionCharge);
+  return { gestion, mesure: gestion && gestion !== 'aucune' ? texte(porteur?.valeurs.mesurePuissance) : '' };
+}
+
 export function contexteReleve(segment: Segment | null, elements: ElementReleve[]): ContexteReleve {
   const racc = elements.find((e) => e.nature === 'raccordement');
+  const site = gestionDuSite(elements);
   return {
     segment,
-    grappe: elements.some((e) => e.nature === 'tdIrveCoffret' && e.valeurs.gestionCharge === 'gestionnaireGrappe'),
+    grappe: site.gestion === 'gestionnaireGrappe',
+    gestion: site.gestion,
+    mesure: site.mesure,
     prise: elements.some((e) => e.nature === 'priseRenforcee') && !elements.some((e) => e.nature === 'borne'),
     mono: texte(racc?.valeurs.typeRaccordement) === 'mono',
     source: texte(racc?.valeurs.sourceRaccordement) || null,
@@ -201,24 +217,24 @@ export function champsVisibles(nature: Nature | null, v: Valeurs, ctx: ContexteR
         ...(texte(v.typeCheminement) === 'liaisonData' ? [] : ['passageFacade']),
         'notesCheminement',
       ];
-    case 'tdIrveCoffret': {
-      const gestion = texte(v.gestionCharge);
-      // Prise renforcée seule : pas de gestion de charge, donc pas de mesure de puissance
-      if (ctx.prise) return [...(cop ? [] : ['coffretIrve']), ...(cop ? ['emplacement'] : []), 'notesCheminement'];
-      return [
-        ...(cop ? [] : ['coffretIrve']),
-        'gestionCharge',
-        ...(gestion && gestion !== 'aucune' ? ['mesurePuissance'] : []),
-        ...(cop ? ['emplacement'] : []),
-        'notesCheminement',
-      ];
-    }
+    case 'tdIrveCoffret':
+      // Gestion de charge et mesure de puissance : dans l'élément Communication (01/11, 21 h 35)
+      return [...(cop ? [] : ['coffretIrve']), ...(cop ? ['emplacement'] : []), 'notesCheminement'];
     case 'borne':
       return ['puissanceVisee', 'marqueBorne', 'modeleBorne', 'supportBorne', 'notesCheminement'];
     case 'priseRenforcee':
       return ['marqueBorne', 'supportBorne', 'notesCheminement'];
-    case 'communication':
-      return ['connectivite', 'reseau', ...(cop || ctx.grappe ? ['tailleHub'] : []), 'notesCheminement'];
+    case 'communication': {
+      // Questions du gestionnaire de charge d'abord (01/11, 21 h 35) : gestion, mesure si gestion, HUB si grappe ou COP.
+      // Prise renforcée seule : pas de gestion de charge.
+      const gestion = texte(v.gestionCharge) || (ctx.prise ? '' : texte(ctx.gestion));
+      return [
+        ...(ctx.prise ? [] : ['gestionCharge']),
+        ...(gestion && gestion !== 'aucune' ? ['mesurePuissance'] : []),
+        ...(cop || gestion === 'gestionnaireGrappe' ? ['tailleHub'] : []),
+        'connectivite', 'reseau', 'notesCheminement',
+      ];
+    }
     case 'boiteDerivation':
       return ['notesCheminement'];
     case 'autre':
@@ -275,7 +291,6 @@ export function manquants(e: ElementReleve, ctx: ContexteReleve): string[] {
       break;
     case 'tdIrveCoffret':
       if (ctx.segment !== 'COP' && !v.coffretIrve) m.push('référence du coffret');
-      if (!ctx.prise && !v.gestionCharge) m.push('gestion de charge');
       break;
     case 'borne':
       if (!v.puissanceVisee) m.push('puissance visée');
@@ -283,6 +298,7 @@ export function manquants(e: ElementReleve, ctx: ContexteReleve): string[] {
       else if (!modeleCoherent(v)) m.push('modèle de borne (ne correspond pas à la marque ou à la puissance)');
       break;
     case 'communication':
+      if (!ctx.prise && !v.gestionCharge && !ctx.gestion) m.push('gestion de charge');
       if (!v.connectivite) m.push('connectivité');
       break;
     case 'autre':
