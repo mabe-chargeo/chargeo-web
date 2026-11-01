@@ -27,7 +27,7 @@ import { CHAMPS, OPTIONS, cleOption, indexMenu, type Nature, type Segment } from
 import { chargerTypes, champType, estDuType, estScenario, type CarteTypes } from '@/lib/typesTaches';
 import { sousTachesArchivees } from '@/lib/scenarioRetenu';
 import { NOM_DEPOSE, estNomCheminementAuto, nomLien, prochainNom, specsParDefaut, type Materiel, type SpecElement } from '@/lib/elementsModele';
-import { SAISIES, SAISIES_NATURE, coffretSuggere, contexteReleve, estCoffretTd, manquants, type Saisie, type Valeurs } from '@/lib/releveElements';
+import { SAISIES, SAISIES_NATURE, coffretSuggere, contexteReleve, estCoffretTd, gestionDuSite, manquants, type Saisie, type Valeurs } from '@/lib/releveElements';
 
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 export const PREFIXES_GAGNE = ['✅ Retenu · ', 'Non retenu · ', 'Projet séparé · ', 'Tarif type · '];
@@ -506,6 +506,8 @@ export async function enregistrerReleve(
 
   const tous = ctx.actifs.map(vue);
   const segment = segmentDe(ctx.scenario);
+  // Éléments avec les valeurs qui viennent d'être écrites (gestion de charge du site : élément Communication, 01/11)
+  const actuels = tous.map((e) => (e.id === id ? { ...e, valeurs: { ...e.valeurs, ...nouvelles } } : e));
 
   // Cheminement : départ et arrivée (équipements du même scénario), nom recalculé s'il est automatique
   if (v.nature === 'cheminement') {
@@ -538,39 +540,51 @@ export async function enregistrerReleve(
     for (const ch of tous.filter((c) => c.nature === 'cheminement' && c.arrivee === id)) {
       const coffret = tous.find((e) => e.id === ch.depart && e.nature === 'tdIrveCoffret');
       if (!coffret || coffret.valeurs.coffretIrve) continue;
-      const ref = coffretSuggere(nouvelles.puissanceVisee, coffret.valeurs.mesurePuissance);
+      const ref = coffretSuggere(nouvelles.puissanceVisee, gestionDuSite(actuels).mesure);
       if (ref && (await ecrireValeur(ctx, coffret.id, 'coffretIrve', ref))) messages.push(`${coffret.nom} : ${ref} présélectionné`);
     }
   }
 
-  // Coffret ou TD IRVE : TD de borne partagée (D15), variante -MOD en Modbus, liaison data de la mesure de puissance
-  if (v.nature === 'tdIrveCoffret') {
+  // Coffret ou TD IRVE : TD de borne partagée (D15) ; puis, dès que le TD ou la gestion de charge change, variante -MOD
+  // en Modbus et liaison data de la mesure de puissance. Gestion et mesure se relèvent dans Communication (01/11, 21 h 35).
+  if (v.nature === 'tdIrveCoffret' && estCoffretTd(nouvelles.coffretIrve)) {
     // D15 : TD de borne partagée choisi → gestionnaire de grappe et connectivité intégrée au TD, posés d'office
-    if (estCoffretTd(nouvelles.coffretIrve)) {
-      if (nouvelles.gestionCharge !== 'gestionnaireGrappe' && (await ecrireValeur(ctx, id, 'gestionCharge', 'gestionnaireGrappe'))) {
-        nouvelles.gestionCharge = 'gestionnaireGrappe';
-        messages.push('Gestion de charge : gestionnaire de grappe (compris dans le TD)');
+    const coms = actuels.filter((e) => e.nature === 'communication');
+    for (const com of coms) {
+      if (com.valeurs.gestionCharge !== 'gestionnaireGrappe' && (await ecrireValeur(ctx, com.id, 'gestionCharge', 'gestionnaireGrappe'))) {
+        com.valeurs = { ...com.valeurs, gestionCharge: 'gestionnaireGrappe' };
+        messages.push(`${com.nom} : gestionnaire de grappe (compris dans le TD)`);
       }
-      for (const com of tous.filter((e) => e.nature === 'communication')) {
-        if (com.valeurs.connectivite !== 'integreeTdIrve' && (await ecrireValeur(ctx, com.id, 'connectivite', 'integreeTdIrve'))) {
-          messages.push(`${com.nom} : connectivité intégrée au TD IRVE`);
-        }
+      if (com.valeurs.connectivite !== 'integreeTdIrve' && (await ecrireValeur(ctx, com.id, 'connectivite', 'integreeTdIrve'))) {
+        messages.push(`${com.nom} : connectivité intégrée au TD IRVE`);
       }
     }
-    const mesure = nouvelles.gestionCharge && nouvelles.gestionCharge !== 'aucune' ? nouvelles.mesurePuissance : null;
-    const ref = typeof nouvelles.coffretIrve === 'string' ? nouvelles.coffretIrve : '';
-    if (mesure === 'compteurModbus' && ref.startsWith('COFF-') && !ref.endsWith('-MOD') && ref !== 'COFF-MONO-3K' && !changees.has('coffretIrve')) {
-      if (await ecrireValeur(ctx, id, 'coffretIrve', `${ref}-MOD`)) messages.push(`Coffret passé en ${ref}-MOD (compteur Modbus)`);
+  }
+  const gestionChange = v.nature === 'communication' && (changees.has('gestionCharge') || changees.has('mesurePuissance'));
+  if (v.nature === 'tdIrveCoffret' || gestionChange) {
+    const site = gestionDuSite(actuels);
+    const mesure = site.mesure || null;
+    const tds = actuels.filter((e) => e.nature === 'tdIrveCoffret').sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { numeric: true }));
+    for (const td of tds.filter((x) => v.nature === 'communication' || x.id === id)) {
+      const ref = typeof td.valeurs.coffretIrve === 'string' ? td.valeurs.coffretIrve : '';
+      const choisi = td.id === id && changees.has('coffretIrve');
+      if (mesure === 'compteurModbus' && ref.startsWith('COFF-') && !ref.endsWith('-MOD') && ref !== 'COFF-MONO-3K' && !choisi) {
+        if (await ecrireValeur(ctx, td.id, 'coffretIrve', `${ref}-MOD`)) messages.push(`${td.nom} : coffret passé en ${ref}-MOD (compteur Modbus)`);
+      }
     }
-    const raccordement = tous.find((e) => e.nature === 'raccordement');
-    const liaison = tous.find((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.arrivee === id
-      && (!raccordement || c.depart === raccordement.id));
-    if (mesure && !liaison && raccordement) {
-      const r = await ajouterElement(ctx, 'cheminement', raccordement.id, id, 'liaisonData');
-      if (r.crees.length) messages.push(`Liaison data créée d'office : ${r.crees.join(', ')}`);
-      erreurs.push(...r.erreurs);
+    // Liaison data Raccordement → TD de la mesure : une seule, vers le premier TD IRVE / coffret
+    const principal = tds[0];
+    const raccordement = actuels.find((e) => e.nature === 'raccordement');
+    if (principal && raccordement) {
+      const liaison = actuels.find((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.arrivee === principal.id
+        && c.depart === raccordement.id);
+      if (mesure && !liaison) {
+        const r = await ajouterElement(ctx, 'cheminement', raccordement.id, principal.id, 'liaisonData');
+        if (r.crees.length) messages.push(`Liaison data créée d'office : ${r.crees.join(', ')}`);
+        erreurs.push(...r.erreurs);
+      }
+      if (!mesure && liaison) propositions.push({ id: liaison.id, nom: liaison.nom, raison: 'la mesure de puissance est retirée' });
     }
-    if (!mesure && liaison) propositions.push({ id: liaison.id, nom: liaison.nom, raison: 'la mesure de puissance est retirée' });
   }
 
   // Communication : modem déporté ou câble requis → liaison data vers le TD IRVE ou le coffret
