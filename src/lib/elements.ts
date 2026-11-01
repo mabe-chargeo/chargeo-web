@@ -17,11 +17,17 @@
 // - « Prêt à chiffrer » : contrôle de complétude, puis scénario en 📝 devis à faire (et la fiche quand tous sont prêts).
 // Les menus sont écrits avec l'identifiant de l'option, retrouvé dans les champs de la liste. Un champ absent de la liste
 // (prod avant l'ajout des champs) est ignoré sans bloquer la création.
+// 01/11/2026 (Phase 8, étape 4) :
+// - TD de borne partagée (INFRA-TD-TRI-2D22-H10 ou 3D22-H10) choisi → gestion de charge « gestionnaire de grappe » et
+//   connectivité « intégrée au TD IRVE » posées d'office (D15) ; la variante -MOD ne concerne que les coffrets COFF- ;
+// - cases à cocher (🏢 Passage en façade) lues et écrites comme « oui » / vide ;
+// - 🔋 Modèle de borne recopié à la duplication (matériel) ; « Dépose d'une borne existante » = élément Autre ajouté
+//   avec ce nom et une quantité de 1.
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Nature, type Segment } from '@/lib/champsClickUp';
 import { chargerTypes, champType, estDuType, estScenario, type CarteTypes } from '@/lib/typesTaches';
 import { sousTachesArchivees } from '@/lib/scenarioRetenu';
-import { estNomCheminementAuto, nomLien, prochainNom, specsParDefaut, type Materiel, type SpecElement } from '@/lib/elementsModele';
-import { SAISIES, SAISIES_NATURE, coffretSuggere, contexteReleve, manquants, type Saisie, type Valeurs } from '@/lib/releveElements';
+import { NOM_DEPOSE, estNomCheminementAuto, nomLien, prochainNom, specsParDefaut, type Materiel, type SpecElement } from '@/lib/elementsModele';
+import { SAISIES, SAISIES_NATURE, coffretSuggere, contexteReleve, estCoffretTd, manquants, type Saisie, type Valeurs } from '@/lib/releveElements';
 
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 export const PREFIXES_GAGNE = ['✅ Retenu · ', 'Non retenu · ', 'Projet séparé · ', 'Tarif type · '];
@@ -30,7 +36,7 @@ export const PREFIXES_GAGNE = ['✅ Retenu · ', 'Non retenu · ', 'Projet sépa
 const COPIES = [
   CHAMPS.sourceRaccordement, CHAMPS.typeRaccordement, CHAMPS.puissanceDispo, CHAMPS.etatTableau, CHAMPS.raccordementCible,
   CHAMPS.typeCheminement, CHAMPS.coffretIrve, CHAMPS.gestionCharge, CHAMPS.mesurePuissance, CHAMPS.emplacement,
-  CHAMPS.puissanceVisee, CHAMPS.marqueBorne, CHAMPS.supportBorne, CHAMPS.connectivite, CHAMPS.reseau, CHAMPS.tailleHub,
+  CHAMPS.puissanceVisee, CHAMPS.marqueBorne, CHAMPS.modeleBorne, CHAMPS.supportBorne, CHAMPS.connectivite, CHAMPS.reseau, CHAMPS.tailleHub,
   CHAMPS.quantite,
 ];
 const COPIES_SCENARIO = [CHAMPS.segment, CHAMPS.zoneDeplacement, CHAMPS.nbPlacesParking];
@@ -146,7 +152,7 @@ function valeursDe(t: any, ids: string[]): Record<string, number> {
   return sortie;
 }
 
-// Valeurs du relevé d'un élément, par clé de saisie (option pour un menu, nombre, texte), null si vide
+// Valeurs du relevé d'un élément, par clé de saisie (option pour un menu, nombre, texte, « oui » pour une case), null si vide
 function valeursActuelles(t: any): Valeurs {
   const v: Valeurs = {};
   for (const [cle, s] of Object.entries(SAISIES)) {
@@ -158,6 +164,8 @@ function valeursActuelles(t: any): Valeurs {
       v[cle] = options ? ((cleOption(options, indexMenu(t, id)) as string | null) ?? null) : null;
     } else if (s.type === 'nombre') {
       v[cle] = Number.isFinite(Number(f.value)) ? Number(f.value) : null;
+    } else if (s.type === 'case') {
+      v[cle] = f.value === true || f.value === 'true' ? 'oui' : null;
     } else {
       v[cle] = String(f.value);
     }
@@ -282,16 +290,22 @@ export async function creerParDefaut(ctx: Contexte, segment: Segment, materiel: 
   return { ...r, ok: r.ok && erreurs.length === 0, erreurs: [...erreurs, ...r.erreurs] };
 }
 
-// Ajout d'un élément ; un cheminement peut recevoir son départ et son arrivée (éléments actifs du même scénario)
+// Ajout d'un élément ; un cheminement peut recevoir son départ et son arrivée (éléments actifs du même scénario).
+// modele 'depose' : élément Autre « Dépose d'une borne existante », quantité 1 (01/11).
 export async function ajouterElement(
-  ctx: Contexte, nature: Nature, depart?: string, arrivee?: string, typeCh?: keyof typeof OPTIONS.typeCheminement,
+  ctx: Contexte, nature: Nature, depart?: string, arrivee?: string, typeCh?: keyof typeof OPTIONS.typeCheminement, modele?: 'depose',
 ): Promise<Resultat> {
   const actifs = ctx.actifs.map(vue);
   const cop = segmentDe(ctx.scenario) === 'COP';
   const description = "Élément ajouté depuis l'application.";
   if (nature !== 'cheminement') {
-    const nom = prochainNom(nature, nomsDe(ctx), cop);
+    let nom = prochainNom(nature, nomsDe(ctx), cop);
     const valeurs: Record<string, number> = nature === 'priseRenforcee' ? { [CHAMPS.puissanceVisee]: OPTIONS.puissanceVisee['3.7'] } : {};
+    if (modele === 'depose' && nature === 'autre') {
+      const deja = nomsDe(ctx).filter((n) => n.startsWith(NOM_DEPOSE)).length;
+      nom = deja ? `${NOM_DEPOSE} ${deja + 1}` : NOM_DEPOSE;
+      valeurs[CHAMPS.quantite] = 1;
+    }
     const id = await creer(ctx, nom, nature, valeurs, description);
     return id ? { ok: true, crees: [nom], erreurs: [], id } : { ok: false, erreur: `${nom} n'a pas pu être créé`, crees: [], erreurs: [] };
   }
@@ -430,6 +444,12 @@ function normaliserSaisie(s: Saisie, brut: unknown): string | number | null | un
     const n = Number(String(brut).replace(',', '.'));
     return Number.isFinite(n) && n >= 0 ? n : undefined;
   }
+  if (s.type === 'case') {
+    const t = String(brut).toLowerCase();
+    if (t === 'oui' || t === 'true') return 'oui';
+    if (t === 'non' || t === 'false') return null;
+    return undefined;
+  }
   return String(brut).slice(0, 2000);
 }
 
@@ -445,6 +465,8 @@ async function ecrireValeur(ctx: Contexte, taskId: string, cle: string, valeur: 
     w = ecrite(ctx.defs, champId, index);
   } else if (s.type === 'nombre') {
     w = Number(valeur);
+  } else if (s.type === 'case') {
+    w = true;
   } else {
     w = String(valeur);
   }
@@ -521,11 +543,23 @@ export async function enregistrerReleve(
     }
   }
 
-  // Coffret ou TD IRVE : variante -MOD en Modbus, liaison data de la mesure de puissance
+  // Coffret ou TD IRVE : TD de borne partagée (D15), variante -MOD en Modbus, liaison data de la mesure de puissance
   if (v.nature === 'tdIrveCoffret') {
+    // D15 : TD de borne partagée choisi → gestionnaire de grappe et connectivité intégrée au TD, posés d'office
+    if (estCoffretTd(nouvelles.coffretIrve)) {
+      if (nouvelles.gestionCharge !== 'gestionnaireGrappe' && (await ecrireValeur(ctx, id, 'gestionCharge', 'gestionnaireGrappe'))) {
+        nouvelles.gestionCharge = 'gestionnaireGrappe';
+        messages.push('Gestion de charge : gestionnaire de grappe (compris dans le TD)');
+      }
+      for (const com of tous.filter((e) => e.nature === 'communication')) {
+        if (com.valeurs.connectivite !== 'integreeTdIrve' && (await ecrireValeur(ctx, com.id, 'connectivite', 'integreeTdIrve'))) {
+          messages.push(`${com.nom} : connectivité intégrée au TD IRVE`);
+        }
+      }
+    }
     const mesure = nouvelles.gestionCharge && nouvelles.gestionCharge !== 'aucune' ? nouvelles.mesurePuissance : null;
     const ref = typeof nouvelles.coffretIrve === 'string' ? nouvelles.coffretIrve : '';
-    if (mesure === 'compteurModbus' && ref && !ref.endsWith('-MOD') && ref !== 'COFF-MONO-3K' && !changees.has('coffretIrve')) {
+    if (mesure === 'compteurModbus' && ref.startsWith('COFF-') && !ref.endsWith('-MOD') && ref !== 'COFF-MONO-3K' && !changees.has('coffretIrve')) {
       if (await ecrireValeur(ctx, id, 'coffretIrve', `${ref}-MOD`)) messages.push(`Coffret passé en ${ref}-MOD (compteur Modbus)`);
     }
     const raccordement = tous.find((e) => e.nature === 'raccordement');
