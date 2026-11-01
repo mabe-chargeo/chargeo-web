@@ -1,0 +1,44 @@
+# Robot TEMPORAIRE : régénère package-lock.json sur la branche nextjs-16-4-3.
+# À supprimer dès que le fichier est poussé.
+name: Regenerer package-lock (temporaire)
+
+on:
+  push:
+    branches: [nextjs-16-4-3]
+    paths: ['.github/workflows/regenerer-lockfile.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: nextjs-16-4-3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Regenerer package-lock.json
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Verifier une installation propre depuis le lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Versions installees
+        run: npm ls next react react-dom eslint-config-next sharp
+
+      - name: Audit de securite (production)
+        run: npm audit --omit=dev || true
+
+      - name: Pousser package-lock.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          if git diff --cached --quiet; then echo "Rien a changer"; exit 0; fi
+          git commit -m "Regenere package-lock.json pour Next.js 16.4.3 et React 19.3.1"
+          git push
