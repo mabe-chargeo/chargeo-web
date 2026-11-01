@@ -49,7 +49,7 @@ import {
   MODELES, NOM_ZONE, ORDRE_ZONES, PLANS, REPLI_ZONE, ZONES_PAR_POINT, lienModele, type ModeleDevis, type SectionModele, type Zone,
 } from '@/lib/modelesDevis';
 import {
-  DISTANCES, PERCEMENTS, PRISES, SAISIES, alerteTroisMetres, estCoffretTd, ligneBorne, longueurTotale, modeleCoherent,
+  DISTANCES, PERCEMENTS, PRISES, SAISIES, alerteTroisMetres, estCoffretTd, gestionDuSite, ligneBorne, longueurTotale, modeleCoherent,
   type ElementReleve,
 } from '@/lib/releveElements';
 
@@ -266,7 +266,9 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
       alertes.push(`${td.nom} : coffret triphasé ${texte(td.valeurs.coffretIrve)} sur un raccordement monophasé`);
     }
   }
-  const gestion = els.some((e) => e.nature === 'tdIrveCoffret' && texte(e.valeurs.gestionCharge) && texte(e.valeurs.gestionCharge) !== 'aucune');
+  // Gestion de charge du site : élément Communication (01/11, 21 h 35), ou TD IRVE / coffret d'un ancien relevé
+  const site = gestionDuSite(els);
+  const gestion = !!site.gestion && site.gestion !== 'aucune';
 
   // En-tête
   const quand = new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' });
@@ -337,8 +339,7 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
           v('raccordementCible') && `cible ${v('raccordementCible')}`, e.valeurs.terre !== null && e.valeurs.terre !== undefined ? `terre ${fr(Number(e.valeurs.terre))} Ω` : ''];
         break;
       case 'tdIrveCoffret':
-        d = [v('coffretIrve'), v('gestionCharge') && `gestion de charge : ${v('gestionCharge')}`, v('mesurePuissance') && `mesure : ${v('mesurePuissance')}`,
-          v('emplacement') && `emplacement : ${v('emplacement')}`];
+        d = [v('coffretIrve'), v('emplacement') && `emplacement : ${v('emplacement')}`];
         break;
       case 'borne':
         d = [v('puissanceVisee'), v('marqueBorne'), v('modeleBorne'), v('supportBorne')];
@@ -347,7 +348,8 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
         d = ['3,7 kW', v('marqueBorne'), v('supportBorne')];
         break;
       case 'communication':
-        d = [v('connectivite'), v('reseau') && `réseau : ${v('reseau')}`, v('tailleHub')];
+        d = [v('gestionCharge') && `gestion de charge : ${v('gestionCharge')}`, v('mesurePuissance') && `mesure : ${v('mesurePuissance')}`, v('tailleHub'),
+          v('connectivite'), v('reseau') && `réseau : ${v('reseau')}`];
         break;
       case 'boiteDerivation':
         d = ['borniers + switch, 4 PDC'];
@@ -588,6 +590,7 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
   const connectivite = texte(coms[0]?.valeurs.connectivite);
   const tailleHub = coms.map((e) => texte(e.valeurs.tailleHub)).find(Boolean) || '';
   const rang = rangsPoints(els);
+  const site = gestionDuSite(els); // gestion de charge et mesure : élément Communication, ou TD d'un ancien relevé
 
   // Raccordement (R1 à R10)
   if (racc) {
@@ -631,7 +634,7 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
     const poserLigne = (ref: string, m: number, unite: string, detail?: string) => ajouter(zone, ref, m, unite, detail, pdc);
     if (texte(c.valeurs.passageFacade) === 'oui') facade = facade ?? zone;
     if (type === 'liaisonData') { // C10 à C12
-      const mesure = dep?.nature === 'raccordement' && arr?.nature === 'tdIrveCoffret' ? texte(arr.valeurs.mesurePuissance) : '';
+      const mesure = dep?.nature === 'raccordement' && arr?.nature === 'tdIrveCoffret' ? site.mesure : '';
       const ref = mesure === 'compteurModbus' ? 'LIA-DATA-MOD' : mesure === 'ticLinky' ? 'LIA-DATA-TIC' : 'LIA-DATA-RJ45';
       const enTranchee = Number(c.valeurs.distTranchee) || 0;
       poserLigne(ref, metres(long - enTranchee), 'ml', c.nom);
@@ -700,24 +703,25 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
   // TD IRVE / coffret (T1 à T10)
   const points = els.filter((e) => e.nature === 'borne').reduce((n, bo) => n + (ligneBorne(bo.valeurs.modeleBorne)?.points ?? 1), 0)
     + els.filter((e) => e.nature === 'priseRenforcee').length;
-  for (const td of els.filter((e) => e.nature === 'tdIrveCoffret')) {
+  const tds = els.filter((e) => e.nature === 'tdIrveCoffret');
+  const mesure = site.mesure;
+  // T5, K5 : un gestionnaire de grappe pour le site (sauf TD de borne partagée, qui l'a déjà) ; RIC : le pilotage est
+  // celui de l'infra collective, rien à ajouter au devis du résident
+  if (site.gestion === 'gestionnaireGrappe' && !ric && !tds.some((td) => estCoffretTd(td.valeurs.coffretIrve))) {
+    if (tailleHub) ajouter('pilotage', `INFRA-COP-PILOTAGE-${tailleHub}`, 1);
+    else aFaire.push('Gestionnaire de grappe sans taille de HUB (élément Communication) : INFRA-COP-PILOTAGE-10, -20 ou -150 à choisir');
+  }
+  if (site.gestion === 'aucune') texteFixe('td', 'JUR-PUISSANCE-SANS-DELESTAGE'); // T6
+  for (const td of tds) {
     const ref = texte(td.valeurs.coffretIrve);
-    const gestionTd = texte(td.valeurs.gestionCharge);
-    const mesure = gestionTd && gestionTd !== 'aucune' ? texte(td.valeurs.mesurePuissance) : '';
     if (cop) ajouter('td', `INFRA-COP-TETE-${triRacc ? 'TRI' : 'MONO'}`, 1); // T7
     else if (ref) ajouter('td', ref, 1); // T1, T2
     else aFaire.push(`${td.nom} : référence du coffret à choisir`);
-    // RIC : le pilotage est celui de l'infra collective, rien à ajouter au devis du résident
-    if (gestionTd === 'gestionnaireGrappe' && !estCoffretTd(ref) && !ric) { // T5, K5
-      if (tailleHub) ajouter('pilotage', `INFRA-COP-PILOTAGE-${tailleHub}`, 1);
-      else aFaire.push(`${td.nom} : gestionnaire de grappe sans taille de HUB (élément Communication) : INFRA-COP-PILOTAGE-10, -20 ou -150 à choisir`);
-    }
-    if (gestionTd === 'aucune') texteFixe('td', 'JUR-PUISSANCE-SANS-DELESTAGE'); // T6
     if (ref.startsWith('COFF-')) { // T3, T4 (D1)
       if (mesure === 'compteurModbus' && !ref.endsWith('-MOD') && ref !== 'COFF-MONO-3K') alertes.push(`${td.nom} : compteur Modbus mais coffret ${ref} sans -MOD`);
       if (mesure === 'ticLinky' && ref.endsWith('-MOD')) alertes.push(`${td.nom} : mesure TIC Linky mais coffret ${ref} : prendre le coffret simple (D1)`);
     }
-    if (pdl && mesure) alertes.push(`${td.nom} : PDL dédié, ni compteur ni comptage (D5, D6) : la mesure de puissance et sa liaison data sont à retirer`);
+    if (pdl && mesure && td === tds[0]) alertes.push('PDL dédié, ni compteur ni comptage (D5, D6) : la mesure de puissance (élément Communication) et sa liaison data sont à retirer');
     if (seg === 'PAR' && sg && !estCoffretTd(ref) && !ref.endsWith('-MOD')) alertes.push(`${td.nom} : PAR sur services généraux, coffret -MOD (compteur Modbus) attendu (D6)`);
     // TD de borne partagée : 2 ou 3 départs, pour 2 ou 3 points de charge
     if (estCoffretTd(ref)) {
