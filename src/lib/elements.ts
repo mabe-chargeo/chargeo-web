@@ -18,8 +18,9 @@
 // Les menus sont écrits avec l'identifiant de l'option, retrouvé dans les champs de la liste. Un champ absent de la liste
 // (prod avant l'ajout des champs) est ignoré sans bloquer la création.
 // 01/11/2026 (Phase 8, étape 4) :
-// - TD de borne partagée (INFRA-TD-TRI-2D22-H10 ou 3D22-H10) choisi → gestion de charge « gestionnaire de grappe » et
-//   connectivité « intégrée au TD IRVE » posées d'office (D15) ; la variante -MOD ne concerne que les coffrets COFF- ;
+// - TD de borne partagée (INFRA-TD-TRI-2D22-H10 ou 3D22-H10) choisi → gestion de charge « gestionnaire de grappe » posée
+//   d'office (D15), HUB 10 ; connectivité « Modem déporté » + liaison data vers le TD (01/11, 21 h 55 : pas de 4G dans le
+//   TD) ; la variante -MOD ne concerne que les coffrets COFF- ;
 // - cases à cocher (🏢 Passage en façade) lues et écrites comme « oui » / vide ;
 // - 🔋 Modèle de borne recopié à la duplication (matériel) ; « Dépose d'une borne existante » = élément Autre ajouté
 //   avec ce nom et une quantité de 1.
@@ -548,15 +549,24 @@ export async function enregistrerReleve(
   // Coffret ou TD IRVE : TD de borne partagée (D15) ; puis, dès que le TD ou la gestion de charge change, variante -MOD
   // en Modbus et liaison data de la mesure de puissance. Gestion et mesure se relèvent dans Communication (01/11, 21 h 35).
   if (v.nature === 'tdIrveCoffret' && estCoffretTd(nouvelles.coffretIrve)) {
-    // D15 : TD de borne partagée choisi → gestionnaire de grappe et connectivité intégrée au TD, posés d'office
+    // D15 : TD de borne partagée choisi → gestionnaire de grappe (HUB 10 compris) posé d'office. Pas de 4G dans le TD
+    // (01/11, 21 h 55) : connectivité « Modem déporté » et liaison data Communication → TD créées d'office.
     const coms = actuels.filter((e) => e.nature === 'communication');
     for (const com of coms) {
       if (com.valeurs.gestionCharge !== 'gestionnaireGrappe' && (await ecrireValeur(ctx, com.id, 'gestionCharge', 'gestionnaireGrappe'))) {
         com.valeurs = { ...com.valeurs, gestionCharge: 'gestionnaireGrappe' };
-        messages.push(`${com.nom} : gestionnaire de grappe (compris dans le TD)`);
+        messages.push(`${com.nom} : gestionnaire de grappe (HUB 10 compris dans le TD)`);
       }
-      if (com.valeurs.connectivite !== 'integreeTdIrve' && (await ecrireValeur(ctx, com.id, 'connectivite', 'integreeTdIrve'))) {
-        messages.push(`${com.nom} : connectivité intégrée au TD IRVE`);
+      if (com.valeurs.tailleHub !== '10' && (await ecrireValeur(ctx, com.id, 'tailleHub', '10'))) com.valeurs = { ...com.valeurs, tailleHub: '10' };
+      if (com.valeurs.connectivite !== 'modemDeporte' && (await ecrireValeur(ctx, com.id, 'connectivite', 'modemDeporte'))) {
+        com.valeurs = { ...com.valeurs, connectivite: 'modemDeporte' };
+        messages.push(`${com.nom} : modem 4G déporté (le TD n'a pas de 4G)`);
+      }
+      const lie = actuels.some((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.depart === com.id);
+      if (!lie) {
+        const r = await ajouterElement(ctx, 'cheminement', com.id, id, 'liaisonData');
+        if (r.crees.length) messages.push(`Liaison data créée d'office : ${r.crees.join(', ')}`);
+        erreurs.push(...r.erreurs);
       }
     }
   }
