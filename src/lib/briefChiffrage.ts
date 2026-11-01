@@ -12,6 +12,10 @@
 // fiche ; point de livraison dédié = devis AMO séparé envoyé en premier ; dépose = élément Autre ; façade = case du
 // cheminement). Une référence absente de la bibliothèque n'est jamais inventée : elle part dans « ⏳ À faire à la main ».
 // Les calculs ci-dessous (puissance, sections, chutes) restent en détail sous la liste.
+// 01/11, 20 h 15 (Mathieu : « le brief du devis doit suivre la structure du modèle de devis correspondant ») : la liste
+// suit le plan lu dans chaque modèle (PLANS, src/lib/modelesDevis.ts) : sections, sous-sections, lignes du modèle à
+// garder, changer, remplacer ou retirer, puis lignes à ajouter dans la bonne sous-section. Alertes ajoutées : borne
+// triphasée sur raccordement monophasé (câble 3G, bridée à 7,4 kW) et TD 2 ou 3 points pour moins de points de charge.
 // Calculs (synthèse du 14/10, sections 4, 6 et 7) :
 // - réserve IRVE au barème (arrêté du 23/12/2020) en COP, avec le plafond ADVENIR infra ;
 // - puissance à demander à Enedis si PDL dédié (réserve IRVE en COP, somme des puissances visées sinon), toujours
@@ -41,7 +45,9 @@
 // assigné de borne, c'est le calibre de protection du TD).
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Segment } from '@/lib/champsClickUp';
 import { LIBELLE_SEGMENT, ORDRE_NATURE, FORFAIT_RIC_TUBE_APPARENT, estDepose } from '@/lib/elementsModele';
-import { MODELES, lienModele, type ModeleDevis } from '@/lib/modelesDevis';
+import {
+  MODELES, NOM_ZONE, ORDRE_ZONES, PLANS, REPLI_ZONE, ZONES_PAR_POINT, lienModele, type ModeleDevis, type SectionModele, type Zone,
+} from '@/lib/modelesDevis';
 import {
   DISTANCES, PERCEMENTS, PRISES, SAISIES, alerteTroisMetres, estCoffretTd, ligneBorne, longueurTotale, modeleCoherent,
   type ElementReleve,
@@ -63,12 +69,9 @@ const KW: Record<string, number> = { '3.7': 3.7, '7.4': 7.4, '11': 11, '22': 22 
 const ASSIGNE: Record<string, number> = { '3.7': 16, '7.4': 32, '11': 16, '22': 32 };
 const DISPO_KVA: Record<string, number> = { '3': 3, '6': 6, '9': 9, '12': 12, '18+': 18 };
 
-// Sous-sections des modèles (mêmes noms que les éléments de l'appli, + Prestations hors relevé)
-export const SOUS_SECTIONS = [
-  'Raccordement', 'Cheminement', 'TD IRVE / coffret', 'Borne', 'Prise renforcée', 'Communication', 'Boîte de dérivation', 'Autre', 'Prestations',
-] as const;
-export type SousSection = typeof SOUS_SECTIONS[number];
-export type LigneDevis = { ss: SousSection; ref: string; qte: number | null; unite: string; detail?: string };
+// Ligne à saisir : zone du modèle (src/lib/modelesDevis.ts), rang du point de recharge (0 = N°1), référence, quantité
+// (null pour un texte), unité, détail (élément du relevé d'où elle vient)
+export type LigneDevis = { zone: Zone; pdc: number; ref: string; qte: number | null; unite: string; detail?: string };
 
 // Sections de câble qui ont un ouvrage, par famille de liaison (bibliothèque et table de correspondance du 01/11).
 // Pas de 3G35 (D14). Une section hors liste n'est pas inventée : elle part dans « À faire à la main ».
@@ -189,19 +192,22 @@ const sectionSuivante = (s: number) => SECTIONS.find((x) => x > s) ?? null;
 
 // Courant assigné en aval d'un équipement (bornes et prises alimentées par les cheminements qui en partent).
 // Bornes mono supposées sur la même phase (cas le plus défavorable), simultanéité 1 (722.311).
-function aval(id: string, els: ElementReleve[], vus = new Set<string>()): { courant: number; tri: boolean } {
+// monoSeul : raccordement monophasé sans passage en tri, une borne 11 ou 22 kW y est bridée à 7,4 kW (32 A mono).
+function aval(id: string, els: ElementReleve[], monoSeul = false, vus = new Set<string>()): { courant: number; tri: boolean } {
   if (vus.has(id)) return { courant: 0, tri: false };
   vus.add(id);
   const e = els.find((x) => x.id === id);
   if (!e) return { courant: 0, tri: false };
   if (e.nature === 'borne' || e.nature === 'priseRenforcee') {
     const k = cleKw(e);
-    return { courant: ASSIGNE[k] ?? 0, tri: k === '11' || k === '22' };
+    const tri = k === '11' || k === '22';
+    if (tri && monoSeul) return { courant: 32, tri: false };
+    return { courant: ASSIGNE[k] ?? 0, tri };
   }
   let courant = 0;
   let tri = false;
   for (const c of els.filter((x) => x.nature === 'cheminement' && x.depart === id && x.arrivee && typeDe(x) !== 'liaisonData')) {
-    const a = aval(String(c.arrivee), els, vus);
+    const a = aval(String(c.arrivee), els, monoSeul, vus);
     courant += a.courant;
     tri = tri || a.tri;
   }
@@ -248,7 +254,18 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
   const dispo = DISPO_KVA[dispoCle] ?? null;
   const cible = texte(racc?.valeurs.raccordementCible);
   const bornes = els.filter((e) => e.nature === 'borne' || e.nature === 'priseRenforcee');
-  const kwBornes = bornes.reduce((s, e) => s + kwDe(e), 0);
+  // Raccordement monophasé (sans passage en tri) : une borne 11 ou 22 kW n'y donne que 7,4 kW, câble 3G
+  const monoSeul = !cop && !ric && texte(racc?.valeurs.typeRaccordement) === 'mono' && cible !== 'passageTri';
+  const kwReel = (e: ElementReleve) => (monoSeul && kwDe(e) > 7.4 ? 7.4 : kwDe(e));
+  const kwBornes = bornes.reduce((s, e) => s + kwReel(e), 0);
+  if (monoSeul) {
+    for (const bo of bornes.filter((e) => kwDe(e) > 7.4)) {
+      alertes.push(`${bo.nom} : ${fr(kwDe(bo))} kW (triphasé) sur un raccordement monophasé, elle sera bridée à 7,4 kW. Viser 7,4 kW, ou passer le raccordement en triphasé (raccordement cible)`);
+    }
+    for (const td of els.filter((e) => e.nature === 'tdIrveCoffret' && texte(e.valeurs.coffretIrve).includes('-TRI-'))) {
+      alertes.push(`${td.nom} : coffret triphasé ${texte(td.valeurs.coffretIrve)} sur un raccordement monophasé`);
+    }
+  }
   const gestion = els.some((e) => e.nature === 'tdIrveCoffret' && texte(e.valeurs.gestionCharge) && texte(e.valeurs.gestionCharge) !== 'aucune');
 
   // En-tête
@@ -361,7 +378,7 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
     let ci: Circuit | null = null;
     if (cop && arr?.nature === 'tdIrveCoffret') ci = { tri: true, courant: 63, calibre: 63, sectionMin: 16 };
     else if (c.arrivee) {
-      const a = aval(String(c.arrivee), els);
+      const a = aval(String(c.arrivee), els, monoSeul);
       if (a.courant > 0) ci = circuit(a.courant, a.tri);
     }
     return { c, type, long, ci, forcee, section: forcee ?? (ci ? ci.sectionMin : null), fixe: !!forcee, infra: false };
@@ -473,28 +490,35 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
   // Contrôle : une section forcée reste prioritaire, même si la chute dépasse
   void parId;
 
-  // 4. Lignes à saisir (table de correspondance du 01/11)
-  const { lignes, aFaire } = lignesDevis(b, calculs, alertes);
+  // 4. Lignes à saisir (table de correspondance du 01/11), dans l'ordre du modèle à copier
+  const { lignes, aFaire, retirer } = lignesDevis(b, calculs, alertes);
   const priseSeule = els.some((e) => e.nature === 'priseRenforcee') && !els.some((e) => e.nature === 'borne');
   const choix = modelesDuScenario(seg, source, b.typeClient ?? null, priseSeule);
   alertes.push(...choix.alertes);
   const saisie: string[] = ['', '🧾 À SAISIR DANS COSTRUCTOR'];
-  if (!choix.devis.length) saisie.push('Modèle : à choisir (voir les alertes)');
-  choix.devis.forEach((d, i) => {
-    const titre = choix.devis.length > 1 ? `Devis ${i + 1}` : 'Modèle';
-    saisie.push(`${titre} : copier « ${d.modele.nom} » (TVA ${d.modele.tva}${d.role ? `, ${d.role}` : ''}) : ${lienModele(d.modele)}`);
-  });
-  if (choix.devis.length > 1) saisie.push(`Les lignes ci-dessous vont dans le devis ${choix.devis.length} (travaux).`);
-  saisie.push("Règle : référence déjà dans la sous-section du modèle → mettre la quantité ci-dessous ; sinon l'ajouter. Ouvrage du modèle absent de la liste → à vérifier, le retirer s'il ne correspond pas au relevé. Les textes du modèle restent.");
-  for (const ss of SOUS_SECTIONS) {
-    const ls = lignes.filter((l) => l.ss === ss);
-    if (!ls.length) continue;
-    saisie.push('', ss);
-    for (const l of ls) {
-      const q = l.qte === null ? ' (texte)' : ` × ${fr(l.qte)}${l.unite ? ` ${l.unite}` : ''}`;
-      saisie.push(`• ${l.ref}${q}${l.detail ? ` · ${l.detail}` : ''}`);
-    }
+  saisie.push("Dans l'ordre du modèle. ✔ garder · ✏️ changer la quantité · 🔁 remplacer la ligne du modèle · ➕ ajouter dans cette sous-section · ✖ retirer · ❓ dans le modèle mais pas dans le relevé, à vérifier. Les textes du modèle restent.");
+  if (!choix.devis.length) {
+    saisie.push('', 'Modèle : à choisir (voir les alertes). Lignes du relevé :');
+    saisie.push(...lignes.map((l) => `• ${NOM_ZONE[l.zone]} : ${l.ref}${l.qte === null ? ' (texte)' : ` × ${fr(l.qte)}${l.unite ? ` ${l.unite}` : ''}`}${l.detail ? ` · ${l.detail}` : ''}`));
   }
+  choix.devis.forEach((d, i) => {
+    const titre = choix.devis.length > 1 ? `DEVIS ${i + 1}` : 'MODÈLE';
+    saisie.push('', `━━ ${titre} : copier « ${d.modele.nom} » (TVA ${d.modele.tva}${d.role ? `, ${d.role}` : ''}) : ${lienModele(d.modele)}`);
+    if (d.modele.cle === 'AMO_PDL') {
+      const amo: LigneDevis[] = [
+        { zone: 'prestations', pdc: 0, ref: 'ADMIN-CREATION-PDL', qte: 1, unite: '' },
+        { zone: 'prestations', pdc: 0, ref: 'JUR-CONSUEL-PDL-ENEDIS', qte: null, unite: 'texte' },
+        { zone: 'logistique', pdc: 0, ref: `LOG-DEP-${b.zone && ['Z1', 'Z2', 'Z3'].includes(b.zone) ? b.zone : 'Z1'}`, qte: 1, unite: '' },
+      ];
+      saisie.push(...rendreDevis(PLANS.AMO_PDL, amo));
+      return;
+    }
+    const nbPoints = bornes.length;
+    if (PLANS[d.modele.cle].some((s) => s.parPoint) && nbPoints > 1) {
+      saisie.push(`${nbPoints} points de recharge : le modèle a une section « POINT DE RECHARGE N°1 », une section par point ci-dessous (dupliquer la N°1, puis renuméroter les sections suivantes).`);
+    }
+    saisie.push(...rendreDevis(PLANS[d.modele.cle], lignes, retirer, nbPoints));
+  });
   if (aFaire.length) saisie.push('', '⏳ À FAIRE À LA MAIN', ...aFaire.map((a) => `• ${a}`));
 
   // Totaux par mode de pose et percements
@@ -536,24 +560,24 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
   };
 }
 
-// Lignes « référence × quantité » par sous-section, à partir des éléments et des sections calculées.
-// Table de correspondance du 01/11 : R (raccordement), C (cheminement), T (TD IRVE / coffret), BD, B (borne), P (prise),
-// K (communication), A (autre), G (prestations).
-function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { lignes: LigneDevis[]; aFaire: string[] } {
+// Lignes « référence × quantité » rangées par zone du modèle (src/lib/modelesDevis.ts), à partir des éléments et des
+// sections calculées. Table de correspondance du 01/11 : R (raccordement), C (cheminement), T (TD IRVE / coffret), BD,
+// B (borne), P (prise), K (communication), A (autre), G (prestations). pdc : rang du point de recharge (0 = N°1), pour
+// les modèles à une section par point. retirer : lignes du modèle à enlever, avec la raison.
+function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { lignes: LigneDevis[]; aFaire: string[]; retirer: Record<string, string> } {
   const els = b.elements;
   const seg = b.segment;
   const cop = seg === 'COP';
   const ric = seg === 'RIC';
   const lignes: LigneDevis[] = [];
   const aFaire: string[] = [];
-  const ajouter = (ss: SousSection, ref: string, qte: number, unite = '', detail?: string) => {
+  const retirer: Record<string, string> = {};
+  const ajouter = (zone: Zone, ref: string, qte: number, unite = '', detail?: string, pdc = 0) => {
     if (!(qte > 0)) return;
-    const meme = !detail ? lignes.find((l) => l.ss === ss && l.ref === ref && !l.detail && l.qte !== null) : undefined;
-    if (meme && meme.qte !== null) meme.qte += qte;
-    else lignes.push({ ss, ref, qte, unite, detail });
+    lignes.push({ zone, pdc, ref, qte, unite, detail });
   };
-  const texteFixe = (ss: SousSection, ref: string, detail?: string) => {
-    if (!lignes.some((l) => l.ss === ss && l.ref === ref)) lignes.push({ ss, ref, qte: null, unite: 'texte', detail });
+  const texteFixe = (zone: Zone, ref: string, detail?: string) => {
+    if (!lignes.some((l) => l.zone === zone && l.ref === ref)) lignes.push({ zone, pdc: 0, ref, qte: null, unite: 'texte', detail });
   };
   const racc = els.find((e) => e.nature === 'raccordement');
   const source = texte(racc?.valeurs.sourceRaccordement);
@@ -563,54 +587,58 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
   const coms = els.filter((e) => e.nature === 'communication');
   const connectivite = texte(coms[0]?.valeurs.connectivite);
   const tailleHub = coms.map((e) => texte(e.valeurs.tailleHub)).find(Boolean) || '';
+  const rang = rangsPoints(els);
 
   // Raccordement (R1 à R10)
   if (racc) {
     if (sg) {
-      if (cop || seg === 'PAR') ajouter('Raccordement', `INFRA-COP-COMPTAGE-${triRacc ? 'TRI' : 'MONO'}`, 1); // R3, D5, D6
+      if (cop || seg === 'PAR') ajouter('raccordement', `INFRA-COP-COMPTAGE-${triRacc ? 'TRI' : 'MONO'}`, 1); // R3, D5, D6
       else aFaire.push('Départ au TGBT services généraux : DEPART-TGBT-TRI-40 seulement si Mathieu le valide (R2)');
-      texteFixe('Raccordement', 'JUR-COUPURE-TGBT');
+      texteFixe('raccordement', 'JUR-COUPURE-TGBT');
     }
-    if (pdl) aFaire.push('PDL dédié : ADMIN-CREATION-PDL est dans le devis AMO séparé, pas dans ce devis (ni compteur ni comptage, D5 et D6)');
     if (source === 'colonneEnedis') {
-      texteFixe('Raccordement', 'INFO-RACC-LINKY-ENEDIS'); // R6, D13
-      texteFixe('Raccordement', 'JUR-CONSUEL-PDL-ENEDIS');
+      texteFixe('raccordement', 'INFO-RACC-LINKY-ENEDIS'); // R6, D13
+      texteFixe('raccordement', 'JUR-CONSUEL-PDL-ENEDIS');
     }
     const cible = texte(racc.valeurs.raccordementCible);
     if (cible && cible !== 'inchange') { // R7
-      ajouter('Raccordement', 'ADMIN-AUGM-PDL', 1);
-      texteFixe('Raccordement', 'JUR-AUGM-PUISSANCE');
+      ajouter('raccordement', 'ADMIN-AUGM-PDL', 1);
+      texteFixe('raccordement', 'JUR-AUGM-PUISSANCE');
     }
     const etat = texte(racc.valeurs.etatTableau);
     if (etat === 'aRemanier' || etat === 'aRemplacer') { // R8
-      texteFixe('Raccordement', 'JUR-RESERVE-EXISTANT');
+      texteFixe('raccordement', 'JUR-RESERVE-EXISTANT');
       aFaire.push(`Tableau ${etat === 'aRemplacer' ? 'à remplacer' : 'à remanier'} : remise à niveau à chiffrer à la main`);
     }
     const terre = racc.valeurs.terre;
     if (terre !== null && terre !== undefined && terre !== '' && Number(terre) > 100) { // R9, R10
-      ajouter('Raccordement', 'TERRE-RENF', 1, '', `terre ${fr(Number(terre))} Ω`);
+      ajouter('raccordement', 'TERRE-RENF', 1, '', `terre ${fr(Number(terre))} Ω`);
       aFaire.push('Terre > 100 Ω : TERRE-RENF si une prise de terre existe, sinon TERRE-PIQ à la place');
     }
   }
 
-  // Cheminement (C1 à C13)
-  let tranchee = false;
-  let facade = false;
+  // Cheminement (C1 à C13) : section 1 s'il arrive au TD IRVE / coffret ou part du raccordement, sinon section des
+  // points de recharge (ou de l'artère en COP), dans la section du point de recharge auquel il arrive
+  let tranchee: Zone | null = null;
+  let facade: Zone | null = null;
   for (const k of calculs) {
     const { c, type, long } = k;
     if (long <= 0) continue;
     const dep = els.find((e) => e.id === c.depart);
     const arr = els.find((e) => e.id === c.arrivee);
-    if (texte(c.valeurs.passageFacade) === 'oui') facade = true;
+    const zone: Zone = type !== 'artere' && (arr?.nature === 'tdIrveCoffret' || dep?.nature === 'raccordement') ? 'chemAmont' : 'chemAval';
+    const pdc = zone === 'chemAval' && c.arrivee ? rang.get(String(c.arrivee)) ?? 0 : 0;
+    const poserLigne = (ref: string, m: number, unite: string, detail?: string) => ajouter(zone, ref, m, unite, detail, pdc);
+    if (texte(c.valeurs.passageFacade) === 'oui') facade = facade ?? zone;
     if (type === 'liaisonData') { // C10 à C12
       const mesure = dep?.nature === 'raccordement' && arr?.nature === 'tdIrveCoffret' ? texte(arr.valeurs.mesurePuissance) : '';
       const ref = mesure === 'compteurModbus' ? 'LIA-DATA-MOD' : mesure === 'ticLinky' ? 'LIA-DATA-TIC' : 'LIA-DATA-RJ45';
       const enTranchee = Number(c.valeurs.distTranchee) || 0;
-      ajouter('Cheminement', ref, metres(long - enTranchee), 'ml', c.nom);
+      poserLigne(ref, metres(long - enTranchee), 'ml', c.nom);
       if (enTranchee > 0) {
-        tranchee = true;
-        if (ref === 'LIA-DATA-RJ45') ajouter('Cheminement', 'LIA-ENT-RJ45', metres(enTranchee), 'ml', `${c.nom} (en tranchée)`);
-        else ajouter('Cheminement', ref, metres(enTranchee), 'ml', `${c.nom} (en tranchée)`);
+        tranchee = tranchee ?? zone;
+        if (ref === 'LIA-DATA-RJ45') poserLigne('LIA-ENT-RJ45', metres(enTranchee), 'ml', `${c.nom} (en tranchée)`);
+        else poserLigne(ref, metres(enTranchee), 'ml', `${c.nom} (en tranchée)`);
       }
     } else {
       // Section : calculée (S1), forcée (S2), de l'artère (S4) ; 3G en mono, 5G en tri (S5)
@@ -629,14 +657,12 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
         const code = `${triCable ? '5G' : '3G'}${String(s)}`;
         const poser = (famille: string, m: number, detail: string) => {
           const ref = `${famille}-${code}`;
-          if (CABLES[famille]?.includes(code)) ajouter('Cheminement', ref, metres(m), 'ml', detail);
+          if (CABLES[famille]?.includes(code)) poserLigne(ref, metres(m), 'ml', detail);
           else aFaire.push(`${detail} : ${ref} × ${metres(m)} ml n'existe pas en bibliothèque${code === '3G35' ? ' (pas de 3G35 : passer en triphasé, D14)' : ''}`);
         };
         if (k.infra) {
           // C5 : boîte de dérivation → coffret, toujours en dérivation (forfait 5 m pré-rempli + dépassement)
           poser('LIA-DERIV', long, `${c.nom}${noteSection}`);
-          // Câble data posé avec la dérivation, comme dans le modèle RIC
-          if (connectivite === 'switchBoiteDerivation') ajouter('Cheminement', 'LIA-DATA-RJ45', metres(long), 'ml', `${c.nom} (data, avec la dérivation)`);
         } else {
           const poses = type === 'artere' ? POSE_ARTERE : POSE_ALIMENTATION;
           for (const d of DISTANCES) {
@@ -646,96 +672,117 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
             const mode = SAISIES[d].libelle.replace(' (m)', '').toLowerCase();
             if (!famille) { aFaire.push(`${c.nom} : ${mode} ${fr(m)} m en artère, pas d'ouvrage d'artère pour ce mode de pose`); continue; }
             poser(famille, m, `${c.nom}, ${mode}`);
-            if (d === 'distTranchee') tranchee = true;
-            if (type === 'artere' && d === 'distCheminCables') ajouter('Cheminement', 'LIA-DATA-RJ45', metres(m), 'ml', `${c.nom}, câble data dans le chemin de câbles (D16)`);
+            if (d === 'distTranchee') tranchee = tranchee ?? zone;
+            if (type === 'artere' && d === 'distCheminCables') poserLigne('LIA-DATA-RJ45', metres(m), 'ml', `${c.nom}, câble data dans le chemin de câbles (D16)`);
           }
+        }
+        // RIC : le câble data du switch de la boîte de dérivation suit l'alimentation jusqu'à la borne (dérivation, puis
+        // coffret → borne), comme dans les modèles RIC (LIA-DATA-RJ45 × 5 dans chacun des deux cheminements)
+        if (ric && source !== 'colonneEnedis' && connectivite === 'switchBoiteDerivation') {
+          poserLigne('LIA-DATA-RJ45', metres(long), 'ml', `${c.nom} (data, avec l'alimentation)`);
         }
       }
       // Percements (C13) : variante Ø40 dès 16 mm²
       for (const p of PERCEMENTS) {
         const n = Number(c.valeurs[p]) || 0;
-        if (n > 0) ajouter('Cheminement', `${PERCEMENT_REF[p]}${(s ?? 0) >= 16 ? '-40' : ''}`, Math.ceil(n));
+        if (n > 0) poserLigne(`${PERCEMENT_REF[p]}${(s ?? 0) >= 16 ? '-40' : ''}`, Math.ceil(n), '', c.nom);
       }
       continue;
     }
     for (const p of PERCEMENTS) {
       const n = Number(c.valeurs[p]) || 0;
-      if (n > 0) ajouter('Cheminement', PERCEMENT_REF[p], Math.ceil(n));
+      if (n > 0) poserLigne(PERCEMENT_REF[p], Math.ceil(n), '', c.nom);
     }
   }
-  if (tranchee) texteFixe('Cheminement', 'INFO-TRANCHEE-TERRASSIER');
-  if (facade) texteFixe('Cheminement', 'JUR-AUTORISATION-FACADE');
+  if (tranchee) texteFixe(tranchee, 'INFO-TRANCHEE-TERRASSIER');
+  if (facade) texteFixe(facade, 'JUR-AUTORISATION-FACADE');
 
   // TD IRVE / coffret (T1 à T10)
+  const points = els.filter((e) => e.nature === 'borne').reduce((n, bo) => n + (ligneBorne(bo.valeurs.modeleBorne)?.points ?? 1), 0)
+    + els.filter((e) => e.nature === 'priseRenforcee').length;
   for (const td of els.filter((e) => e.nature === 'tdIrveCoffret')) {
     const ref = texte(td.valeurs.coffretIrve);
     const gestionTd = texte(td.valeurs.gestionCharge);
     const mesure = gestionTd && gestionTd !== 'aucune' ? texte(td.valeurs.mesurePuissance) : '';
-    if (cop) ajouter('TD IRVE / coffret', `INFRA-COP-TETE-${triRacc ? 'TRI' : 'MONO'}`, 1); // T7
-    else if (ref) ajouter('TD IRVE / coffret', ref, 1); // T1, T2
+    if (cop) ajouter('td', `INFRA-COP-TETE-${triRacc ? 'TRI' : 'MONO'}`, 1); // T7
+    else if (ref) ajouter('td', ref, 1); // T1, T2
     else aFaire.push(`${td.nom} : référence du coffret à choisir`);
     // RIC : le pilotage est celui de l'infra collective, rien à ajouter au devis du résident
     if (gestionTd === 'gestionnaireGrappe' && !estCoffretTd(ref) && !ric) { // T5, K5
-      if (tailleHub) ajouter('TD IRVE / coffret', `INFRA-COP-PILOTAGE-${tailleHub}`, 1);
+      if (tailleHub) ajouter('pilotage', `INFRA-COP-PILOTAGE-${tailleHub}`, 1);
       else aFaire.push(`${td.nom} : gestionnaire de grappe sans taille de HUB (élément Communication) : INFRA-COP-PILOTAGE-10, -20 ou -150 à choisir`);
     }
-    if (gestionTd === 'aucune') texteFixe('TD IRVE / coffret', 'JUR-PUISSANCE-SANS-DELESTAGE'); // T6
+    if (gestionTd === 'aucune') texteFixe('td', 'JUR-PUISSANCE-SANS-DELESTAGE'); // T6
     if (ref.startsWith('COFF-')) { // T3, T4 (D1)
       if (mesure === 'compteurModbus' && !ref.endsWith('-MOD') && ref !== 'COFF-MONO-3K') alertes.push(`${td.nom} : compteur Modbus mais coffret ${ref} sans -MOD`);
       if (mesure === 'ticLinky' && ref.endsWith('-MOD')) alertes.push(`${td.nom} : mesure TIC Linky mais coffret ${ref} : prendre le coffret simple (D1)`);
     }
     if (pdl && mesure) alertes.push(`${td.nom} : PDL dédié, ni compteur ni comptage (D5, D6) : la mesure de puissance et sa liaison data sont à retirer`);
     if (seg === 'PAR' && sg && !estCoffretTd(ref) && !ref.endsWith('-MOD')) alertes.push(`${td.nom} : PAR sur services généraux, coffret -MOD (compteur Modbus) attendu (D6)`);
+    // TD de borne partagée : 2 ou 3 départs, pour 2 ou 3 points de charge
+    if (estCoffretTd(ref)) {
+      const departs = ref.includes('3D22') ? 3 : 2;
+      if (points < departs) alertes.push(`${td.nom} : ${ref} prévu pour ${departs} points de charge, ${points} au relevé. ${points <= 1 ? 'Pour une seule borne, un coffret COFF suffit' : `Prendre le TD ${points} points`}`);
+      if (points > departs) alertes.push(`${td.nom} : ${points} points de charge pour ${departs} départs du ${ref} : un TD ou un coffret de plus`);
+    }
   }
   if (estCoffretTd(els.find((e) => e.nature === 'tdIrveCoffret')?.valeurs.coffretIrve) && seg && !['PAR', 'FLT', 'TER'].includes(seg)) {
     alertes.push(`TD de borne partagée en ${seg} : proposé en PAR, FLT et TER seulement (D15)`);
   }
+  // DAP : le sous-compteur MID du modèle sert à refacturer la copropriété, donc borne sur les services généraux
+  if (seg === 'DAP') {
+    if (sg) ajouter('td', 'MID-SOUS-COMPTAGE', 1);
+    else retirer['MID-SOUS-COMPTAGE'] = 'borne sur ton propre compteur, rien à refacturer à la copropriété';
+  }
 
   // Boîte de dérivation (BD1)
-  ajouter('Boîte de dérivation', 'INFRA-COP-BOITE', els.filter((e) => e.nature === 'boiteDerivation').length);
+  ajouter('boite', 'INFRA-COP-BOITE', els.filter((e) => e.nature === 'boiteDerivation').length);
 
-  // Borne (B1 à B17)
-  let points = 0;
+  // Borne (B1 à B17) : une mise en service par point de charge (B15), dans la section de sa borne
   let wittyPlus = 0;
+  const miseEnService = new Map<number, number>(); // points de charge par section de point de recharge
+  const supervise = seg === 'PAR' || seg === 'FLT' || seg === 'TER' || (ric && source !== 'colonneEnedis');
   for (const bo of els.filter((e) => e.nature === 'borne')) {
+    const pdc = rang.get(bo.id) ?? 0;
     const ligne = ligneBorne(bo.valeurs.modeleBorne);
-    if (!ligne) { aFaire.push(`${bo.nom} : modèle de borne à choisir`); points += 1; continue; }
+    if (!ligne) {
+      aFaire.push(`${bo.nom} : modèle de borne à choisir`);
+      miseEnService.set(pdc, (miseEnService.get(pdc) ?? 0) + 1);
+      continue;
+    }
     if (!modeleCoherent(bo.valeurs)) alertes.push(`${bo.nom} : ${ligne.ref} ne correspond pas à la marque ou à la puissance saisie`);
-    ajouter('Borne', ligne.ref, 1);
-    points += ligne.points;
+    ajouter('borne', ligne.ref, 1, '', undefined, pdc);
     if (ligne.ref === 'BORNE-HAG-WPLUS-22') wittyPlus += 1;
     if (texte(bo.valeurs.supportBorne) === 'surPied') {
-      if (ligne.pied) ajouter('Borne', ligne.pied, 1);
+      if (ligne.pied) ajouter('borne', ligne.pied, 1, '', undefined, pdc);
       else aFaire.push(`${bo.nom} : pied ${libelle('marqueBorne', bo.valeurs.marqueBorne) || ''} à créer en bibliothèque (seuls les pieds Peblar existent, D4)`);
     }
+    miseEnService.set(pdc, (miseEnService.get(pdc) ?? 0) + ligne.points);
   }
-  if (points > 0) { // B15 : 1 mise en service par point de charge
-    const supervise = seg === 'PAR' || seg === 'FLT' || seg === 'TER' || (ric && source !== 'colonneEnedis');
-    ajouter('Borne', supervise ? 'SERV-SETUP-PDC' : 'SERV-SETUP-PDC-LOCAL', points);
-  }
+  for (const [pdc, n] of Array.from(miseEnService)) ajouter('borne', supervise ? 'SERV-SETUP-PDC' : 'SERV-SETUP-PDC-LOCAL', n, '', undefined, pdc);
   for (const a of els.filter((e) => e.nature === 'autre' && estDepose(e.nom))) { // B16
-    ajouter('Borne', 'DEPOSE-BORNE', Number(a.valeurs.quantite) || 1);
+    ajouter('borne', 'DEPOSE-BORNE', Number(a.valeurs.quantite) || 1, '', a.nom);
   }
 
   // Prise renforcée (P1 à P5)
   for (const p of els.filter((e) => e.nature === 'priseRenforcee')) {
     const ref = PRISES[texte(p.valeurs.marqueBorne)];
-    if (ref) ajouter('Prise renforcée', ref, 1);
+    if (ref) ajouter('prise', ref, 1, '', undefined, rang.get(p.id) ?? 0);
     else aFaire.push(`${p.nom} : marque de prise à choisir (Legrand, Hager ou Schneider)`);
   }
 
   // Communication (K1 à K7)
   for (const com of coms) {
-    if (texte(com.valeurs.connectivite) === 'modemDeporte') ajouter('Communication', 'INFRA-COP-ROUTEUR', 1); // K2
+    if (texte(com.valeurs.connectivite) === 'modemDeporte') ajouter('communication', 'INFRA-COP-ROUTEUR', 1); // K2
     if (texte(com.valeurs.reseau) === 'cableRequis' && !els.some((e) => e.nature === 'cheminement' && typeDe(e) === 'liaisonData' && e.depart === com.id)) {
       alertes.push(`${com.nom} : câble requis mais aucune liaison data saisie (K6)`);
     }
   }
-  if (wittyPlus > 0 && connectivite === 'simIntegree') ajouter('Communication', 'OPT-4G-HAG', wittyPlus); // K1
+  if (wittyPlus > 0 && connectivite === 'simIntegree') ajouter('communication', 'OPT-4G-HAG', wittyPlus); // K1
   const supervision: Partial<Record<Segment, string>> = {
     PAR: 'SERV-SETUP-SUPERVISION-REFACT', FLT: 'SERV-SETUP-SUPERVISION', TER: 'SERV-SETUP-SUPERVISION-REFACT', COP: 'SERV-SETUP-SUPERVISION',
   };
-  if (seg && supervision[seg]) ajouter('Communication', supervision[seg] as string, 1); // K7, D8 ; COP : 01/11 (étape 3)
+  if (seg && supervision[seg]) ajouter('communication', supervision[seg] as string, 1); // K7, D8 ; COP : 01/11 (étape 3)
 
   // Autre (A1), hors dépose (rangée en Borne)
   for (const a of els.filter((e) => e.nature === 'autre' && !estDepose(e.nom))) {
@@ -745,26 +792,155 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
       : n.includes('badge') && (n.includes('itinerance') || n.includes('emsp')) ? 'OPT-BADGE-EMSP'
         : n.includes('badge') && n.includes('nominati') ? 'SERV-BADGE'
           : n.includes('badge') ? 'OPT-BADGE-LOCAL' : '';
-    if (ref) ajouter('Autre', ref, qte, ref.startsWith('OPT-BADGE') ? 'u' : '', a.nom);
+    if (ref) ajouter('autre', ref, qte, ref.startsWith('OPT-BADGE') ? 'u' : '', a.nom);
     else aFaire.push(`${a.nom} (× ${fr(qte)}) : option à choisir à la main`);
   }
 
   // Prestations (G1 à G5)
-  if (seg === 'FLT' || seg === 'TER') ajouter('Prestations', 'ADMIN-CONSUEL-VERT', 1);
-  else if (seg === 'RES' || seg === 'DAP' || seg === 'PAR' || seg === 'COP' || (ric && source === 'colonneEnedis')) ajouter('Prestations', 'ADMIN-CONSUEL', 1);
-  if (cop) texteFixe('Prestations', 'JUR-CONSUEL-COPRO');
-  if (seg === 'DAP') ajouter('Prestations', 'ADMIN-DAP', 1);
-  if (cop) { ajouter('Prestations', 'SERV-ETUDE-COP', 1); ajouter('Prestations', 'ADMIN-CONTROLE', 1); }
+  if (seg === 'FLT' || seg === 'TER') ajouter('prestations', 'ADMIN-CONSUEL-VERT', 1);
+  else if (seg === 'RES' || seg === 'DAP' || seg === 'PAR' || seg === 'COP' || (ric && source === 'colonneEnedis')) ajouter('prestations', 'ADMIN-CONSUEL', 1);
+  if (cop) texteFixe('prestations', 'JUR-CONSUEL-COPRO');
+  if (seg === 'DAP') ajouter('prestations', 'ADMIN-DAP', 1);
+  if (cop) { ajouter('prestations', 'SERV-ETUDE-COP', 1); ajouter('prestations', 'ADMIN-CONTROLE', 1); }
   const advenir = cop ? 'INFO-ADVENIR-INFRA' : seg === 'PAR' ? 'INFO-ADVENIR-PARTAGE' : ric || (seg === 'DAP' && sg) ? 'INFO-ADVENIR-INDIVIDUEL' : '';
   if (advenir) {
-    ajouter('Prestations', 'ADMIN-ADVENIR', 1);
-    texteFixe('Prestations', advenir, 'montant estimé et reste à charge TTC à compléter');
+    ajouter('prestations', 'ADMIN-ADVENIR', 1);
+    texteFixe('prestations', advenir, 'compléter le montant estimé et le reste à charge TTC');
   }
-  if (seg === 'DAP' && !sg) aFaire.push('DAP hors services généraux : pas d’ADVENIR (éligible sur les services généraux seulement)');
-  const zone = b.zone && ['Z1', 'Z2', 'Z3'].includes(b.zone) ? b.zone : 'Z1';
-  ajouter('Prestations', `LOG-DEP-${zone}`, 1, '', `1 par jour de pose (environ 7 h sur place)${b.zone ? '' : ', zone à renseigner'}, à ajuster (D9)`);
+  if (seg === 'DAP' && !sg) {
+    retirer['ADMIN-ADVENIR'] = "pas d'ADVENIR hors services généraux";
+    retirer['INFO-ADVENIR-INDIVIDUEL'] = "pas d'ADVENIR hors services généraux";
+  }
+  ajouter('logistique', `LOG-DEP-${zoneDeplacement(b.zone)}`, 1, '', `1 par jour de pose (environ 7 h sur place)${b.zone ? '' : ', zone à renseigner'}, à ajuster (D9)`);
 
-  return { lignes, aFaire };
+  return { lignes, aFaire, retirer };
+}
+
+const zoneDeplacement = (z: string | null) => (z && ['Z1', 'Z2', 'Z3'].includes(z) ? z : 'Z1');
+
+// Rang de chaque point de recharge (bornes puis prises, par nom) : 0 = N°1
+function rangsPoints(els: ElementReleve[]): Map<string, number> {
+  const pts = els.filter((e) => e.nature === 'borne' || e.nature === 'priseRenforcee')
+    .sort((x, y) => (x.nature === y.nature ? 0 : x.nature === 'borne' ? -1 : 1) || x.nom.localeCompare(y.nom, 'fr', { numeric: true }));
+  return new Map(pts.map((e, i) => [e.id, i]));
+}
+
+// Famille d'une ligne : une ligne du modèle absente du relevé et une ligne du relevé absente du modèle, de la même
+// famille et dans la même sous-section, se lisent comme un remplacement (ex. COFF-MONO-7K → COFF-TRI-22K)
+function famille(ref: string): string {
+  if (ref.startsWith('BORNE-')) return 'borne';
+  if (ref.startsWith('COFF-') || ref.startsWith('INFRA-TD-')) return 'coffret';
+  if (ref.startsWith('LIA-DATA-') || ref === 'LIA-ENT-RJ45') return 'data';
+  if (ref.startsWith('LIA-')) return 'cable';
+  if (ref.startsWith('SERV-SETUP-PDC')) return 'miseEnService';
+  if (ref.startsWith('SERV-SETUP-SUPERVISION')) return 'supervision';
+  if (ref.startsWith('ADMIN-CONSUEL')) return 'consuel';
+  if (ref.startsWith('LOG-DEP-')) return 'deplacement';
+  if (ref.startsWith('PRISE-')) return 'prise';
+  return ref;
+}
+
+const LIEU_A_CREER: Partial<Record<Zone, string>> = {
+  communication: 'section pilotage et communication à créer avant les prestations',
+  autre: 'à la fin de la section du point de recharge',
+};
+
+// Rendu d'un devis dans l'ordre exact de son modèle : chaque section, chaque sous-section, chaque ligne du modèle avec
+// ce qu'il faut en faire, puis les lignes à ajouter dans cette sous-section. Une zone que le modèle n'a pas devient une
+// sous-section « à créer », placée juste après la sous-section qui la précède dans la chaîne.
+export function rendreDevis(plan: SectionModele[], lignes: LigneDevis[], retirer: Record<string, string> = {}, nbPoints = 1): string[] {
+  const out: string[] = [];
+  const zonesDuPlan = new Set(plan.flatMap((s) => s.sous.map((ss) => ss.zone)));
+  const zoneCible = (z: Zone): Zone | null => (zonesDuPlan.has(z) ? z : REPLI_ZONE[z] && zonesDuPlan.has(REPLI_ZONE[z] as Zone) ? REPLI_ZONE[z] as Zone : null);
+  const parPoint = plan.some((s) => s.parPoint);
+  const pdcDe = (l: LigneDevis) => (parPoint && ZONES_PAR_POINT.includes(l.zone) ? l.pdc : 0);
+  const restantes = lignes.map((l) => ({ ...l, zone: zoneCible(l.zone) ?? l.zone }));
+  const qte = (n: number | null, unite: string) => (n === null ? '' : ` × ${fr(n)}${unite && unite !== 'texte' ? ` ${unite}` : ''}`);
+  const details = (ls: LigneDevis[]) => {
+    const d = ls.map((l) => l.detail).filter(Boolean);
+    return d.length ? ` · ${Array.from(new Set(d)).join(' ; ')}` : '';
+  };
+  const libTexte = (ref: string) => `texte ${ref}`;
+
+  // Lignes d'une sous-section (zone, point de recharge), modèle d'abord
+  const rendreSous = (zone: Zone, pdc: number, modele: { ref: string; qte?: number; texte?: string }[], aCreer: boolean, lieu = '') => {
+    const ici = restantes.filter((l) => l.zone === zone && pdcDe(l) === pdc);
+    const prises = new Set<LigneDevis>();
+    const items: string[] = [];
+    for (const m of modele) {
+      if (m.texte !== undefined) {
+        const demande = m.ref ? ici.find((l) => !prises.has(l) && l.ref === m.ref && l.qte === null) : undefined;
+        if (demande) prises.add(demande);
+        if (m.ref && retirer[m.ref]) items.push(`✖ texte « ${m.texte} » : retirer (${retirer[m.ref]})`);
+        else items.push(`✔ texte « ${m.texte} » : garder${demande?.detail ? `, ${demande.detail}` : ''}`);
+        continue;
+      }
+      const memes = ici.filter((l) => !prises.has(l) && l.ref === m.ref && l.qte !== null);
+      if (memes.length) {
+        memes.forEach((l) => prises.add(l));
+        const total = memes.reduce((s, l) => s + (l.qte ?? 0), 0);
+        const u = memes[0].unite;
+        items.push(total === m.qte
+          ? `✔ ${m.ref}${qte(total, u)} : garder${details(memes)}`
+          : `✏️ ${m.ref} : passer de ${fr(m.qte ?? 0)} à ${fr(total)}${u ? ` ${u}` : ''}${details(memes)}`);
+        continue;
+      }
+      if (retirer[m.ref]) { items.push(`✖ ${m.ref} : retirer (${retirer[m.ref]})`); continue; }
+      // Remplacement : même famille, pas dans le modèle, dans la même sous-section
+      const fam = famille(m.ref);
+      const autre = ici.find((l) => !prises.has(l) && l.qte !== null && famille(l.ref) === fam && !modele.some((x) => x.ref === l.ref));
+      if (autre) {
+        const memeRef = ici.filter((l) => !prises.has(l) && l.ref === autre.ref && l.qte !== null);
+        memeRef.forEach((l) => prises.add(l));
+        const total = memeRef.reduce((s, l) => s + (l.qte ?? 0), 0);
+        items.push(`🔁 ${m.ref} → remplacer par ${autre.ref}${qte(total, autre.unite)}${details(memeRef)}`);
+        continue;
+      }
+      items.push(`❓ ${m.ref}${qte(m.qte ?? 1, '')} : rien dans le relevé, à vérifier (le retirer s'il ne correspond pas)`);
+    }
+    // Ajouts, regroupés par référence, dans l'ordre du relevé
+    const reste = ici.filter((l) => !prises.has(l));
+    const vus = new Set<string>();
+    for (const l of reste) {
+      if (vus.has(l.ref)) continue;
+      vus.add(l.ref);
+      const memes = reste.filter((x) => x.ref === l.ref);
+      if (l.qte === null) items.push(`➕ ${libTexte(l.ref)}${details(memes)}`);
+      else items.push(`➕ ${l.ref}${qte(memes.reduce((s, x) => s + (x.qte ?? 0), 0), l.unite)}${details(memes)}`);
+    }
+    if (aCreer && !items.length) return;
+    out.push(`▸ ${NOM_ZONE[zone]}${aCreer ? ` (sous-section à créer${lieu ? `, ${lieu}` : ' ici'})` : ''}`);
+    out.push(...(items.length ? items.map((i) => `   ${i}`) : ['   rien à saisir']));
+  };
+
+  // Zones du relevé sans sous-section dans le modèle, rangées après la sous-section qui les précède dans la chaîne
+  const manquantes = Array.from(new Set(restantes.map((l) => l.zone))).filter((z) => !zonesDuPlan.has(z));
+  const apres = (z: Zone) => {
+    const i = ORDRE_ZONES.indexOf(z);
+    for (let j = i - 1; j >= 0; j--) if (zonesDuPlan.has(ORDRE_ZONES[j])) return ORDRE_ZONES[j];
+    return null;
+  };
+  // quoi : 'point' = zones d'un point de recharge seulement, 'hors' = les autres, 'tous' = toutes
+  const creerApres = (zone: Zone | null, pdc: number, quoi: 'point' | 'hors' | 'tous') => {
+    for (const z of manquantes.filter((x) => apres(x) === zone && (quoi === 'tous' || ZONES_PAR_POINT.includes(x) === (quoi === 'point')))) {
+      rendreSous(z, pdc, [], true, LIEU_A_CREER[z]);
+    }
+  };
+
+  plan.forEach((s, i) => {
+    const repetitions = s.parPoint ? Math.max(1, nbPoints) : 1;
+    for (let p = 0; p < repetitions; p++) {
+      out.push('', p === 0 ? s.titre : `${s.titre.replace('N°1', `N°${p + 1}`)} (section à créer : dupliquer la section N°1)`);
+      if (i === 0 && p === 0) creerApres(null, 0, 'tous');
+      for (const ss of s.sous) {
+        // Les sous-sections d'un point de recharge N°2 et suivants reprennent celles du N°1 (copie de la section)
+        rendreSous(ss.zone, s.parPoint ? p : 0, ss.lignes, false);
+        creerApres(ss.zone, s.parPoint ? p : 0, s.parPoint ? 'point' : 'tous');
+      }
+    }
+    if (s.parPoint) for (const ss of s.sous) creerApres(ss.zone, 0, 'hors');
+  });
+  return out;
 }
 
 // Calcule le brief d'un scénario et le poste en commentaire sur le scénario (places et zone : scénario, sinon fiche)
