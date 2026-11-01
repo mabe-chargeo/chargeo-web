@@ -4,9 +4,21 @@
 // Notes : un seul champ ClickUp « 📝 Notes Cheminement », utilisé comme notes de tout élément.
 // 15/10, 16 h 31 (retour de Matthieu) : scénario à prise renforcée seule (aucune borne), le coffret ne demande plus la
 // gestion de charge ni la mesure de puissance, et « Prêt à chiffrer » ne les exige plus.
+// 01/11/2026 (Phase 8, étape 4 : l'appli ne propose que ce qui a un ouvrage en bibliothèque) :
+// - bornes : liste extensible BORNES (marque, gamme, puissances, ouvrage, pied), choisie dans 🔋 Modèle de borne ;
+//   ABB masqué à l'écran, son option ClickUp reste en index 2 (D2) ; pied Peblar seulement, « Sur pied » toujours
+//   proposé (D4, le brief signale un pied à créer pour les autres marques) ;
+// - prises renforcées : Legrand, Hager, Schneider (PRISE-SCH-3K vérifié en bibliothèque le 01/11) ; ABB et Peblar
+//   masqués (D3) ;
+// - coffret : INFRA-TD-TRI-2D22-H10 et 3D22-H10 proposés en PAR, FLT et TER seulement (D15) ;
+// - section forcée 35 mm² masquée en monophasé, option conservée en index 6 (D14) ;
+// - source « Colonne Enedis » proposée en RIC seulement (D13 ; l'AMO colonne en COP est hors relevé) ;
+// - case 🏢 Passage en façade sur le cheminement (JUR-AUTORISATION-FACADE) ; la dépose d'une borne existante est un
+//   élément Autre « Dépose d'une borne existante » (DEPOSE-BORNE), décision de Mathieu du 01/11, 19 h 11.
+// Une option masquée déjà saisie reste affichée (jamais effacée en silence) ; le brief la signale.
 import type { Nature, Segment } from '@/lib/champsClickUp';
 
-export type TypeSaisie = 'menu' | 'nombre' | 'texte';
+export type TypeSaisie = 'menu' | 'nombre' | 'texte' | 'case';
 export type Saisie = { cle: string; libelle: string; type: TypeSaisie; options?: { cle: string; libelle: string }[] };
 export type Valeurs = Record<string, string | number | null>;
 export type ElementReleve = {
@@ -19,17 +31,44 @@ export type ElementReleve = {
   valeurs: Valeurs;
 };
 // prise : le scénario n'a que des prises renforcées (aucune borne), donc pas de gestion de charge au coffret
-export type ContexteReleve = { segment: Segment | null; grappe: boolean; prise?: boolean };
+// mono : raccordement monophasé (section 35 mm² masquée) ; source : source du raccordement
+export type ContexteReleve = { segment: Segment | null; grappe: boolean; prise?: boolean; mono?: boolean; source?: string | null };
+
+// Bornes proposées (D2) : uniquement les couples marque × puissance qui ont un ouvrage. Liste extensible : une nouvelle
+// borne = une ligne ici + une option ajoutée EN FIN du menu 🔋 Modèle de borne dans ClickUp, puis dans OPTIONS.modeleBorne.
+// points : points de charge de la borne (borne double = 2 mises en service). pied : ouvrage du pied, null = à créer.
+export type LigneBorne = { ref: string; marque: string; gamme: string; puissances: string[]; points: number; pied: string | null };
+export const BORNES: LigneBorne[] = [
+  { ref: 'BORNE-HAG-WONE-7', marque: 'hager', gamme: 'Hager Witty One 7,4 kW', puissances: ['7.4'], points: 1, pied: null },
+  { ref: 'BORNE-HAG-WONE-11', marque: 'hager', gamme: 'Hager Witty One 11 kW', puissances: ['11'], points: 1, pied: null },
+  { ref: 'BORNE-HAG-WPLUS-22', marque: 'hager', gamme: 'Hager Witty Plus 7,4 à 22 kW', puissances: ['7.4', '11', '22'], points: 1, pied: null },
+  { ref: 'BORNE-SCH-CHG-22', marque: 'schneider', gamme: 'Schneider Charge 7,4 à 22 kW', puissances: ['7.4', '11', '22'], points: 1, pied: null },
+  { ref: 'BORNE-SCH-PRO-22', marque: 'schneider', gamme: 'Schneider Charge Pro 7,4 à 22 kW', puissances: ['7.4', '11', '22'], points: 1, pied: null },
+  { ref: 'BORNE-LEG-HOME-3', marque: 'legrand', gamme: "Legrand Green'up Home 3,7 kW", puissances: ['3.7'], points: 1, pied: null },
+  { ref: 'BORNE-LEG-HOME-7', marque: 'legrand', gamme: "Legrand Green'up Home 7,4 kW", puissances: ['7.4'], points: 1, pied: null },
+  { ref: 'BORNE-LEG-DUO-22', marque: 'legrand', gamme: "Legrand Green'up Control Duo 2 × 7,4 à 22 kW", puissances: ['7.4', '11', '22'], points: 2, pied: null },
+  { ref: 'BORNE-PEB-HOME-7', marque: 'peblar', gamme: 'Peblar Home 7,4 kW', puissances: ['7.4'], points: 1, pied: 'PIED-PEB-S' },
+  { ref: 'BORNE-PEB-BUS-22', marque: 'peblar', gamme: 'Peblar Business 7,4 à 22 kW', puissances: ['7.4', '11', '22'], points: 1, pied: 'PIED-PEB-S' },
+  { ref: 'BORNE-PEB-DUAL', marque: 'peblar', gamme: 'Peblar Dual 2 × 11 kW', puissances: ['11'], points: 2, pied: 'PIED-PEB-DUAL' },
+];
+// Prises renforcées proposées (D3) : marque → ouvrage
+export const PRISES: Record<string, string> = { hager: 'PRISE-HAG-3K', schneider: 'PRISE-SCH-3K', legrand: 'PRISE-LEG-3K' };
+// TD de borne partagée (D15) : gestionnaire de grappe et 4G compris, proposés en PAR, FLT et TER
+export const COFFRETS_TD = ['INFRA-TD-TRI-2D22-H10', 'INFRA-TD-TRI-3D22-H10'];
+export const SEGMENTS_TD: Segment[] = ['PAR', 'FLT', 'TER'];
+export const estCoffretTd = (ref: unknown) => COFFRETS_TD.includes(String(ref ?? ''));
+export const ligneBorne = (ref: unknown): LigneBorne | undefined => BORNES.find((b) => b.ref === String(ref ?? ''));
 
 const menu = (cle: string, libelle: string, options: [string, string][]): Saisie =>
   ({ cle, libelle, type: 'menu', options: options.map(([c, l]) => ({ cle: c, libelle: l })) });
 const nombre = (cle: string, libelle: string): Saisie => ({ cle, libelle, type: 'nombre' });
+const caseACocher = (cle: string, libelle: string): Saisie => ({ cle, libelle, type: 'case' });
 
 export const SAISIES: Record<string, Saisie> = {
   // Raccordement
   sourceRaccordement: menu('sourceRaccordement', 'Source de raccordement', [
     ['tableauIndividuel', 'Tableau individuel existant'], ['tgbtServicesGeneraux', 'TGBT services généraux'],
-    ['pdlDedie', 'PDL dédié'], ['infraCollective', 'Infra collective CHARGéO'],
+    ['pdlDedie', 'PDL dédié'], ['infraCollective', 'Infra collective CHARGéO'], ['colonneEnedis', 'Colonne Enedis'],
   ]),
   typeRaccordement: menu('typeRaccordement', 'Mono ou tri', [['mono', 'Monophasé'], ['tri', 'Triphasé']]),
   puissanceDispo: menu('puissanceDispo', 'Puissance dispo', [['3', '3 kVA'], ['6', '6 kVA'], ['9', '9 kVA'], ['12', '12 kVA'], ['18+', '18 kVA et plus']]),
@@ -54,10 +93,12 @@ export const SAISIES: Record<string, Saisie> = {
   sectionForcee: menu('sectionForcee', 'Section forcée (si l’existant l’impose)', [
     ['2.5', '2,5 mm²'], ['4', '4 mm²'], ['6', '6 mm²'], ['10', '10 mm²'], ['16', '16 mm²'], ['25', '25 mm²'], ['35', '35 mm²'],
   ]),
+  passageFacade: caseACocher('passageFacade', '🏢 Passage en façade (autorisation de la copropriété)'),
   // TD IRVE / coffret
   coffretIrve: menu('coffretIrve', 'Référence du coffret', [
     ['COFF-MONO-3K', 'COFF-MONO-3K'], ['COFF-MONO-7K', 'COFF-MONO-7K'], ['COFF-MONO-7K-MOD', 'COFF-MONO-7K-MOD'],
     ['COFF-TRI-11K', 'COFF-TRI-11K'], ['COFF-TRI-11K-MOD', 'COFF-TRI-11K-MOD'], ['COFF-TRI-22K', 'COFF-TRI-22K'], ['COFF-TRI-22K-MOD', 'COFF-TRI-22K-MOD'],
+    ['INFRA-TD-TRI-2D22-H10', 'INFRA-TD-TRI-2D22-H10 (TD 2 points de charge)'], ['INFRA-TD-TRI-3D22-H10', 'INFRA-TD-TRI-3D22-H10 (TD 3 points de charge)'],
   ]),
   gestionCharge: menu('gestionCharge', 'Gestion de charge', [['aucune', 'Aucune'], ['delesteur', 'Délesteur'], ['gestionnaireGrappe', 'Gestionnaire de grappe']]),
   mesurePuissance: menu('mesurePuissance', 'Mesure de puissance', [['ticLinky', 'TIC Linky'], ['compteurModbus', 'Compteur Modbus']]),
@@ -65,6 +106,7 @@ export const SAISIES: Record<string, Saisie> = {
   // Borne / prise renforcée
   puissanceVisee: menu('puissanceVisee', 'Puissance visée', [['3.7', '3,7 kW'], ['7.4', '7,4 kW'], ['11', '11 kW'], ['22', '22 kW']]),
   marqueBorne: menu('marqueBorne', 'Marque', [['hager', 'Hager'], ['schneider', 'Schneider'], ['abb', 'ABB'], ['legrand', 'Legrand'], ['peblar', 'Peblar']]),
+  modeleBorne: menu('modeleBorne', 'Modèle de borne', BORNES.map((b) => [b.ref, b.gamme] as [string, string])),
   supportBorne: menu('supportBorne', 'Support', [['murBetonParpaing', 'Mur béton / parpaing'], ['murPlaco', 'Mur placo'], ['murBois', 'Mur bois'], ['surPied', 'Sur pied']]),
   // Communication
   connectivite: menu('connectivite', 'Connectivité', [
@@ -84,9 +126,9 @@ export const PERCEMENTS = ['percementsPlaco', 'percementsBrique', 'percementsBet
 // Champs qu'une nature peut porter (contrôle côté serveur)
 export const SAISIES_NATURE: Record<Nature, string[]> = {
   raccordement: ['sourceRaccordement', 'typeRaccordement', 'puissanceDispo', 'etatTableau', 'raccordementCible', 'terre', 'notesCheminement'],
-  cheminement: ['typeCheminement', ...DISTANCES, ...PERCEMENTS, 'sectionForcee', 'notesCheminement'],
+  cheminement: ['typeCheminement', ...DISTANCES, ...PERCEMENTS, 'sectionForcee', 'passageFacade', 'notesCheminement'],
   tdIrveCoffret: ['coffretIrve', 'gestionCharge', 'mesurePuissance', 'emplacement', 'notesCheminement'],
-  borne: ['puissanceVisee', 'marqueBorne', 'supportBorne', 'notesCheminement'],
+  borne: ['puissanceVisee', 'marqueBorne', 'modeleBorne', 'supportBorne', 'notesCheminement'],
   priseRenforcee: ['puissanceVisee', 'marqueBorne', 'supportBorne', 'notesCheminement'],
   communication: ['connectivite', 'reseau', 'tailleHub', 'notesCheminement'],
   boiteDerivation: ['notesCheminement'],
@@ -96,11 +138,46 @@ export const SAISIES_NATURE: Record<Nature, string[]> = {
 const texte = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 
 export function contexteReleve(segment: Segment | null, elements: ElementReleve[]): ContexteReleve {
+  const racc = elements.find((e) => e.nature === 'raccordement');
   return {
     segment,
     grappe: elements.some((e) => e.nature === 'tdIrveCoffret' && e.valeurs.gestionCharge === 'gestionnaireGrappe'),
     prise: elements.some((e) => e.nature === 'priseRenforcee') && !elements.some((e) => e.nature === 'borne'),
+    mono: texte(racc?.valeurs.typeRaccordement) === 'mono',
+    source: texte(racc?.valeurs.sourceRaccordement) || null,
   };
+}
+
+// Options d'un menu proposées à l'écran (01/11) : seulement ce qui a un ouvrage ou ce que le segment autorise.
+// La valeur déjà saisie reste toujours dans la liste, même si elle n'est plus proposée.
+export function optionsVisibles(cle: string, v: Valeurs, ctx: ContexteReleve, nature: Nature | null): { cle: string; libelle: string }[] {
+  const toutes = SAISIES[cle]?.options || [];
+  const puissance = texte(v.puissanceVisee);
+  const marque = texte(v.marqueBorne);
+  let garder: (c: string) => boolean = () => true;
+  switch (cle) {
+    case 'sourceRaccordement':
+      garder = (c) => c !== 'colonneEnedis' || ctx.segment === 'RIC';
+      break;
+    case 'coffretIrve':
+      garder = (c) => !COFFRETS_TD.includes(c) || (!!ctx.segment && SEGMENTS_TD.includes(ctx.segment));
+      break;
+    case 'sectionForcee':
+      garder = (c) => c !== '35' || !ctx.mono;
+      break;
+    case 'marqueBorne':
+      garder = nature === 'priseRenforcee'
+        ? (c) => c in PRISES
+        : (c) => BORNES.some((b) => b.marque === c && (!puissance || b.puissances.includes(puissance)));
+      break;
+    case 'modeleBorne':
+      garder = (c) => BORNES.some((b) => b.ref === c && (!marque || b.marque === marque) && (!puissance || b.puissances.includes(puissance)));
+      break;
+    default:
+      break;
+  }
+  const actuel = texte(v[cle]);
+  return toutes.filter((o) => garder(o.cle) || o.cle === actuel);
 }
 
 // Champs affichés selon la nature et les valeurs déjà saisies (matrice de la synthèse, section 4)
@@ -109,7 +186,8 @@ export function champsVisibles(nature: Nature | null, v: Valeurs, ctx: ContexteR
   switch (nature) {
     case 'raccordement': {
       const source = texte(v.sourceRaccordement);
-      const sansTableau = source === 'pdlDedie' || source === 'infraCollective';
+      // PDL dédié, infra collective CHARGéO et colonne Enedis : pas de tableau existant à relever
+      const sansTableau = source === 'pdlDedie' || source === 'infraCollective' || source === 'colonneEnedis';
       return [
         'sourceRaccordement', 'typeRaccordement',
         ...(sansTableau ? [] : ['puissanceDispo', 'etatTableau', 'raccordementCible']),
@@ -118,7 +196,11 @@ export function champsVisibles(nature: Nature | null, v: Valeurs, ctx: ContexteR
       ];
     }
     case 'cheminement':
-      return ['typeCheminement', ...DISTANCES, ...PERCEMENTS, 'sectionForcee', 'notesCheminement'];
+      return [
+        'typeCheminement', ...DISTANCES, ...PERCEMENTS, 'sectionForcee',
+        ...(texte(v.typeCheminement) === 'liaisonData' ? [] : ['passageFacade']),
+        'notesCheminement',
+      ];
     case 'tdIrveCoffret': {
       const gestion = texte(v.gestionCharge);
       // Prise renforcée seule : pas de gestion de charge, donc pas de mesure de puissance
@@ -132,7 +214,7 @@ export function champsVisibles(nature: Nature | null, v: Valeurs, ctx: ContexteR
       ];
     }
     case 'borne':
-      return ['puissanceVisee', 'marqueBorne', 'supportBorne', 'notesCheminement'];
+      return ['puissanceVisee', 'marqueBorne', 'modeleBorne', 'supportBorne', 'notesCheminement'];
     case 'priseRenforcee':
       return ['marqueBorne', 'supportBorne', 'notesCheminement'];
     case 'communication':
@@ -165,6 +247,15 @@ export function coffretSuggere(puissance: unknown, mesure: unknown): string | nu
   return texte(mesure) === 'compteurModbus' && ref !== 'COFF-MONO-3K' ? `${ref}-MOD` : ref;
 }
 
+// Modèle de borne cohérent avec la marque et la puissance saisies
+export function modeleCoherent(v: Valeurs): boolean {
+  const b = ligneBorne(v.modeleBorne);
+  if (!b) return false;
+  const marque = texte(v.marqueBorne);
+  const puissance = texte(v.puissanceVisee);
+  return (!marque || b.marque === marque) && (!puissance || b.puissances.includes(puissance));
+}
+
 // Ce qui manque pour chiffrer (bouton « Prêt à chiffrer »)
 export function manquants(e: ElementReleve, ctx: ContexteReleve): string[] {
   const v = e.valeurs;
@@ -174,7 +265,7 @@ export function manquants(e: ElementReleve, ctx: ContexteReleve): string[] {
       const source = texte(v.sourceRaccordement);
       if (!source) m.push('source');
       if (!v.typeRaccordement) m.push('mono ou tri');
-      if (source && source !== 'pdlDedie' && source !== 'infraCollective' && !v.puissanceDispo) m.push('puissance dispo');
+      if (source && !['pdlDedie', 'infraCollective', 'colonneEnedis'].includes(source) && !v.puissanceDispo) m.push('puissance dispo');
       break;
     }
     case 'cheminement':
@@ -188,6 +279,8 @@ export function manquants(e: ElementReleve, ctx: ContexteReleve): string[] {
       break;
     case 'borne':
       if (!v.puissanceVisee) m.push('puissance visée');
+      if (!v.modeleBorne) m.push('modèle de borne');
+      else if (!modeleCoherent(v)) m.push('modèle de borne (ne correspond pas à la marque ou à la puissance)');
       break;
     case 'communication':
       if (!v.connectivite) m.push('connectivité');
@@ -196,6 +289,8 @@ export function manquants(e: ElementReleve, ctx: ContexteReleve): string[] {
       if (!v.quantite) m.push('quantité');
       break;
     case 'priseRenforcee':
+      if (texte(v.marqueBorne) && !(texte(v.marqueBorne) in PRISES)) m.push('marque de prise (Legrand, Hager ou Schneider)');
+      break;
     case 'boiteDerivation':
       break;
     default:

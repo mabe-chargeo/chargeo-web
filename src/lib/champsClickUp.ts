@@ -6,6 +6,12 @@
 // Les champs du 15/10 (Nature, Départ, Arrivée…) existent pour l'instant sur TEST seulement : en prod, Matthieu les
 // AJOUTE (« ajouter un champ existant ») à Qualification, Planning et Parc, sans les recréer, pour garder ces ID.
 // Les routes existantes gardent leurs ID en dur pour l'instant ; elles basculent sur ce fichier aux étapes suivantes.
+// 01/11/2026 (Phase 8, étape 4, décisions D1 à D17 et questions du 01/11) :
+// - 🔌 Source de raccordement : « Colonne Enedis » ajoutée en fin de menu dans ClickUp (index 4, D13) ;
+// - 🛡️ Coffret IRVE : INFRA-TD-TRI-2D22-H10 (7) et INFRA-TD-TRI-3D22-H10 (8) ajoutés en fin de menu (D15) ;
+// - 🔋 Modèle de borne (nouveau menu, un ouvrage de borne par option, D2) et 🏢 Passage en façade (nouvelle case à cocher
+//   du cheminement) : créés le 01/11 sur 🧪 Qualification TEST. À ajouter à Qualification (« ajouter un champ existant »)
+//   avant la fusion, pour garder ces ID.
 
 export const CHAMPS = {
   // Passeport (le webhook Costructor les lit PAR NOM : ne pas les renommer)
@@ -52,6 +58,7 @@ export const CHAMPS = {
   percementsBeton: '77120088-4d88-4675-a7ac-d34f8eb5ffa7',
   percementsDalle: 'bda05bcd-b5f1-424f-bda4-ad435f06e32f',
   notesCheminement: '1442f71a-830e-4a77-8d78-0c30f45c4b23',
+  passageFacade: '430baa16-28b3-4e49-a946-fb6cb468487e', // 01/11 : case à cocher, TEST d'abord
 
   // TD IRVE / coffret
   coffretIrve: 'ff4fad69-1a4a-4207-bcfa-7d63630256da',
@@ -62,6 +69,7 @@ export const CHAMPS = {
   // Borne / Prise renforcée
   puissanceVisee: 'ddadfb52-ea48-4aca-9e85-86a4eca6615b',
   marqueBorne: 'c4511794-3887-4451-af87-38fbad94b42d',
+  modeleBorne: '1537bb04-8d0c-406a-ba92-69944b440535', // 01/11 : menu, TEST d'abord
   supportBorne: '02d61a39-eb1d-417c-953a-c1504dbfae50',
 
   // Communication
@@ -81,11 +89,11 @@ export const CHAMPS = {
   distRouteurTdIrve: '0ebc0cc5-97ae-4525-bc8d-ab98c3a3bd81', // → Cheminement Liaison data
 } as const;
 
-// Index des options, dans l'ordre exact de ClickUp (contrôlé le 15/10/2026).
+// Index des options, dans l'ordre exact de ClickUp (contrôlé le 15/10/2026, puis le 01/11/2026 pour les ajouts en fin).
 export const OPTIONS = {
   typeClient: { particulier: 0, pro: 1, syndic: 2 },
   segment: { RES: 0, DAP: 1, COP: 2, PAR: 3, FLT: 4, TER: 5, RIC: 6 },
-  sourceRaccordement: { tableauIndividuel: 0, tgbtServicesGeneraux: 1, pdlDedie: 2, infraCollective: 3 },
+  sourceRaccordement: { tableauIndividuel: 0, tgbtServicesGeneraux: 1, pdlDedie: 2, infraCollective: 3, colonneEnedis: 4 },
   typeRaccordement: { mono: 0, tri: 1 },
   puissanceDispo: { '3': 0, '6': 1, '9': 2, '12': 3, '18+': 4 },
   etatTableau: { ok: 0, aRemanier: 1, aRemplacer: 2 },
@@ -97,12 +105,17 @@ export const OPTIONS = {
   sectionForcee: { '2.5': 0, '4': 1, '6': 2, '10': 3, '16': 4, '25': 5, '35': 6 },
   coffretIrve: {
     'COFF-MONO-3K': 0, 'COFF-MONO-7K': 1, 'COFF-MONO-7K-MOD': 2, 'COFF-TRI-11K': 3, 'COFF-TRI-11K-MOD': 4, 'COFF-TRI-22K': 5, 'COFF-TRI-22K-MOD': 6,
+    'INFRA-TD-TRI-2D22-H10': 7, 'INFRA-TD-TRI-3D22-H10': 8,
   },
   gestionCharge: { aucune: 0, delesteur: 1, gestionnaireGrappe: 2 },
   mesurePuissance: { ticLinky: 0, compteurModbus: 1 },
   emplacement: { localTechnique: 0, parking: 1, gainePaliere: 2 },
   puissanceVisee: { '3.7': 0, '7.4': 1, '11': 2, '22': 3 },
   marqueBorne: { hager: 0, schneider: 1, abb: 2, legrand: 3, peblar: 4 },
+  modeleBorne: {
+    'BORNE-HAG-WONE-7': 0, 'BORNE-HAG-WONE-11': 1, 'BORNE-HAG-WPLUS-22': 2, 'BORNE-SCH-CHG-22': 3, 'BORNE-SCH-PRO-22': 4,
+    'BORNE-LEG-HOME-3': 5, 'BORNE-LEG-HOME-7': 6, 'BORNE-LEG-DUO-22': 7, 'BORNE-PEB-HOME-7': 8, 'BORNE-PEB-BUS-22': 9, 'BORNE-PEB-DUAL': 10,
+  },
   supportBorne: { murBetonParpaing: 0, murPlaco: 1, murBois: 2, surPied: 3 },
   connectivite: { simIntegree: 0, modemDeporte: 1, integreeTdIrve: 2, switchBoiteDerivation: 3 },
   reseau: { wifi: 0, '4g': 1, cableRequis: 2 },

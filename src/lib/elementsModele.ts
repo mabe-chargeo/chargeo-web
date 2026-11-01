@@ -6,6 +6,8 @@
 // + 5 m de tube apparent coffret → borne (section selon la puissance). Le poseur ne saisit que le dépassement.
 // 15/10, 15 h 01 (décision de Matthieu) : une liaison data s'appelle « Liaison data · départ → arrivée », pour ne pas
 // la confondre avec le cheminement d'alimentation entre les mêmes équipements.
+// 01/11/2026 (Phase 8, étape 4) : source « Colonne Enedis » (D13) ; élément Autre « Dépose d'une borne existante »
+// (DEPOSE-BORNE au brief, décision de Mathieu du 01/11, 19 h 11).
 import { CHAMPS, OPTIONS, LIBELLE_NATURE, type Nature, type Segment } from '@/lib/champsClickUp';
 
 export type Materiel = 'borne' | 'prise';
@@ -60,10 +62,15 @@ const NOM_SOURCE: Record<CleSource, string> = {
   tgbtServicesGeneraux: 'TGBT SG',
   pdlDedie: 'PDL dédié',
   infraCollective: 'Infra collective',
+  colonneEnedis: 'Colonne Enedis',
 };
 
 // Forfait RIC : mètres de tube apparent préremplis sur chacun des deux cheminements
 export const FORFAIT_RIC_TUBE_APPARENT = 5;
+
+// Dépose d'une borne existante : élément Autre de ce nom (le brief y lit DEPOSE-BORNE)
+export const NOM_DEPOSE = "Dépose d'une borne existante";
+export const estDepose = (nom: string) => /d[ée]pose/i.test(nom);
 
 export const nomRaccordement = (source?: CleSource | null) => (source ? `Raccordement · ${NOM_SOURCE[source]}` : 'Raccordement');
 
