@@ -16,6 +16,7 @@
 // suit le plan lu dans chaque modèle (PLANS, src/lib/modelesDevis.ts) : sections, sous-sections, lignes du modèle à
 // garder, changer, remplacer ou retirer, puis lignes à ajouter dans la bonne sous-section. Alertes ajoutées : borne
 // triphasée sur raccordement monophasé (câble 3G, bridée à 7,4 kW) et TD 2 ou 3 points pour moins de points de charge.
+// 02/11 (recette du brief PAR sur PDL dédié) : alerte si plus de 12 kVA sont demandés sur un branchement monophasé.
 // Calculs (synthèse du 14/10, sections 4, 6 et 7) :
 // - réserve IRVE au barème (arrêté du 23/12/2020) en COP, avec le plafond ADVENIR infra ;
 // - puissance à demander à Enedis si PDL dédié (réserve IRVE en COP, somme des puissances visées sinon), toujours
@@ -61,6 +62,7 @@ const U0 = 230;
 const LIMITE_CUMULEE = 5;
 const BUDGET_ARTERE = 3;
 const TARIF_JAUNE_KVA = 36;
+const MONO_MAX_KVA = 12; // branchement monophasé Enedis : 12 kVA au plus, au-delà triphasé (recette du 02/11)
 const SECTIONS = [2.5, 4, 6, 10, 16, 25, 35, 50];
 const CALIBRES = [20, 25, 32, 40, 50, 63, 80, 100, 125];
 // UTE C 15-722 tableau 2 pour 20 A et 40 A ; valeurs usuelles pour les autres calibres
@@ -320,6 +322,9 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
     puissance.push(`Puissance à demander à Enedis (PDL dédié) : ${fr(kwBornes)} kVA (somme des puissances visées), à valider`);
   } else if (dispo !== null && dispoCle !== '18+' && kwBornes > dispo) {
     alertes.push(`Points de charge (${fr(kwBornes)} kW) au-dessus de la puissance dispo (${fr(dispo)} kVA) : gestion de charge ou augmentation de puissance à prévoir`);
+  }
+  if (demandee !== null && demandee > MONO_MAX_KVA && texte(racc?.valeurs.typeRaccordement) === 'mono') {
+    alertes.push(`Branchement monophasé limité à ${MONO_MAX_KVA} kVA chez Enedis : ${fr(demandee)} kVA demandés, passer le raccordement en triphasé`);
   }
   if (demandee !== null && demandee > TARIF_JAUNE_KVA) {
     alertes.push(`> ${TARIF_JAUNE_KVA} kVA (${fr(demandee)} kVA) : tarif jaune, étude spécifique, chiffrage à la main`);
