@@ -25,6 +25,8 @@
 // D5 et D6).
 // 02/11, 7 h 33 (recette) : « Switch de la boîte de dérivation » proposé en RIC seulement ; avec un TD de borne partagée,
 // la connectivité n'est pas demandée (toujours un modem déporté, posé d'office à l'enregistrement).
+// 02/11, 7 h 38 (Mathieu) : la question « Connectivité » s'affiche « Accès Internet » (libellé de l'écran seulement, le
+// champ ClickUp garde son nom et ses options).
 import type { Nature, Segment } from '@/lib/champsClickUp';
 
 export type TypeSaisie = 'menu' | 'nombre' | 'texte' | 'case';
@@ -123,7 +125,7 @@ export const SAISIES: Record<string, Saisie> = {
   modeleBorne: menu('modeleBorne', 'Modèle de borne', BORNES.map((b) => [b.ref, b.gamme] as [string, string])),
   supportBorne: menu('supportBorne', 'Support', [['murBetonParpaing', 'Mur béton / parpaing'], ['murPlaco', 'Mur placo'], ['murBois', 'Mur bois'], ['surPied', 'Sur pied']]),
   // Communication
-  connectivite: menu('connectivite', 'Connectivité', [
+  connectivite: menu('connectivite', 'Accès Internet', [
     ['simIntegree', 'Intégrée à la borne (SIM 4G)'], ['modemDeporte', 'Modem déporté'], ['integreeTdIrve', 'Intégrée au TD IRVE'], ['switchBoiteDerivation', 'Switch de la boîte de dérivation'],
   ]),
   reseau: menu('reseau', 'Réseau sur place', [['wifi', 'WiFi OK'], ['4g', '4G OK'], ['cableRequis', 'Câble requis (zone blanche)']]),
@@ -324,9 +326,9 @@ export function manquants(e: ElementReleve, ctx: ContexteReleve): string[] {
     case 'communication':
       if (!ctx.prise && !ctx.tdPartage && !v.gestionCharge && !ctx.gestion) m.push('gestion de charge');
       if (ctx.tdPartage && v.connectivite !== 'modemDeporte') m.push('à enregistrer (modem déporté posé d\'office avec le TD de borne partagée)');
-      else if (!v.connectivite) m.push('connectivité');
-      else if (v.connectivite === 'integreeTdIrve') m.push('connectivité (pas de 4G dans le TD IRVE : modem déporté)');
-      else if (v.connectivite === 'simIntegree' && (ctx.bornes ?? 0) > 1) m.push('connectivité (SIM de la borne pour une borne seule : modem déporté)');
+      else if (!v.connectivite) m.push('accès Internet');
+      else if (v.connectivite === 'integreeTdIrve') m.push('accès Internet (rien dans le TD IRVE : modem déporté)');
+      else if (v.connectivite === 'simIntegree' && (ctx.bornes ?? 0) > 1) m.push('accès Internet (SIM de la borne pour une borne seule : modem déporté)');
       break;
     case 'autre':
       if (!v.quantite) m.push('quantité');
