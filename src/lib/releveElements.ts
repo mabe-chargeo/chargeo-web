@@ -27,6 +27,9 @@
 // la connectivité n'est pas demandée (toujours un modem déporté, posé d'office à l'enregistrement).
 // 02/11, 7 h 38 (Mathieu) : la question « Connectivité » s'affiche « Accès Internet » (libellé de l'écran seulement, le
 // champ ClickUp garde son nom et ses options).
+// 02/11, 19 h 57 (Phase 8, étape 7, choix de Mathieu) : « 📌 Emplacement de la borne », texte libre sur l'élément Borne
+// en PAR, FLT et TER (ex. « places 12 et 14 du sous-sol »), lu par le brief pour le crochet [emplacements] de l'en-tête.
+// Pas recopié à la duplication (propre à la place).
 import type { Nature, Segment } from '@/lib/champsClickUp';
 
 export type TypeSaisie = 'menu' | 'nombre' | 'texte' | 'case';
@@ -124,6 +127,7 @@ export const SAISIES: Record<string, Saisie> = {
   marqueBorne: menu('marqueBorne', 'Marque', [['hager', 'Hager'], ['schneider', 'Schneider'], ['abb', 'ABB'], ['legrand', 'Legrand'], ['peblar', 'Peblar']]),
   modeleBorne: menu('modeleBorne', 'Modèle de borne', BORNES.map((b) => [b.ref, b.gamme] as [string, string])),
   supportBorne: menu('supportBorne', 'Support', [['murBetonParpaing', 'Mur béton / parpaing'], ['murPlaco', 'Mur placo'], ['murBois', 'Mur bois'], ['surPied', 'Sur pied']]),
+  emplacementBorne: { cle: 'emplacementBorne', libelle: '📌 Emplacement (ex. places 12 et 14 du sous-sol)', type: 'texte' },
   // Communication
   connectivite: menu('connectivite', 'Accès Internet', [
     ['simIntegree', 'Intégrée à la borne (SIM 4G)'], ['modemDeporte', 'Modem déporté'], ['integreeTdIrve', 'Intégrée au TD IRVE'], ['switchBoiteDerivation', 'Switch de la boîte de dérivation'],
@@ -144,7 +148,7 @@ export const SAISIES_NATURE: Record<Nature, string[]> = {
   raccordement: ['sourceRaccordement', 'typeRaccordement', 'puissanceDispo', 'etatTableau', 'raccordementCible', 'terre', 'notesCheminement'],
   cheminement: ['typeCheminement', ...DISTANCES, ...PERCEMENTS, 'sectionForcee', 'passageFacade', 'notesCheminement'],
   tdIrveCoffret: ['coffretIrve', 'gestionCharge', 'mesurePuissance', 'emplacement', 'notesCheminement'],
-  borne: ['puissanceVisee', 'marqueBorne', 'modeleBorne', 'supportBorne', 'notesCheminement'],
+  borne: ['puissanceVisee', 'marqueBorne', 'modeleBorne', 'supportBorne', 'emplacementBorne', 'notesCheminement'],
   priseRenforcee: ['puissanceVisee', 'marqueBorne', 'supportBorne', 'notesCheminement'],
   communication: ['gestionCharge', 'mesurePuissance', 'tailleHub', 'connectivite', 'reseau', 'notesCheminement'],
   boiteDerivation: ['notesCheminement'],
@@ -246,7 +250,12 @@ export function champsVisibles(nature: Nature | null, v: Valeurs, ctx: ContexteR
       // Gestion de charge et mesure de puissance : dans l'élément Communication (01/11, 21 h 35)
       return [...(cop ? [] : ['coffretIrve']), ...(cop ? ['emplacement'] : []), 'notesCheminement'];
     case 'borne':
-      return ['puissanceVisee', 'marqueBorne', 'modeleBorne', 'supportBorne', 'notesCheminement'];
+      // 📌 Emplacement de la borne : en PAR, FLT et TER, pour le crochet [emplacements] de l'en-tête (02/11)
+      return [
+        'puissanceVisee', 'marqueBorne', 'modeleBorne', 'supportBorne',
+        ...(ctx.segment && SEGMENTS_TD.includes(ctx.segment) ? ['emplacementBorne'] : []),
+        'notesCheminement',
+      ];
     case 'priseRenforcee':
       return ['marqueBorne', 'supportBorne', 'notesCheminement'];
     case 'communication': {

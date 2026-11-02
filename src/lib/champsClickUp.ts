@@ -13,7 +13,9 @@
 //   du cheminement) : créés le 01/11 sur 🧪 Qualification TEST. À ajouter à Qualification (« ajouter un champ existant »)
 //   avant la fusion, pour garder ces ID.
 // 02/11/2026 (Phase 8, étape 7) : 📅 Date Visite Technique, lue par le brief de chiffrage (crochet [date] de l'en-tête des
-// devis). Même ID sur Qualification et sur TEST (vérifié le 02/11).
+// devis), même ID sur Qualification et sur TEST (vérifié le 02/11) ; 📌 Emplacement de la borne (texte, nouveau champ
+// de l'élément Borne, crochet [emplacements]) créé le 02/11 sur 🧪 Qualification TEST, à ajouter à Qualification
+// (« ajouter un champ existant ») avant la fusion, pour garder son ID.
 
 export const CHAMPS = {
   // Passeport (le webhook Costructor les lit PAR NOM : ne pas les renommer)
@@ -76,6 +78,7 @@ export const CHAMPS = {
   marqueBorne: 'c4511794-3887-4451-af87-38fbad94b42d',
   modeleBorne: '1537bb04-8d0c-406a-ba92-69944b440535', // 01/11 : menu, TEST d'abord
   supportBorne: '02d61a39-eb1d-417c-953a-c1504dbfae50',
+  emplacementBorne: 'a8fdc273-5514-46c7-9b94-222d3f1f0cee', // 02/11 : texte, TEST d'abord
 
   // Communication
   connectivite: 'e8dcf83c-5dc1-4ea4-b72f-f179500fb893',
