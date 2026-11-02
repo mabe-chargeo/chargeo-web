@@ -17,6 +17,10 @@
 // garder, changer, remplacer ou retirer, puis lignes à ajouter dans la bonne sous-section. Alertes ajoutées : borne
 // triphasée sur raccordement monophasé (câble 3G, bridée à 7,4 kW) et TD 2 ou 3 points pour moins de points de charge.
 // 02/11 (recette du brief PAR sur PDL dédié) : alerte si plus de 12 kVA sont demandés sur un branchement monophasé.
+// 02/11, 18 h 46 (Phase 8, étape 7, recette de la chaîne sans IA, accord de Mathieu) : chaque devis reçoit « Avant de
+// saisir » (nom exact, TVA à poser sur les lignes ajoutées, crochets de l'en-tête, prime ADVENIR en valeur haute) et
+// « Avant de finaliser » (src/lib/briefSaisie.ts) ; la liaison data qui part ou arrive à l'élément Communication est
+// rangée dans la sous-section Communication, avec le modem (écart 3 de la recette).
 // Calculs (synthèse du 14/10, sections 4, 6 et 7) :
 // - réserve IRVE au barème (arrêté du 23/12/2020) en COP, avec le plafond ADVENIR infra ;
 // - puissance à demander à Enedis si PDL dédié (réserve IRVE en COP, somme des puissances visées sinon), toujours
@@ -53,6 +57,7 @@ import {
   DISTANCES, PERCEMENTS, PRISES, SAISIES, alerteTroisMetres, estCoffretTd, gestionDuSite, ligneBorne, longueurTotale, modeleCoherent,
   type ElementReleve,
 } from '@/lib/releveElements';
+import { avantFinaliser, avantSaisie, type ContexteSaisie } from '@/lib/briefSaisie';
 
 const RHO = 0.0225; // Ω·mm²/m, cuivre en service normal
 const LAMBDA = 0.00008; // Ω/m (0,08 mΩ/m)
@@ -223,6 +228,8 @@ export type EntreeBrief = {
   zone: string | null;
   elements: ElementReleve[];
   typeClient?: string | null; // 🏢 Type Client de la fiche (RIC : tarif type ou résident)
+  ficheNom?: string | null; // nom de la fiche, pour le nom du devis (02/11)
+  dateVisite?: string | null; // 📅 Date Visite Technique (JJ/MM/AAAA), pour le crochet [date] de l'en-tête (02/11)
 };
 
 type Calcul = {
@@ -502,6 +509,42 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
   const priseSeule = els.some((e) => e.nature === 'priseRenforcee') && !els.some((e) => e.nature === 'borne');
   const choix = modelesDuScenario(seg, source, b.typeClient ?? null, priseSeule);
   alertes.push(...choix.alertes);
+
+  // Consignes de saisie de chaque devis (étape 7, 02/11) : nom, TVA, crochets de l'en-tête, prime, contrôle final
+  const groupes = new Map<string, { n: number; kw: number; gamme: string }>();
+  for (const bo of els.filter((e) => e.nature === 'borne')) {
+    const gamme = (ligneBorne(bo.valeurs.modeleBorne)?.gamme ?? libelle('marqueBorne', bo.valeurs.marqueBorne))
+      .replace(/\s\d[\d,]*(\s(à|×)\s[\d,]+)*\skW$/, '');
+    const kw = kwReel(bo);
+    const cle = `${gamme}|${kw}`;
+    const g = groupes.get(cle) ?? { n: 0, kw, gamme };
+    g.n += 1;
+    groupes.set(cle, g);
+  }
+  const parts = Array.from(groupes.values());
+  const nbPrises = els.filter((e) => e.nature === 'priseRenforcee').length;
+  const nbBornes = parts.reduce((s, g) => s + g.n, 0);
+  const materielCourt = cop ? `Infra ${b.nbPlaces ?? '?'} places` : [
+    ...parts.map((g) => (g.n > 1 ? `${g.n} bornes ${fr(g.kw)} kW` : `Borne ${fr(g.kw)} kW`)),
+    ...(nbPrises ? [nbPrises > 1 ? `${nbPrises} prises renforcées` : 'Prise renforcée'] : []),
+  ].join(' + ') || 'matériel à préciser';
+  const pointsDeCharge = els.filter((e) => e.nature === 'borne').reduce((n, bo) => n + (ligneBorne(bo.valeurs.modeleBorne)?.points ?? 1), 0) + nbPrises;
+  const ctxSaisie: ContexteSaisie = {
+    ficheNom: b.ficheNom ?? null,
+    scenarioNom: b.scenarioNom,
+    segment: seg,
+    source,
+    tri: texte(racc?.valeurs.typeRaccordement) === 'tri',
+    materiel: materielCourt,
+    nombreBornes: nbBornes,
+    marquePuissance: parts.map((g) => `${g.gamme}, ${fr(g.kw)} kW`).join(' et '),
+    points: pointsDeCharge,
+    puissanceKva: demandee,
+    dateVisite: b.dateVisite ?? null,
+    plafondInfra: cop && b.nbPlaces && b.nbPlaces >= 10 ? plafondAdvenirInfra(b.nbPlaces) : null,
+    facade: cheminements.some((c) => texte(c.valeurs.passageFacade) === 'oui'),
+  };
+
   const saisie: string[] = ['', '🧾 À SAISIR DANS COSTRUCTOR'];
   saisie.push("Dans l'ordre du modèle. ✔ garder · ✏️ changer la quantité · 🔁 remplacer la ligne du modèle · ➕ ajouter dans cette sous-section · ✖ retirer · ❓ dans le modèle mais pas dans le relevé, à vérifier. Les textes du modèle restent.");
   if (!choix.devis.length) {
@@ -511,6 +554,7 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
   choix.devis.forEach((d, i) => {
     const titre = choix.devis.length > 1 ? `DEVIS ${i + 1}` : 'MODÈLE';
     saisie.push('', `━━ ${titre} : copier « ${d.modele.nom} » (TVA ${d.modele.tva}${d.role ? `, ${d.role}` : ''}) : ${lienModele(d.modele)}`);
+    saisie.push(...avantSaisie(d.modele, ctxSaisie));
     if (d.modele.cle === 'AMO_PDL') {
       const amo: LigneDevis[] = [
         { zone: 'prestations', pdc: 0, ref: 'ADMIN-CREATION-PDL', qte: 1, unite: '' },
@@ -518,6 +562,7 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
         { zone: 'logistique', pdc: 0, ref: `LOG-DEP-${b.zone && ['Z1', 'Z2', 'Z3'].includes(b.zone) ? b.zone : 'Z1'}`, qte: 1, unite: '' },
       ];
       saisie.push(...rendreDevis(PLANS.AMO_PDL, amo));
+      saisie.push(...avantFinaliser(d.modele, ctxSaisie));
       return;
     }
     const nbPoints = bornes.length;
@@ -525,6 +570,7 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
       saisie.push(`${nbPoints} points de recharge : le modèle a une section « POINT DE RECHARGE N°1 », une section par point ci-dessous (dupliquer la N°1, puis renuméroter les sections suivantes).`);
     }
     saisie.push(...rendreDevis(PLANS[d.modele.cle], lignes, retirer, nbPoints));
+    saisie.push(...avantFinaliser(d.modele, ctxSaisie));
   });
   if (aFaire.length) saisie.push('', '⏳ À FAIRE À LA MAIN', ...aFaire.map((a) => `• ${a}`));
 
@@ -626,7 +672,8 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
   }
 
   // Cheminement (C1 à C13) : section 1 s'il arrive au TD IRVE / coffret ou part du raccordement, sinon section des
-  // points de recharge (ou de l'artère en COP), dans la section du point de recharge auquel il arrive
+  // points de recharge (ou de l'artère en COP), dans la section du point de recharge auquel il arrive. Liaison data qui
+  // part ou arrive à l'élément Communication : sous-section Communication, avec le modem (écart 3, recette du 02/11).
   let tranchee: Zone | null = null;
   let facade: Zone | null = null;
   for (const k of calculs) {
@@ -634,7 +681,9 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
     if (long <= 0) continue;
     const dep = els.find((e) => e.id === c.depart);
     const arr = els.find((e) => e.id === c.arrivee);
-    const zone: Zone = type !== 'artere' && (arr?.nature === 'tdIrveCoffret' || dep?.nature === 'raccordement') ? 'chemAmont' : 'chemAval';
+    const versCom = type === 'liaisonData' && (dep?.nature === 'communication' || arr?.nature === 'communication');
+    const zone: Zone = versCom ? 'communication'
+      : type !== 'artere' && (arr?.nature === 'tdIrveCoffret' || dep?.nature === 'raccordement') ? 'chemAmont' : 'chemAval';
     const pdc = zone === 'chemAval' && c.arrivee ? rang.get(String(c.arrivee)) ?? 0 : 0;
     const poserLigne = (ref: string, m: number, unite: string, detail?: string) => ajouter(zone, ref, m, unite, detail, pdc);
     if (texte(c.valeurs.passageFacade) === 'oui') facade = facade ?? zone;
@@ -814,7 +863,7 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
   const advenir = cop ? 'INFO-ADVENIR-INFRA' : seg === 'PAR' ? 'INFO-ADVENIR-PARTAGE' : ric || (seg === 'DAP' && sg) ? 'INFO-ADVENIR-INDIVIDUEL' : '';
   if (advenir) {
     ajouter('prestations', 'ADMIN-ADVENIR', 1);
-    texteFixe('prestations', advenir, 'compléter le montant estimé et le reste à charge TTC');
+    texteFixe('prestations', advenir, 'montant de la prime et reste à charge TTC : voir « Avant de saisir »');
   }
   if (seg === 'DAP' && !sg) {
     retirer['ADMIN-ADVENIR'] = "pas d'ADVENIR hors services généraux";
@@ -965,6 +1014,11 @@ export async function posterBrief(token: string, scenario: any, elements: Elemen
     return Number.isFinite(v) && v > 0 ? v : null;
   };
   const zone = (t: any): string | null => (t ? ((cleOption(OPTIONS.zoneDeplacement, indexMenu(t, CHAMPS.zoneDeplacement)) as string | null) ?? null) : null);
+  // 📅 Date Visite Technique (horodatage ClickUp en millisecondes) → JJ/MM/AAAA, heure de Paris (02/11)
+  const dateVisite = (t: any): string | null => {
+    const v = Number(champ(t, CHAMPS.dateVisiteTechnique)?.value);
+    return Number.isFinite(v) && v > 0 ? new Date(v).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' }) : null;
+  };
   const segment = cleOption(OPTIONS.segment, indexMenu(scenario, CHAMPS.segment)) as Segment | null;
   const typeClient = fiche ? ((cleOption(OPTIONS.typeClient, indexMenu(fiche, CHAMPS.typeClient)) as string | null) ?? null) : null;
   const brief = genererBrief({
@@ -974,6 +1028,8 @@ export async function posterBrief(token: string, scenario: any, elements: Elemen
     zone: zone(scenario) ?? zone(fiche),
     elements,
     typeClient,
+    ficheNom: fiche?.name ? String(fiche.name) : null,
+    dateVisite: dateVisite(fiche) ?? dateVisite(scenario),
   });
   const res = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(String(scenario.id))}/comment`, {
     method: 'POST',
