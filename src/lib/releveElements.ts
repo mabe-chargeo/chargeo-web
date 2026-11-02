@@ -23,6 +23,8 @@
 // 02/11 (recette de Mathieu, 7 h 22) : avec ce TD, la gestion de charge n'est pas demandée non plus (gestionnaire de grappe
 // compris), et la mesure de puissance n'est jamais demandée sur un PDL dédié (consigne statique, ni compteur ni comptage,
 // D5 et D6).
+// 02/11, 7 h 33 (recette) : « Switch de la boîte de dérivation » proposé en RIC seulement ; avec un TD de borne partagée,
+// la connectivité n'est pas demandée (toujours un modem déporté, posé d'office à l'enregistrement).
 import type { Nature, Segment } from '@/lib/champsClickUp';
 
 export type TypeSaisie = 'menu' | 'nombre' | 'texte' | 'case';
@@ -197,8 +199,10 @@ export function optionsVisibles(cle: string, v: Valeurs, ctx: ContexteReleve, na
       garder = (c) => c !== '35' || !ctx.mono;
       break;
     case 'connectivite':
-      // Pas de 4G dans le TD IRVE ; SIM de la borne pour une borne seule (hors COP)
-      garder = (c) => c !== 'integreeTdIrve' && (c !== 'simIntegree' || (ctx.segment !== 'COP' && (ctx.bornes ?? 0) <= 1));
+      // Pas de 4G dans le TD IRVE ; SIM de la borne pour une borne seule (hors COP) ; switch de la boîte de dérivation en RIC
+      garder = (c) => c !== 'integreeTdIrve'
+        && (c !== 'simIntegree' || (ctx.segment !== 'COP' && (ctx.bornes ?? 0) <= 1))
+        && (c !== 'switchBoiteDerivation' || ctx.segment === 'RIC');
       break;
     case 'marqueBorne':
       garder = nature === 'priseRenforcee'
@@ -252,7 +256,7 @@ export function champsVisibles(nature: Nature | null, v: Valeurs, ctx: ContexteR
         ...(ctx.prise || ctx.tdPartage ? [] : ['gestionCharge']),
         ...(gestion && gestion !== 'aucune' && ctx.source !== 'pdlDedie' ? ['mesurePuissance'] : []),
         ...(cop || (gestion === 'gestionnaireGrappe' && !ctx.tdPartage) ? ['tailleHub'] : []),
-        'connectivite', 'reseau', 'notesCheminement',
+        ...(ctx.tdPartage ? [] : ['connectivite']), 'reseau', 'notesCheminement',
       ];
     }
     case 'boiteDerivation':
@@ -319,7 +323,8 @@ export function manquants(e: ElementReleve, ctx: ContexteReleve): string[] {
       break;
     case 'communication':
       if (!ctx.prise && !ctx.tdPartage && !v.gestionCharge && !ctx.gestion) m.push('gestion de charge');
-      if (!v.connectivite) m.push('connectivité');
+      if (ctx.tdPartage && v.connectivite !== 'modemDeporte') m.push('à enregistrer (modem déporté posé d\'office avec le TD de borne partagée)');
+      else if (!v.connectivite) m.push('connectivité');
       else if (v.connectivite === 'integreeTdIrve') m.push('connectivité (pas de 4G dans le TD IRVE : modem déporté)');
       else if (v.connectivite === 'simIntegree' && (ctx.bornes ?? 0) > 1) m.push('connectivité (SIM de la borne pour une borne seule : modem déporté)');
       break;
