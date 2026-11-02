@@ -17,11 +17,18 @@
 // - « Prêt à chiffrer » : contrôle de complétude, puis scénario en 📝 devis à faire (et la fiche quand tous sont prêts).
 // Les menus sont écrits avec l'identifiant de l'option, retrouvé dans les champs de la liste. Un champ absent de la liste
 // (prod avant l'ajout des champs) est ignoré sans bloquer la création.
+// 01/11/2026 (Phase 8, étape 4) :
+// - TD de borne partagée (INFRA-TD-TRI-2D22-H10 ou 3D22-H10) choisi → gestion de charge « gestionnaire de grappe » posée
+//   d'office (D15), HUB 10 ; connectivité « Modem déporté » + liaison data vers le TD (01/11, 21 h 55 : pas de 4G dans le
+//   TD) ; la variante -MOD ne concerne que les coffrets COFF- ;
+// - cases à cocher (🏢 Passage en façade) lues et écrites comme « oui » / vide ;
+// - 🔋 Modèle de borne recopié à la duplication (matériel) ; « Dépose d'une borne existante » = élément Autre ajouté
+//   avec ce nom et une quantité de 1.
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Nature, type Segment } from '@/lib/champsClickUp';
 import { chargerTypes, champType, estDuType, estScenario, type CarteTypes } from '@/lib/typesTaches';
 import { sousTachesArchivees } from '@/lib/scenarioRetenu';
-import { estNomCheminementAuto, nomLien, prochainNom, specsParDefaut, type Materiel, type SpecElement } from '@/lib/elementsModele';
-import { SAISIES, SAISIES_NATURE, coffretSuggere, contexteReleve, manquants, type Saisie, type Valeurs } from '@/lib/releveElements';
+import { NOM_DEPOSE, estNomCheminementAuto, nomLien, prochainNom, specsParDefaut, type Materiel, type SpecElement } from '@/lib/elementsModele';
+import { SAISIES, SAISIES_NATURE, coffretSuggere, contexteReleve, estCoffretTd, gestionDuSite, manquants, type Saisie, type Valeurs } from '@/lib/releveElements';
 
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 export const PREFIXES_GAGNE = ['✅ Retenu · ', 'Non retenu · ', 'Projet séparé · ', 'Tarif type · '];
@@ -30,7 +37,7 @@ export const PREFIXES_GAGNE = ['✅ Retenu · ', 'Non retenu · ', 'Projet sépa
 const COPIES = [
   CHAMPS.sourceRaccordement, CHAMPS.typeRaccordement, CHAMPS.puissanceDispo, CHAMPS.etatTableau, CHAMPS.raccordementCible,
   CHAMPS.typeCheminement, CHAMPS.coffretIrve, CHAMPS.gestionCharge, CHAMPS.mesurePuissance, CHAMPS.emplacement,
-  CHAMPS.puissanceVisee, CHAMPS.marqueBorne, CHAMPS.supportBorne, CHAMPS.connectivite, CHAMPS.reseau, CHAMPS.tailleHub,
+  CHAMPS.puissanceVisee, CHAMPS.marqueBorne, CHAMPS.modeleBorne, CHAMPS.supportBorne, CHAMPS.connectivite, CHAMPS.reseau, CHAMPS.tailleHub,
   CHAMPS.quantite,
 ];
 const COPIES_SCENARIO = [CHAMPS.segment, CHAMPS.zoneDeplacement, CHAMPS.nbPlacesParking];
@@ -146,7 +153,7 @@ function valeursDe(t: any, ids: string[]): Record<string, number> {
   return sortie;
 }
 
-// Valeurs du relevé d'un élément, par clé de saisie (option pour un menu, nombre, texte), null si vide
+// Valeurs du relevé d'un élément, par clé de saisie (option pour un menu, nombre, texte, « oui » pour une case), null si vide
 function valeursActuelles(t: any): Valeurs {
   const v: Valeurs = {};
   for (const [cle, s] of Object.entries(SAISIES)) {
@@ -158,6 +165,8 @@ function valeursActuelles(t: any): Valeurs {
       v[cle] = options ? ((cleOption(options, indexMenu(t, id)) as string | null) ?? null) : null;
     } else if (s.type === 'nombre') {
       v[cle] = Number.isFinite(Number(f.value)) ? Number(f.value) : null;
+    } else if (s.type === 'case') {
+      v[cle] = f.value === true || f.value === 'true' ? 'oui' : null;
     } else {
       v[cle] = String(f.value);
     }
@@ -282,16 +291,22 @@ export async function creerParDefaut(ctx: Contexte, segment: Segment, materiel: 
   return { ...r, ok: r.ok && erreurs.length === 0, erreurs: [...erreurs, ...r.erreurs] };
 }
 
-// Ajout d'un élément ; un cheminement peut recevoir son départ et son arrivée (éléments actifs du même scénario)
+// Ajout d'un élément ; un cheminement peut recevoir son départ et son arrivée (éléments actifs du même scénario).
+// modele 'depose' : élément Autre « Dépose d'une borne existante », quantité 1 (01/11).
 export async function ajouterElement(
-  ctx: Contexte, nature: Nature, depart?: string, arrivee?: string, typeCh?: keyof typeof OPTIONS.typeCheminement,
+  ctx: Contexte, nature: Nature, depart?: string, arrivee?: string, typeCh?: keyof typeof OPTIONS.typeCheminement, modele?: 'depose',
 ): Promise<Resultat> {
   const actifs = ctx.actifs.map(vue);
   const cop = segmentDe(ctx.scenario) === 'COP';
   const description = "Élément ajouté depuis l'application.";
   if (nature !== 'cheminement') {
-    const nom = prochainNom(nature, nomsDe(ctx), cop);
+    let nom = prochainNom(nature, nomsDe(ctx), cop);
     const valeurs: Record<string, number> = nature === 'priseRenforcee' ? { [CHAMPS.puissanceVisee]: OPTIONS.puissanceVisee['3.7'] } : {};
+    if (modele === 'depose' && nature === 'autre') {
+      const deja = nomsDe(ctx).filter((n) => n.startsWith(NOM_DEPOSE)).length;
+      nom = deja ? `${NOM_DEPOSE} ${deja + 1}` : NOM_DEPOSE;
+      valeurs[CHAMPS.quantite] = 1;
+    }
     const id = await creer(ctx, nom, nature, valeurs, description);
     return id ? { ok: true, crees: [nom], erreurs: [], id } : { ok: false, erreur: `${nom} n'a pas pu être créé`, crees: [], erreurs: [] };
   }
@@ -430,6 +445,12 @@ function normaliserSaisie(s: Saisie, brut: unknown): string | number | null | un
     const n = Number(String(brut).replace(',', '.'));
     return Number.isFinite(n) && n >= 0 ? n : undefined;
   }
+  if (s.type === 'case') {
+    const t = String(brut).toLowerCase();
+    if (t === 'oui' || t === 'true') return 'oui';
+    if (t === 'non' || t === 'false') return null;
+    return undefined;
+  }
   return String(brut).slice(0, 2000);
 }
 
@@ -445,6 +466,8 @@ async function ecrireValeur(ctx: Contexte, taskId: string, cle: string, valeur: 
     w = ecrite(ctx.defs, champId, index);
   } else if (s.type === 'nombre') {
     w = Number(valeur);
+  } else if (s.type === 'case') {
+    w = true;
   } else {
     w = String(valeur);
   }
@@ -484,6 +507,8 @@ export async function enregistrerReleve(
 
   const tous = ctx.actifs.map(vue);
   const segment = segmentDe(ctx.scenario);
+  // Éléments avec les valeurs qui viennent d'être écrites (gestion de charge du site : élément Communication, 01/11)
+  const actuels = tous.map((e) => (e.id === id ? { ...e, valeurs: { ...e.valeurs, ...nouvelles } } : e));
 
   // Cheminement : départ et arrivée (équipements du même scénario), nom recalculé s'il est automatique
   if (v.nature === 'cheminement') {
@@ -516,33 +541,69 @@ export async function enregistrerReleve(
     for (const ch of tous.filter((c) => c.nature === 'cheminement' && c.arrivee === id)) {
       const coffret = tous.find((e) => e.id === ch.depart && e.nature === 'tdIrveCoffret');
       if (!coffret || coffret.valeurs.coffretIrve) continue;
-      const ref = coffretSuggere(nouvelles.puissanceVisee, coffret.valeurs.mesurePuissance);
+      const ref = coffretSuggere(nouvelles.puissanceVisee, gestionDuSite(actuels).mesure);
       if (ref && (await ecrireValeur(ctx, coffret.id, 'coffretIrve', ref))) messages.push(`${coffret.nom} : ${ref} présélectionné`);
     }
   }
 
-  // Coffret ou TD IRVE : variante -MOD en Modbus, liaison data de la mesure de puissance
-  if (v.nature === 'tdIrveCoffret') {
-    const mesure = nouvelles.gestionCharge && nouvelles.gestionCharge !== 'aucune' ? nouvelles.mesurePuissance : null;
-    const ref = typeof nouvelles.coffretIrve === 'string' ? nouvelles.coffretIrve : '';
-    if (mesure === 'compteurModbus' && ref && !ref.endsWith('-MOD') && ref !== 'COFF-MONO-3K' && !changees.has('coffretIrve')) {
-      if (await ecrireValeur(ctx, id, 'coffretIrve', `${ref}-MOD`)) messages.push(`Coffret passé en ${ref}-MOD (compteur Modbus)`);
+  // Coffret ou TD IRVE : TD de borne partagée (D15) ; puis, dès que le TD ou la gestion de charge change, variante -MOD
+  // en Modbus et liaison data de la mesure de puissance. Gestion et mesure se relèvent dans Communication (01/11, 21 h 35).
+  // D15 : TD de borne partagée → gestionnaire de grappe (HUB 10 compris) posé d'office. Pas de 4G dans le TD (01/11,
+  // 21 h 55) : connectivité « Modem déporté » et liaison data Communication → TD créées d'office. Fait quand on enregistre
+  // le TD, et aussi quand on enregistre la Communication (relevé commencé avant la règle, recette du 02/11).
+  const tdPartage = actuels.find((e) => e.nature === 'tdIrveCoffret' && estCoffretTd(e.valeurs.coffretIrve));
+  const liaisonsPosees = new Set<string>();
+  if (tdPartage && (v.nature === 'communication' || tdPartage.id === id)) {
+    const coms = actuels.filter((e) => e.nature === 'communication');
+    for (const com of coms) {
+      if (com.valeurs.gestionCharge !== 'gestionnaireGrappe' && (await ecrireValeur(ctx, com.id, 'gestionCharge', 'gestionnaireGrappe'))) {
+        com.valeurs = { ...com.valeurs, gestionCharge: 'gestionnaireGrappe' };
+        messages.push(`${com.nom} : gestionnaire de grappe (HUB 10 compris dans le TD)`);
+      }
+      if (com.valeurs.tailleHub !== '10' && (await ecrireValeur(ctx, com.id, 'tailleHub', '10'))) com.valeurs = { ...com.valeurs, tailleHub: '10' };
+      if (com.valeurs.connectivite !== 'modemDeporte' && (await ecrireValeur(ctx, com.id, 'connectivite', 'modemDeporte'))) {
+        com.valeurs = { ...com.valeurs, connectivite: 'modemDeporte' };
+        messages.push(`${com.nom} : modem 4G déporté (le TD n'a pas de 4G)`);
+      }
+      const lie = actuels.some((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.depart === com.id);
+      if (!lie) {
+        const r = await ajouterElement(ctx, 'cheminement', com.id, tdPartage.id, 'liaisonData');
+        if (r.crees.length) { messages.push(`Liaison data créée d'office : ${r.crees.join(', ')}`); liaisonsPosees.add(com.id); }
+        erreurs.push(...r.erreurs);
+      }
     }
-    const raccordement = tous.find((e) => e.nature === 'raccordement');
-    const liaison = tous.find((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.arrivee === id
-      && (!raccordement || c.depart === raccordement.id));
-    if (mesure && !liaison && raccordement) {
-      const r = await ajouterElement(ctx, 'cheminement', raccordement.id, id, 'liaisonData');
-      if (r.crees.length) messages.push(`Liaison data créée d'office : ${r.crees.join(', ')}`);
-      erreurs.push(...r.erreurs);
+  }
+  const gestionChange = v.nature === 'communication' && (changees.has('gestionCharge') || changees.has('mesurePuissance'));
+  if (v.nature === 'tdIrveCoffret' || gestionChange) {
+    const site = gestionDuSite(actuels);
+    const mesure = site.mesure || null;
+    const tds = actuels.filter((e) => e.nature === 'tdIrveCoffret').sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { numeric: true }));
+    for (const td of tds.filter((x) => v.nature === 'communication' || x.id === id)) {
+      const ref = typeof td.valeurs.coffretIrve === 'string' ? td.valeurs.coffretIrve : '';
+      const choisi = td.id === id && changees.has('coffretIrve');
+      if (mesure === 'compteurModbus' && ref.startsWith('COFF-') && !ref.endsWith('-MOD') && ref !== 'COFF-MONO-3K' && !choisi) {
+        if (await ecrireValeur(ctx, td.id, 'coffretIrve', `${ref}-MOD`)) messages.push(`${td.nom} : coffret passé en ${ref}-MOD (compteur Modbus)`);
+      }
     }
-    if (!mesure && liaison) propositions.push({ id: liaison.id, nom: liaison.nom, raison: 'la mesure de puissance est retirée' });
+    // Liaison data Raccordement → TD de la mesure : une seule, vers le premier TD IRVE / coffret
+    const principal = tds[0];
+    const raccordement = actuels.find((e) => e.nature === 'raccordement');
+    if (principal && raccordement) {
+      const liaison = actuels.find((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.arrivee === principal.id
+        && c.depart === raccordement.id);
+      if (mesure && !liaison) {
+        const r = await ajouterElement(ctx, 'cheminement', raccordement.id, principal.id, 'liaisonData');
+        if (r.crees.length) messages.push(`Liaison data créée d'office : ${r.crees.join(', ')}`);
+        erreurs.push(...r.erreurs);
+      }
+      if (!mesure && liaison) propositions.push({ id: liaison.id, nom: liaison.nom, raison: 'la mesure de puissance est retirée' });
+    }
   }
 
   // Communication : modem déporté ou câble requis → liaison data vers le TD IRVE ou le coffret
   if (v.nature === 'communication' && (nouvelles.connectivite === 'modemDeporte' || nouvelles.reseau === 'cableRequis')) {
     const td = tous.find((e) => e.nature === 'tdIrveCoffret');
-    const existe = tous.some((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.depart === id);
+    const existe = liaisonsPosees.has(id) || tous.some((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.depart === id);
     if (td && !existe) {
       const r = await ajouterElement(ctx, 'cheminement', id, td.id, 'liaisonData');
       if (r.crees.length) messages.push(`Liaison data créée d'office : ${r.crees.join(', ')}`);

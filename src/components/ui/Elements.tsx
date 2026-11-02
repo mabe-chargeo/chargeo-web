@@ -12,6 +12,11 @@
 // envoyer » dès qu'un élément a une saisie ou des photos gardées sur le téléphone, avec « Enregistrer tous les
 // éléments » : même envoi que le bouton de chaque élément (envoyerReleve), élément par élément ; ce qui échoue reste
 // sur le téléphone. Recompté à chaque saisie, au retour du réseau et au retour sur la page.
+// 01/11/2026 (Phase 8, étape 4) : menus réduits à ce qui a un ouvrage (optionsVisibles : bornes, prises, TD IRVE en
+// PAR/FLT/TER, Colonne Enedis en RIC, 35 mm² masqué en mono), cases à cocher (passage en façade), choix d'un TD IRVE
+// = gestionnaire de grappe posé d'office, élément « Dépose d'une borne existante » dans « Ajouter un élément ».
+// 01/11/2026, 20 h 50 (Mathieu : « quand je clique sur Prêt à chiffrer, ça ne fait rien ») : la réponse s'affichait en
+// haut de la page, hors de vue ; elle s'affiche maintenant sous le bouton, et l'écran y descend.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AlertTriangle, Archive, Camera, ChevronDown, ChevronUp, Copy, GitBranch, Layers,
@@ -21,7 +26,7 @@ import { Carte, TitreCarte, Alerte, BoutonPrincipal, Repere, CHAMP, ETIQUETTE } 
 import { CYAN, LABEL, NAVY } from '@/components/charte/couleurs';
 import { LIBELLE_NATURE_LONG, LIBELLE_SEGMENT, ORDRE_NATURE, SEGMENTS_BORNE, specsParDefaut, type Materiel } from '@/lib/elementsModele';
 import {
-  DISTANCES, PERCEMENTS, SAISIES, alerteTroisMetres, champsVisibles, coffretSuggere, contexteReleve, longueurTotale, manquants,
+  DISTANCES, PERCEMENTS, SAISIES, alerteTroisMetres, champsVisibles, coffretSuggere, contexteReleve, estCoffretTd, longueurTotale, manquants, optionsVisibles,
   type ContexteReleve, type ElementReleve,
 } from '@/lib/releveElements';
 import type { Nature, Segment } from '@/lib/champsClickUp';
@@ -44,6 +49,9 @@ const URL_SCENARIO = '/api/interne/scenario';
 const SEGMENTS = Object.keys(LIBELLE_SEGMENT) as Segment[];
 const estSegment = (s: string): s is Segment => (SEGMENTS as string[]).includes(s);
 const NATURES_AJOUT: Nature[] = ['borne', 'priseRenforcee', 'cheminement', 'tdIrveCoffret', 'raccordement', 'communication', 'autre', 'boiteDerivation'];
+// Choix « Ajouter un élément » : les natures, plus la dépose (élément « Autre » nommé d'office, photos et notes)
+type ChoixAjout = Nature | 'depose';
+const LIBELLE_DEPOSE = "Dépose d'une borne existante";
 const TYPES_CHEMINEMENT: { cle: string; libelle: string }[] = [
   { cle: 'alimentation', libelle: 'Alimentation' },
   { cle: 'artere', libelle: 'Artère' },
@@ -222,6 +230,9 @@ function FormulaireElement({
   };
   const changer = (k: string, val: string) => {
     const n = { ...v, [k]: val };
+    // TD IRVE (PAR, FLT, TER) : gestionnaire de grappe posé d'office (D15) ; la connectivité « intégrée au TD IRVE »
+    // est posée par le serveur sur l'élément Communication à l'enregistrement
+    if (k === 'coffretIrve' && estCoffretTd(val)) n.gestionCharge = 'gestionnaireGrappe';
     setV(n);
     garder(n, dep, arr);
   };
@@ -250,9 +261,17 @@ function FormulaireElement({
           <label className={ETIQUETTE} htmlFor={id}>{s.libelle}</label>
           <select id={id} className={CHAMP} value={v[k] || ''} onChange={(ev) => changer(k, ev.target.value)} disabled={!peut}>
             <option value="">À préciser</option>
-            {(s.options || []).map((o) => <option key={o.cle} value={o.cle}>{o.libelle}</option>)}
+            {optionsVisibles(k, v, ctx, e.nature).map((o) => <option key={o.cle} value={o.cle}>{o.libelle}</option>)}
           </select>
         </div>
+      );
+    }
+    if (s.type === 'case') {
+      return (
+        <label key={k} htmlFor={id} className="flex items-center gap-3 text-[15px] font-semibold" style={{ color: LABEL }}>
+          <input id={id} type="checkbox" className="h-5 w-5 accent-[#0097b2]" checked={v[k] === 'oui'} onChange={(ev) => changer(k, ev.target.checked ? 'oui' : '')} disabled={!peut} />
+          {s.libelle}
+        </label>
       );
     }
     if (s.type === 'nombre') {
@@ -342,7 +361,7 @@ function FormulaireElement({
       {distances.length > 0 && (
         <div className="space-y-3">
           <p className={ETIQUETTE}>Distances (total : {longueurTotale(v).toLocaleString('fr-FR')} m)</p>
-          {ctx.segment === 'RIC' && (
+          {ctx.segment === 'RIC' && ctx.source !== 'colonneEnedis' && (
             <p className="ml-1 text-[13px] leading-relaxed">Forfait RIC : 5 m de tube apparent préremplis. Si c’est plus long, mets la longueur réelle.</p>
           )}
           <p className="ml-1 text-[13px] leading-relaxed">Laisse vide si non mesuré. Saisis 0 pour « aucun ».</p>
@@ -413,17 +432,20 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
   // Saisies gardées sur le téléphone, pas encore envoyées (ids des éléments)
   const [enAttente, setEnAttente] = useState<string[]>([]);
   const [envoiTous, setEnvoiTous] = useState(false);
+  // Réponse de « Prêt à chiffrer », affichée sous le bouton
+  const [retourPret, setRetourPret] = useState<{ ok: boolean; texte: string } | null>(null);
   // Création des éléments par défaut
   const [segment, setSegment] = useState('');
   const [materiel, setMateriel] = useState<Materiel>('borne');
   const [places, setPlaces] = useState('');
   // Ajout d'un élément
-  const [nature, setNature] = useState<Nature>('borne');
+  const [nature, setNature] = useState<ChoixAjout>('borne');
   const [depart, setDepart] = useState('');
   const [arrivee, setArrivee] = useState('');
   const [typeCh, setTypeCh] = useState('alimentation');
   const [voirArchives, setVoirArchives] = useState(false);
   const refDemande = useRef<HTMLDivElement>(null);
+  const refPret = useRef<HTMLDivElement>(null);
 
   const charger = useCallback(async () => {
     try {
@@ -448,6 +470,7 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
 
   useEffect(() => { charger(); }, [charger]);
   useEffect(() => { if (demande) refDemande.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [demande]);
+  useEffect(() => { if (retourPret) refPret.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [retourPret]);
   useEffect(() => { if (d) recompterAttente(d.elements); }, [d, ouvert, recompterAttente]);
   // Retour du réseau ou retour sur la page : on recompte (et on relit les éléments si la lecture avait échoué)
   useEffect(() => {
@@ -552,7 +575,7 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     if (j?.success) setMessage(`${(j.crees || []).length} éléments créés.`);
   };
   const ajouter = async () => {
-    const corps: any = { action: 'ajouter', scenarioId, nature };
+    const corps: any = nature === 'depose' ? { action: 'ajouter', scenarioId, nature: 'autre', modele: 'depose' } : { action: 'ajouter', scenarioId, nature };
     if (nature === 'cheminement') Object.assign(corps, { depart: depart || undefined, arrivee: arrivee || undefined, typeCheminement: typeCh });
     const j = await agir(URL_ELEMENTS, corps);
     if (j?.success) { setMessage(`Ajouté : ${(j.crees || []).join(', ')}.`); setDepart(''); setArrivee(''); }
@@ -614,9 +637,20 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     await charger();
     setEnvoiTous(false);
   };
+  // « Prêt à chiffrer » : la réponse (brief posté, statuts passés, ou erreur) s'affiche sous le bouton
   const pret = async () => {
-    const j = await agir(URL_ELEMENTS, { action: 'pret', scenarioId });
-    if (j?.success) setMessage(`${(j.messages || ['Prêt à chiffrer']).join('. ')}.`);
+    setOccupe(true);
+    setRetourPret(null);
+    const { ok, j } = await poster(URL_ELEMENTS, { action: 'pret', scenarioId });
+    if (!ok) {
+      setRetourPret({ ok: false, texte: j?.error ? `${j.error}.` : "Pas abouti. Réessaie avec du réseau." });
+      setOccupe(false);
+      return;
+    }
+    const reprises = Array.isArray(j?.erreurs) && j.erreurs.length ? ` À reprendre à la main dans ClickUp : ${j.erreurs.join(', ')}.` : '';
+    setRetourPret({ ok: true, texte: `${(j.messages || ['Prêt à chiffrer']).join('. ')}.${reprises}` });
+    await charger();
+    setOccupe(false);
   };
 
   // Scénario
@@ -775,8 +809,9 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
               <TitreCarte icon={Plus}>Ajouter un élément</TitreCarte>
               <div className="space-y-2">
                 <label className={ETIQUETTE} htmlFor={`nature-${scenarioId}`}>Nature</label>
-                <select id={`nature-${scenarioId}`} className={CHAMP} value={nature} onChange={(e) => setNature(e.target.value as Nature)}>
+                <select id={`nature-${scenarioId}`} className={CHAMP} value={nature} onChange={(e) => setNature(e.target.value as ChoixAjout)}>
                   {NATURES_AJOUT.map((n) => <option key={n} value={n}>{LIBELLE_NATURE_LONG[n]}</option>)}
+                  <option value="depose">{LIBELLE_DEPOSE}</option>
                 </select>
               </div>
               {nature === 'cheminement' && (
@@ -828,8 +863,15 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
             )}
             {peut && (
               <BoutonPrincipal type="button" onClick={pret} disabled={occupe || incomplets.length > 0} inactif={occupe || incomplets.length > 0}>
-                <Send size={20} /> {incomplets.length > 0 ? 'Relevé incomplet' : 'Prêt à chiffrer'}
+                <Send size={20} /> {occupe ? 'Envoi…' : incomplets.length > 0 ? 'Relevé incomplet' : 'Prêt à chiffrer'}
               </BoutonPrincipal>
+            )}
+            {retourPret && (
+              <div ref={refPret}>
+                {retourPret.ok
+                  ? <p className="text-[14px] font-semibold leading-relaxed" style={{ color: CYAN }}>✅ {retourPret.texte}</p>
+                  : <Alerte>{retourPret.texte}</Alerte>}
+              </div>
             )}
           </Carte>
         </>

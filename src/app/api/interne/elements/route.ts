@@ -16,6 +16,7 @@ import { posterBrief } from '@/lib/briefChiffrage';
 // releve (relevé d'un élément), pret (« Prêt à chiffrer »).
 // Étape 5 (15/10/2026) : « Prêt à chiffrer » poste aussi le commentaire « 📋 Brief de chiffrage » sur le scénario
 // (src/lib/briefChiffrage.ts), à chaque clic : le dernier brief posté est celui qui compte.
+// 01/11/2026 (Phase 8, étape 4) : ajouter accepte modele = 'depose' (élément Autre « Dépose d'une borne existante »).
 // Droits contrôlés ici (src/lib/roles.ts) : commercial, chargé d'opération et direction. Scénario de la liste
 // Qualification autorisée uniquement (TEST en preview).
 export const dynamic = 'force-dynamic';
@@ -108,6 +109,7 @@ export async function POST(request: Request) {
           corps?.depart ? String(corps.depart) : undefined,
           corps?.arrivee ? String(corps.arrivee) : undefined,
           tc in OPTIONS.typeCheminement ? (tc as keyof typeof OPTIONS.typeCheminement) : undefined,
+          corps?.modele === 'depose' ? 'depose' : undefined,
         );
         break;
       }

@@ -1,5 +1,7 @@
 // Avis Google (Phase 4, validé par Matthieu le 11/10/2026). Rappels internes uniquement : aucun email n'est envoyé
-// au client par le site. Les brouillons d'email sont rédigés par Brain à partir des infos du commentaire de rappel.
+// au client par le site.
+// 01/11/2026 (Phase 8, étape 4, D12) : le rappel renvoie au modèle d'e-mail « Avis Google » (onglet Email de la fiche),
+// à relire et personnaliser avant l'envoi par Mathieu. Le site n'envoie toujours rien.
 // - Le jour de la mise en service, le poseur demande l'avis sur place avec le QR code (chargeo.fr/interne/avis).
 // - Au passage au Parc : commentaire « 🔵 Demande d'avis faite sur place » et sous-tâche ⭐ assignée au 👷 Technicien,
 //   début = jour de réception, échéance = relance 1 par email à J+7 s'il n'y a pas d'avis.
@@ -12,6 +14,8 @@ export const LIEN_AVIS = process.env.AVIS_GOOGLE_URL || 'https://g.page/r/CVX9CI
 export const CHAMP_AVIS = '2bd6f4cc-27c7-491b-98a1-075296d4a64a'; // ⭐ Avis Google (ex « Avis & Récompense »)
 export const CHAMP_TECHNICIEN = 'b400c953-ae06-4336-b471-405296f9ff1c';
 export const NOM_SOUS_TACHE = '⭐ Avis Google : relancer par email si pas d\'avis';
+// Nom du modèle d'e-mail ClickUp à utiliser pour la relance (D12, modèles créés à l'étape 5 de la Phase 8)
+export const MODELE_EMAIL_AVIS = 'Avis Google';
 
 const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -42,10 +46,10 @@ export function sousTacheAvis(tache: any): any | undefined {
   return (Array.isArray(tache?.subtasks) ? tache.subtasks : []).find((s: any) => normal(s?.name).includes('avis google'));
 }
 
-// Bloc d'informations pour que Brain rédige le brouillon d'email personnalisé
+// Bloc d'informations du rappel : le modèle d'e-mail à utiliser et ce qu'il faut y mettre (D12)
 export function infosBrouillon(tache: any, etape: string, noms: string[]): string {
   return [
-    `✍️ Pour le brouillon (demande à Brain « rédige l'email d'avis ») : ${etape}.`,
+    `✉️ E-mail à envoyer depuis la fiche : ${etape}. Onglet Email → modèle « ${MODELE_EMAIL_AVIS} », à relire et personnaliser avant l'envoi.`,
     `Client : ${tache?.name || ''}. Poseur : ${noms.join(', ') || 'à préciser'}. L'avis a déjà été demandé sur place le jour de la mise en service.`,
     `Lien direct vers l'avis : ${LIEN_AVIS}`,
     'Règle : demande neutre, sans cadeau ni contrepartie, à tous les clients. Le client peut citer le prénom du poseur s\'il le souhaite.',
