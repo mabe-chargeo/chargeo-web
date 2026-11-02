@@ -20,6 +20,9 @@
 // toujours un modem 4G séparé : connectivité « Modem déporté » (INFRA-COP-ROUTEUR), « Intégrée au TD IRVE » masquée
 // (option ClickUp gardée, index 2). La SIM intégrée à la borne ne marche que pour une borne seule. Taille du HUB : toujours
 // HUB 10 avec ce TD (plus de 10 points de charge en borne partagée est rare), donc la question n'est pas posée.
+// 02/11 (recette de Mathieu, 7 h 22) : avec ce TD, la gestion de charge n'est pas demandée non plus (gestionnaire de grappe
+// compris), et la mesure de puissance n'est jamais demandée sur un PDL dédié (consigne statique, ni compteur ni comptage,
+// D5 et D6).
 import type { Nature, Segment } from '@/lib/champsClickUp';
 
 export type TypeSaisie = 'menu' | 'nombre' | 'texte' | 'case';
@@ -149,11 +152,15 @@ const texte = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 // 01/11/2026, 21 h 35 (Mathieu : « toutes les questions concernant le gestionnaire de charge devraient être dans l'élément
 // communication ») : gestion de charge, mesure de puissance et taille du HUB se relèvent dans l'élément Communication.
 // Un relevé fait avant les avait sur le TD IRVE / coffret : il reste lu (Communication d'abord, sinon TD).
+// TD de borne partagée : gestionnaire de grappe d'office (D15), quoi qu'en dise la saisie.
 export function gestionDuSite(elements: ElementReleve[]): { gestion: string; mesure: string } {
   const porteur = elements.find((e) => e.nature === 'communication' && texte(e.valeurs.gestionCharge))
     ?? elements.find((e) => e.nature === 'tdIrveCoffret' && texte(e.valeurs.gestionCharge));
-  const gestion = texte(porteur?.valeurs.gestionCharge);
-  return { gestion, mesure: gestion && gestion !== 'aucune' ? texte(porteur?.valeurs.mesurePuissance) : '' };
+  const tdPartage = elements.some((e) => e.nature === 'tdIrveCoffret' && estCoffretTd(e.valeurs.coffretIrve));
+  const gestion = tdPartage ? 'gestionnaireGrappe' : texte(porteur?.valeurs.gestionCharge);
+  const mesure = texte(porteur?.valeurs.mesurePuissance)
+    || texte(elements.find((e) => e.nature === 'communication' && texte(e.valeurs.mesurePuissance))?.valeurs.mesurePuissance);
+  return { gestion, mesure: gestion && gestion !== 'aucune' ? mesure : '' };
 }
 
 export function contexteReleve(segment: Segment | null, elements: ElementReleve[]): ContexteReleve {
@@ -238,11 +245,12 @@ export function champsVisibles(nature: Nature | null, v: Valeurs, ctx: ContexteR
       return ['marqueBorne', 'supportBorne', 'notesCheminement'];
     case 'communication': {
       // Questions du gestionnaire de charge d'abord (01/11, 21 h 35) : gestion, mesure si gestion, HUB si grappe ou COP.
-      // Prise renforcée seule : pas de gestion de charge.
-      const gestion = texte(v.gestionCharge) || (ctx.prise ? '' : texte(ctx.gestion));
+      // Prise renforcée seule : pas de gestion de charge. TD de borne partagée : gestionnaire de grappe et HUB 10 compris,
+      // rien à demander. PDL dédié : pas de mesure de puissance (D5, D6).
+      const gestion = ctx.tdPartage ? 'gestionnaireGrappe' : texte(v.gestionCharge) || (ctx.prise ? '' : texte(ctx.gestion));
       return [
-        ...(ctx.prise ? [] : ['gestionCharge']),
-        ...(gestion && gestion !== 'aucune' ? ['mesurePuissance'] : []),
+        ...(ctx.prise || ctx.tdPartage ? [] : ['gestionCharge']),
+        ...(gestion && gestion !== 'aucune' && ctx.source !== 'pdlDedie' ? ['mesurePuissance'] : []),
         ...(cop || (gestion === 'gestionnaireGrappe' && !ctx.tdPartage) ? ['tailleHub'] : []),
         'connectivite', 'reseau', 'notesCheminement',
       ];
@@ -310,7 +318,7 @@ export function manquants(e: ElementReleve, ctx: ContexteReleve): string[] {
       else if (!modeleCoherent(v)) m.push('modèle de borne (ne correspond pas à la marque ou à la puissance)');
       break;
     case 'communication':
-      if (!ctx.prise && !v.gestionCharge && !ctx.gestion) m.push('gestion de charge');
+      if (!ctx.prise && !ctx.tdPartage && !v.gestionCharge && !ctx.gestion) m.push('gestion de charge');
       if (!v.connectivite) m.push('connectivité');
       else if (v.connectivite === 'integreeTdIrve') m.push('connectivité (pas de 4G dans le TD IRVE : modem déporté)');
       else if (v.connectivite === 'simIntegree' && (ctx.bornes ?? 0) > 1) m.push('connectivité (SIM de la borne pour une borne seule : modem déporté)');
