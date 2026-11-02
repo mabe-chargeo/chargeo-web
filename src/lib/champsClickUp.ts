@@ -12,6 +12,8 @@
 // - 🔋 Modèle de borne (nouveau menu, un ouvrage de borne par option, D2) et 🏢 Passage en façade (nouvelle case à cocher
 //   du cheminement) : créés le 01/11 sur 🧪 Qualification TEST. À ajouter à Qualification (« ajouter un champ existant »)
 //   avant la fusion, pour garder ces ID.
+// 02/11/2026 (Phase 8, étape 7) : 📅 Date Visite Technique, lue par le brief de chiffrage (crochet [date] de l'en-tête des
+// devis). Même ID sur Qualification et sur TEST (vérifié le 02/11).
 
 export const CHAMPS = {
   // Passeport (le webhook Costructor les lit PAR NOM : ne pas les renommer)
@@ -21,6 +23,9 @@ export const CHAMPS = {
   typeClient: 'f6b45107-9ba0-406b-8fd7-d678e6ad11dc',
   lienCostructor: 'd9f88e8f-4e20-4a98-aee8-3ded30fef5fc',
   alerteSite: '42019c42-0af8-49de-a33d-8af0ddde3357',
+
+  // Fiche (lu par le brief de chiffrage, 02/11/2026)
+  dateVisiteTechnique: '3e633a82-89e3-4895-80d6-04ad25bbccd4',
 
   // Scénario
   segment: 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2',
