@@ -548,9 +548,12 @@ export async function enregistrerReleve(
 
   // Coffret ou TD IRVE : TD de borne partagée (D15) ; puis, dès que le TD ou la gestion de charge change, variante -MOD
   // en Modbus et liaison data de la mesure de puissance. Gestion et mesure se relèvent dans Communication (01/11, 21 h 35).
-  if (v.nature === 'tdIrveCoffret' && estCoffretTd(nouvelles.coffretIrve)) {
-    // D15 : TD de borne partagée choisi → gestionnaire de grappe (HUB 10 compris) posé d'office. Pas de 4G dans le TD
-    // (01/11, 21 h 55) : connectivité « Modem déporté » et liaison data Communication → TD créées d'office.
+  // D15 : TD de borne partagée → gestionnaire de grappe (HUB 10 compris) posé d'office. Pas de 4G dans le TD (01/11,
+  // 21 h 55) : connectivité « Modem déporté » et liaison data Communication → TD créées d'office. Fait quand on enregistre
+  // le TD, et aussi quand on enregistre la Communication (relevé commencé avant la règle, recette du 02/11).
+  const tdPartage = actuels.find((e) => e.nature === 'tdIrveCoffret' && estCoffretTd(e.valeurs.coffretIrve));
+  const liaisonsPosees = new Set<string>();
+  if (tdPartage && (v.nature === 'communication' || tdPartage.id === id)) {
     const coms = actuels.filter((e) => e.nature === 'communication');
     for (const com of coms) {
       if (com.valeurs.gestionCharge !== 'gestionnaireGrappe' && (await ecrireValeur(ctx, com.id, 'gestionCharge', 'gestionnaireGrappe'))) {
@@ -564,8 +567,8 @@ export async function enregistrerReleve(
       }
       const lie = actuels.some((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.depart === com.id);
       if (!lie) {
-        const r = await ajouterElement(ctx, 'cheminement', com.id, id, 'liaisonData');
-        if (r.crees.length) messages.push(`Liaison data créée d'office : ${r.crees.join(', ')}`);
+        const r = await ajouterElement(ctx, 'cheminement', com.id, tdPartage.id, 'liaisonData');
+        if (r.crees.length) { messages.push(`Liaison data créée d'office : ${r.crees.join(', ')}`); liaisonsPosees.add(com.id); }
         erreurs.push(...r.erreurs);
       }
     }
@@ -600,7 +603,7 @@ export async function enregistrerReleve(
   // Communication : modem déporté ou câble requis → liaison data vers le TD IRVE ou le coffret
   if (v.nature === 'communication' && (nouvelles.connectivite === 'modemDeporte' || nouvelles.reseau === 'cableRequis')) {
     const td = tous.find((e) => e.nature === 'tdIrveCoffret');
-    const existe = tous.some((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.depart === id);
+    const existe = liaisonsPosees.has(id) || tous.some((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.depart === id);
     if (td && !existe) {
       const r = await ajouterElement(ctx, 'cheminement', id, td.id, 'liaisonData');
       if (r.crees.length) messages.push(`Liaison data créée d'office : ${r.crees.join(', ')}`);
