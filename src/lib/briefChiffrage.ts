@@ -21,6 +21,8 @@
 // saisir » (nom exact, TVA à poser sur les lignes ajoutées, crochets de l'en-tête, prime ADVENIR en valeur haute) et
 // « Avant de finaliser » (src/lib/briefSaisie.ts) ; la liaison data qui part ou arrive à l'élément Communication est
 // rangée dans la sous-section Communication, avec le modem (écart 3 de la recette).
+// 02/11, 19 h 57 : les éléments du relevé sont transmis aux consignes de saisie (crochet [emplacements] des bornes,
+// question « 📌 Emplacement de la borne » en PAR, FLT et TER).
 // Calculs (synthèse du 14/10, sections 4, 6 et 7) :
 // - réserve IRVE au barème (arrêté du 23/12/2020) en COP, avec le plafond ADVENIR infra ;
 // - puissance à demander à Enedis si PDL dédié (réserve IRVE en COP, somme des puissances visées sinon), toujours
@@ -543,6 +545,7 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
     dateVisite: b.dateVisite ?? null,
     plafondInfra: cop && b.nbPlaces && b.nbPlaces >= 10 ? plafondAdvenirInfra(b.nbPlaces) : null,
     facade: cheminements.some((c) => texte(c.valeurs.passageFacade) === 'oui'),
+    elements: els,
   };
 
   const saisie: string[] = ['', '🧾 À SAISIR DANS COSTRUCTOR'];
