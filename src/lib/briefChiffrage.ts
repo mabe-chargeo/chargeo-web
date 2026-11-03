@@ -25,10 +25,24 @@
 // question « 📌 Emplacement de la borne » en PAR, FLT et TER).
 // 03/11 (D9, carte « Le projet » retirée de la fiche) : la zone de déplacement n'est plus demandée. L'en-tête ne la cite
 // que si elle est saisie, plus d'alerte, et la ligne LOG-DEP-Z1 dit « zone et jours à ajuster au montage (D9) ».
+// 03/11, passe 2 de la recette (décisions de Mathieu, T5 et T6 tranchés à 21 h 21 et 21 h 22) :
+// - gestionnaire de grappe : demande plafonnée à 36 kVA (52 A), section calculée sur cette consigne (5G16 au lieu de
+//   5G25), plus d'alerte « au-dessus de la puissance dispo » (écarts 2, 8, 63, 64) ;
+// - COP sur services généraux : puissance cible = pointe réelle des communs + réserve IRVE ; si l'abonnement suffit,
+//   il reste inchangé, sinon ADMIN-AUGM-PDL + JUR-AUGM-PUISSANCE (écarts 51 et 52) ;
+// - paliers 24, 30 et 36 kVA ; « 18 kVA et plus » n'est plus lu comme 18 kVA (écart 50) ;
+// - liaison de plus de 3 m depuis le tableau : DEPART-TGBT-MONO-40 ou -TRI-40 ajouté en Raccordement (écarts 32, 43, 65) ;
+// - TIC Linky : liaison data sur les deux tronçons, Raccordement → coffret et coffret → borne (écarts 16 et 74) ; une
+//   liaison data qui manque au relevé prend la longueur de l'alimentation du même tronçon (écart 48) ;
+// - PDL dédié : la liaison data Raccordement → TD n'est jamais comptée (écart 58) ;
+// - T5 : COFF-MONO-7K contient déjà 3 m de 3G16 (liaison TGBT éloigné) et 3 m de câble téléreport : la liaison
+//   Raccordement → coffret et sa TIC ne sont comptées qu'au-delà de 3 m (composition lue dans Costructor le 03/11) ;
+// - une seule Boîte de dérivation avec une quantité (écart 46) ; HUB présélectionné selon les points de charge (T6) ;
+// - Artère en vide sanitaire ou en tirage existant (écart 47) ; Réseau « Box ou WiFi du client » : portée à vérifier (T4).
 // Calculs (synthèse du 14/10, sections 4, 6 et 7) :
 // - réserve IRVE au barème (arrêté du 23/12/2020) en COP, avec le plafond ADVENIR infra ;
-// - puissance à demander à Enedis si PDL dédié (réserve IRVE en COP, somme des puissances visées sinon), toujours
-//   « à valider » ; en COP sur le TGBT SG : abonnement actuel + réserve IRVE ;
+// - puissance à demander à Enedis si PDL dédié (réserve IRVE en COP, somme des puissances visées sinon, plafonnée à
+//   36 kVA avec un gestionnaire), toujours « à valider » ; en COP sur le TGBT SG : pointe réelle + réserve IRVE ;
 // - alerte « > 36 kVA : tarif jaune, étude spécifique » ;
 // - section et chute de tension de chaque cheminement d'alimentation, 🔧 Section forcée prioritaire ;
 // - artère COP : 63 A tri, 16 mm², ou 25 mm² si la chute dépasse le budget ;
@@ -53,13 +67,13 @@
 // 16/10 : l'alimentation du TD IRVE et l'artère COP affichent « 63 A, protection du TD » (ce n'est pas un courant
 // assigné de borne, c'est le calibre de protection du TD).
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Segment } from '@/lib/champsClickUp';
-import { LIBELLE_SEGMENT, ORDRE_NATURE, FORFAIT_RIC_TUBE_APPARENT, estDepose } from '@/lib/elementsModele';
+import { LIBELLE_SEGMENT, ORDRE_NATURE, FORFAIT_RIC_TUBE_APPARENT, estDepose, nomLien } from '@/lib/elementsModele';
 import {
   MODELES, NOM_ZONE, ORDRE_ZONES, PLANS, REPLI_ZONE, ZONES_PAR_POINT, lienModele, type ModeleDevis, type SectionModele, type Zone,
 } from '@/lib/modelesDevis';
 import {
-  DISTANCES, PERCEMENTS, PRISES, SAISIES, alerteTroisMetres, estCoffretTd, gestionDuSite, ligneBorne, longueurTotale, modeleCoherent,
-  type ElementReleve,
+  DISTANCES, PERCEMENTS, PLAFOND_GESTION_KVA, POINTS_PAR_BOITE, PRISES, SAISIES, alerteTroisMetres, estCoffretTd, gestionDuSite, hubSuggere,
+  ligneBorne, longueurTotale, modeleCoherent, nombreBoites, type ElementReleve,
 } from '@/lib/releveElements';
 import { avantFinaliser, avantSaisie, type ContexteSaisie } from '@/lib/briefSaisie';
 
@@ -72,13 +86,22 @@ const LIMITE_CUMULEE = 5;
 const BUDGET_ARTERE = 3;
 const TARIF_JAUNE_KVA = 36;
 const MONO_MAX_KVA = 12; // branchement monophasé Enedis : 12 kVA au plus, au-delà triphasé (recette du 02/11)
+// Consigne du gestionnaire de grappe : 36 kVA en tri (36 000 / (400 × √3) ≈ 52 A), 12 kVA en mono (≈ 52 A) ; protection
+// 63 A, 16 mm² (décision de Mathieu du 03/11, 10 h 02 : 5G16 au lieu de 5G25)
+const COURANT_PLAFOND = 52;
 const SECTIONS = [2.5, 4, 6, 10, 16, 25, 35, 50];
 const CALIBRES = [20, 25, 32, 40, 50, 63, 80, 100, 125];
 // UTE C 15-722 tableau 2 pour 20 A et 40 A ; valeurs usuelles pour les autres calibres
 const SECTION_MIN: Record<number, number> = { 20: 2.5, 25: 4, 32: 6, 40: 10, 50: 16, 63: 16, 80: 25, 100: 35, 125: 50 };
 const KW: Record<string, number> = { '3.7': 3.7, '7.4': 7.4, '11': 11, '22': 22 };
 const ASSIGNE: Record<string, number> = { '3.7': 16, '7.4': 32, '11': 16, '22': 32 };
-const DISPO_KVA: Record<string, number> = { '3': 3, '6': 6, '9': 9, '12': 12, '18+': 18 };
+// « 18 kVA et plus » (ancien palier) n'a pas de valeur : il n'est plus lu comme 18 kVA (écart 50)
+const DISPO_KVA: Record<string, number> = { '3': 3, '6': 6, '9': 9, '12': 12, '24': 24, '30': 30, '36': 36 };
+// Câble déjà compris dans un coffret (T5, 03/11 à 21 h 21 ; composition lue dans Costructor le 03/11) : mètres de la
+// liaison Raccordement → coffret (puissance) et de sa liaison TIC (data) qu'on ne compte pas une deuxième fois
+const CABLE_INCLUS: Record<string, { puissance: number; data: number }> = {
+  'COFF-MONO-7K': { puissance: 3, data: 3 }, // 3 m de H07RN-F 3G16 « liaison TGBT éloigné » + 3 m de téléreport
+};
 
 // Ligne à saisir : zone du modèle (src/lib/modelesDevis.ts), rang du point de recharge (0 = N°1), référence, quantité
 // (null pour un texte), unité, détail (élément du relevé d'où elle vient)
@@ -104,7 +127,10 @@ const POSE_ALIMENTATION: Record<string, string> = {
   distTubeApparent: 'LIA-TUBE', distGoulotte: 'LIA-GOUL', distEncastre: 'LIA-ENC', distVideSanitaire: 'LIA-VIDE',
   distTirageExistant: 'LIA-TIR', distCheminCables: 'LIA-CDC-EX', distTranchee: 'LIA-ENT',
 };
-const POSE_ARTERE: Record<string, string> = { distCheminCables: 'LIA-CDC', distTubeApparent: 'LIA-TUBE', distTranchee: 'LIA-ENT' };
+// Artère : chemin de câbles, tranchée, vide sanitaire ou tirage existant (écart 47) ; tube apparent gardé pour un ancien relevé
+const POSE_ARTERE: Record<string, string> = {
+  distCheminCables: 'LIA-CDC', distTranchee: 'LIA-ENT', distVideSanitaire: 'LIA-VIDE', distTirageExistant: 'LIA-TIR', distTubeApparent: 'LIA-TUBE',
+};
 const PERCEMENT_REF: Record<string, string> = {
   percementsPlaco: 'PER-PLACO', percementsBrique: 'PER-PARPAING', percementsBeton: 'PER-BETON', percementsDalle: 'PER-DALLE',
 };
@@ -121,6 +147,9 @@ const typeDe = (c: ElementReleve) => c.typeCheminement || texte(c.valeurs.typeCh
 const cleKw = (e: ElementReleve) => (e.nature === 'priseRenforcee' ? '3.7' : texte(e.valeurs.puissanceVisee));
 const kwDe = (e: ElementReleve) => KW[cleKw(e)] ?? 0;
 const normal = (s: unknown) => texte(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const pointeDe = (racc: ElementReleve | undefined): number | null => (Number(racc?.valeurs.pointeReelle) > 0 ? Number(racc?.valeurs.pointeReelle) : null);
+const inclusDans = (e: ElementReleve | undefined) =>
+  (e?.nature === 'tdIrveCoffret' ? CABLE_INCLUS[texte(e.valeurs.coffretIrve)] : undefined) ?? { puissance: 0, data: 0 };
 
 // Réserve IRVE (kVA) selon le nombre de places, barème de l'arrêté du 23/12/2020. null : moins de 10 places
 export function reserveIrve(places: number): number | null {
@@ -135,6 +164,29 @@ export function reserveIrve(places: number): number | null {
 
 // Plafond ADVENIR infra : 12 500 € HT jusqu'à 100 places, + 125 € par place au-delà
 export const plafondAdvenirInfra = (places: number) => (places <= 100 ? 12500 : 12500 + 125 * (places - 100));
+
+// COP sur services généraux (décision de Mathieu du 03/11, 14 h 57) : puissance cible = pointe réelle des communs + réserve
+// IRVE. Si l'abonnement actuel suffit, il reste inchangé ; sinon augmentation de puissance. Sans pointe relevée : l'ancien
+// calcul (abonnement + réserve) avec une alerte. augmenter : null = on ne sait pas.
+export function puissanceCopSg(dispo: number | null, pointe: number | null, reserve: number): { cible: number | null; augmenter: boolean | null; lignes: string[]; alerte?: string } {
+  if (pointe !== null) {
+    const besoin = pointe + reserve;
+    const calcul = `pointe réelle des communs ${fr(pointe)} kVA + réserve IRVE ${fr(reserve)} kVA = ${fr(besoin)} kVA`;
+    if (dispo !== null && besoin <= dispo) {
+      return { cible: dispo, augmenter: false, lignes: [`Puissance cible du PDL services généraux : ${calcul}, couverte par l'abonnement actuel (${fr(dispo)} kVA) : abonnement inchangé`] };
+    }
+    return {
+      cible: besoin,
+      augmenter: dispo === null ? null : true,
+      lignes: [`Puissance cible du PDL services généraux : ${calcul}${dispo !== null ? `, au-dessus de l'abonnement actuel (${fr(dispo)} kVA) : augmentation de puissance à demander à Enedis` : ' (abonnement actuel à renseigner)'}, à valider`],
+    };
+  }
+  const alerte = "Pointe réelle des communs non relevée (élément Raccordement) : puissance cible calculée sur l'abonnement, qui ne dit pas la consommation réelle. À relever pour savoir s'il faut augmenter la puissance";
+  if (dispo !== null) {
+    return { cible: dispo + reserve, augmenter: null, alerte, lignes: [`Puissance cible du PDL services généraux : ${fr(dispo)} kVA (abonnement actuel) + ${fr(reserve)} kVA = ${fr(dispo + reserve)} kVA, à valider (pointe réelle non relevée)`] };
+  }
+  return { cible: null, augmenter: null, alerte, lignes: ['Puissance cible du PDL services généraux : pointe réelle des communs et abonnement actuel à renseigner, + réserve IRVE'] };
+}
 
 // Modèle(s) à copier (src/lib/modelesDevis.ts). typeClient : clé de 🏢 Type Client de la fiche (particulier, pro, syndic).
 export function modelesDuScenario(
@@ -184,7 +236,8 @@ export function modelesDuScenario(
   return { devis, alertes };
 }
 
-type Circuit = { tri: boolean; courant: number; calibre: number; sectionMin: number };
+// plafonne : courant ramené à la consigne du gestionnaire de grappe (36 kVA, 03/11)
+type Circuit = { tri: boolean; courant: number; calibre: number; sectionMin: number; plafonne?: boolean };
 
 // Calibre normalisé ≥ 1,25 × courant assigné (16 A → 20 A, 32 A → 40 A, comme le tableau 2 de l'UTE C 15-722)
 function circuit(courant: number, tri: boolean): Circuit {
@@ -265,8 +318,10 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
   const source = texte(racc?.valeurs.sourceRaccordement);
   const dispoCle = texte(racc?.valeurs.puissanceDispo);
   const dispo = DISPO_KVA[dispoCle] ?? null;
+  const pointe = pointeDe(racc);
   const cible = texte(racc?.valeurs.raccordementCible);
   const bornes = els.filter((e) => e.nature === 'borne' || e.nature === 'priseRenforcee');
+  if (dispoCle === '18+') alertes.push('Puissance dispo « 18 kVA et plus » (ancien palier) : choisir 24, 30 ou 36 kVA au relevé, calcul fait sans puissance dispo');
   // Raccordement monophasé (sans passage en tri) : une borne 11 ou 22 kW n'y donne que 7,4 kW, câble 3G
   const monoSeul = !cop && !ric && texte(racc?.valeurs.typeRaccordement) === 'mono' && cible !== 'passageTri';
   const kwReel = (e: ElementReleve) => (monoSeul && kwDe(e) > 7.4 ? 7.4 : kwDe(e));
@@ -279,9 +334,12 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
       alertes.push(`${td.nom} : coffret triphasé ${texte(td.valeurs.coffretIrve)} sur un raccordement monophasé`);
     }
   }
-  // Gestion de charge du site : élément Communication (01/11, 21 h 35), ou TD IRVE / coffret d'un ancien relevé
-  const site = gestionDuSite(els);
+  // Gestion de charge du site : élément Communication (01/11, 21 h 35), ou TD IRVE / coffret d'un ancien relevé ; COP et
+  // RIC sur l'infra : gestionnaire de grappe d'office (03/11)
+  const site = gestionDuSite(els, seg);
   const gestion = !!site.gestion && site.gestion !== 'aucune';
+  // Gestionnaire de grappe hors COP et RIC : demande plafonnée à 36 kVA (03/11, 10 h 02)
+  const grappe = site.gestion === 'gestionnaireGrappe' && !cop && !ric;
 
   // En-tête (03/11, D9 : la zone n'est citée que si elle est saisie, elle s'ajuste au montage du devis)
   const quand = new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' });
@@ -297,11 +355,14 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
   // Puissance
   const puissance: string[] = ['', '⚡ PUISSANCE'];
   if (racc) {
-    puissance.push(`Source : ${libelle('sourceRaccordement', source) || 'à renseigner'} · ${libelle('typeRaccordement', racc.valeurs.typeRaccordement) || 'mono ou tri à renseigner'}${dispo !== null ? ` · puissance dispo ${libelle('puissanceDispo', dispoCle)}` : ''}`);
+    puissance.push(`Source : ${libelle('sourceRaccordement', source) || 'à renseigner'} · ${libelle('typeRaccordement', racc.valeurs.typeRaccordement) || 'mono ou tri à renseigner'}${dispo !== null ? ` · puissance dispo ${libelle('puissanceDispo', dispoCle)}` : ''}${pointe !== null ? ` · pointe réelle des communs ${fr(pointe)} kVA` : ''}`);
     if (cible && cible !== 'inchange') puissance.push(`Raccordement cible : ${libelle('raccordementCible', cible)}`);
   }
   if (bornes.length) {
     puissance.push(`Points de charge : ${bornes.length}, ${fr(kwBornes)} kW au total (simultanéité 1, NF C 15-100-7-722 §722.311${gestion ? ', réductible grâce à la gestion de charge' : ''})`);
+  }
+  if (grappe && kwBornes > PLAFOND_GESTION_KVA) {
+    puissance.push(`Gestionnaire de grappe : demande plafonnée à ${PLAFOND_GESTION_KVA} kVA (${COURANT_PLAFOND} A), sections calculées sur cette consigne (décision du 03/11)`);
   }
   let demandee: number | null = null;
   if (cop) {
@@ -313,10 +374,10 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
         demandee = r;
         puissance.push(`Puissance à demander à Enedis (PDL dédié) : ${fr(r)} kVA, à valider`);
       } else if (source === 'tgbtServicesGeneraux') {
-        if (dispo !== null) {
-          demandee = dispo + r;
-          puissance.push(`Puissance cible du PDL services généraux : ${fr(dispo)} kVA (abonnement actuel) + ${fr(r)} kVA = ${fr(demandee)} kVA, à valider (abonnement souscrit ≠ consommation réelle)`);
-        } else puissance.push('Puissance cible du PDL services généraux : abonnement actuel à renseigner, + réserve IRVE');
+        const p = puissanceCopSg(dispo, pointe, r);
+        demandee = p.cible;
+        puissance.push(...p.lignes);
+        if (p.alerte) alertes.push(p.alerte);
       }
     }
     if (b.nbPlaces && b.nbPlaces >= 10) {
@@ -328,9 +389,13 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
       ? 'Raccordement en aval du Linky de la place (colonne Enedis) : puissance du nouveau point de livraison à demander par le résident'
       : "Raccordement sur l'infra collective CHARGéO : pas de puissance à demander");
   } else if (source === 'pdlDedie') {
-    demandee = kwBornes;
-    puissance.push(`Puissance à demander à Enedis (PDL dédié) : ${fr(kwBornes)} kVA (somme des puissances visées), à valider`);
-  } else if (dispo !== null && dispoCle !== '18+' && kwBornes > dispo) {
+    demandee = grappe ? Math.min(kwBornes, PLAFOND_GESTION_KVA) : kwBornes;
+    puissance.push(grappe && kwBornes > PLAFOND_GESTION_KVA
+      ? `Puissance à demander à Enedis (PDL dédié) : ${fr(demandee)} kVA (gestionnaire de grappe, consigne plafonnée pour ${fr(kwBornes)} kW de bornes), à valider`
+      : `Puissance à demander à Enedis (PDL dédié) : ${fr(kwBornes)} kVA (somme des puissances visées), à valider`);
+  } else if (dispo !== null && grappe) {
+    puissance.push(`Gestionnaire de grappe : la charge des bornes est répartie dans la puissance dispo (${fr(dispo)} kVA)`);
+  } else if (dispo !== null && kwBornes > dispo) {
     alertes.push(`Points de charge (${fr(kwBornes)} kW) au-dessus de la puissance dispo (${fr(dispo)} kVA) : gestion de charge ou augmentation de puissance à prévoir`);
   }
   if (demandee !== null && demandee > MONO_MAX_KVA && texte(racc?.valeurs.typeRaccordement) === 'mono') {
@@ -351,7 +416,8 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
     switch (e.nature) {
       case 'raccordement':
         d = [v('sourceRaccordement'), v('typeRaccordement'), v('puissanceDispo'), v('etatTableau') && `tableau ${v('etatTableau')}`,
-          v('raccordementCible') && `cible ${v('raccordementCible')}`, e.valeurs.terre !== null && e.valeurs.terre !== undefined ? `terre ${fr(Number(e.valeurs.terre))} Ω` : ''];
+          v('raccordementCible') && `cible ${v('raccordementCible')}`, pointe !== null ? `pointe réelle ${fr(pointe)} kVA` : '',
+          e.valeurs.terre !== null && e.valeurs.terre !== undefined ? `terre ${fr(Number(e.valeurs.terre))} Ω` : ''];
         break;
       case 'tdIrveCoffret':
         d = [v('coffretIrve'), v('emplacement') && `emplacement : ${v('emplacement')}`];
@@ -363,11 +429,11 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
         d = ['3,7 kW', v('marqueBorne'), v('supportBorne')];
         break;
       case 'communication':
-        d = [v('gestionCharge') && `gestion de charge : ${v('gestionCharge')}`, v('mesurePuissance') && `mesure : ${v('mesurePuissance')}`, v('tailleHub'),
+        d = [site.gestion && `gestion de charge : ${libelle('gestionCharge', site.gestion)}`, site.mesure && `mesure : ${libelle('mesurePuissance', site.mesure)}`, v('tailleHub'),
           v('connectivite'), v('reseau') && `réseau : ${v('reseau')}`];
         break;
       case 'boiteDerivation':
-        d = ['borniers + switch, 4 PDC'];
+        d = [`× ${Number(e.valeurs.quantite) > 0 ? fr(Number(e.valeurs.quantite), 0) : '1'}`, `borniers + switch, ${POINTS_PAR_BOITE} points de charge par boîte`];
         break;
       case 'autre':
         d = [e.valeurs.quantite ? `quantité ${fr(Number(e.valeurs.quantite))}` : ''];
@@ -383,7 +449,7 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
     const type = typeDe(c);
     const long = longueurTotale(c.valeurs);
     const forcee = Number(texte(c.valeurs.sectionForcee).replace(',', '.')) || null;
-    if (type === 'liaisonData') return { c, type, long, ci: null, forcee, section: null, fixe: true, infra: false };
+    if (type === 'liaisonData') return { c, type, long, ci: null, forcee: null, section: null, fixe: true, infra: false };
     if (type === 'artere') {
       const ci: Circuit = { tri: true, courant: 63, calibre: 63, sectionMin: 16 };
       const auto = chute(true, long, 63, 16) <= BUDGET_ARTERE ? 16 : 25;
@@ -396,7 +462,12 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
     if (cop && arr?.nature === 'tdIrveCoffret') ci = { tri: true, courant: 63, calibre: 63, sectionMin: 16 };
     else if (c.arrivee) {
       const a = aval(String(c.arrivee), els, monoSeul);
-      if (a.courant > 0) ci = circuit(a.courant, a.tri);
+      // Gestionnaire de grappe : le courant est ramené à la consigne (36 kVA, 52 A), protection 63 A, 16 mm² (03/11)
+      if (a.courant > 0) {
+        ci = grappe && a.courant > COURANT_PLAFOND
+          ? { tri: a.tri, courant: COURANT_PLAFOND, calibre: 63, sectionMin: 16, plafonne: true }
+          : circuit(a.courant, a.tri);
+      }
     }
     return { c, type, long, ci, forcee, section: forcee ?? (ci ? ci.sectionMin : null), fixe: !!forcee, infra: false };
   });
@@ -469,7 +540,9 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
       const td = k.ci.courant === 63 && k.ci.calibre === 63;
       const circuitTexte = td
         ? `${k.ci.tri ? 'tri' : 'mono'} 63 A, protection du TD`
-        : `${k.ci.tri ? 'tri' : 'mono'} ${fr(k.ci.courant)} A assignés, protection ${k.ci.calibre} A`;
+        : k.ci.plafonne
+          ? `${k.ci.tri ? 'tri' : 'mono'} ${COURANT_PLAFOND} A (consigne du gestionnaire, ${k.ci.tri ? PLAFOND_GESTION_KVA : MONO_MAX_KVA} kVA), protection ${k.ci.calibre} A`
+          : `${k.ci.tri ? 'tri' : 'mono'} ${fr(k.ci.courant)} A assignés, protection ${k.ci.calibre} A`;
       section = `${fr(k.section)} mm²${auto}, ${circuitTexte}, chute ${fr(du, 2)} %`;
       if (type === 'artere') {
         if (k.forcee) section += ` (section forcée)`;
@@ -486,7 +559,7 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
       chemins.push(`  Forfait RIC : ${forfait ? `dans le forfait (${FORFAIT_RIC_TUBE_APPARENT} m de tube apparent)` : `dépassement (${fr(long)} m) : devis détaillé, pas de supplément au mètre`}`);
     }
     if (alerteTroisMetres(c, els, seg)) {
-      protections.push(`Protection en tête : ${nomDe(c.depart)} → ${nomDe(c.arrivee)} fait ${fr(long)} m. Au-delà de 3 m, la protection ne peut pas être déportée au coffret (NF C 15-100 433.2.1 et 434.2.2.1) : disjoncteur au départ du tableau à prévoir`);
+      protections.push(`Protection en tête : ${nomDe(c.depart)} → ${nomDe(c.arrivee)} fait ${fr(long)} m. Au-delà de 3 m, la protection ne peut pas être déportée au coffret (NF C 15-100 433.2.1 et 434.2.2.1) : disjoncteur au départ du tableau (ligne DEPART-TGBT en Raccordement)`);
     }
   }
   if (!calculs.length) chemins.push('Aucun cheminement');
@@ -606,7 +679,7 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
   fin.push('', '⚠️ ALERTES', ...(alertes.length ? alertes.map((a) => `• ${a}`) : ['Aucune']));
   const notes = els.filter((e) => texte(e.valeurs.notesCheminement).trim()).map((e) => `• ${e.nom} : ${texte(e.valeurs.notesCheminement).trim()}`);
   if (notes.length) fin.push('', '📝 NOTES DU RELEVÉ', ...notes);
-  fin.push('', `Méthode : NF C 15-100 art. 525, u = b (ρ1 L / S cos φ + λ L sin φ) IB, ρ1 cuivre 0,0225 Ω·mm²/m (service normal), λ 0,08 mΩ/m, cos φ = 1 (charge VE), IB = courant assigné, b = 2 mono / 1 tri, rapportée à 230 V. Limite ${LIMITE_CUMULEE} % cumulée depuis le raccordement relevé (tableau 52W, autres usages, réseau BT public), chute en amont non comptée. Protections et sections minimales : guide UTE C 15-722 tableau 2. Artère COP : budget CHARGéO de ${BUDGET_ARTERE} %.`);
+  fin.push('', `Méthode : NF C 15-100 art. 525, u = b (ρ1 L / S cos φ + λ L sin φ) IB, ρ1 cuivre 0,0225 Ω·mm²/m (service normal), λ 0,08 mΩ/m, cos φ = 1 (charge VE), IB = courant assigné, b = 2 mono / 1 tri, rapportée à 230 V. Limite ${LIMITE_CUMULEE} % cumulée depuis le raccordement relevé (tableau 52W, autres usages, réseau BT public), chute en amont non comptée. Protections et sections minimales : guide UTE C 15-722 tableau 2. Artère COP : budget CHARGéO de ${BUDGET_ARTERE} %. Gestionnaire de grappe : consigne de ${PLAFOND_GESTION_KVA} kVA (${COURANT_PLAFOND} A, protection 63 A).`);
 
   const detail = ['', '———— DÉTAIL DES CALCULS ————'];
   return {
@@ -645,13 +718,18 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
   const connectivite = texte(coms[0]?.valeurs.connectivite);
   const tailleHub = coms.map((e) => texte(e.valeurs.tailleHub)).find(Boolean) || '';
   const rang = rangsPoints(els);
-  const site = gestionDuSite(els); // gestion de charge et mesure : élément Communication, ou TD d'un ancien relevé
+  const site = gestionDuSite(els, seg); // gestion de charge et mesure : élément Communication, ou TD d'un ancien relevé
+  const parId = new Map<string, ElementReleve>(els.map((e) => [e.id, e]));
+
+  // COP sur services généraux : augmentation de puissance si la pointe réelle + la réserve dépassent l'abonnement (écart 52)
+  const reserve = cop && b.nbPlaces ? reserveIrve(b.nbPlaces) : null;
+  const augmenterCop = cop && sg && reserve !== null
+    && puissanceCopSg(DISPO_KVA[texte(racc?.valeurs.puissanceDispo)] ?? null, pointeDe(racc), reserve).augmenter === true;
 
   // Raccordement (R1 à R10)
   if (racc) {
     if (sg) {
       if (cop || seg === 'PAR') ajouter('raccordement', `INFRA-COP-COMPTAGE-${triRacc ? 'TRI' : 'MONO'}`, 1); // R3, D5, D6
-      else aFaire.push('Départ au TGBT services généraux : DEPART-TGBT-TRI-40 seulement si Mathieu le valide (R2)');
       texteFixe('raccordement', 'JUR-COUPURE-TGBT');
     }
     if (source === 'colonneEnedis') {
@@ -659,8 +737,8 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
       texteFixe('raccordement', 'JUR-CONSUEL-PDL-ENEDIS');
     }
     const cible = texte(racc.valeurs.raccordementCible);
-    if (cible && cible !== 'inchange') { // R7
-      ajouter('raccordement', 'ADMIN-AUGM-PDL', 1);
+    if ((cible && cible !== 'inchange') || augmenterCop) { // R7
+      ajouter('raccordement', 'ADMIN-AUGM-PDL', 1, '', augmenterCop ? 'pointe réelle + réserve IRVE au-dessus de l\'abonnement' : undefined);
       texteFixe('raccordement', 'JUR-AUGM-PUISSANCE');
     }
     const etat = texte(racc.valeurs.etatTableau);
@@ -675,6 +753,17 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
     }
   }
 
+  // Protection au départ du tableau quand la liaison Raccordement → coffret dépasse 3 m (écarts 32, 43, 65), en mono
+  // comme en tri ; au-delà de 40 A, pas d'ouvrage : à la main
+  if (!cop && !ric) {
+    for (const k of calculs) {
+      if (k.type !== 'alimentation' || !alerteTroisMetres(k.c, els, seg)) continue;
+      const tri = k.ci ? k.ci.tri : triRacc;
+      if (k.ci && k.ci.calibre > 40) aFaire.push(`${k.c.nom} : départ protégé en ${k.ci.calibre} A au tableau, pas d'ouvrage DEPART-TGBT à ce calibre, à chiffrer à la main`);
+      else ajouter('raccordement', `DEPART-TGBT-${tri ? 'TRI' : 'MONO'}-40`, 1, '', `${k.c.nom} : ${fr(k.long)} m, plus de 3 m, protection au départ du tableau`);
+    }
+  }
+
   // Cheminement (C1 à C13) : section 1 s'il arrive au TD IRVE / coffret ou part du raccordement, sinon section des
   // points de recharge (ou de l'artère en COP), dans la section du point de recharge auquel il arrive. Liaison data qui
   // part ou arrive à l'élément Communication : sous-section Communication, avec le modem (écart 3, recette du 02/11).
@@ -683,8 +772,8 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
   for (const k of calculs) {
     const { c, type, long } = k;
     if (long <= 0) continue;
-    const dep = els.find((e) => e.id === c.depart);
-    const arr = els.find((e) => e.id === c.arrivee);
+    const dep = c.depart ? parId.get(c.depart) : undefined;
+    const arr = c.arrivee ? parId.get(c.arrivee) : undefined;
     const versCom = type === 'liaisonData' && (dep?.nature === 'communication' || arr?.nature === 'communication');
     const zone: Zone = versCom ? 'communication'
       : type !== 'artere' && (arr?.nature === 'tdIrveCoffret' || dep?.nature === 'raccordement') ? 'chemAmont' : 'chemAval';
@@ -692,14 +781,24 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
     const poserLigne = (ref: string, m: number, unite: string, detail?: string) => ajouter(zone, ref, m, unite, detail, pdc);
     if (texte(c.valeurs.passageFacade) === 'oui') facade = facade ?? zone;
     if (type === 'liaisonData') { // C10 à C12
-      const mesure = dep?.nature === 'raccordement' && arr?.nature === 'tdIrveCoffret' ? site.mesure : '';
+      const amont = dep?.nature === 'raccordement' && arr?.nature === 'tdIrveCoffret';
+      const versBorne = dep?.nature === 'tdIrveCoffret' && arr?.nature === 'borne';
+      // PDL dédié : ni compteur ni comptage (D5, D6), la liaison Raccordement → TD n'est jamais comptée (écart 58)
+      if (amont && pdl) continue;
+      // TIC Linky : sur les deux tronçons, Linky → coffret puis coffret → borne (carte TIC dans la borne, écarts 16 et 74)
+      const mesure = amont ? site.mesure : versBorne && site.mesure === 'ticLinky' ? 'ticLinky' : '';
       const ref = mesure === 'compteurModbus' ? 'LIA-DATA-MOD' : mesure === 'ticLinky' ? 'LIA-DATA-TIC' : 'LIA-DATA-RJ45';
+      // T5 : téléreport déjà compris dans le coffret, compté seulement au-delà
+      const inclus = amont && ref === 'LIA-DATA-TIC' ? inclusDans(arr).data : 0;
       const enTranchee = Number(c.valeurs.distTranchee) || 0;
-      poserLigne(ref, metres(long - enTranchee), 'ml', c.nom);
-      if (enTranchee > 0) {
+      const horsTranchee = Math.max(0, long - enTranchee - inclus);
+      const tranchéeRestante = Math.max(0, enTranchee - Math.max(0, inclus - (long - enTranchee)));
+      const note = inclus ? ` (${inclus} m compris dans ${texte(arr?.valeurs.coffretIrve)})` : '';
+      poserLigne(ref, metres(horsTranchee), 'ml', `${c.nom}${note}`);
+      if (tranchéeRestante > 0) {
         tranchee = tranchee ?? zone;
-        if (ref === 'LIA-DATA-RJ45') poserLigne('LIA-ENT-RJ45', metres(enTranchee), 'ml', `${c.nom} (en tranchée)`);
-        else poserLigne(ref, metres(enTranchee), 'ml', `${c.nom} (en tranchée)`);
+        if (ref === 'LIA-DATA-RJ45') poserLigne('LIA-ENT-RJ45', metres(tranchéeRestante), 'ml', `${c.nom} (en tranchée)`);
+        else poserLigne(ref, metres(tranchéeRestante), 'ml', `${c.nom} (en tranchée)`);
       }
     } else {
       // Section : calculée (S1), forcée (S2), de l'artère (S4) ; 3G en mono, 5G en tri (S5)
@@ -726,13 +825,18 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
           poser('LIA-DERIV', long, `${c.nom}${noteSection}`);
         } else {
           const poses = type === 'artere' ? POSE_ARTERE : POSE_ALIMENTATION;
+          // T5 : mètres déjà compris dans le coffret d'arrivée (COFF-MONO-7K), retirés des premiers modes de pose
+          const inclus = type === 'alimentation' && dep?.nature === 'raccordement' ? inclusDans(arr).puissance : 0;
+          let reste = inclus;
           for (const d of DISTANCES) {
-            const m = Number(c.valeurs[d]) || 0;
+            let m = Number(c.valeurs[d]) || 0;
+            if (m <= 0) continue;
+            if (reste > 0) { const pris = Math.min(m, reste); m -= pris; reste -= pris; }
             if (m <= 0) continue;
             const famille = poses[d];
             const mode = SAISIES[d].libelle.replace(' (m)', '').toLowerCase();
             if (!famille) { aFaire.push(`${c.nom} : ${mode} ${fr(m)} m en artère, pas d'ouvrage d'artère pour ce mode de pose`); continue; }
-            poser(famille, m, `${c.nom}, ${mode}`);
+            poser(famille, m, `${c.nom}, ${mode}${inclus ? ` (${inclus} m déjà compris dans ${texte(arr?.valeurs.coffretIrve)})` : ''}`);
             if (d === 'distTranchee') tranchee = tranchee ?? zone;
             if (type === 'artere' && d === 'distCheminCables') poserLigne('LIA-DATA-RJ45', metres(m), 'ml', `${c.nom}, câble data dans le chemin de câbles (D16)`);
           }
@@ -755,19 +859,42 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
       if (n > 0) poserLigne(PERCEMENT_REF[p], Math.ceil(n), '', c.nom);
     }
   }
+  // Liaisons data de la mesure qui manquent au relevé : elles prennent la longueur de l'alimentation du même tronçon
+  // (écart 48) ; TIC sur les deux tronçons (écarts 16 et 74), Modbus sur Raccordement → TD, jamais sur un PDL dédié
+  const aUneData = (d: string | null, a: string | null) => calculs.some((x) => x.type === 'liaisonData' && x.c.depart === d && x.c.arrivee === a);
+  for (const k of calculs) {
+    if (k.type !== 'alimentation' || k.long <= 0 || k.infra) continue;
+    const dep = k.c.depart ? parId.get(k.c.depart) : undefined;
+    const arr = k.c.arrivee ? parId.get(k.c.arrivee) : undefined;
+    const amont = dep?.nature === 'raccordement' && arr?.nature === 'tdIrveCoffret' && !!site.mesure && !pdl;
+    const versBorne = dep?.nature === 'tdIrveCoffret' && arr?.nature === 'borne' && site.mesure === 'ticLinky';
+    if ((!amont && !versBorne) || aUneData(k.c.depart, k.c.arrivee)) continue;
+    const ref = amont && site.mesure === 'compteurModbus' ? 'LIA-DATA-MOD' : 'LIA-DATA-TIC';
+    const inclus = amont && ref === 'LIA-DATA-TIC' ? inclusDans(arr).data : 0;
+    const zone: Zone = amont ? 'chemAmont' : 'chemAval';
+    const pdc = zone === 'chemAval' && k.c.arrivee ? rang.get(String(k.c.arrivee)) ?? 0 : 0;
+    ajouter(zone, ref, metres(Math.max(0, k.long - inclus)), 'ml', `${nomLien(dep?.nom ?? null, arr?.nom ?? null, 'liaisonData')} : longueur de l'alimentation${inclus ? `, ${inclus} m compris dans ${texte(arr?.valeurs.coffretIrve)}` : ''} (liaison data absente du relevé)`, pdc);
+  }
   if (tranchee) texteFixe(tranchee, 'INFO-TRANCHEE-TERRASSIER');
   if (facade) texteFixe(facade, 'JUR-AUTORISATION-FACADE');
 
   // TD IRVE / coffret (T1 à T10)
   const points = els.filter((e) => e.nature === 'borne').reduce((n, bo) => n + (ligneBorne(bo.valeurs.modeleBorne)?.points ?? 1), 0)
     + els.filter((e) => e.nature === 'priseRenforcee').length;
+  const nbBoites = nombreBoites(els);
   const tds = els.filter((e) => e.nature === 'tdIrveCoffret');
   const mesure = site.mesure;
   // T5, K5 : un gestionnaire de grappe pour le site (sauf TD de borne partagée, qui l'a déjà) ; RIC : le pilotage est
-  // celui de l'infra collective, rien à ajouter au devis du résident
+  // celui de l'infra collective, rien à ajouter au devis du résident. HUB : choisi au relevé, sinon présélectionné selon
+  // les points de charge (T6, COP : 4 points par boîte de dérivation)
   if (site.gestion === 'gestionnaireGrappe' && !ric && !tds.some((td) => estCoffretTd(td.valeurs.coffretIrve))) {
-    if (tailleHub) ajouter('pilotage', `INFRA-COP-PILOTAGE-${tailleHub}`, 1);
-    else aFaire.push('Gestionnaire de grappe sans taille de HUB (élément Communication) : INFRA-COP-PILOTAGE-10, -20 ou -150 à choisir');
+    const ptsHub = cop ? nbBoites * POINTS_PAR_BOITE : points;
+    const suggere = hubSuggere(ptsHub);
+    const hub = tailleHub || suggere;
+    ajouter('pilotage', `INFRA-COP-PILOTAGE-${hub}`, 1, '', tailleHub ? undefined : `HUB présélectionné pour ${ptsHub} points de charge`);
+    if (tailleHub && Number(tailleHub) < Number(suggere)) {
+      alertes.push(`HUB ${tailleHub} pour ${ptsHub} points de charge : HUB ${suggere} attendu (jusqu'à 10 → 10, de 11 à 20 → 20, au-delà → 150)`);
+    }
   }
   if (site.gestion === 'aucune') texteFixe('td', 'JUR-PUISSANCE-SANS-DELESTAGE'); // T6
   for (const td of tds) {
@@ -779,7 +906,9 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
       if (mesure === 'compteurModbus' && !ref.endsWith('-MOD') && ref !== 'COFF-MONO-3K') alertes.push(`${td.nom} : compteur Modbus mais coffret ${ref} sans -MOD`);
       if (mesure === 'ticLinky' && ref.endsWith('-MOD')) alertes.push(`${td.nom} : mesure TIC Linky mais coffret ${ref} : prendre le coffret simple (D1)`);
     }
-    if (pdl && mesure && td === tds[0]) alertes.push('PDL dédié, ni compteur ni comptage (D5, D6) : la mesure de puissance (élément Communication) et sa liaison data sont à retirer');
+    if (pdl && td === tds[0] && calculs.some((x) => x.type === 'liaisonData' && x.c.arrivee === td.id && parId.get(String(x.c.depart))?.nature === 'raccordement')) {
+      alertes.push('PDL dédié, ni compteur ni comptage (D5, D6) : la liaison data Raccordement → TD est à archiver dans l\'appli (elle n\'est pas comptée)');
+    }
     if (seg === 'PAR' && sg && !estCoffretTd(ref) && !ref.endsWith('-MOD')) alertes.push(`${td.nom} : PAR sur services généraux, coffret -MOD (compteur Modbus) attendu (D6)`);
     // TD de borne partagée : 2 ou 3 départs, pour 2 ou 3 points de charge
     if (estCoffretTd(ref)) {
@@ -797,8 +926,8 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
     else retirer['MID-SOUS-COMPTAGE'] = 'borne sur ton propre compteur, rien à refacturer à la copropriété';
   }
 
-  // Boîte de dérivation (BD1)
-  ajouter('boite', 'INFRA-COP-BOITE', els.filter((e) => e.nature === 'boiteDerivation').length);
+  // Boîte de dérivation (BD1) : un seul élément avec sa quantité (écart 46), 1 par élément si la quantité est vide
+  ajouter('boite', 'INFRA-COP-BOITE', nbBoites);
 
   // Borne (B1 à B17) : une mise en service par point de charge (B15), dans la section de sa borne
   let wittyPlus = 0;
@@ -839,6 +968,8 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
     if (texte(com.valeurs.reseau) === 'cableRequis' && !els.some((e) => e.nature === 'cheminement' && typeDe(e) === 'liaisonData' && e.depart === com.id)) {
       alertes.push(`${com.nom} : câble requis mais aucune liaison data saisie (K6)`);
     }
+    // T4 : box ou WiFi du client, aucune ligne au devis
+    if (texte(com.valeurs.reseau) === 'wifi') aFaire.push(`${com.nom} : box ou WiFi du client, portée jusqu'à la borne à vérifier (aucune ligne au devis)`);
   }
   if (wittyPlus > 0 && connectivite === 'simIntegree') ajouter('communication', 'OPT-4G-HAG', wittyPlus); // K1
   const supervision: Partial<Record<Segment, string>> = {
