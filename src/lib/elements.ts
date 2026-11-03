@@ -24,23 +24,45 @@
 // - cases à cocher (🏢 Passage en façade) lues et écrites comme « oui » / vide ;
 // - 🔋 Modèle de borne recopié à la duplication (matériel) ; « Dépose d'une borne existante » = élément Autre ajouté
 //   avec ce nom et une quantité de 1.
+// 03/11/2026 (passe 2 de la recette sans IA) :
+// - liaison data d'un tronçon = longueur et mode de pose de l'alimentation du même tronçon, recopiés à sa création et à
+//   chaque enregistrement de l'alimentation (écart 48) ;
+// - TIC Linky : liaison data créée d'office sur les deux tronçons, Raccordement → coffret et coffret → borne (écart 30) ;
+// - COP : gestionnaire de grappe, mesure (Modbus sur les services généraux, aucune sur un PDL dédié) et HUB posés d'office
+//   sur la Communication (décision du 03/11, 15 h 45) ; PDL dédié : la liaison data Raccordement → TD est archivée d'office
+//   (écart 58) ;
+// - source changée : le Raccordement prend le nom de la nouvelle source, le scénario aussi s'il la citait (écarts 39, 61,
+//   73), et les valeurs que la nouvelle source masque sont vidées (écart 60) ;
+// - duplication du scénario : « Recopier les distances ? » (écart 38), nom sans « (copie) » (écart 61) ;
+// - places de parking : donnée du site, écrite sur la fiche (écarts 44, 57, 68).
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Nature, type Segment } from '@/lib/champsClickUp';
 import { chargerTypes, champType, estDuType, estScenario, type CarteTypes } from '@/lib/typesTaches';
 import { sousTachesArchivees } from '@/lib/scenarioRetenu';
-import { NOM_DEPOSE, estNomCheminementAuto, nomLien, prochainNom, specsParDefaut, type Materiel, type SpecElement } from '@/lib/elementsModele';
-import { SAISIES, SAISIES_NATURE, coffretSuggere, contexteReleve, estCoffretTd, gestionDuSite, manquants, type Saisie, type Valeurs } from '@/lib/releveElements';
+import {
+  NOM_DEPOSE, estNomCheminementAuto, nomLien, nomRaccordement, prochainNom, specsParDefaut, type CleSource, type Materiel, type SpecElement,
+} from '@/lib/elementsModele';
+import {
+  DISTANCES, POINTS_PAR_BOITE, SAISIES, SAISIES_NATURE, champsVisibles, coffretSuggere, contexteReleve, estCoffretTd, gestionDuSite, hubSuggere,
+  longueurTotale, manquants, nombreBoites, type Saisie, type Valeurs,
+} from '@/lib/releveElements';
 
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 export const PREFIXES_GAGNE = ['✅ Retenu · ', 'Non retenu · ', 'Projet séparé · ', 'Tarif type · '];
 
-// Recopiés à la duplication : matériel et constats du site. Jamais : distances, percements, terre, section forcée, notes.
+// Recopiés à la duplication : matériel et constats du site. Jamais : distances (sauf si on le demande), percements, terre,
+// section forcée, notes.
 const COPIES = [
   CHAMPS.sourceRaccordement, CHAMPS.typeRaccordement, CHAMPS.puissanceDispo, CHAMPS.etatTableau, CHAMPS.raccordementCible,
+  CHAMPS.pointeReelle,
   CHAMPS.typeCheminement, CHAMPS.coffretIrve, CHAMPS.gestionCharge, CHAMPS.mesurePuissance, CHAMPS.emplacement,
   CHAMPS.puissanceVisee, CHAMPS.marqueBorne, CHAMPS.modeleBorne, CHAMPS.supportBorne, CHAMPS.connectivite, CHAMPS.reseau, CHAMPS.tailleHub,
   CHAMPS.quantite,
 ];
-const COPIES_SCENARIO = [CHAMPS.segment, CHAMPS.zoneDeplacement, CHAMPS.nbPlacesParking];
+// « Recopier les distances ? » Oui (écart 38) : les longueurs par mode de pose suivent
+const COPIES_DISTANCES = DISTANCES.map((d) => (CHAMPS as Record<string, string>)[d]).filter(Boolean);
+const COPIES_SCENARIO = [CHAMPS.segment, CHAMPS.zoneDeplacement];
+// Valeurs du raccordement que la source peut masquer (écart 60) : vidées quand elles ne sont plus affichées
+const MASQUABLES_RACCORDEMENT = ['puissanceDispo', 'etatTableau', 'raccordementCible', 'pointeReelle', 'terre'];
 
 export type ElementVue = {
   id: string;
@@ -77,9 +99,36 @@ export type Contexte = {
 };
 
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const texte = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 const champs = (t: any): any[] => (Array.isArray(t?.custom_fields) ? t.custom_fields : []);
 const idChamp = (cle: string): string | undefined => (CHAMPS as Record<string, string>)[cle];
 const menuOptions = (cle: string): Record<string, number> | undefined => (OPTIONS as unknown as Record<string, Record<string, number>>)[cle];
+const estAlimentation = (c: ElementVue) => c.nature === 'cheminement' && (c.typeCheminement || 'alimentation') === 'alimentation';
+const estLiaisonData = (c: ElementVue) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData';
+
+// Mots qui citent une source dans le nom d'un scénario, et le mot qui les remplace (écarts 39, 61, 73)
+const MOTS_SOURCE: Record<string, string[]> = {
+  tableauIndividuel: ['tableau individuel', 'compteur du résident', 'tableau'],
+  tgbtServicesGeneraux: ['services généraux', 'TGBT SG', 'SG'],
+  pdlDedie: ['PDL dédié', 'point de livraison dédié'],
+  infraCollective: ['infra collective', 'infra CHARGéO', 'infrastructure collective'],
+  colonneEnedis: ['colonne Enedis'],
+};
+const MOT_NOUVEAU: Record<string, string> = {
+  tableauIndividuel: 'tableau individuel', tgbtServicesGeneraux: 'services généraux', pdlDedie: 'PDL dédié',
+  infraCollective: 'infra collective', colonneEnedis: 'colonne Enedis',
+};
+const echapper = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export function remplacerSource(nom: string, ancienne: string, nouvelle: string): string | null {
+  const mots = MOTS_SOURCE[ancienne];
+  const mot = MOT_NOUVEAU[nouvelle];
+  if (!mots || !mot) return null;
+  for (const m of mots) {
+    const re = new RegExp(`(?<![\\p{L}])${echapper(m)}(?![\\p{L}])`, 'iu');
+    if (re.test(nom)) return nom.replace(re, mot);
+  }
+  return null;
+}
 
 async function api(token: string, chemin: string, methode = 'GET', corps?: any): Promise<Response> {
   return fetch(`https://api.clickup.com/api/v2${chemin}`, {
@@ -274,7 +323,7 @@ async function creerSpecs(ctx: Contexte, specs: SpecElement[], description: stri
   return { ok: erreurs.length === 0, crees, erreurs };
 }
 
-// Éléments par défaut (le segment choisi est aussi écrit sur le scénario)
+// Éléments par défaut (le segment choisi est aussi écrit sur le scénario ; les places, donnée du site, sur la fiche)
 export async function creerParDefaut(ctx: Contexte, segment: Segment, materiel: Materiel, places: number): Promise<Resultat> {
   if (ctx.actifs.length) return { ok: false, erreur: 'Ce scénario a déjà des éléments', crees: [], erreurs: [] };
   const erreurs: string[] = [];
@@ -283,9 +332,10 @@ export async function creerParDefaut(ctx: Contexte, segment: Segment, materiel: 
     const r = await api(ctx.token, `/task/${ctx.scenario.id}/field/${CHAMPS.segment}`, 'POST', { value: seg });
     if (!r.ok) erreurs.push('segment du scénario');
   } else erreurs.push('segment du scénario (option absente)');
-  if (segment === 'COP' && places > 0) {
+  const ficheId = String(ctx.scenario?.parent || '');
+  if (segment === 'COP' && places > 0 && ficheId) {
     const nb = ecrite(ctx.defs, CHAMPS.nbPlacesParking, places);
-    if (nb !== undefined) await api(ctx.token, `/task/${ctx.scenario.id}/field/${CHAMPS.nbPlacesParking}`, 'POST', { value: nb });
+    if (nb !== undefined) await api(ctx.token, `/task/${ficheId}/field/${CHAMPS.nbPlacesParking}`, 'POST', { value: nb });
   }
   const r = await creerSpecs(ctx, specsParDefaut(segment, materiel, places), `Élément créé d'office par l'application (segment ${segment}).`);
   return { ...r, ok: r.ok && erreurs.length === 0, erreurs: [...erreurs, ...r.erreurs] };
@@ -307,6 +357,7 @@ export async function ajouterElement(
       nom = deja ? `${NOM_DEPOSE} ${deja + 1}` : NOM_DEPOSE;
       valeurs[CHAMPS.quantite] = 1;
     }
+    if (nature === 'boiteDerivation') valeurs[CHAMPS.quantite] = 1; // une boîte, quantité à ajuster (écart 46)
     const id = await creer(ctx, nom, nature, valeurs, description);
     return id ? { ok: true, crees: [nom], erreurs: [], id } : { ok: false, erreur: `${nom} n'a pas pu être créé`, crees: [], erreurs: [] };
   }
@@ -316,6 +367,17 @@ export async function ajouterElement(
   if (dep && arr && dep.id === arr.id) return { ok: false, erreur: 'Le départ et l’arrivée doivent être différents', crees: [], erreurs: [] };
   const nom = nomLien(dep?.nom ?? null, arr?.nom ?? null, typeCh ?? null);
   const valeurs: Record<string, number> = typeCh ? { [CHAMPS.typeCheminement]: OPTIONS.typeCheminement[typeCh] } : {};
+  // Liaison data : longueur et mode de pose de l'alimentation du même tronçon (écart 48)
+  if (typeCh === 'liaisonData' && dep && arr) {
+    const alim = actifs.find((c) => estAlimentation(c) && c.depart === dep.id && c.arrivee === arr.id);
+    if (alim) {
+      for (const d of DISTANCES) {
+        const m = Number(alim.valeurs[d]);
+        const champ = idChamp(d);
+        if (champ && Number.isFinite(m) && m > 0) valeurs[champ] = m;
+      }
+    }
+  }
   const id = await creer(ctx, nom, 'cheminement', valeurs, description);
   if (!id) return { ok: false, erreur: "Le cheminement n'a pas pu être créé", crees: [], erreurs: [] };
   const erreurs: string[] = [];
@@ -373,7 +435,8 @@ export async function restaurerElement(ctx: Contexte, id: string): Promise<Resul
   return { ok: erreurs.length === 0, crees: faits, erreurs };
 }
 
-const descriptionCopie = (source: any) => `Copie de « ${String(source?.name || '')} » : matériel recopié, mesures à refaire.`;
+const descriptionCopie = (source: any, distances = false) =>
+  `Copie de « ${String(source?.name || '')} » : matériel recopié${distances ? ', distances recopiées' : ', mesures à refaire'}.`;
 
 // Duplication d'un équipement (coffret ou borne) avec ses cheminements
 async function dupliquer(ctx: Contexte, sourceId: string, mode: 'branche' | 'borne'): Promise<Resultat> {
@@ -477,6 +540,18 @@ async function ecrireValeur(ctx: Contexte, taskId: string, cle: string, valeur: 
   return res.ok;
 }
 
+// Liaison data : longueur et mode de pose recopiés de l'alimentation du même tronçon (écart 48). true si quelque chose a changé
+async function recopierDistances(ctx: Contexte, liaison: ElementVue, source: Valeurs): Promise<boolean> {
+  let change = false;
+  for (const d of DISTANCES) {
+    const val = Number(source[d]) > 0 ? Number(source[d]) : null;
+    const actuel = Number(liaison.valeurs[d]) > 0 ? Number(liaison.valeurs[d]) : null;
+    if (val === actuel) continue;
+    if (await ecrireValeur(ctx, liaison.id, d, val)) change = true;
+  }
+  return change;
+}
+
 // Enregistre le relevé d'un élément (seules les valeurs qui changent sont écrites), puis les automatismes
 export async function enregistrerReleve(
   ctx: Contexte, id: string, saisies: Record<string, unknown>, liens?: { depart?: string | null; arrivee?: string | null },
@@ -507,14 +582,39 @@ export async function enregistrerReleve(
 
   const tous = ctx.actifs.map(vue);
   const segment = segmentDe(ctx.scenario);
+
+  // Raccordement : valeurs que la source masque désormais vidées (écart 60), puis noms qui suivent la nouvelle source
+  // (écarts 39, 61, 73)
+  const sourceChange = v.nature === 'raccordement' && changees.has('sourceRaccordement');
+  if (v.nature === 'raccordement') {
+    const visibles = new Set(champsVisibles('raccordement', nouvelles, contexteReleve(segment, tous)));
+    const videes: string[] = [];
+    for (const cle of MASQUABLES_RACCORDEMENT) {
+      if (visibles.has(cle) || nouvelles[cle] === null || nouvelles[cle] === undefined) continue;
+      if (await ecrireValeur(ctx, id, cle, null)) { nouvelles[cle] = null; videes.push(SAISIES[cle].libelle.toLowerCase()); }
+    }
+    if (videes.length) messages.push(`Valeurs sans objet avec cette source vidées : ${videes.join(', ')}`);
+  }
+  if (sourceChange) {
+    const nouvelle = texte(nouvelles.sourceRaccordement);
+    const n = nomRaccordement((nouvelle || null) as CleSource | null);
+    if (v.nom.startsWith('Raccordement') && v.nom !== n && (await modifier(ctx.token, id, { name: n }))) messages.push(`Renommé en « ${n} »`);
+    const nomSc = String(ctx.scenario?.name || '');
+    const renomme = remplacerSource(nomSc, texte(v.valeurs.sourceRaccordement), nouvelle);
+    if (renomme && renomme !== nomSc && (await modifier(ctx.token, String(ctx.scenario.id), { name: renomme }))) {
+      ctx.scenario.name = renomme;
+      messages.push(`Scénario renommé en « ${renomme} »`);
+    }
+  }
+
   // Éléments avec les valeurs qui viennent d'être écrites (gestion de charge du site : élément Communication, 01/11)
   const actuels = tous.map((e) => (e.id === id ? { ...e, valeurs: { ...e.valeurs, ...nouvelles } } : e));
 
   // Cheminement : départ et arrivée (équipements du même scénario), nom recalculé s'il est automatique
+  let depart = v.depart;
+  let arrivee = v.arrivee;
   if (v.nature === 'cheminement') {
     const equipements = tous.filter((e) => e.nature !== 'cheminement' && e.id !== id);
-    let depart = v.depart;
-    let arrivee = v.arrivee;
     for (const [cle, champ] of [['depart', CHAMPS.depart], ['arrivee', CHAMPS.arrivee]] as const) {
       if (!liens || !(cle in liens)) continue;
       const cible = liens[cle] || null;
@@ -534,6 +634,13 @@ export async function enregistrerReleve(
       const n = nomLien(nomDe(depart), nomDe(arrivee), type);
       if (n !== v.nom && (await modifier(ctx.token, id, { name: n }))) messages.push(`Renommé en « ${n} »`);
     }
+    // Alimentation : ses longueurs et modes de pose passent sur la liaison data du même tronçon (écart 48)
+    const typeAlim = (texte(nouvelles.typeCheminement) || 'alimentation') === 'alimentation';
+    if (typeAlim && depart && arrivee && (DISTANCES.some((d) => changees.has(d)) || changees.has('depart') || changees.has('arrivee'))) {
+      for (const l of tous.filter((c) => estLiaisonData(c) && c.depart === depart && c.arrivee === arrivee)) {
+        if (await recopierDistances(ctx, l, nouvelles)) messages.push(`${l.nom} : longueur et mode de pose recopiés`);
+      }
+    }
   }
 
   // Borne ou prise : coffret présélectionné selon la puissance, s'il est encore vide (hors COP)
@@ -541,8 +648,31 @@ export async function enregistrerReleve(
     for (const ch of tous.filter((c) => c.nature === 'cheminement' && c.arrivee === id)) {
       const coffret = tous.find((e) => e.id === ch.depart && e.nature === 'tdIrveCoffret');
       if (!coffret || coffret.valeurs.coffretIrve) continue;
-      const ref = coffretSuggere(nouvelles.puissanceVisee, gestionDuSite(actuels).mesure);
+      const ref = coffretSuggere(nouvelles.puissanceVisee, gestionDuSite(actuels, segment).mesure);
       if (ref && (await ecrireValeur(ctx, coffret.id, 'coffretIrve', ref))) messages.push(`${coffret.nom} : ${ref} présélectionné`);
+    }
+  }
+
+  // COP : gestionnaire de grappe, mesure (Modbus sur les services généraux, aucune sur un PDL dédié) et HUB posés d'office
+  // sur la Communication (décision du 03/11, 15 h 45)
+  if (segment === 'COP' && (v.nature === 'communication' || v.nature === 'boiteDerivation' || sourceChange)) {
+    const site = gestionDuSite(actuels, segment);
+    for (const com of actuels.filter((e) => e.nature === 'communication')) {
+      if (com.valeurs.gestionCharge !== 'gestionnaireGrappe' && (await ecrireValeur(ctx, com.id, 'gestionCharge', 'gestionnaireGrappe'))) {
+        com.valeurs = { ...com.valeurs, gestionCharge: 'gestionnaireGrappe' };
+      }
+      const mesure = site.mesure || null;
+      if ((com.valeurs.mesurePuissance ?? null) !== mesure && (await ecrireValeur(ctx, com.id, 'mesurePuissance', mesure))) {
+        com.valeurs = { ...com.valeurs, mesurePuissance: mesure };
+        messages.push(`${com.nom} : ${mesure ? 'compteur Modbus au TGBT posé d\'office' : 'pas de mesure sur un PDL dédié'}`);
+      }
+      if (!com.valeurs.tailleHub) {
+        const hub = hubSuggere(nombreBoites(actuels) * POINTS_PAR_BOITE);
+        if (await ecrireValeur(ctx, com.id, 'tailleHub', hub)) {
+          com.valeurs = { ...com.valeurs, tailleHub: hub };
+          messages.push(`${com.nom} : HUB ${hub} présélectionné`);
+        }
+      }
     }
   }
 
@@ -574,29 +704,46 @@ export async function enregistrerReleve(
     }
   }
   const gestionChange = v.nature === 'communication' && (changees.has('gestionCharge') || changees.has('mesurePuissance'));
-  if (v.nature === 'tdIrveCoffret' || gestionChange) {
-    const site = gestionDuSite(actuels);
+  if (v.nature === 'tdIrveCoffret' || gestionChange || sourceChange || (segment === 'COP' && v.nature === 'communication')) {
+    const site = gestionDuSite(actuels, segment);
     const mesure = site.mesure || null;
     const tds = actuels.filter((e) => e.nature === 'tdIrveCoffret').sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { numeric: true }));
-    for (const td of tds.filter((x) => v.nature === 'communication' || x.id === id)) {
+    for (const td of tds.filter((x) => v.nature !== 'tdIrveCoffret' || x.id === id)) {
       const ref = typeof td.valeurs.coffretIrve === 'string' ? td.valeurs.coffretIrve : '';
       const choisi = td.id === id && changees.has('coffretIrve');
       if (mesure === 'compteurModbus' && ref.startsWith('COFF-') && !ref.endsWith('-MOD') && ref !== 'COFF-MONO-3K' && !choisi) {
         if (await ecrireValeur(ctx, td.id, 'coffretIrve', `${ref}-MOD`)) messages.push(`${td.nom} : coffret passé en ${ref}-MOD (compteur Modbus)`);
       }
     }
-    // Liaison data Raccordement → TD de la mesure : une seule, vers le premier TD IRVE / coffret
+    // Liaison data Raccordement → TD de la mesure : une seule, vers le premier TD IRVE / coffret. PDL dédié : jamais de
+    // mesure, la liaison est archivée d'office (écart 58)
     const principal = tds[0];
     const raccordement = actuels.find((e) => e.nature === 'raccordement');
     if (principal && raccordement) {
-      const liaison = actuels.find((c) => c.nature === 'cheminement' && c.typeCheminement === 'liaisonData' && c.arrivee === principal.id
-        && c.depart === raccordement.id);
+      const liaison = actuels.find((c) => estLiaisonData(c) && c.arrivee === principal.id && c.depart === raccordement.id);
       if (mesure && !liaison) {
         const r = await ajouterElement(ctx, 'cheminement', raccordement.id, principal.id, 'liaisonData');
         if (r.crees.length) messages.push(`Liaison data créée d'office : ${r.crees.join(', ')}`);
         erreurs.push(...r.erreurs);
       }
-      if (!mesure && liaison) propositions.push({ id: liaison.id, nom: liaison.nom, raison: 'la mesure de puissance est retirée' });
+      if (!mesure && liaison) {
+        if (texte(raccordement.valeurs.sourceRaccordement) === 'pdlDedie') {
+          const r = await archiverElement(ctx, liaison.id);
+          if (r.ok) messages.push(`${liaison.nom} archivée d'office : pas de mesure sur un PDL dédié (D5, D6)`);
+          else erreurs.push(...r.erreurs);
+        } else propositions.push({ id: liaison.id, nom: liaison.nom, raison: 'la mesure de puissance est retirée' });
+      }
+    }
+    // TIC Linky : la liaison data va jusqu'à la borne, coffret → borne aussi (écart 30)
+    if (mesure === 'ticLinky') {
+      for (const alim of actuels.filter((c) => estAlimentation(c) && tds.some((x) => x.id === c.depart)
+        && actuels.some((b) => b.id === c.arrivee && b.nature === 'borne'))) {
+        const existe = actuels.some((c) => estLiaisonData(c) && c.depart === alim.depart && c.arrivee === alim.arrivee);
+        if (existe || !alim.depart || !alim.arrivee) continue;
+        const r = await ajouterElement(ctx, 'cheminement', alim.depart, alim.arrivee, 'liaisonData');
+        if (r.crees.length) messages.push(`Liaison data TIC créée d'office : ${r.crees.join(', ')}`);
+        erreurs.push(...r.erreurs);
+      }
     }
   }
 
@@ -623,12 +770,16 @@ async function statutNomme(token: string, listeId: string, mot: string): Promise
 }
 
 // « Prêt à chiffrer » : contrôle de complétude, scénario en 📝 devis à faire, fiche aussi quand tous ses scénarios sont prêts.
-// Le brief de chiffrage est ensuite posté par la route /api/interne/elements (src/lib/briefChiffrage.ts).
-export async function pretAChiffrer(ctx: Contexte): Promise<Resultat & { manquants?: { nom: string; quoi: string[] }[] }> {
+// Le brief de chiffrage est ensuite posté par la route /api/interne/elements (src/lib/briefPoste.ts).
+// manquantsSite : ce qui manque sur la fiche (RIC : 🏢 Type Client, écart 69), contrôlé par la route.
+export async function pretAChiffrer(ctx: Contexte, manquantsSite: string[] = []): Promise<Resultat & { manquants?: { nom: string; quoi: string[] }[] }> {
   const elements = ctx.actifs.map(vue);
   if (!elements.length) return { ok: false, erreur: "Crée d'abord les éléments du scénario", crees: [], erreurs: [] };
   const cr = contexteReleve(segmentDe(ctx.scenario), elements);
-  const manque = elements.map((e) => ({ nom: e.nom, quoi: manquants(e, cr) })).filter((x) => x.quoi.length);
+  const manque = [
+    ...(manquantsSite.length ? [{ nom: 'Fiche', quoi: manquantsSite }] : []),
+    ...elements.map((e) => ({ nom: e.nom, quoi: manquants(e, cr) })).filter((x) => x.quoi.length),
+  ];
   if (manque.length) {
     return {
       ok: false,
@@ -646,15 +797,23 @@ export async function pretAChiffrer(ctx: Contexte): Promise<Resultat & { manquan
     else erreurs.push('statut du scénario');
   } else messages.push(`Scénario déjà en ${String(ctx.scenario?.status?.status || '')}`);
 
-  // La fiche avance quand tous ses scénarios ont quitté « à visiter »
+  // La fiche avance quand tous ses scénarios ont quitté « à visiter » ; le Segment de la fiche suit celui du scénario
+  // quand elle n'a qu'un scénario actif (écart 22)
   const projetId = String(ctx.scenario?.parent || '');
   const projet = projetId ? await lireTache(ctx.token, projetId, true) : null;
-  if (projet && aFaire) {
-    const freres = (Array.isArray(projet.subtasks) ? projet.subtasks : []).filter((s: any) => !s?.parent || String(s.parent) === projetId);
-    const tousPrets = freres.every((s: any) => String(s.id) === String(ctx.scenario.id) || !normal(s?.status?.status).includes('visiter'));
-    if (tousPrets && normal(projet?.status?.status).includes('visiter')) {
-      if (await modifier(ctx.token, projetId, { status: aFaire })) messages.push(`Fiche passée en ${aFaire}`);
-      else erreurs.push('statut de la fiche');
+  if (projet) {
+    const freres = (Array.isArray(projet.subtasks) ? projet.subtasks : []).filter((s: any) => (!s?.parent || String(s.parent) === projetId) && !s?.archived);
+    const seg = segmentDe(ctx.scenario);
+    if (seg && freres.length <= 1 && segmentDe(projet) !== seg) {
+      const w = ecrite(ctx.defs, CHAMPS.segment, OPTIONS.segment[seg]);
+      if (w !== undefined && (await api(ctx.token, `/task/${projetId}/field/${CHAMPS.segment}`, 'POST', { value: w })).ok) messages.push(`Segment de la fiche passé en ${seg}`);
+    }
+    if (aFaire) {
+      const tousPrets = freres.every((s: any) => String(s.id) === String(ctx.scenario.id) || !normal(s?.status?.status).includes('visiter'));
+      if (tousPrets && normal(projet?.status?.status).includes('visiter')) {
+        if (await modifier(ctx.token, projetId, { status: aFaire })) messages.push(`Fiche passée en ${aFaire}`);
+        else erreurs.push('statut de la fiche');
+      }
     }
   }
   return { ok: erreurs.length === 0, crees: [], erreurs, messages };
@@ -662,7 +821,7 @@ export async function pretAChiffrer(ctx: Contexte): Promise<Resultat & { manquan
 
 // ---- Scénarios ----
 
-// Lettre suivant la plus haute déjà utilisée (même règle que src/app/api/scenarios/route.ts)
+// Lettre suivant la plus haute déjà utilisée, scénarios archivés compris (même règle que src/app/api/scenarios/route.ts)
 export function lettreSuivante(sousTaches: any[]): string {
   let plusHaut = -1;
   for (const s of sousTaches) {
@@ -726,13 +885,17 @@ export async function scenariosArchives(token: string, projet: any): Promise<{ i
     .map((t: any) => ({ id: String(t.id), nom: String(t.name || '') }));
 }
 
-// « Dupliquer le scénario » : lettre suivante, éléments recopiés et reliés, matériel recopié, mesures vidées
-export async function dupliquerScenario(token: string, scenario: any, projet: any): Promise<Resultat> {
+// « Dupliquer le scénario » : lettre suivante, éléments recopiés et reliés, matériel recopié ; distances recopiées
+// seulement si Mathieu répond Oui à « Recopier les distances ? » (écart 38). Le nom reprend le libellé, sans « (copie) » :
+// il suit la nouvelle source dès qu'elle est relevée (écart 61).
+export async function dupliquerScenario(token: string, scenario: any, projet: any, distances = false): Promise<Resultat> {
   const ctx = await contexteScenario(token, scenario);
   const freres = (Array.isArray(projet?.subtasks) ? projet.subtasks : []).filter((s: any) => !s?.parent || String(s.parent) === String(projet.id));
   const archivesProjet = await sousTachesArchivees(token, ctx.listId, String(projet.id));
   const lettre = lettreSuivante([...freres, ...archivesProjet]);
-  const nom = `Scénario ${lettre} : ${libelleScenario(String(scenario?.name || '')) || 'copie'} (copie)`;
+  const libelle = libelleScenario(String(scenario?.name || '')).replace(/\s*\(copie\)\s*$/i, '').trim();
+  const nom = `Scénario ${lettre} : ${libelle || 'à nommer'}`;
+  const copies = distances ? [...COPIES, ...COPIES_DISTANCES] : COPIES;
 
   const custom_fields: { id: string; value: any }[] = [];
   for (const [id, v] of Object.entries(valeursDe(scenario, [...COPIES_SCENARIO, ...COPIES]))) {
@@ -742,7 +905,7 @@ export async function dupliquerScenario(token: string, scenario: any, projet: an
   const res = await api(token, `/list/${ctx.listId}/task`, 'POST', {
     name: nom,
     parent: String(projet.id),
-    description: `${descriptionCopie(scenario)} Créé avec « Dupliquer le scénario ».`,
+    description: `${descriptionCopie(scenario, distances)} Créé avec « Dupliquer le scénario ».`,
     ...(await champType(token, 'scenario')),
     custom_fields,
   });
@@ -759,11 +922,11 @@ export async function dupliquerScenario(token: string, scenario: any, projet: an
   const erreurs: string[] = [];
   const vues = ctx.actifs.map((t) => ({ t, v: vue(t) }));
   for (const { t, v } of vues.filter((x) => x.v.nature && x.v.nature !== 'cheminement')) {
-    const id = await creer(cible, v.nom, v.nature as Nature, valeursDe(t, COPIES), descriptionCopie(t));
+    const id = await creer(cible, v.nom, v.nature as Nature, valeursDe(t, COPIES), descriptionCopie(t, distances));
     if (id) { correspondance.set(v.id, id); crees.push(v.nom); } else erreurs.push(v.nom);
   }
   for (const { t, v } of vues.filter((x) => x.v.nature === 'cheminement')) {
-    const id = await creer(cible, v.nom, 'cheminement', valeursDe(t, COPIES), descriptionCopie(t));
+    const id = await creer(cible, v.nom, 'cheminement', valeursDe(t, copies), descriptionCopie(t, distances));
     if (!id) { erreurs.push(v.nom); continue; }
     crees.push(v.nom);
     const dep = v.depart ? correspondance.get(v.depart) : undefined;
@@ -773,3 +936,6 @@ export async function dupliquerScenario(token: string, scenario: any, projet: an
   }
   return { ok: erreurs.length === 0, crees, erreurs, id: nouveauId };
 }
+
+// Distances recopiées dans l'appli : longueur totale d'un cheminement (pour l'écran)
+export const longueurDe = (v: Valeurs) => longueurTotale(v);
