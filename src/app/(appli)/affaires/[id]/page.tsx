@@ -35,6 +35,9 @@
 // vers Mon espace.
 // 19/10/2026 (2e lot de cohérence) : cartes et boutons sur les briques communes (src/components/charte/Appli.tsx),
 // liens ClickUp réservés à la direction et au back-office, bouton Retour de l'en-tête commun.
+// 03/11/2026 (Phase 8, étape 7, Mathieu : la carte « Le projet » « n'a rien à faire là ») : carte retirée. Le SIRET /
+// RNIC passe dans le bloc 📇 Contact (en vente, commercial et direction), les places et la date du permis dans la carte
+// « Le site » du relevé d'un scénario COP (SiteCop), et la zone n'est plus demandée (D9 : ajustée au montage du devis).
 import { useEffect, useState, type ElementType, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import {
@@ -399,7 +402,7 @@ export default function FichePage() {
     );
   };
 
-  // Vente (Le projet, Suite de la vente) : commercial et direction, jamais sans prix
+  // Vente (SIRET / RNIC dans le bloc Contact, Suite de la vente) : commercial et direction, jamais sans prix
   const peutVendre = (f: Fiche) => !f.sansPrix && (role === 'direction' || role === 'commercial');
 
   return (
@@ -427,7 +430,9 @@ export default function FichePage() {
               {fiche.projet.places !== null && <span className="text-[13px] font-bold text-slate-500">· {fiche.projet.places} places</span>}
             </div>
 
-            <BlocContact affaireId={fiche.id} ouvertParDefaut />
+            <BlocContact affaireId={fiche.id} ouvertParDefaut>
+              {fiche.etape === 'qualification' && peutVendre(fiche) && <Vente ficheId={fiche.id} partie="siret" />}
+            </BlocContact>
             {fiche.etape === 'qualification' && !fiche.sansPrix && boutonSecondaire(`${adresses.creerProjet}?fiche=${encodeURIComponent(fiche.id)}`, '+ Ajouter un contact')}
 
             {fiche.etape === 'prospection' && (
@@ -441,7 +446,6 @@ export default function FichePage() {
             {fiche.etape === 'qualification' && (
               <>
                 {carteReleve(fiche)}
-                {peutVendre(fiche) && <Vente ficheId={fiche.id} partie="projet" onChange={charger} />}
                 {carteDevis(fiche, 'Devis', true)}
                 {peutVendre(fiche) && <Vente key={fiche.statut} ficheId={fiche.id} partie="suite" onChange={charger} />}
                 {carteScenarios(fiche)}
