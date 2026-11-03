@@ -17,10 +17,16 @@
 // = gestionnaire de grappe posé d'office, élément « Dépose d'une borne existante » dans « Ajouter un élément ».
 // 01/11/2026, 20 h 50 (Mathieu : « quand je clique sur Prêt à chiffrer, ça ne fait rien ») : la réponse s'affichait en
 // haut de la page, hors de vue ; elle s'affiche maintenant sous le bouton, et l'écran y descend.
+// 03/11/2026 (passe 2 de la recette, idées et écarts de Mathieu) :
+// - « Dupliquer le scénario » demande « Recopier les distances ? » (Oui / Non, je remesure, écart 38) ;
+// - le brief de chiffrage s'affiche dans l'appli, sous « Prêt à chiffrer » (écart 24) ;
+// - bouton « Relevé de la fiche » pour revenir à la liste des scénarios (écart 76) ;
+// - RIC : 🏢 Type Client demandé au relevé s'il est vide sur la fiche (écart 69) ;
+// - places de la COP préremplies avec celles du site (écart 44) ; la borne s'affiche avant le coffret (écart 29).
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  AlertTriangle, Archive, Camera, ChevronDown, ChevronUp, Copy, GitBranch, Layers,
-  Pencil, Plus, RotateCcw, Send, X,
+  AlertTriangle, Archive, ArrowLeft, Camera, ChevronDown, ChevronUp, Copy, FileText, GitBranch, Layers,
+  Pencil, Plus, RotateCcw, Send, UserCheck, X,
 } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, Repere, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, LABEL, NAVY } from '@/components/charte/couleurs';
@@ -30,17 +36,20 @@ import {
   type ContexteReleve, type ElementReleve,
 } from '@/lib/releveElements';
 import type { Nature, Segment } from '@/lib/champsClickUp';
+import { adresses } from '@/lib/adresses';
 
 type El = ElementReleve & { archive: boolean; photos: number };
 
 type Donnees = {
   scenario: { id: string; nom: string; statut: string; segment: Segment | null; lienDevis: boolean; projetId: string };
+  site?: { places: number | null; typeClient: string | null };
   elements: El[];
   archives: El[];
   droits: { scenarios: boolean; elements: boolean };
 };
 
-type Demande = { texte: string; libelle: string; action: () => Promise<void> };
+// autre : deuxième choix (ex. « Non, je remesure »), en plus d'Annuler
+type Demande = { texte: string; libelle: string; action: () => Promise<void>; autre?: { libelle: string; action: () => Promise<void> } };
 type Renommage = { id: string; valeur: string; type: 'element' | 'scenario' };
 type Photo = { id: string; data: string };
 
@@ -56,6 +65,11 @@ const TYPES_CHEMINEMENT: { cle: string; libelle: string }[] = [
   { cle: 'alimentation', libelle: 'Alimentation' },
   { cle: 'artere', libelle: 'Artère' },
   { cle: 'liaisonData', libelle: 'Liaison data' },
+];
+const TYPES_CLIENT: { cle: string; libelle: string }[] = [
+  { cle: 'particulier', libelle: 'Particulier (vrai devis résident)' },
+  { cle: 'syndic', libelle: 'Syndic (tarif type)' },
+  { cle: 'pro', libelle: 'Pro (tarif type)' },
 ];
 const libelleType = (cle: string | null) => TYPES_CHEMINEMENT.find((t) => t.cle === cle)?.libelle || '';
 const libelleScenario = (nom: string) => nom.replace(/^.*?Sc[ée]nario\s+[A-Za-z0-9]+\s*:\s*/, '').trim();
@@ -243,6 +257,10 @@ function FormulaireElement({
   const autres = visibles.filter((k) => !DISTANCES.includes(k) && !PERCEMENTS.includes(k) && k !== 'notesCheminement');
   const equipements = elements.filter((x) => x.nature !== 'cheminement' && x.id !== e.id);
   const troisMetres = alerteTroisMetres(e, elements, ctx.segment, v, dep || null, arr || null);
+  // Liaison data : la longueur vient de l'alimentation du même tronçon quand il y en a une (écart 48)
+  const alimJumelle = e.nature === 'cheminement' && v.typeCheminement === 'liaisonData' && dep && arr
+    ? elements.find((c) => c.nature === 'cheminement' && (c.typeCheminement || 'alimentation') === 'alimentation' && c.depart === dep && c.arrivee === arr)
+    : undefined;
   const borneDuCoffret = e.nature === 'tdIrveCoffret'
     ? elements.find((b) => (b.nature === 'borne' || b.nature === 'priseRenforcee')
       && elements.some((c) => c.nature === 'cheminement' && c.depart === e.id && c.arrivee === b.id))
@@ -364,6 +382,9 @@ function FormulaireElement({
           {ctx.segment === 'RIC' && ctx.source !== 'colonneEnedis' && (
             <p className="ml-1 text-[13px] leading-relaxed">Forfait RIC : 5 m de tube apparent préremplis. Si c’est plus long, mets la longueur réelle.</p>
           )}
+          {alimJumelle && (
+            <p className="ml-1 text-[13px] leading-relaxed">Recopiées de {alimJumelle.nom} à chaque enregistrement de l’alimentation : tu n’as rien à saisir.</p>
+          )}
           <p className="ml-1 text-[13px] leading-relaxed">Laisse vide si non mesuré. Saisis 0 pour « aucun ».</p>
           <div className="grid grid-cols-2 gap-4">{distances.map(champ)}</div>
         </div>
@@ -420,6 +441,45 @@ function FormulaireElement({
   );
 }
 
+// ---- Brief de chiffrage affiché dans l'appli (écart 24) ----
+function CarteBrief({ scenarioId, texte, onTexte }: { scenarioId: string; texte: string | null; onTexte: (t: string | null) => void }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [lecture, setLecture] = useState(false);
+  const [erreur, setErreur] = useState('');
+  const lire = async () => {
+    setLecture(true);
+    setErreur('');
+    try {
+      const res = await fetch(`${URL_ELEMENTS}?scenarioId=${encodeURIComponent(scenarioId)}&brief=1`, { cache: 'no-store' });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j?.success) setErreur(j?.error ? `${j.error}.` : 'Brief illisible pour l’instant.');
+      else { onTexte(j.brief ?? null); setOuvert(true); if (!j.brief) setErreur('Pas encore de brief : clique sur « Prêt à chiffrer ».'); }
+    } catch {
+      setErreur('Pas de réseau : le brief ne peut pas être lu.');
+    }
+    setLecture(false);
+  };
+  return (
+    <Carte className="space-y-3">
+      <TitreCarte icon={FileText}>Brief de chiffrage</TitreCarte>
+      <div className="flex flex-wrap gap-2">
+        {texte && (
+          <PetitBouton onClick={() => setOuvert(!ouvert)}>
+            {ouvert ? <><ChevronUp size={14} /> Masquer</> : <><ChevronDown size={14} /> Afficher</>}
+          </PetitBouton>
+        )}
+        <PetitBouton onClick={lire} disabled={lecture}>{lecture ? 'Lecture…' : texte ? 'Relire le dernier brief' : 'Voir le dernier brief'}</PetitBouton>
+      </div>
+      {erreur && <p className="text-[14px]">{erreur}</p>}
+      {ouvert && texte && (
+        <pre className="max-h-[70vh] overflow-auto whitespace-pre-wrap rounded-[14px] bg-white p-3 text-[12.5px] leading-relaxed ring-[1.5px] ring-[#eceef1]" style={{ fontFamily: 'inherit' }}>
+          {texte}
+        </pre>
+      )}
+    </Carte>
+  );
+}
+
 // ---- Écran des éléments d'un scénario ----
 export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenarioId: string; segmentInitial?: string }) {
   const [d, setD] = useState<Donnees | null>(null);
@@ -434,6 +494,8 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
   const [envoiTous, setEnvoiTous] = useState(false);
   // Réponse de « Prêt à chiffrer », affichée sous le bouton
   const [retourPret, setRetourPret] = useState<{ ok: boolean; texte: string } | null>(null);
+  // Dernier brief de chiffrage (écart 24)
+  const [brief, setBrief] = useState<string | null>(null);
   // Création des éléments par défaut
   const [segment, setSegment] = useState('');
   const [materiel, setMateriel] = useState<Materiel>('borne');
@@ -535,11 +597,19 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     .filter((e) => e.nature === 'cheminement')
     .sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { numeric: true }));
   const liesA = (id: string) => cheminements.filter((c) => c.depart === id || c.arrivee === id).length;
-  const incomplets = d.elements.map((e) => ({ e, m: manquants(e, ctx) })).filter((x) => x.m.length);
+  // RIC : le Type Client de la fiche choisit le modèle (tarif type ou vrai devis résident), demandé ici (écart 69)
+  const typeClientManque = d.scenario.segment === 'RIC' && !d.site?.typeClient;
+  const incomplets = [
+    ...(typeClientManque ? [{ e: { nom: 'Fiche' } as El, m: ['🏢 Type Client'] }] : []),
+    ...d.elements.map((e) => ({ e, m: manquants(e, ctx) })).filter((x) => x.m.length),
+  ];
   const attente = d.elements.filter((e) => enAttente.includes(e.id));
 
   const segmentChoisi: Segment = estSegment(segment) ? segment : d.scenario.segment || (estSegment(segmentInitial) ? segmentInitial : 'RES');
-  const nbPlaces = Math.max(0, parseInt(places, 10) || 0);
+  // Places : celles du site (fiche) par défaut, plus redemandées d'un scénario à l'autre (écart 44)
+  const placesSite = d.site?.places ? String(d.site.places) : '';
+  const placesSaisies = places !== '' ? places : placesSite;
+  const nbPlaces = Math.max(0, parseInt(placesSaisies, 10) || 0);
   const apercu = specsParDefaut(segmentChoisi, materiel, nbPlaces).map((s) => s.nom);
 
   const validerRenommage = async () => {
@@ -573,6 +643,10 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
   const creerDefaut = async () => {
     const j = await agir(URL_ELEMENTS, { action: 'defaut', scenarioId, segment: segmentChoisi, materiel, nbPlaces });
     if (j?.success) setMessage(`${(j.crees || []).length} éléments créés.`);
+  };
+  const choisirTypeClient = async (cle: string) => {
+    const j = await agir(URL_ELEMENTS, { action: 'typeClient', scenarioId, typeClient: cle });
+    if (j?.success) setMessage(`${(j.messages || ['Type Client enregistré']).join('. ')}.`);
   };
   const ajouter = async () => {
     const corps: any = nature === 'depose' ? { action: 'ajouter', scenarioId, nature: 'autre', modele: 'depose' } : { action: 'ajouter', scenarioId, nature };
@@ -637,7 +711,8 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     await charger();
     setEnvoiTous(false);
   };
-  // « Prêt à chiffrer » : la réponse (brief posté, statuts passés, ou erreur) s'affiche sous le bouton
+  // « Prêt à chiffrer » : la réponse (brief posté, statuts passés, ou erreur) s'affiche sous le bouton, et le brief juste
+  // en dessous (écart 24)
   const pret = async () => {
     setOccupe(true);
     setRetourPret(null);
@@ -649,26 +724,29 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     }
     const reprises = Array.isArray(j?.erreurs) && j.erreurs.length ? ` À reprendre à la main dans ClickUp : ${j.erreurs.join(', ')}.` : '';
     setRetourPret({ ok: true, texte: `${(j.messages || ['Prêt à chiffrer']).join('. ')}.${reprises}` });
+    if (typeof j?.brief === 'string') setBrief(j.brief);
     await charger();
     setOccupe(false);
   };
 
-  // Scénario
+  // Scénario : duplication avec la question « Recopier les distances ? » (écart 38)
   const dupliquerScenario = () => {
+    const lancer = (distances: boolean) => async () => {
+      const j = await agir(URL_SCENARIO, { action: 'dupliquer', id: scenarioId, distances }, false);
+      if (j?.success && j.id) window.location.href = adresses.releve(String(j.id));
+    };
     setDemande({
-      texte: `Dupliquer ce scénario avec ses ${d.elements.length} éléments ? Matériel recopié, mesures à refaire.`,
-      libelle: 'Dupliquer',
-      action: async () => {
-        const j = await agir(URL_SCENARIO, { action: 'dupliquer', id: scenarioId }, false);
-        if (j?.success && j.id) window.location.href = `/interne/metre/${j.id}`;
-      },
+      texte: `Dupliquer ce scénario avec ses ${d.elements.length} éléments, matériel recopié ? Recopier aussi les distances ?`,
+      libelle: 'Oui, recopier les distances',
+      action: lancer(true),
+      autre: { libelle: 'Non, je remesure', action: lancer(false) },
     });
   };
   const archiverScenario = () => {
     const n = d.elements.length;
     const texte = `Archiver ${d.scenario.nom}${n ? ` et ses ${n} élément${n > 1 ? 's' : ''}` : ''} ? Restaurable depuis la fiche.`;
     archiverAvecGarde(URL_SCENARIO, { action: 'archiver', id: scenarioId }, texte,
-      () => { window.location.href = `/interne/metre/${d.scenario.projetId}`; }, false);
+      () => { window.location.href = adresses.releve(d.scenario.projetId); }, false);
   };
 
   const champRenommage = (id: string) => renommage && renommage.id === id && (
@@ -745,18 +823,34 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <PetitBouton onClick={() => { window.location.href = adresses.releve(d.scenario.projetId); }}><ArrowLeft size={14} /> Relevé de la fiche (scénarios)</PetitBouton>
+      </div>
       <Repere>Éléments du scénario</Repere>
       {demande && (
         <div ref={refDemande} className="rounded-[18px] bg-white p-4 ring-2 ring-[#FF6B00]">
           <p className="text-[15px] font-semibold leading-relaxed">{demande.texte}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <PetitBouton onClick={async () => { const a = demande.action; setDemande(null); await a(); }} disabled={occupe}>{demande.libelle}</PetitBouton>
+            {demande.autre && (
+              <PetitBouton onClick={async () => { const a = demande.autre?.action; setDemande(null); if (a) await a(); }} disabled={occupe}>{demande.autre.libelle}</PetitBouton>
+            )}
             <PetitBouton onClick={() => setDemande(null)}>Annuler</PetitBouton>
           </div>
         </div>
       )}
       {message && <p className="px-1 text-[14px] font-semibold leading-relaxed" style={{ color: LABEL }}>{message}</p>}
       {erreur && <Alerte>{erreur}</Alerte>}
+
+      {typeClientManque && peut && (
+        <Carte accent className="space-y-3">
+          <TitreCarte icon={UserCheck}>🏢 Type Client de la fiche</TitreCarte>
+          <p className="text-[14px] leading-relaxed">En RIC, il choisit le devis : vrai devis au nom du résident, ou tarif type au nom du syndic.</p>
+          <div className="flex flex-wrap gap-2">
+            {TYPES_CLIENT.map((t) => <Choix key={t.cle} actif={false} onClick={() => choisirTypeClient(t.cle)}>{t.libelle}</Choix>)}
+          </div>
+        </Carte>
+      )}
 
       {d.elements.length === 0 ? (
         <Carte accent className="space-y-4">
@@ -775,9 +869,11 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
           )}
           {segmentChoisi === 'COP' && (
             <div className="space-y-2">
-              <label className={ETIQUETTE} htmlFor={`places-${scenarioId}`}>Nombre de places</label>
-              <input id={`places-${scenarioId}`} type="number" inputMode="numeric" min={0} className={CHAMP} value={places} onChange={(e) => setPlaces(e.target.value)} placeholder="Ex : 30" />
-              <p className="ml-1 text-[13px] leading-relaxed">Une boîte de dérivation par tranche de 4 places.</p>
+              <label className={ETIQUETTE} htmlFor={`places-${scenarioId}`}>Nombre de places du site</label>
+              <input id={`places-${scenarioId}`} type="number" inputMode="numeric" min={0} className={CHAMP} value={placesSaisies} onChange={(e) => setPlaces(e.target.value)} placeholder="Ex : 30" />
+              <p className="ml-1 text-[13px] leading-relaxed">
+                {placesSite ? 'Repris de la fiche (donnée du site). ' : ''}Une boîte de dérivation par tranche de 4 places, HUB choisi selon les points de charge.
+              </p>
             </div>
           )}
           <p className="text-[14px] leading-relaxed"><strong>Seront créés :</strong> {apercu.join(' ; ')}.</p>
@@ -874,6 +970,8 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
               </div>
             )}
           </Carte>
+
+          <CarteBrief scenarioId={scenarioId} texte={brief} onTexte={setBrief} />
         </>
       )}
 
@@ -896,7 +994,7 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
         <Carte className="space-y-3">
           <TitreCarte icon={GitBranch}>Ce scénario</TitreCarte>
           <p className="text-[14px] leading-relaxed">
-            Renommer garde la lettre. Dupliquer crée le scénario suivant avec les mêmes éléments, matériel recopié et mesures à refaire.
+            Renommer garde la lettre. Dupliquer crée le scénario suivant avec les mêmes éléments et le matériel recopié ; tu choisis de recopier les distances ou de remesurer.
           </p>
           <div className="flex flex-wrap gap-2">
             <PetitBouton onClick={() => setRenommage({ id: scenarioId, valeur: libelleScenario(d.scenario.nom), type: 'scenario' })} disabled={occupe}><Pencil size={14} /> Renommer</PetitBouton>

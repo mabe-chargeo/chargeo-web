@@ -3,10 +3,12 @@
 // Carte « Le site » du relevé d'un scénario COP (Phase 8, étape 7, PR #59).
 // Mathieu, 02/11/2026 à 21 h 29, sur la carte « Le projet » de la fiche affaire : « ce n'est pas sa place ». Choix du
 // 03/11 à 6 h 18 : les places de parking (réserve IRVE, plafond ADVENIR infra) et la date de dépôt du permis (assiette
-// ADVENIR infra) se relèvent ici, sur le scénario COP, le seul qui s'en sert. Les places saisies à la création du
-// scénario COP s'affichent ici et s'y corrigent. Lu et écrit par /api/interne/elements (site=1, action « site »).
+// ADVENIR infra) se relèvent ici, sur le scénario COP, le seul qui s'en sert. Lu et écrit par /api/interne/elements
+// (site=1, action « site »).
+// 03/11, passe 2 de la recette (écarts 44, 57, 68) : ce sont des données du site, gardées sur la fiche. Un autre scénario
+// COP du même site les affiche déjà remplies, rien n'est redemandé ; la carte n'apparaît que sur un scénario dont le
+// segment est COP (jamais en RIC, ni sur un scénario sans segment).
 // La date du permis affiche sa conséquence ADVENIR sous le champ (règle validée, reprise de l'ancienne carte).
-// Segment choisi après l'ouverture (création des éléments) : la carte se relit quand on revient sur la page.
 import { useEffect, useState } from 'react';
 import { Building2, Check, RefreshCw } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
@@ -25,7 +27,8 @@ function aideAdvenir(d: string): string {
   return `Permis du ${date} : après le 10/03/2021, pas d’aide ADVENIR infrastructure.`;
 }
 
-export function SiteCop({ scenarioId, segmentInitial = '' }: { scenarioId: string; segmentInitial?: string }) {
+// segmentInitial : gardé pour la compatibilité de l'appel, la carte suit le segment du scénario lu sur le serveur
+export function SiteCop({ scenarioId }: { scenarioId: string; segmentInitial?: string }) {
   const [s, setS] = useState<Site | null>(null);
   const [places, setPlaces] = useState('');
   const [permis, setPermis] = useState('');
@@ -55,8 +58,7 @@ export function SiteCop({ scenarioId, segmentInitial = '' }: { scenarioId: strin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenarioId]);
 
-  const segment = s?.segment || segmentInitial;
-  if (!s || segment !== 'COP') return null;
+  if (!s || s.segment !== 'COP') return null;
 
   const change = places !== (s.places === null ? '' : String(s.places)) || permis !== (s.permis || '');
   const enregistrer = async () => {
@@ -72,7 +74,7 @@ export function SiteCop({ scenarioId, segmentInitial = '' }: { scenarioId: strin
       const j = await res.json().catch(() => ({}));
       if (j?.segment !== undefined) remplir(j as Site);
       if (!res.ok || !j?.success) setErreur(j?.error || (j?.rates?.length ? `Non enregistré : ${j.rates.join(', ')}.` : 'Rien n’a été enregistré.'));
-      else setMessage('Site enregistré.');
+      else setMessage('Site enregistré sur la fiche (valable pour tous les scénarios).');
     } catch {
       setErreur('Pas de réseau : rien n’a été modifié.');
     } finally {
@@ -83,6 +85,7 @@ export function SiteCop({ scenarioId, segmentInitial = '' }: { scenarioId: strin
   return (
     <Carte className="space-y-4">
       <TitreCarte icon={Building2}>Le site</TitreCarte>
+      <p className="text-[13px] leading-relaxed">Données du site, communes à tous les scénarios de la fiche.</p>
       <div className="space-y-2">
         <label className={ETIQUETTE} htmlFor={`places-${scenarioId}`}>Nombre de places de parking</label>
         <input id={`places-${scenarioId}`} type="number" inputMode="numeric" min={0} className={CHAMP} value={places} onChange={(ev) => setPlaces(ev.target.value)} placeholder="Ex : 30" />
