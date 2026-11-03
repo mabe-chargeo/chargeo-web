@@ -3,7 +3,7 @@ import { sessionDeRequete } from '@/lib/session';
 import { lireTacheQualification } from '@/lib/listesClickUp';
 import { chargerTypes, estScenario } from '@/lib/typesTaches';
 import { rolesDe, droitsDe } from '@/lib/roles';
-import { OPTIONS, type Nature, type Segment } from '@/lib/champsClickUp';
+import { CHAMPS, OPTIONS, type Nature, type Segment } from '@/lib/champsClickUp';
 import {
   aUnLienDevis, ajouterElement, archiverElement, contexteScenario, creerParDefaut, dupliquerBorne, dupliquerBranche,
   enregistrerReleve, gardeDevis, pretAChiffrer, renommerElement, restaurerElement, segmentDe, vue, type Resultat,
@@ -17,12 +17,40 @@ import { posterBrief } from '@/lib/briefChiffrage';
 // Étape 5 (15/10/2026) : « Prêt à chiffrer » poste aussi le commentaire « 📋 Brief de chiffrage » sur le scénario
 // (src/lib/briefChiffrage.ts), à chaque clic : le dernier brief posté est celui qui compte.
 // 01/11/2026 (Phase 8, étape 4) : ajouter accepte modele = 'depose' (élément Autre « Dépose d'une borne existante »).
+// 03/11/2026 (Phase 8, étape 7, PR #59, choix de Mathieu à 6 h 18 : « Oui, range comme ça dans #59 ») : les places de
+// parking et la date de dépôt du permis quittent la carte « Le projet » de la fiche pour le relevé du scénario COP
+// (carte « Le site », src/components/ui/SiteCop.tsx).
+// GET ?scenarioId=…&site=1 : segment, 🅿️ Nb Places Parking et 🏛️ Date dépôt permis du scénario, sans lire les éléments.
+// POST { action: 'site', scenarioId, places?, permis? } : ces deux champs écrits sur le scénario (valeur vide = vidé).
 // Droits contrôlés ici (src/lib/roles.ts) : commercial, chargé d'opération et direction. Scénario de la liste
 // Qualification autorisée uniquement (TEST en preview).
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const json = (corps: any, status = 200) => NextResponse.json(corps, { status });
+const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const champsDe = (t: any): any[] => (Array.isArray(t?.custom_fields) ? t.custom_fields : []);
+const champDe = (t: any, id: string, mot: string): any | null =>
+  champsDe(t).find((f) => f?.id === id) || champsDe(t).find((f) => normal(f?.name).includes(mot)) || null;
+// Horodatage ClickUp → AAAA-MM-JJ (heure de Paris), pour le champ date de l'écran
+const jourDe = (ms: unknown): string => {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n <= 0) return '';
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(n));
+};
+
+// Carte « Le site » du relevé COP : segment, places, date du permis
+function siteDe(t: any) {
+  const p = champDe(t, CHAMPS.nbPlacesParking, 'places parking');
+  const d = champDe(t, CHAMPS.datePermis, 'depot permis');
+  const v = p?.value;
+  return {
+    segment: segmentDe(t) || '',
+    places: v === undefined || v === null || v === '' ? null : Number(v),
+    permis: jourDe(d?.value),
+    manquants: [!p ? 'places' : '', !d ? 'permis' : ''].filter(Boolean),
+  };
+}
 
 type Lecture = { ok: true; scenario: any } | { ok: false; status: number; error: string };
 
@@ -39,9 +67,12 @@ export async function GET(request: Request) {
     const session = await sessionDeRequete(request);
     if (!session) return json({ success: false, error: 'Connexion requise : reconnecte-toi.' }, 401);
     const token = process.env.CLICKUP_API_KEY as string;
-    const id = new URL(request.url).searchParams.get('scenarioId') || '';
+    const p = new URL(request.url).searchParams;
+    const id = p.get('scenarioId') || '';
     const s = await scenarioDe(token, id);
     if (!s.ok) return json({ success: false, error: s.error }, s.status);
+    // Carte « Le site » (COP) : lecture légère, sans les éléments
+    if (p.get('site') === '1') return json({ success: true, ...siteDe(s.scenario) });
     const ctx = await contexteScenario(token, s.scenario);
     const droits = droitsDe(await rolesDe(token, session.id));
     return json({
@@ -80,13 +111,48 @@ export async function POST(request: Request) {
 
     // Scénario concerné : donné directement, ou parent de l'élément visé
     let scenarioId = String(corps?.scenarioId || '');
-    if (action !== 'defaut' && action !== 'ajouter' && action !== 'pret') {
+    if (!['defaut', 'ajouter', 'pret', 'site'].includes(action)) {
       const l = await lireTacheQualification(id, token);
       if (!l.ok) return json({ success: false, error: l.erreur }, l.status);
       scenarioId = String(l.tache?.parent || '');
     }
     const s = await scenarioDe(token, scenarioId);
     if (!s.ok) return json({ success: false, error: s.error }, s.status);
+
+    // Carte « Le site » (COP) : places et date du permis, écrites sur le scénario (03/11/2026)
+    if (action === 'site') {
+      const t = s.scenario;
+      const sid = encodeURIComponent(String(t.id));
+      const champ = (fid: string, valeur: any) => fetch(`https://api.clickup.com/api/v2/task/${sid}/field/${fid}`, valeur === null
+        ? { method: 'DELETE', headers: { Authorization: token }, cache: 'no-store' }
+        : { method: 'POST', headers: { Authorization: token, 'Content-Type': 'application/json' }, body: JSON.stringify({ value: valeur }), cache: 'no-store' });
+      const faits: string[] = [];
+      const rates: string[] = [];
+      if (corps && typeof corps === 'object' && 'places' in corps) {
+        const f = champDe(t, CHAMPS.nbPlacesParking, 'places parking');
+        const brut = corps.places;
+        const n = brut === null || brut === '' || brut === undefined ? null : Math.round(Number(brut));
+        if (!f) rates.push('places (champ absent de la liste)');
+        else if (n !== null && (!Number.isFinite(n) || n < 0 || n > 5000)) rates.push('nombre de places invalide');
+        else if ((await champ(String(f.id), n)).ok) faits.push(n === null ? 'places vidées' : `${n} places`);
+        else rates.push('places');
+      }
+      if (corps && typeof corps === 'object' && 'permis' in corps) {
+        const f = champDe(t, CHAMPS.datePermis, 'depot permis');
+        const brut = String(corps.permis ?? '').trim().slice(0, 10);
+        const d = /^\d{4}-\d{2}-\d{2}$/.test(brut) ? brut : '';
+        if (!f) rates.push('date du permis (champ absent de la liste)');
+        else if (brut && !d) rates.push('date du permis invalide');
+        else {
+          const [y, m, j] = d ? d.split('-').map(Number) : [0, 0, 0];
+          if ((await champ(String(f.id), d ? Date.UTC(y, m - 1, j, 10) : null)).ok) faits.push(d ? `permis du ${j}/${m}/${y}` : 'date du permis vidée');
+          else rates.push('date du permis');
+        }
+      }
+      const relu = await scenarioDe(token, String(t.id));
+      return json({ success: !rates.length, faits, rates, ...(relu.ok ? siteDe(relu.scenario) : {}) }, rates.length && !faits.length ? 400 : 200);
+    }
+
     const ctx = await contexteScenario(token, s.scenario);
 
     let r: Resultat;

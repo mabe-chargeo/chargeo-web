@@ -16,6 +16,8 @@
 // devis), même ID sur Qualification et sur TEST (vérifié le 02/11) ; 📌 Emplacement de la borne (texte, nouveau champ
 // de l'élément Borne, crochet [emplacements]) créé le 02/11 sur 🧪 Qualification TEST, à ajouter à Qualification
 // (« ajouter un champ existant ») avant la fusion, pour garder son ID.
+// 03/11/2026 (Phase 8, étape 7) : 🏛️ Date dépôt permis (assiette ADVENIR infra), champ déjà présent sur les deux listes,
+// relevé désormais sur le scénario COP (carte « Le site », src/components/ui/SiteCop.tsx).
 
 export const CHAMPS = {
   // Passeport (le webhook Costructor les lit PAR NOM : ne pas les renommer)
@@ -33,6 +35,7 @@ export const CHAMPS = {
   segment: 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2',
   zoneDeplacement: '0f9043bf-ec87-4534-b8ea-af41734bdfed',
   nbPlacesParking: 'dd19d42f-8d9f-4657-bac5-942de6822468',
+  datePermis: '39fa76fa-544d-4e0e-81ab-94822296cf85', // 03/11 : relevé sur le scénario COP
   lienDevis: 'ae80f202-2ef3-4302-b778-f36075ee398f',
   montantDevisHT: '58a159c7-edbc-4d53-a81a-5ec48337c7eb',
   numeroDevis: '4423a27f-ecc1-4107-9488-4784360178c0',

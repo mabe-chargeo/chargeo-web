@@ -4,6 +4,7 @@ import { Scenarios } from '@/components/ui/Scenarios';
 import { ElementsScenario, ScenariosArchives } from '@/components/ui/Elements';
 import { BlocContact } from '@/components/ui/BlocContact';
 import { InfraLiee } from '@/components/ui/InfraLiee';
+import { SiteCop } from '@/components/ui/SiteCop';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Alerte } from '@/components/charte/Appli';
 import { lireTacheQualification } from '@/lib/listesClickUp';
 import { trierScenarios, typeDesSousReleves, typeSousReleve, type ScenarioResume } from '@/lib/scenarios';
@@ -34,6 +35,9 @@ import { adresses } from '@/lib/adresses';
 // passe en « devis à faire » par « Prêt à chiffrer » (src/components/ui/Elements.tsx). Il ne reste que sur les fiches
 // à emplacements de l'ancien modèle, jusqu'à leur conversion.
 // 19/10/2026 : adresse /releves/<id> (ex-/interne/metre/<id>), retour vers /releves.
+// 03/11/2026 (Phase 8, étape 7, PR #59, choix de Mathieu à 6 h 18) : scénario COP, carte « Le site » (places de parking
+// et date de dépôt du permis) au-dessus des éléments (src/components/ui/SiteCop.tsx), à la place de la carte
+// « Le projet » de la fiche affaire.
 const SEGMENT_OPTIONS: Record<number, string> = { 0: 'RES', 1: 'DAP', 2: 'COP', 3: 'PAR', 4: 'FLT', 5: 'TER', 6: 'RIC' };
 const SEGMENT_ID = 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2';
 const BANDEAU_ANCIEN = 'Ancien modèle (emplacements) : cette fiche sera convertie en scénario avec éléments. Chaque emplacement deviendra une branche du scénario.';
@@ -127,7 +131,10 @@ export default async function MetrePage({ params }: { params: Promise<{ id: stri
               />
             </>
           ) : (
-            <ElementsScenario scenarioId={taskId} segmentInitial={fiche.segment || fiche.parent.segment} />
+            <>
+              <SiteCop scenarioId={taskId} segmentInitial={fiche.segment || fiche.parent.segment} />
+              <ElementsScenario scenarioId={taskId} segmentInitial={fiche.segment || fiche.parent.segment} />
+            </>
           )}
         </ContenuAppli>
       </PageAppli>

@@ -1,21 +1,25 @@
 "use client";
 
 // Vente depuis la fiche affaire (18/10/2026, 12 h, « Construis les deux »), lue et écrite par /api/interne/vente.
-// partie "projet" : carte « Le projet », zone de déplacement (règle de la page « 🚚 Déplacements et véhicules » : Z1 cœur
-//   de secteur, déplacement inclus ; Z2 périphérie, facturé au barème ; Z3 éloigné, à valider par la direction), nombre
-//   de places (réserve IRVE et ADVENIR), SIRET / N° RNIC (client Costructor), date de dépôt du permis (assiette ADVENIR).
 // partie "suite" : carte « Suite de la vente », boutons selon le statut : devis à faire → Devis envoyé ; devis envoyé →
 //   En négociation, Gagné, Perdu ; en négociation → Gagné, Perdu. Gagné et Perdu demandent une confirmation dans la
 //   page ; Perdu demande le motif. Commercial et direction (contrôlé côté serveur).
 // 18/10, 12 h 25 : « Devis des scénarios », le lien du devis à coller sous chaque scénario (l'alerte le demandait sans
 //   endroit pour le faire) ; la confirmation du gagné fait choisir le scénario retenu parmi ceux qui ont un lien.
-// La date du permis affiche sa conséquence ADVENIR sous le champ (une année mal tapée se voit tout de suite).
 // 19/10/2026, 11 h 03 : pastilles, bouton blanc et cadre de confirmation pris dans les briques communes
 // (src/components/charte/Appli.tsx), les mêmes que le suivi des commandes et des dossiers ADVENIR (Suivi.tsx).
+// 03/11/2026 (Phase 8, étape 7, PR #59, choix de Mathieu à 6 h 18, après sa remarque du 02/11 à 21 h 29 sur la carte
+// « Le projet » : « ce n'est pas sa place ») : la carte « Le projet » est retirée.
+// - Zone de déplacement : plus demandée (D9 : zone et jours ajustés au montage du devis) ;
+// - places de parking et date de dépôt du permis : carte « Le site » du relevé COP (src/components/ui/SiteCop.tsx) ;
+// - partie "siret" : 🏛️ SIRET / N° RNIC du client, affiché dans le bloc 📇 Contact de la fiche en vente (client Costructor
+//   créé au passage en devis à faire), écrit par l'action « projet » de la route avec ce seul champ.
+// « Devis des scénarios » : le lien se remplit seul au passage en 📩 devis envoyé (src/lib/devisScenarios.ts) ; on ne
+// le colle ici que si le site ne le trouve pas.
 import { useEffect, useState } from 'react';
-import { Building2, Check, Flame, Link2, RefreshCw, Send, Trophy, XCircle } from 'lucide-react';
+import { Check, Flame, Link2, RefreshCw, Send, Trophy, XCircle } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, BoutonSecondaire, PastilleChoix as Pastille, CadreConfirmation, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
-import { CYAN, LABEL, ORANGE } from '@/components/charte/couleurs';
+import { LABEL } from '@/components/charte/couleurs';
 
 type Scenario = { id: string; nom: string; statut: string; lien: string; retenu: boolean };
 type Etat = {
@@ -24,20 +28,6 @@ type Etat = {
 };
 const URL = '/api/interne/vente';
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-const AIDE_ZONE: Record<string, string> = {
-  z1: 'Cœur de secteur : déplacement inclus',
-  z2: 'Périphérie : déplacement facturé au barème',
-  z3: 'Éloigné : à valider par la direction avant de s’engager',
-};
-// Assiette ADVENIR infrastructure selon la date de dépôt du permis (règle validée)
-function aideAdvenir(d: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return '';
-  const [j, m, a] = [d.slice(8, 10), d.slice(5, 7), d.slice(0, 4)];
-  const date = `${j}/${m}/${a}`;
-  if (d < '2017-01-01') return `Permis du ${date} : avant 2017, assiette ADVENIR complète.`;
-  if (d <= '2021-03-10') return `Permis du ${date} : entre 2017 et le 10/03/2021, assiette ADVENIR réduite.`;
-  return `Permis du ${date} : après le 10/03/2021, pas d’aide ADVENIR infrastructure.`;
-}
 
 async function poster(corps: any): Promise<{ ok: boolean; j: any }> {
   try {
@@ -49,16 +39,13 @@ async function poster(corps: any): Promise<{ ok: boolean; j: any }> {
   }
 }
 
-export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 'projet' | 'suite'; onChange?: () => void }) {
+export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 'siret' | 'suite'; onChange?: () => void }) {
   const [e, setE] = useState<Etat | null>(null);
   const [erreur, setErreur] = useState('');
   const [message, setMessage] = useState('');
   const [envoi, setEnvoi] = useState(false);
-  // Le projet
-  const [zone, setZone] = useState('');
-  const [places, setPlaces] = useState('');
+  // SIRET / N° RNIC
   const [siret, setSiret] = useState('');
-  const [permis, setPermis] = useState('');
   // Suite de la vente
   const [confirmer, setConfirmer] = useState<'gagne' | 'perdu' | null>(null);
   const [motif, setMotif] = useState('');
@@ -72,10 +59,7 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
   };
   const remplir = (j: Etat) => {
     setE(j);
-    setZone(j.zone || '');
-    setPlaces(j.places === null || j.places === undefined ? '' : String(j.places));
     setSiret(j.siret || '');
-    setPermis(j.permis || '');
     prendreScenarios(j.scenarios);
   };
   useEffect(() => {
@@ -96,53 +80,32 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
     return <Alerte>{erreur}</Alerte>;
   }
 
-  // ---- Le projet ----
-  if (partie === 'projet') {
-    const change = zone !== (e.zone || '') || places !== (e.places === null ? '' : String(e.places)) || siret !== (e.siret || '') || permis !== (e.permis || '');
+  // ---- SIRET / N° RNIC, dans le bloc Contact (03/11/2026) ----
+  if (partie === 'siret') {
+    const change = siret.trim() !== (e.siret || '');
     const enregistrer = async () => {
       setEnvoi(true);
       setErreur('');
       setMessage('');
-      const { ok, j } = await poster({ id: ficheId, action: 'projet', zone, places: places === '' ? null : Number(places), siret, permis });
+      const { ok, j } = await poster({ id: ficheId, action: 'projet', siret: siret.trim() });
       if (j?.statut !== undefined) remplir(j as Etat);
       if (!ok) setErreur(j?.error || (j?.rates?.length ? `Non enregistré : ${j.rates.join(', ')}.` : 'Rien n’a été enregistré.'));
-      else { setMessage('Projet enregistré.'); onChange?.(); }
+      else setMessage('SIRET / N° RNIC enregistré.');
       setEnvoi(false);
     };
-    const manque = [!e.zone && 'zone', e.places === null && 'places'].filter(Boolean) as string[];
-    const absents = e.manquants.filter((m) => m !== 'motif' && m !== 'lien');
     return (
-      <Carte className="space-y-4">
-        <TitreCarte icon={Building2}>Le projet</TitreCarte>
-        {manque.length > 0 && <p className="text-[14px] font-semibold" style={{ color: ORANGE }}>À renseigner pour le chiffrage : {manque.join(' et ')}.</p>}
-        <div className="space-y-2">
-          <p className={ETIQUETTE}>Zone de déplacement</p>
-          <div className="flex flex-wrap gap-2">
-            {(e.zones.length ? e.zones : ['Z1', 'Z2', 'Z3']).map((z) => <Pastille key={z} actif={zone === z} onClick={() => setZone(zone === z ? '' : z)}>{z}</Pastille>)}
-          </div>
-          {zone && <p className="ml-1 text-[13px]">{AIDE_ZONE[normal(zone)] || ''}</p>}
-        </div>
-        <div className="space-y-2">
-          <label className={ETIQUETTE} htmlFor={`places-${ficheId}`}>Nombre de places de parking</label>
-          <input id={`places-${ficheId}`} type="number" inputMode="numeric" min={0} className={CHAMP} value={places} onChange={(ev) => setPlaces(ev.target.value)} placeholder="Ex : 30" />
-          <p className="ml-1 text-[13px]">Sert à la réserve IRVE et à l’aide ADVENIR.</p>
-        </div>
-        <div className="space-y-2">
-          <label className={ETIQUETTE} htmlFor={`siret-${ficheId}`}>SIRET ou N° RNIC</label>
-          <input id={`siret-${ficheId}`} className={CHAMP} value={siret} maxLength={40} onChange={(ev) => setSiret(ev.target.value)} placeholder="Syndic ou société" />
-        </div>
-        <div className="space-y-2">
-          <label className={ETIQUETTE} htmlFor={`permis-${ficheId}`}>Date de dépôt du permis (ADVENIR)</label>
-          <input id={`permis-${ficheId}`} type="date" className={CHAMP} value={permis} onChange={(ev) => setPermis(ev.target.value)} />
-          {permis && <p className="ml-1 text-[13px] font-semibold" style={{ color: CYAN }}>{aideAdvenir(permis)}</p>}
-        </div>
-        {absents.length > 0 && <p className="text-[13px]">Champ absent de cette liste : {absents.join(', ')}.</p>}
+      <div className="space-y-2 border-t border-[#dfe3e8] pt-3">
+        <label className={ETIQUETTE} htmlFor={`siret-${ficheId}`}>🏛️ SIRET ou N° RNIC du client</label>
+        <input id={`siret-${ficheId}`} className={CHAMP} value={siret} maxLength={40} onChange={(ev) => setSiret(ev.target.value)} placeholder="Syndic ou société" />
+        <p className="ml-1 text-[13px]">Sert à créer le client dans Costructor quand la fiche passe en devis à faire.</p>
         {erreur && <Alerte>{erreur}</Alerte>}
         {message && <p className="flex items-center gap-1.5 px-1 text-[14px] font-semibold" style={{ color: '#16a34a' }}><Check size={16} /> {message}</p>}
-        <BoutonPrincipal type="button" onClick={enregistrer} disabled={envoi || !change} inactif={envoi || !change}>
-          {envoi ? <RefreshCw size={20} className="animate-spin" /> : <Check size={20} />} {envoi ? 'Enregistrement…' : 'Enregistrer le projet'}
-        </BoutonPrincipal>
-      </Carte>
+        {change && (
+          <BoutonSecondaire compact onClick={enregistrer} disabled={envoi}>
+            {envoi ? <RefreshCw size={18} className="animate-spin" /> : <Check size={18} />} {envoi ? 'Enregistrement…' : 'Enregistrer'}
+          </BoutonSecondaire>
+        )}
+      </div>
     );
   }
 
@@ -193,7 +156,7 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
       {!aVisiter && !close && aTrancher.length > 0 && (
         <div className="space-y-3 rounded-[16px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
           <p className="flex items-center gap-2 text-[15px] font-bold" style={{ color: LABEL }}><Link2 size={18} /> Devis des scénarios</p>
-          <p className="text-[13px]">Colle le lien du devis sous chaque scénario chiffré. Il sert au montant, aux relances et au choix du scénario retenu.</p>
+          <p className="text-[13px]">Le lien se remplit tout seul au passage en 📩 devis envoyé, avec le devis finalisé qui porte le nom donné par le brief. Colle-le ici seulement si le site ne le trouve pas.</p>
           {aTrancher.map((sc) => {
             const modifie = (liens[sc.id] || '').trim() !== (sc.lien || '');
             return (
