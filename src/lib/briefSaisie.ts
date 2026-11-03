@@ -2,18 +2,34 @@
 // Mathieu (02/11, 18 h 41 : « est-ce qu'on ne peut pas mettre toutes les informations dans le brief ? », accord à 18 h 46) :
 // pour chaque devis, le brief donne le nom exact à coller, la TVA à poser sur les lignes ajoutées (Costructor met 20 %
 // par défaut sur une ligne de la bibliothèque : écart 5 de la recette), la valeur de chaque crochet de l'en-tête, la
-// prime ADVENIR en valeur haute et la liste de contrôle avant finalisation. Fichier neutre, sans appel réseau.
+// prime ADVENIR et la liste de contrôle avant finalisation. Fichier neutre, sans appel réseau.
 // 02/11, 19 h 26 (Mathieu : « il manque les champs de l'en-tête du devis ») : tous les crochets des 14 en-têtes (CROCHETS,
 // relus dans Costructor le 02/11 à 19 h 30) reçoivent leur valeur ; [emplacements] vient du nouveau champ
 // 📌 Emplacement de la borne (choix de Mathieu du 02/11 à 19 h 57). Un en-tête modifié dans Costructor se reporte ici.
-// Sources : compétences Devis après relevé (nom « fiche · Scénario X : source · matériel », validité 30 jours, signature
-// en ligne sauf tarif type), Textes et mentions (conditions de paiement, mentions TVA), Prime ADVENIR, et advenir.mobi
-// (barème point de recharge partagé : 50 % plafonné à 1 660 € HT par point, surprime équipements et cheminement jusqu'à
-// 8 000 € HT, en vigueur depuis le 01/04/2026, relu le 02/11/2026). Aucun montant n'est inventé : la prime est donnée en
-// valeur haute (plafond), le reste à charge se calcule sur le total TTC du devis (D7).
+// Sources : compétences Devis après relevé, Textes et mentions (conditions de paiement, mentions TVA), Prime ADVENIR, et
+// advenir.mobi (point de recharge partagé : 50 % plafonné à 1 660 € HT par point, surprime équipements et cheminement
+// jusqu'à 8 000 € HT, en vigueur depuis le 01/04/2026, relu le 02/11/2026).
+// 03/11/2026 (passe 2 de la recette sans IA) :
+// - nom du devis court et unique : « Scénario A · source · matériel », le devis est retrouvé par le client de la fiche
+//   (écart 7) ;
+// - emplacements : ponctuation de fin retirée, « et » avant le dernier (écart 10, « sous-sol., Place 13 ») ;
+// - ADVENIR : les 3 valeurs du texte (TTC réglé en totalité, prime estimée, reste à charge estimé en TTC, D7) sont
+//   calculées sur les lignes du brief et les prix de la bibliothèque lus au clic « Prêt à chiffrer » ; PAR : points de
+//   recharge (50 %, 1 660 € HT par point) + surprime équipements et cheminement (TD, câbles, data, routeur : 50 %, 8 000 €
+//   HT, décision du 03/11 à 10 h 15) ; COP : 50 % plafonné, selon la date du permis. Un prix manquant : la formule est
+//   donnée à la place, rien n'est inventé (écarts 4, 9, 34) ;
+// - T1 (21 h 16) : devis travaux PAR et COP sur PDL dédié, phrase « jusqu'à 3 000 € HT pour la création du point de
+//   livraison, sous réserve » dans le texte ADVENIR, jamais comptée dans la prime estimée ni dans le reste à charge ;
+//   l'AMO reste sans aide (D17) ;
+// - DAP hors services généraux : phrase ADVENIR de l'en-tête remplacée (écart 42) ;
+// - COP sur services généraux : la phrase « pas besoin d'augmenter » de l'en-tête suit le calcul de la puissance cible
+//   (écart 53).
 import type { Segment } from '@/lib/champsClickUp';
-import type { CleModele, ModeleDevis } from '@/lib/modelesDevis';
+import type { CleModele, ModeleDevis, Zone } from '@/lib/modelesDevis';
 import { DISTANCES, SAISIES, type ElementReleve } from '@/lib/releveElements';
+
+// Ligne à saisir (même forme que LigneDevis de src/lib/briefChiffrage.ts, sans import circulaire)
+export type LigneSaisie = { zone: Zone; ref: string; qte: number | null };
 
 export type ContexteSaisie = {
   ficheNom: string | null;
@@ -30,6 +46,10 @@ export type ContexteSaisie = {
   plafondInfra: number | null; // COP : plafond ADVENIR infra en € HT
   facade: boolean; // un cheminement passe en façade
   elements: ElementReleve[]; // relevé du scénario (pose, prise, emplacements)
+  augmentation?: boolean | null; // COP sur services généraux : augmentation de puissance (null = inconnu)
+  datePermis?: number | null; // 🏛️ Date dépôt permis (ms)
+  lignes?: LigneSaisie[]; // lignes du devis principal (pour le calcul ADVENIR)
+  prix?: Map<string, number> | null; // prix de vente HT de la bibliothèque, par référence
 };
 
 const SOURCE_COURTE: Record<string, string> = {
@@ -37,17 +57,19 @@ const SOURCE_COURTE: Record<string, string> = {
 };
 const fr = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
 const euros = (n: number) => `${n.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €`;
+const euros2 = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+const arrondi = (n: number) => Math.round(n * 100) / 100;
 const texte = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 const metres = (m: number) => Math.ceil(m - 1e-9);
 // « Scénario A : Borne partagée » → « Scénario A »
 const lettre = (nom: string) => nom.match(/Scénario\s+[A-Z]+/)?.[0] ?? 'Scénario';
 
+// Nom court et unique (écart 7) : « Scénario A · SG · Borne 7,4 kW », « Scénario A · PDL dédié · AMO création PDL »
 export function nomDevis(m: ModeleDevis, c: ContexteSaisie): string {
-  const fiche = c.ficheNom?.trim() || '[nom de la fiche]';
   const fin = m.cle === 'AMO_PDL' ? 'PDL dédié · AMO création PDL'
     : m.cle === 'AMO_COLONNE' ? 'Colonne Enedis · AMO colonne'
       : `${SOURCE_COURTE[c.source] ?? '[source]'} · ${c.materiel}`;
-  return `${fiche} · ${lettre(c.scenarioNom)} : ${fin}`;
+  return `${lettre(c.scenarioNom)} · ${fin}`;
 }
 
 // Crochets de l'en-tête de chaque modèle, dans l'ordre du texte (en-têtes lus dans Costructor le 02/11/2026, 19 h 30)
@@ -93,10 +115,16 @@ function marquePrise(els: ElementReleve[]): string {
   return SAISIES.marqueBorne.options?.find((o) => o.cle === cle)?.libelle ?? 'marque de la prise à choisir au relevé';
 }
 
-// 📌 Emplacement de la borne, borne par borne, sans doublon
-function emplacements(els: ElementReleve[]): string {
-  const liste = els.filter((e) => e.nature === 'borne').map((e) => texte(e.valeurs.emplacementBorne).trim()).filter(Boolean);
-  return Array.from(new Set(liste)).join(', ');
+// 📌 Emplacement de la borne, borne par borne, sans doublon ni ponctuation de fin, « et » avant le dernier (écart 10)
+export function emplacements(els: ElementReleve[]): string {
+  const liste = els.filter((e) => e.nature === 'borne')
+    .map((e) => texte(e.valeurs.emplacementBorne).trim().replace(/[\s.,;:!]+$/u, ''))
+    .filter(Boolean)
+    // Après le premier, initiale en minuscule (« Place 13 » → « place 13 »), sauf un sigle (« RDC »)
+    .map((s, i) => (i > 0 && /^\p{Lu}\p{Ll}/u.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s));
+  const uniques = Array.from(new Set(liste));
+  if (uniques.length <= 1) return uniques[0] ?? '';
+  return `${uniques.slice(0, -1).join(', ')} et ${uniques[uniques.length - 1]}`;
 }
 
 function valeurCrochet(cr: string, c: ContexteSaisie): string {
@@ -147,32 +175,110 @@ const MENTION_TVA: Record<string, string> = {
   '10 %': 'attestation TVA 10 % (article 257 du CGI)',
   '20 %': 'aucune attestation TVA',
 };
+const TAUX_TVA: Record<string, number> = { '5,5 %': 0.055, '10 %': 0.1, '20 %': 0.2 };
 
-// Prime ADVENIR en valeur haute (compétence Prime ADVENIR, D7, D17)
-function prime(m: ModeleDevis, c: ContexteSaisie): string | null {
-  const n = Math.max(1, c.points);
-  const individuel = `point de recharge individuel, valeur haute ${n > 1 ? `${n} × 1 000 € = ${euros(n * 1000)}` : '1 000 €'}`;
-  switch (m.cle) {
-    case 'PAR_SG':
-    case 'PAR_PDL':
-      return `point de recharge partagé, valeur haute ${n} × 1 660 € HT = ${euros(n * 1660)} HT (50 % du HT des points de recharge, plafonné à 1 660 € par point ; surprime équipements et cheminement, jusqu'à 8 000 € HT, non comptée)`;
-    case 'COP_SG':
-    case 'COP_PDL':
-      return c.plafondInfra !== null
-        ? `infrastructure collective, valeur haute ${euros(c.plafondInfra)} HT (50 % plafonné ; assiette selon 🏛️ Date dépôt permis, à vérifier)`
-        : 'infrastructure collective, plafond à calculer : nombre de places à renseigner';
-    case 'RIC_TARIF_TYPE':
-    case 'RIC_RESIDENT':
-    case 'RIC_COLONNE':
-      return individuel;
-    case 'DAP':
-      return c.source === 'tgbtServicesGeneraux' ? individuel : null;
-    default:
-      return null;
-  }
+// ADVENIR (compétence Prime ADVENIR, D7, D17)
+const PLAFOND_INDIVIDUEL = 1000;
+const PLAFOND_PARTAGE = 1660;
+const SURPRIME_PARTAGE = 8000;
+const SURPRIME_PDL = 3000;
+// PAR : zones des points de recharge (avec prestations et déplacement, valeur haute) ; le reste = équipements et cheminement
+const ZONES_POINTS: Zone[] = ['borne', 'prise', 'autre', 'prestations', 'logistique'];
+const PERMIS_2017 = Date.UTC(2017, 0, 1);
+const PERMIS_2021 = Date.UTC(2021, 2, 10);
+
+type TypeAide = 'individuel' | 'partage' | 'infra' | null;
+function typeAide(m: ModeleDevis, c: ContexteSaisie): TypeAide {
+  if (m.cle === 'PAR_SG' || m.cle === 'PAR_PDL') return 'partage';
+  if (m.cle === 'COP_SG' || m.cle === 'COP_PDL') return 'infra';
+  if (m.cle.startsWith('RIC')) return 'individuel';
+  if (m.cle === 'DAP' && c.source === 'tgbtServicesGeneraux') return 'individuel';
+  return null;
 }
 
-// Juste sous « copier le modèle » : ce qu'il faut savoir avant de saisir les lignes
+// Total HT des lignes du devis aux prix de la bibliothèque ; null si un prix manque (la liste dit lesquels)
+function totaux(c: ContexteSaisie): { ht: number; htPoints: number; htEquipements: number } | { manquants: string[] } | null {
+  if (!c.prix || !c.lignes?.length) return null;
+  let ht = 0;
+  let htPoints = 0;
+  const manquants = new Set<string>();
+  for (const l of c.lignes) {
+    if (l.qte === null) continue;
+    const p = c.prix.get(l.ref);
+    if (p === undefined) { manquants.add(l.ref); continue; }
+    const v = p * l.qte;
+    ht += v;
+    if (ZONES_POINTS.includes(l.zone)) htPoints += v;
+  }
+  if (manquants.size) return { manquants: Array.from(manquants) };
+  return { ht, htPoints, htEquipements: ht - htPoints };
+}
+
+// Prime ADVENIR : les 3 valeurs du texte, calculées si les prix sont connus, sinon la formule (écarts 4, 9, 34)
+function primeAdvenir(m: ModeleDevis, c: ContexteSaisie): string[] {
+  const aide = typeAide(m, c);
+  if (!aide) {
+    if (m.cle.startsWith('AMO')) return ['   Prime ADVENIR : aucune aide sur ce devis (D17)'];
+    if (m.cle === 'DAP') return ['   Prime ADVENIR : aucune hors services généraux (ni ADMIN-ADVENIR ni texte ADVENIR)'];
+    return [];
+  }
+  const n = Math.max(1, c.points);
+  const out: string[] = [];
+  // COP : assiette selon la date du permis
+  let noteCop = '';
+  if (aide === 'infra') {
+    if (!c.datePermis) noteCop = 'assiette selon 🏛️ Date dépôt permis (vide : à renseigner dans la carte « Le site »)';
+    else if (c.datePermis >= PERMIS_2021) {
+      return ['   Prime ADVENIR : permis déposé après le 10/03/2021, infrastructure non éligible. Retirer ADMIN-ADVENIR et le texte INFO-ADVENIR-INFRA'];
+    } else if (c.datePermis >= PERMIS_2017) noteCop = 'permis de 2017 au 10/03/2021 : assiette réduite, montant à confirmer sur advenir.mobi';
+    else noteCop = 'permis avant 2017 : assiette complète';
+  }
+  const plafond = aide === 'individuel' ? n * PLAFOND_INDIVIDUEL : aide === 'partage' ? n * PLAFOND_PARTAGE : c.plafondInfra;
+  const t = totaux(c);
+  const taux = TAUX_TVA[m.tva] ?? 0.2;
+  if (t && 'ht' in t && plafond !== null) {
+    const ttc = arrondi(t.ht * (1 + taux));
+    let prime: number;
+    let calcul: string;
+    if (aide === 'partage') {
+      const points = Math.min(t.htPoints * 0.5, plafond);
+      const surprime = Math.min(t.htEquipements * 0.5, SURPRIME_PARTAGE);
+      prime = arrondi(points + surprime);
+      calcul = `points de recharge 50 % de ${euros2(t.htPoints)} HT plafonné à ${euros(plafond)} = ${euros2(points)} ; surprime équipements et cheminement 50 % de ${euros2(t.htEquipements)} HT plafonnée à ${euros(SURPRIME_PARTAGE)} = ${euros2(surprime)}`;
+    } else {
+      prime = arrondi(Math.min(t.ht * 0.5, plafond));
+      calcul = `50 % de ${euros2(t.ht)} HT, plafonné à ${euros(plafond)}${aide === 'individuel' && n > 1 ? ` (${n} × ${euros(PLAFOND_INDIVIDUEL)})` : ''}`;
+    }
+    out.push(
+      '   Texte ADVENIR, les 3 valeurs à saisir :',
+      `      Total TTC réglé en totalité : ${euros2(ttc)} TTC`,
+      `      Montant de prime estimé : ${euros2(prime)}`,
+      `      Reste à charge estimé : ${euros2(arrondi(ttc - prime))} TTC`,
+      `   (calcul : ${calcul} ; prix de la bibliothèque au clic « Prêt à chiffrer ». Une quantité changée au montage change ces valeurs : reprendre le total TTC du devis et refaire la soustraction${noteCop ? ` ; ${noteCop}` : ''})`,
+    );
+  } else {
+    const pourquoi = t && 'manquants' in t ? `prix introuvable en bibliothèque pour ${t.manquants.join(', ')}` : 'prix de la bibliothèque non lus';
+    const regle = aide === 'partage'
+      ? `50 % du sous-total HT des points de recharge plafonné à ${n} × 1 660 € = ${euros(n * PLAFOND_PARTAGE)} HT, + 50 % du sous-total HT des équipements et cheminements (TD, câbles, data, routeur) plafonné à 8 000 € HT`
+      : aide === 'individuel'
+        ? `50 % du total HT plafonné à ${n > 1 ? `${n} × 1 000 € = ${euros(n * PLAFOND_INDIVIDUEL)}` : '1 000 €'}`
+        : plafond !== null ? `50 % du total HT plafonné à ${euros(plafond)} HT` : '50 % du total HT, plafond à calculer (nombre de places à renseigner)';
+    out.push(
+      `   Texte ADVENIR, les 3 valeurs (${pourquoi}, à calculer sur le devis) :`,
+      '      Total TTC réglé en totalité : total TTC du devis',
+      `      Montant de prime estimé : ${regle}`,
+      '      Reste à charge estimé : total TTC − prime, en TTC (D7)',
+      ...(noteCop ? [`   (${noteCop})`] : []),
+    );
+  }
+  // T1 : surprime création de PDL citée, jamais comptée (la contribution Enedis n'est pas connue à l'envoi)
+  if (m.cle === 'PAR_PDL' || m.cle === 'COP_PDL') {
+    out.push(`   Texte ADVENIR, ajouter la phrase : « jusqu'à ${SURPRIME_PDL.toLocaleString('fr-FR')} € HT pour la création du point de livraison, sous réserve » (ni dans la prime estimée, ni dans le reste à charge, T1)`);
+  }
+  return out;
+}
+
+// Juste sous « Nouveau devis ▾ › Créer à partir d'un modèle » : ce qu'il faut savoir avant de saisir les lignes
 export function avantSaisie(m: ModeleDevis, c: ContexteSaisie): string[] {
   const out: string[] = ['📝 AVANT DE SAISIR', `   Nom du devis : ${nomDevis(m, c)}`];
   out.push(m.tva === '20 %'
@@ -180,9 +286,19 @@ export function avantSaisie(m: ModeleDevis, c: ContexteSaisie): string[] {
     : `   TVA : passer chaque ligne ajoutée à ${m.tva} (Costructor met 20 % par défaut sur une ligne de la bibliothèque ; les lignes du modèle y sont déjà)`);
   const crochets = (CROCHETS[m.cle] ?? []).map((cr) => `« ${cr} » → ${valeurCrochet(cr, c)}`);
   if (crochets.length) out.push('   En-tête, remplacer :', ...crochets.map((x) => `      ${x}`));
-  const p = prime(m, c);
-  if (p) out.push(`   Prime ADVENIR : ${p}. Reste à charge estimé = total TTC du devis − prime, toujours en TTC (D7)`);
-  else if (m.cle.startsWith('AMO')) out.push('   Prime ADVENIR : aucune aide sur ce devis (D17)');
+  // DAP sur le compteur du résident : pas d'ADVENIR, la phrase de l'en-tête change (écart 42)
+  if (m.cle === 'DAP' && c.source !== 'tgbtServicesGeneraux') {
+    out.push('   En-tête, remplacer la phrase ADVENIR par : « TVA réduite à 5,5 % (immeuble achevé depuis plus de 2 ans). »');
+  }
+  // COP sur services généraux : la phrase sur l'augmentation de puissance suit le calcul (écart 53)
+  if (m.cle === 'COP_SG') {
+    out.push(c.augmentation === true
+      ? "   En-tête : retirer la phrase « pas besoin d'augmenter la puissance » (pointe réelle + réserve IRVE au-dessus de l'abonnement : augmentation à demander)"
+      : c.augmentation === false
+        ? "   En-tête : garder la phrase « pas besoin d'augmenter la puissance » (l'abonnement actuel couvre la pointe réelle + la réserve IRVE)"
+        : "   En-tête : phrase « pas besoin d'augmenter la puissance » à vérifier (pointe réelle des communs ou abonnement non relevé)");
+  }
+  out.push(...primeAdvenir(m, c));
   return out;
 }
 
@@ -191,8 +307,9 @@ export function avantFinaliser(m: ModeleDevis, c: ContexteSaisie): string[] {
   const tarifType = m.cle === 'RIC_TARIF_TYPE';
   return [
     '✅ AVANT DE FINALISER',
-    '   • Client rattaché (la copie du modèle ne le reprend pas)',
-    '   • Validité 30 jours (vérifier la date de fin posée par la copie)',
+    '   • Aucun ✖ oublié : chaque ligne à retirer est bien retirée',
+    '   • Client rattaché (le devis créé à partir du modèle ne le reprend pas)',
+    '   • Validité 30 jours (vérifier la date de fin)',
     `   • Signature en ligne ${tarifType ? 'désactivée (tarif type, indicatif)' : 'activée'}`,
     `   • Conditions de paiement : « ${conditions(m, c)} »${m.cle.startsWith('AMO') ? ' (réglage « Aucun acompte » : ce n\'est pas un écart)' : ''}`,
     `   • Pied de devis : ${MENTION_TVA[m.tva] ?? 'mention TVA du modèle'}`,
