@@ -9,8 +9,10 @@ import {
 
 // Gestion des scénarios dans l'application (étape 3 du plan du 15/10/2026, décisions Q29 à Q34 du 14/10).
 // GET ?affaireId=… : scénarios archivés depuis l'application (à restaurer) et droits.
-// POST { action, id, nom?, confirme? } : archiver (avec ses éléments), restaurer (avec ses éléments), renommer,
+// POST { action, id, nom?, confirme?, distances? } : archiver (avec ses éléments), restaurer (avec ses éléments), renommer,
 // dupliquer. Réservé au commercial et à la direction. Garde-fou devis sur l'archivage.
+// 03/11/2026 (passe 2 de la recette, idée de Mathieu, écart 38) : dupliquer demande « Recopier les distances ? »
+// (distances = true : longueurs par mode de pose recopiées ; sinon on remesure, comme avant).
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
@@ -73,7 +75,7 @@ export async function POST(request: Request) {
       case 'dupliquer': {
         const p = await lireTacheQualification(String(scenario.parent), token, { sousTaches: true });
         if (!p.ok) return json({ success: false, error: p.erreur }, p.status);
-        r = await dupliquerScenario(token, scenario, p.tache);
+        r = await dupliquerScenario(token, scenario, p.tache, corps?.distances === true);
         break;
       }
       default:
