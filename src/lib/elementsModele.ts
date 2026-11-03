@@ -8,7 +8,11 @@
 // la confondre avec le cheminement d'alimentation entre les mêmes équipements.
 // 01/11/2026 (Phase 8, étape 4) : source « Colonne Enedis » (D13) ; élément Autre « Dépose d'une borne existante »
 // (DEPOSE-BORNE au brief, décision de Mathieu du 01/11, 19 h 11).
+// 03/11/2026 (passe 2 de la recette) : COP créée avec un seul élément « Boîte de dérivation » et une quantité (une boîte
+// par tranche de 4 places, écart 46), Communication avec le gestionnaire de grappe et le HUB présélectionné selon les
+// points de charge (T6 : jusqu'à 10 → HUB 10, de 11 à 20 → HUB 20, au-delà → HUB 150, écart 54).
 import { CHAMPS, OPTIONS, LIBELLE_NATURE, type Nature, type Segment } from '@/lib/champsClickUp';
+import { POINTS_PAR_BOITE, hubSuggere } from '@/lib/releveElements';
 
 export type Materiel = 'borne' | 'prise';
 export type CleSource = keyof typeof OPTIONS.sourceRaccordement;
@@ -91,7 +95,7 @@ export const nomLien = (depart: string | null, arrivee: string | null, type: str
 export const estNomCheminementAuto = (nom: string) => nom.startsWith('Cheminement · ') || nom.startsWith('Liaison data · ');
 
 // COP : une boîte de dérivation par tranche de 4 places, arrondi au-dessus
-export const boitesPourPlaces = (places: number) => (places > 0 ? Math.ceil(places / 4) : 0);
+export const boitesPourPlaces = (places: number) => (places > 0 ? Math.ceil(places / POINTS_PAR_BOITE) : 0);
 
 const echapper = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -120,14 +124,22 @@ export function specsParDefaut(segment: Segment, materiel: Materiel = 'borne', p
   const typeCh = (t: keyof typeof OPTIONS.typeCheminement): Record<string, number> => ({ [CHAMPS.typeCheminement]: OPTIONS.typeCheminement[t] });
 
   if (segment === 'COP') {
+    // Une seule boîte de dérivation avec sa quantité (écart 46) ; HUB présélectionné pour 4 points par boîte (T6)
+    const boites = boitesPourPlaces(places);
+    const hub = hubSuggere(boites * POINTS_PAR_BOITE);
     const specs: SpecElement[] = [
       { cle: 'R', nature: 'raccordement', nom: 'Raccordement', valeurs: {} },
       { cle: 'TD', nature: 'tdIrveCoffret', nom: 'TD IRVE', valeurs: { [CHAMPS.gestionCharge]: OPTIONS.gestionCharge.gestionnaireGrappe } },
-      { cle: 'COM', nature: 'communication', nom: 'Communication', valeurs: {} },
+      {
+        cle: 'COM', nature: 'communication', nom: 'Communication',
+        valeurs: {
+          [CHAMPS.gestionCharge]: OPTIONS.gestionCharge.gestionnaireGrappe,
+          ...(boites > 0 ? { [CHAMPS.tailleHub]: OPTIONS.tailleHub[hub] } : {}),
+          [CHAMPS.connectivite]: OPTIONS.connectivite.modemDeporte,
+        },
+      },
     ];
-    for (let i = 1; i <= boitesPourPlaces(places); i++) {
-      specs.push({ cle: `BD${i}`, nature: 'boiteDerivation', nom: `Boîte de dérivation ${i}`, valeurs: {} });
-    }
+    if (boites > 0) specs.push({ cle: 'BD', nature: 'boiteDerivation', nom: 'Boîte de dérivation', valeurs: { [CHAMPS.quantite]: boites } });
     specs.push(
       { cle: 'CH1', nature: 'cheminement', nom: nomCheminement('Raccordement', 'TD IRVE'), valeurs: typeCh('alimentation'), depart: 'R', arrivee: 'TD' },
       { cle: 'CH2', nature: 'cheminement', nom: nomCheminement('TD IRVE', null, true), valeurs: typeCh('artere'), depart: 'TD' },
@@ -163,10 +175,11 @@ export function specsParDefaut(segment: Segment, materiel: Materiel = 'borne', p
       : {};
   // RIC : forfait de 5 m de tube apparent sur chaque cheminement
   const forfait: Record<string, number> = segment === 'RIC' ? { [CHAMPS.distTubeApparent]: FORFAIT_RIC_TUBE_APPARENT } : {};
+  // Borne avant le coffret (écart 29) : le coffret se déduit de la borne
   return [
     raccordement,
-    { cle: 'C1', nature: 'tdIrveCoffret', nom: 'Coffret 1', valeurs: {} },
     { cle: 'B1', nature: 'borne', nom: 'Borne 1', valeurs: {} },
+    { cle: 'C1', nature: 'tdIrveCoffret', nom: 'Coffret 1', valeurs: {} },
     { cle: 'COM', nature: 'communication', nom: 'Communication', valeurs: communication },
     { cle: 'CH1', nature: 'cheminement', nom: nomCheminement(raccordement.nom, 'Coffret 1'), valeurs: { ...typeCh('alimentation'), ...forfait }, depart: 'R', arrivee: 'C1' },
     { cle: 'CH2', nature: 'cheminement', nom: nomCheminement('Coffret 1', 'Borne 1'), valeurs: { ...typeCh('alimentation'), ...forfait }, depart: 'C1', arrivee: 'B1' },
