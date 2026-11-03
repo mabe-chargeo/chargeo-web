@@ -23,6 +23,8 @@
 // rangée dans la sous-section Communication, avec le modem (écart 3 de la recette).
 // 02/11, 19 h 57 : les éléments du relevé sont transmis aux consignes de saisie (crochet [emplacements] des bornes,
 // question « 📌 Emplacement de la borne » en PAR, FLT et TER).
+// 03/11 (D9, carte « Le projet » retirée de la fiche) : la zone de déplacement n'est plus demandée. L'en-tête ne la cite
+// que si elle est saisie, plus d'alerte, et la ligne LOG-DEP-Z1 dit « zone et jours à ajuster au montage (D9) ».
 // Calculs (synthèse du 14/10, sections 4, 6 et 7) :
 // - réserve IRVE au barème (arrêté du 23/12/2020) en COP, avec le plafond ADVENIR infra ;
 // - puissance à demander à Enedis si PDL dédié (réserve IRVE en COP, somme des puissances visées sinon), toujours
@@ -281,7 +283,7 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
   const site = gestionDuSite(els);
   const gestion = !!site.gestion && site.gestion !== 'aucune';
 
-  // En-tête
+  // En-tête (03/11, D9 : la zone n'est citée que si elle est saisie, elle s'ajuste au montage du devis)
   const quand = new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' });
   const entete = [
     `📋 Brief de chiffrage · ${b.scenarioNom}`,
@@ -289,9 +291,8 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
     '',
     `Segment : ${seg ? LIBELLE_SEGMENT[seg] : 'à renseigner'}`,
     ...(cop || b.nbPlaces ? [`Places de parking : ${b.nbPlaces ?? 'à renseigner'}`] : []),
-    `Zone de déplacement : ${b.zone ?? 'à renseigner'}`,
+    ...(b.zone ? [`Zone de déplacement : ${b.zone}`] : []),
   ];
-  if (!b.zone) alertes.push('Zone de déplacement non renseignée (scénario et fiche)');
 
   // Puissance
   const puissance: string[] = ['', '⚡ PUISSANCE'];
@@ -872,7 +873,7 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
     retirer['ADMIN-ADVENIR'] = "pas d'ADVENIR hors services généraux";
     retirer['INFO-ADVENIR-INDIVIDUEL'] = "pas d'ADVENIR hors services généraux";
   }
-  ajouter('logistique', `LOG-DEP-${zoneDeplacement(b.zone)}`, 1, '', `1 par jour de pose (environ 7 h sur place)${b.zone ? '' : ', zone à renseigner'}, à ajuster (D9)`);
+  ajouter('logistique', `LOG-DEP-${zoneDeplacement(b.zone)}`, 1, '', '1 par jour de pose (environ 7 h sur place), zone et jours à ajuster au montage (D9)');
 
   return { lignes, aFaire, retirer };
 }
