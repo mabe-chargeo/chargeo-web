@@ -45,7 +45,10 @@
 // - Réseau (T4) : « Box ou WiFi du client » (libellé de l'option WiFi) et « Sans objet » (fin du menu) ;
 // - Artère : chemin de câbles, tranchée, vide sanitaire ou tirage existant seulement (écart 47) ; liaison data sans
 //   section forcée (écart 49) ;
-// - Boîte de dérivation : un seul élément avec une quantité (écart 46).
+// - Boîte de dérivation : un seul élément avec une quantité (écart 46) ;
+// - SIM 4G selon la borne (écart 31, bibliothèque relue le 03/11) : 4G intégrée (Schneider Charge Pro, Peblar Business,
+//   Peblar Dual), en option (Hager Witty Plus, carte OPT-4G-HAG) ou aucune (les autres). « Intégrée à la borne (SIM 4G) »
+//   n'est proposée que si la borne l'intègre ou l'a en option ; sur une borne sans 4G, « Prêt à chiffrer » la refuse.
 import type { Nature, Segment } from '@/lib/champsClickUp';
 
 export type TypeSaisie = 'menu' | 'nombre' | 'texte' | 'case';
@@ -60,31 +63,37 @@ export type ElementReleve = {
   typeCheminement: string | null;
   valeurs: Valeurs;
 };
+// 4G de la borne d'après la bibliothèque : intégrée, en option (carte à ajouter au devis) ou aucune (écart 31)
+export type QuatreG = 'integree' | 'option' | 'aucune';
 // prise : le scénario n'a que des prises renforcées (aucune borne), donc pas de gestion de charge au coffret
 // mono : raccordement monophasé (section 35 mm² masquée) ; source : source du raccordement
 // gestion et mesure : gestion de charge et mesure de puissance du site (élément Communication, ou TD d'un ancien relevé)
 // tdPartage : un TD de borne partagée est choisi (HUB 10 compris) ; bornes : nombre de bornes du scénario
+// quatreG : 4G des bornes du scénario (null tant qu'un modèle de borne manque)
 export type ContexteReleve = {
   segment: Segment | null; grappe: boolean; prise?: boolean; mono?: boolean; source?: string | null; gestion?: string; mesure?: string;
-  tdPartage?: boolean; bornes?: number;
+  tdPartage?: boolean; bornes?: number; quatreG?: QuatreG | null;
 };
 
 // Bornes proposées (D2) : uniquement les couples marque × puissance qui ont un ouvrage. Liste extensible : une nouvelle
 // borne = une ligne ici + une option ajoutée EN FIN du menu 🔋 Modèle de borne dans ClickUp, puis dans OPTIONS.modeleBorne.
 // points : points de charge de la borne (borne double = 2 mises en service). pied : ouvrage du pied, null = à créer.
-export type LigneBorne = { ref: string; marque: string; gamme: string; puissances: string[]; points: number; pied: string | null };
+// quatreG et carte4G : 4G de la borne et ouvrage de la carte 4G en option (bibliothèque relue le 03/11, écart 31).
+export type LigneBorne = {
+  ref: string; marque: string; gamme: string; puissances: string[]; points: number; pied: string | null; quatreG: QuatreG; carte4G?: string;
+};
 export const BORNES: LigneBorne[] = [
-  { ref: 'BORNE-HAG-WONE-7', marque: 'hager', gamme: 'Hager Witty One 7,4 kW', puissances: ['7.4'], points: 1, pied: null },
-  { ref: 'BORNE-HAG-WONE-11', marque: 'hager', gamme: 'Hager Witty One 11 kW', puissances: ['11'], points: 1, pied: null },
-  { ref: 'BORNE-HAG-WPLUS-22', marque: 'hager', gamme: 'Hager Witty Plus 7,4 à 22 kW', puissances: ['7.4', '11', '22'], points: 1, pied: null },
-  { ref: 'BORNE-SCH-CHG-22', marque: 'schneider', gamme: 'Schneider Charge 7,4 à 22 kW', puissances: ['7.4', '11', '22'], points: 1, pied: null },
-  { ref: 'BORNE-SCH-PRO-22', marque: 'schneider', gamme: 'Schneider Charge Pro 7,4 à 22 kW', puissances: ['7.4', '11', '22'], points: 1, pied: null },
-  { ref: 'BORNE-LEG-HOME-3', marque: 'legrand', gamme: "Legrand Green'up Home 3,7 kW", puissances: ['3.7'], points: 1, pied: null },
-  { ref: 'BORNE-LEG-HOME-7', marque: 'legrand', gamme: "Legrand Green'up Home 7,4 kW", puissances: ['7.4'], points: 1, pied: null },
-  { ref: 'BORNE-LEG-DUO-22', marque: 'legrand', gamme: "Legrand Green'up Control Duo 2 × 7,4 à 22 kW", puissances: ['7.4', '11', '22'], points: 2, pied: null },
-  { ref: 'BORNE-PEB-HOME-7', marque: 'peblar', gamme: 'Peblar Home 7,4 kW', puissances: ['7.4'], points: 1, pied: 'PIED-PEB-S' },
-  { ref: 'BORNE-PEB-BUS-22', marque: 'peblar', gamme: 'Peblar Business 7,4 à 22 kW', puissances: ['7.4', '11', '22'], points: 1, pied: 'PIED-PEB-S' },
-  { ref: 'BORNE-PEB-DUAL', marque: 'peblar', gamme: 'Peblar Dual 2 × 11 kW', puissances: ['11'], points: 2, pied: 'PIED-PEB-DUAL' },
+  { ref: 'BORNE-HAG-WONE-7', marque: 'hager', gamme: 'Hager Witty One 7,4 kW', puissances: ['7.4'], points: 1, pied: null, quatreG: 'aucune' },
+  { ref: 'BORNE-HAG-WONE-11', marque: 'hager', gamme: 'Hager Witty One 11 kW', puissances: ['11'], points: 1, pied: null, quatreG: 'aucune' },
+  { ref: 'BORNE-HAG-WPLUS-22', marque: 'hager', gamme: 'Hager Witty Plus 7,4 à 22 kW', puissances: ['7.4', '11', '22'], points: 1, pied: null, quatreG: 'option', carte4G: 'OPT-4G-HAG' },
+  { ref: 'BORNE-SCH-CHG-22', marque: 'schneider', gamme: 'Schneider Charge 7,4 à 22 kW', puissances: ['7.4', '11', '22'], points: 1, pied: null, quatreG: 'aucune' },
+  { ref: 'BORNE-SCH-PRO-22', marque: 'schneider', gamme: 'Schneider Charge Pro 7,4 à 22 kW', puissances: ['7.4', '11', '22'], points: 1, pied: null, quatreG: 'integree' },
+  { ref: 'BORNE-LEG-HOME-3', marque: 'legrand', gamme: "Legrand Green'up Home 3,7 kW", puissances: ['3.7'], points: 1, pied: null, quatreG: 'aucune' },
+  { ref: 'BORNE-LEG-HOME-7', marque: 'legrand', gamme: "Legrand Green'up Home 7,4 kW", puissances: ['7.4'], points: 1, pied: null, quatreG: 'aucune' },
+  { ref: 'BORNE-LEG-DUO-22', marque: 'legrand', gamme: "Legrand Green'up Control Duo 2 × 7,4 à 22 kW", puissances: ['7.4', '11', '22'], points: 2, pied: null, quatreG: 'aucune' },
+  { ref: 'BORNE-PEB-HOME-7', marque: 'peblar', gamme: 'Peblar Home 7,4 kW', puissances: ['7.4'], points: 1, pied: 'PIED-PEB-S', quatreG: 'aucune' },
+  { ref: 'BORNE-PEB-BUS-22', marque: 'peblar', gamme: 'Peblar Business 7,4 à 22 kW', puissances: ['7.4', '11', '22'], points: 1, pied: 'PIED-PEB-S', quatreG: 'integree' },
+  { ref: 'BORNE-PEB-DUAL', marque: 'peblar', gamme: 'Peblar Dual 2 × 11 kW', puissances: ['11'], points: 2, pied: 'PIED-PEB-DUAL', quatreG: 'integree' },
 ];
 // Prises renforcées proposées (D3) : marque → ouvrage
 export const PRISES: Record<string, string> = { hager: 'PRISE-HAG-3K', schneider: 'PRISE-SCH-3K', legrand: 'PRISE-LEG-3K' };
@@ -206,6 +215,17 @@ export function nombreBoites(elements: ElementReleve[]): number {
   return elements.filter((e) => e.nature === 'boiteDerivation').reduce((n, e) => n + (Number(e.valeurs.quantite) > 0 ? Number(e.valeurs.quantite) : 1), 0);
 }
 
+// 4G des bornes du scénario (écart 31) : intégrée si toutes l'intègrent, aucune si l'une n'en a pas, option sinon ;
+// null tant qu'une borne n'a pas son modèle
+export function quatreGDesBornes(elements: ElementReleve[]): QuatreG | null {
+  const lignes = elements.filter((e) => e.nature === 'borne').map((e) => ligneBorne(e.valeurs.modeleBorne));
+  if (!lignes.length || lignes.some((b) => !b)) return null;
+  const connues = lignes as LigneBorne[];
+  if (connues.every((b) => b.quatreG === 'integree')) return 'integree';
+  if (connues.some((b) => b.quatreG === 'aucune')) return 'aucune';
+  return 'option';
+}
+
 // 01/11/2026, 21 h 35 (Mathieu : « toutes les questions concernant le gestionnaire de charge devraient être dans l'élément
 // communication ») : gestion de charge, mesure de puissance et taille du HUB se relèvent dans l'élément Communication.
 // Un relevé fait avant les avait sur le TD IRVE / coffret : il reste lu (Communication d'abord, sinon TD).
@@ -239,6 +259,7 @@ export function contexteReleve(segment: Segment | null, elements: ElementReleve[
     prise: elements.some((e) => e.nature === 'priseRenforcee') && !elements.some((e) => e.nature === 'borne'),
     mono: texte(racc?.valeurs.typeRaccordement) === 'mono',
     source: texte(racc?.valeurs.sourceRaccordement) || null,
+    quatreG: quatreGDesBornes(elements),
   };
 }
 
@@ -277,10 +298,10 @@ export function optionsVisibles(cle: string, v: Valeurs, ctx: ContexteReleve, na
       garder = (c) => !colonne || c === 'ticLinky';
       break;
     case 'connectivite':
-      // Pas de 4G dans le TD IRVE ; SIM de la borne pour une borne seule (hors COP) ; switch de la boîte de dérivation en RIC
-      // sur l'infra seulement (pas sur la colonne Enedis, écart 71)
+      // Pas de 4G dans le TD IRVE ; SIM de la borne pour une borne seule (hors COP), et seulement si la borne a la 4G
+      // intégrée ou en option (écart 31) ; switch de la boîte de dérivation en RIC sur l'infra seulement (écart 71)
       garder = (c) => c !== 'integreeTdIrve'
-        && (c !== 'simIntegree' || (ctx.segment !== 'COP' && (ctx.bornes ?? 0) <= 1))
+        && (c !== 'simIntegree' || (ctx.segment !== 'COP' && (ctx.bornes ?? 0) <= 1 && ctx.quatreG !== 'aucune'))
         && (c !== 'switchBoiteDerivation' || ricSurInfra(ctx.segment, ctx.source));
       break;
     case 'marqueBorne':
@@ -295,7 +316,12 @@ export function optionsVisibles(cle: string, v: Valeurs, ctx: ContexteReleve, na
       break;
   }
   const actuel = texte(v[cle]);
-  return toutes.filter((o) => garder(o.cle) || o.cle === actuel);
+  const visibles = toutes.filter((o) => garder(o.cle) || o.cle === actuel);
+  // Borne avec la 4G en option : le libellé le dit, la carte 4G se chiffre en plus (écart 31)
+  if (cle === 'connectivite' && ctx.quatreG === 'option') {
+    return visibles.map((o) => (o.cle === 'simIntegree' ? { ...o, libelle: 'SIM 4G de la borne (carte 4G en option, au devis)' } : o));
+  }
+  return visibles;
 }
 
 // Champs affichés selon la nature et les valeurs déjà saisies (matrice de la synthèse, section 4)
@@ -429,6 +455,7 @@ export function manquants(e: ElementReleve, ctx: ContexteReleve): string[] {
       else if (!v.connectivite) m.push('accès Internet');
       else if (v.connectivite === 'integreeTdIrve') m.push('accès Internet (rien dans le TD IRVE : modem déporté)');
       else if (v.connectivite === 'simIntegree' && (ctx.bornes ?? 0) > 1) m.push('accès Internet (SIM de la borne pour une borne seule : modem déporté)');
+      else if (v.connectivite === 'simIntegree' && ctx.quatreG === 'aucune') m.push('accès Internet (cette borne n\'a pas de 4G : modem déporté)');
       else if (v.connectivite === 'switchBoiteDerivation' && !ricSurInfra(ctx.segment, ctx.source)) m.push('accès Internet (pas de switch de boîte sur la colonne Enedis)');
       break;
     }

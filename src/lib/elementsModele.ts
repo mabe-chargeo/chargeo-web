@@ -10,7 +10,9 @@
 // (DEPOSE-BORNE au brief, décision de Mathieu du 01/11, 19 h 11).
 // 03/11/2026 (passe 2 de la recette) : COP créée avec un seul élément « Boîte de dérivation » et une quantité (une boîte
 // par tranche de 4 places, écart 46), Communication avec le gestionnaire de grappe et le HUB présélectionné selon les
-// points de charge (T6 : jusqu'à 10 → HUB 10, de 11 à 20 → HUB 20, au-delà → HUB 150, écart 54).
+// points de charge (T6 : jusqu'à 10 → HUB 10, de 11 à 20 → HUB 20, au-delà → HUB 150, écart 54). Borne relevée avant le
+// coffret, qui s'en déduit (écart 29) : ordre d'affichage Raccordement, Borne, Coffret, Boîte, Communication. Plus de SIM
+// posée d'avance en RES, DAP et PAR : elle dépend de la borne (4G intégrée, en option ou aucune, écart 31).
 import { CHAMPS, OPTIONS, LIBELLE_NATURE, type Nature, type Segment } from '@/lib/champsClickUp';
 import { POINTS_PAR_BOITE, hubSuggere } from '@/lib/releveElements';
 
@@ -49,9 +51,10 @@ export const LIBELLE_NATURE_LONG: Record<Nature, string> = {
   boiteDerivation: 'Boîte de dérivation',
 };
 
-// Ordre d'affichage : du réseau vers la borne
+// Ordre d'affichage : le raccordement, puis la borne (le coffret s'en déduit, écart 29), le coffret, la boîte et la
+// communication
 export const ORDRE_NATURE: Record<Nature, number> = {
-  raccordement: 0, tdIrveCoffret: 1, boiteDerivation: 2, borne: 3, priseRenforcee: 3, communication: 4, autre: 5, cheminement: 6,
+  raccordement: 0, borne: 1, priseRenforcee: 1, tdIrveCoffret: 2, boiteDerivation: 3, communication: 4, autre: 5, cheminement: 6,
 };
 
 // Source préremplie selon le segment (modifiable au relevé)
@@ -160,19 +163,18 @@ export function specsParDefaut(segment: Segment, materiel: Materiel = 'borne', p
   if (materiel === 'prise' && segment !== 'RIC') {
     return [
       raccordement,
-      { cle: 'C1', nature: 'tdIrveCoffret', nom: 'Coffret 1', valeurs: { [CHAMPS.coffretIrve]: OPTIONS.coffretIrve['COFF-MONO-3K'] } },
       { cle: 'P1', nature: 'priseRenforcee', nom: 'Prise renforcée 1', valeurs: { [CHAMPS.puissanceVisee]: OPTIONS.puissanceVisee['3.7'] } },
+      { cle: 'C1', nature: 'tdIrveCoffret', nom: 'Coffret 1', valeurs: { [CHAMPS.coffretIrve]: OPTIONS.coffretIrve['COFF-MONO-3K'] } },
       { cle: 'CH1', nature: 'cheminement', nom: nomCheminement(raccordement.nom, 'Coffret 1'), valeurs: typeCh('alimentation'), depart: 'R', arrivee: 'C1' },
       { cle: 'CH2', nature: 'cheminement', nom: nomCheminement('Coffret 1', 'Prise renforcée 1'), valeurs: typeCh('alimentation'), depart: 'C1', arrivee: 'P1' },
     ];
   }
 
-  // Borne seule : SIM intégrée par défaut (RES, DAP, PAR) ; RIC : switch de la boîte de dérivation
+  // Accès Internet : RIC = switch de la boîte de dérivation ; ailleurs, choisi après la borne, car la SIM dépend de sa 4G
+  // (écart 31)
   const communication: Record<string, number> = segment === 'RIC'
     ? { [CHAMPS.connectivite]: OPTIONS.connectivite.switchBoiteDerivation }
-    : ['RES', 'DAP', 'PAR'].includes(segment)
-      ? { [CHAMPS.connectivite]: OPTIONS.connectivite.simIntegree }
-      : {};
+    : {};
   // RIC : forfait de 5 m de tube apparent sur chaque cheminement
   const forfait: Record<string, number> = segment === 'RIC' ? { [CHAMPS.distTubeApparent]: FORFAIT_RIC_TUBE_APPARENT } : {};
   // Borne avant le coffret (écart 29) : le coffret se déduit de la borne
