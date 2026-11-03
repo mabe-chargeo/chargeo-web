@@ -38,10 +38,13 @@
 // 03/11/2026 (Phase 8, étape 7, Mathieu : la carte « Le projet » « n'a rien à faire là ») : carte retirée. Le SIRET /
 // RNIC passe dans le bloc 📇 Contact (en vente, commercial et direction), les places et la date du permis dans la carte
 // « Le site » du relevé d'un scénario COP (SiteCop), et la zone n'est plus demandée (D9 : ajustée au montage du devis).
-import { useEffect, useState, type ElementType, type ReactNode } from 'react';
+// 03/11/2026 (passe 2 de la recette sans IA) : en vente, une ligne de la carte Scénarios ouvre le relevé du scénario
+// (écart 37) ; après un changement dans « Suite de la vente » (Devis envoyé…), la fiche est relue tout de suite puis une
+// seconde fois 3 s plus tard, le temps que ClickUp passe les scénarios au nouveau statut (écart 11).
+import { useEffect, useRef, useState, type ElementType, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  BadgeEuro, BatteryCharging, CalendarClock, CheckCircle2, ClipboardList, ExternalLink, FileText, GitBranch, HardHat,
+  BadgeEuro, BatteryCharging, CalendarClock, CheckCircle2, ChevronRight, ClipboardList, ExternalLink, FileText, GitBranch, HardHat,
   Landmark, RefreshCw, ShieldCheck, TrafficCone, Wrench, XCircle,
 } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte, LienPrincipal, BoutonSecondaire } from '@/components/charte/Appli';
@@ -102,6 +105,8 @@ const ETAPES: { cle: Etape; libelle: string }[] = [
 ];
 // Écran parent du fil d'Ariane selon l'étape (clés de la carte des menus)
 const PARENT_ETAPE: Record<Etape, string> = { prospection: 'pipeline', qualification: 'pipeline', chantier: 'chantiers', parc: 'parc' };
+// Délai de la seconde lecture après un changement de la suite de la vente (écart 11)
+const RELECTURE_MS = 3000;
 
 const euros = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -137,6 +142,7 @@ export default function FichePage() {
   const [preview, setPreview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+  const relecture = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const charger = async () => {
     if (!id) return;
@@ -157,9 +163,18 @@ export default function FichePage() {
     }
   };
 
+  // Suite de la vente changée : lecture immédiate, puis seconde lecture pour les statuts des scénarios (écart 11)
+  const apresVente = () => {
+    charger();
+    if (relecture.current) clearTimeout(relecture.current);
+    relecture.current = setTimeout(() => { charger(); }, RELECTURE_MS);
+  };
+
   useEffect(() => {
     charger();
   }, [id, role]);
+
+  useEffect(() => () => { if (relecture.current) clearTimeout(relecture.current); }, []);
 
   const ligne = (Icon: ElementType, contenu: ReactNode, couleur: string = CYAN) => (
     <p className="flex items-center gap-2 text-[15px]">
@@ -231,12 +246,12 @@ export default function FichePage() {
     );
   };
 
-  const carteScenarios = (f: Fiche) => (
-    <Carte className="space-y-3">
-      <TitreCarte icon={GitBranch} extra={<span className="text-[14px] font-bold">{f.scenarios.length}</span>}>Scénarios</TitreCarte>
-      {!f.scenarios.length && <p className="text-[14px]">{f.etape === 'qualification' ? 'Aucun scénario : le relevé créera le premier.' : 'Aucun scénario sur cette fiche.'}</p>}
-      {f.scenarios.map((s) => (
-        <div key={s.id} className="rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
+  // Une ligne de scénario ouvre son relevé, en vente seulement (le relevé ne s'ouvre plus après le gagné) (écart 37)
+  const carteScenarios = (f: Fiche) => {
+    const ouvrable = f.etape === 'qualification' && !f.sansPrix;
+    const contenu = (s: Scenario) => (
+      <>
+        <div className="min-w-0 grow">
           <div className="flex flex-wrap items-center gap-2">
             {pastilleStatut(s.statut, s.couleurStatut)}
             {s.segment && <span className="text-[12px] font-bold text-slate-500">{s.segment}</span>}
@@ -247,9 +262,29 @@ export default function FichePage() {
             {s.natures.length > 0 && ` : ${s.natures.map((x) => `${x.n} ${x.nature.toLowerCase()}`).join(', ')}`}
           </p>
         </div>
-      ))}
-    </Carte>
-  );
+        {ouvrable && <ChevronRight size={20} className="shrink-0" color={CYAN} />}
+      </>
+    );
+    return (
+      <Carte className="space-y-3">
+        <TitreCarte icon={GitBranch} extra={<span className="text-[14px] font-bold">{f.scenarios.length}</span>}>Scénarios</TitreCarte>
+        {!f.scenarios.length && <p className="text-[14px]">{f.etape === 'qualification' ? 'Aucun scénario : le relevé créera le premier.' : 'Aucun scénario sur cette fiche.'}</p>}
+        {f.scenarios.map((s) => (ouvrable ? (
+          <a
+            key={s.id}
+            href={adresses.releve(s.id)}
+            className="flex items-center gap-3 rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-[0.98]"
+          >
+            {contenu(s)}
+          </a>
+        ) : (
+          <div key={s.id} className="flex items-center gap-3 rounded-[14px] bg-white p-4 ring-[1.5px] ring-[#dfe3e8]">
+            {contenu(s)}
+          </div>
+        )))}
+      </Carte>
+    );
+  };
 
   const carteFeuVert = (f: Fiche) => f.feuVert && (
     <Carte className="space-y-2.5">
@@ -447,7 +482,7 @@ export default function FichePage() {
               <>
                 {carteReleve(fiche)}
                 {carteDevis(fiche, 'Devis', true)}
-                {peutVendre(fiche) && <Vente key={fiche.statut} ficheId={fiche.id} partie="suite" onChange={charger} />}
+                {peutVendre(fiche) && <Vente key={fiche.statut} ficheId={fiche.id} partie="suite" onChange={apresVente} />}
                 {carteScenarios(fiche)}
               </>
             )}
