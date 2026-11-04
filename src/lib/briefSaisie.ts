@@ -21,9 +21,10 @@
 // - T1 (21 h 16) : devis travaux PAR et COP sur PDL dédié, phrase « jusqu'à 3 000 € HT pour la création du point de
 //   livraison, sous réserve » dans le texte ADVENIR, jamais comptée dans la prime estimée ni dans le reste à charge ;
 //   l'AMO reste sans aide (D17) ;
-// - DAP hors services généraux : phrase ADVENIR de l'en-tête remplacée (écart 42) ;
 // - COP sur services généraux : la phrase « pas besoin d'augmenter » de l'en-tête suit le calcul de la puissance cible
 //   (écart 53).
+// 04/11/2026 (modèles V2) : le DAP a deux modèles, sur services généraux (DAP_SG, ADVENIR individuel) et sur le tableau du
+// logement (DAP_HSG, sans ADVENIR : son en-tête porte déjà la bonne phrase, plus rien à remplacer, écart 42).
 import type { Segment } from '@/lib/champsClickUp';
 import type { CleModele, ModeleDevis, Zone } from '@/lib/modelesDevis';
 import { DISTANCES, SAISIES, type ElementReleve } from '@/lib/releveElements';
@@ -61,6 +62,7 @@ const euros2 = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigi
 const arrondi = (n: number) => Math.round(n * 100) / 100;
 const texte = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 const metres = (m: number) => Math.ceil(m - 1e-9);
+const estDap = (m: ModeleDevis) => m.cle === 'DAP_SG' || m.cle === 'DAP_HSG';
 // « Scénario A : Borne partagée » → « Scénario A »
 const lettre = (nom: string) => nom.match(/Scénario\s+[A-Z]+/)?.[0] ?? 'Scénario';
 
@@ -72,12 +74,14 @@ export function nomDevis(m: ModeleDevis, c: ContexteSaisie): string {
   return `${lettre(c.scenarioNom)} · ${fin}`;
 }
 
-// Crochets de l'en-tête de chaque modèle, dans l'ordre du texte (en-têtes lus dans Costructor le 02/11/2026, 19 h 30)
+// Crochets de l'en-tête de chaque modèle, dans l'ordre du texte (en-têtes lus dans Costructor le 02/11/2026, 19 h 30,
+// gardés par les V2 du 04/11)
 const PAR_CROCHETS = ['[Nombre]', '[marque, puissance]', '[emplacements]', '[date]'];
 const CROCHETS: Record<CleModele, string[]> = {
   RES: ['[marque, puissance]', '[mode de pose, longueur]', '[date]'],
   RES_PRISE: ['[marque]', '[mode de pose, longueur]', '[date]'],
-  DAP: ['[marque, puissance]', '[raccordement]', '[mode de pose, longueur]', '[date]'],
+  DAP_SG: ['[marque, puissance]', '[raccordement]', '[mode de pose, longueur]', '[date]'],
+  DAP_HSG: ['[marque, puissance]', '[mode de pose, longueur]', '[date]'],
   PAR_SG: PAR_CROCHETS,
   PAR_PDL: PAR_CROCHETS,
   COP_SG: ['[kVA]', '[date]'],
@@ -166,7 +170,7 @@ const CONDITIONS_AMO = 'Règlement de 100 % à la signature. Règlement par vire
 function conditions(m: ModeleDevis, c: ContexteSaisie): string {
   if (m.cle.startsWith('AMO')) return CONDITIONS_AMO;
   if (m.cle.startsWith('COP') || m.cle.startsWith('PAR')) return CONDITIONS_AG;
-  if (m.cle === 'DAP' && c.facade) return CONDITIONS_FACADE;
+  if (estDap(m) && c.facade) return CONDITIONS_FACADE;
   return CONDITIONS_STANDARD;
 }
 
@@ -188,11 +192,11 @@ const PERMIS_2017 = Date.UTC(2017, 0, 1);
 const PERMIS_2021 = Date.UTC(2021, 2, 10);
 
 type TypeAide = 'individuel' | 'partage' | 'infra' | null;
-function typeAide(m: ModeleDevis, c: ContexteSaisie): TypeAide {
+function typeAide(m: ModeleDevis): TypeAide {
   if (m.cle === 'PAR_SG' || m.cle === 'PAR_PDL') return 'partage';
   if (m.cle === 'COP_SG' || m.cle === 'COP_PDL') return 'infra';
   if (m.cle.startsWith('RIC')) return 'individuel';
-  if (m.cle === 'DAP' && c.source === 'tgbtServicesGeneraux') return 'individuel';
+  if (m.cle === 'DAP_SG') return 'individuel';
   return null;
 }
 
@@ -216,10 +220,10 @@ function totaux(c: ContexteSaisie): { ht: number; htPoints: number; htEquipement
 
 // Prime ADVENIR : les 3 valeurs du texte, calculées si les prix sont connus, sinon la formule (écarts 4, 9, 34)
 function primeAdvenir(m: ModeleDevis, c: ContexteSaisie): string[] {
-  const aide = typeAide(m, c);
+  const aide = typeAide(m);
   if (!aide) {
     if (m.cle.startsWith('AMO')) return ['   Prime ADVENIR : aucune aide sur ce devis (D17)'];
-    if (m.cle === 'DAP') return ['   Prime ADVENIR : aucune hors services généraux (ni ADMIN-ADVENIR ni texte ADVENIR)'];
+    if (m.cle === 'DAP_HSG') return ["   Prime ADVENIR : aucune hors services généraux (le modèle n'a ni ADMIN-ADVENIR ni texte ADVENIR)"];
     return [];
   }
   const n = Math.max(1, c.points);
@@ -286,10 +290,6 @@ export function avantSaisie(m: ModeleDevis, c: ContexteSaisie): string[] {
     : `   TVA : passer chaque ligne ajoutée à ${m.tva} (Costructor met 20 % par défaut sur une ligne de la bibliothèque ; les lignes du modèle y sont déjà)`);
   const crochets = (CROCHETS[m.cle] ?? []).map((cr) => `« ${cr} » → ${valeurCrochet(cr, c)}`);
   if (crochets.length) out.push('   En-tête, remplacer :', ...crochets.map((x) => `      ${x}`));
-  // DAP sur le compteur du résident : pas d'ADVENIR, la phrase de l'en-tête change (écart 42)
-  if (m.cle === 'DAP' && c.source !== 'tgbtServicesGeneraux') {
-    out.push('   En-tête, remplacer la phrase ADVENIR par : « TVA réduite à 5,5 % (immeuble achevé depuis plus de 2 ans). »');
-  }
   // COP sur services généraux : la phrase sur l'augmentation de puissance suit le calcul (écart 53)
   if (m.cle === 'COP_SG') {
     out.push(c.augmentation === true
