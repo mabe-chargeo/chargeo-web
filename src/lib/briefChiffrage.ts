@@ -41,6 +41,9 @@
 // - 04/11 (préparation de la passe 3) : RIC sur l'infra, la dérivation prend la section de l'artère mais garde les phases
 //   du raccordement du résident, 3G en monophasé, 5G en triphasé si l'artère l'est aussi (écart 66 : 3G16 pour une borne
 //   mono sur une artère 5G16).
+// - 04/11, 7 h 41 (cas 8, écart 65, décision de Mathieu : « sinon on installe le TDIRVE à côté du TGBT ») : au-delà de
+//   40 A, pas de départ protégé au tableau. Liaison Raccordement → TD de plus de 3 m : alerte, le TD IRVE se pose à côté
+//   du TGBT (3 m au plus, protection déportée au TD) et la distance passe sur les liaisons TD → bornes.
 // Calculs (synthèse du 14/10, sections 4, 6 et 7) :
 // - réserve IRVE au barème (arrêté du 23/12/2020) en COP, avec le plafond ADVENIR infra ;
 // - puissance à demander à Enedis si PDL dédié (réserve IRVE en COP, somme des puissances visées sinon, plafonnée à
@@ -83,6 +86,9 @@ const TARIF_JAUNE_KVA = 36;
 const MONO_MAX_KVA = 12; // branchement monophasé Enedis : 12 kVA au plus, au-delà triphasé (recette du 02/11)
 // Consigne du gestionnaire de grappe : 36 kVA en tri (≈ 52 A), 12 kVA en mono (≈ 52 A) ; protection 63 A, 16 mm²
 const COURANT_PLAFOND = 52;
+// Plus gros départ protégé au tableau en bibliothèque (DEPART-TGBT-MONO-40 et -TRI-40). Au-delà, le TD IRVE se pose à
+// côté du TGBT (décision du 04/11, cas 8)
+const DEPART_MAX_A = 40;
 const SECTIONS = [2.5, 4, 6, 10, 16, 25, 35, 50];
 const CALIBRES = [20, 25, 32, 40, 50, 63, 80, 100, 125];
 // UTE C 15-722 tableau 2 pour 20 A et 40 A ; valeurs usuelles pour les autres calibres
@@ -564,7 +570,10 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
       chemins.push(`  Forfait RIC : ${forfait ? `dans le forfait (${FORFAIT_RIC_TUBE_APPARENT} m de tube apparent)` : `dépassement (${fr(long)} m) : devis détaillé, pas de supplément au mètre`}`);
     }
     if (alerteTroisMetres(c, els, seg)) {
-      protections.push(`Protection en tête : ${nomDe(c.depart)} → ${nomDe(c.arrivee)} fait ${fr(long)} m. Au-delà de 3 m, la protection ne peut pas être déportée au coffret (NF C 15-100 433.2.1 et 434.2.2.1) : disjoncteur au départ du tableau (ligne DEPART-TGBT en Raccordement)`);
+      // Au-delà de 40 A, pas de départ au tableau : TD IRVE à côté du TGBT (décision du 04/11, cas 8)
+      protections.push(k.ci && k.ci.calibre > DEPART_MAX_A
+        ? `Protection en tête : ${nomDe(c.depart)} → ${nomDe(c.arrivee)} fait ${fr(long)} m en ${k.ci.calibre} A. Pas de départ à ce calibre au tableau : TD IRVE à poser à côté du TGBT, à 3 m au plus, protection déportée au TD (NF C 15-100 433.2.1 et 434.2.2.1). Corriger le relevé, la distance passe sur les liaisons TD → bornes`
+        : `Protection en tête : ${nomDe(c.depart)} → ${nomDe(c.arrivee)} fait ${fr(long)} m. Au-delà de 3 m, la protection ne peut pas être déportée au coffret (NF C 15-100 433.2.1 et 434.2.2.1) : disjoncteur au départ du tableau (ligne DEPART-TGBT en Raccordement)`);
     }
   }
   if (!calculs.length) chemins.push('Aucun cheminement');
@@ -763,13 +772,15 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
     }
   }
 
-  // Protection au départ du tableau quand la liaison Raccordement → coffret dépasse 3 m (écarts 32, 43, 65)
+  // Protection au départ du tableau quand la liaison Raccordement → coffret dépasse 3 m (écarts 32, 43, 65). Au-delà de
+  // 40 A, pas de départ : le TD IRVE se pose à côté du TGBT (décision du 04/11, 7 h 41, cas 8)
   if (!cop && !ric) {
     for (const k of calculs) {
       if (k.type !== 'alimentation' || !alerteTroisMetres(k.c, els, seg)) continue;
       const tri = k.ci ? k.ci.tri : triRacc;
-      if (k.ci && k.ci.calibre > 40) aFaire.push(`${k.c.nom} : départ protégé en ${k.ci.calibre} A au tableau, pas d'ouvrage DEPART-TGBT à ce calibre, à chiffrer à la main`);
-      else ajouter('raccordement', `DEPART-TGBT-${tri ? 'TRI' : 'MONO'}-40`, 1, '', `${k.c.nom} : ${fr(k.long)} m, plus de 3 m, protection au départ du tableau`);
+      if (k.ci && k.ci.calibre > DEPART_MAX_A) {
+        alertes.push(`${k.c.nom} : ${fr(k.long)} m protégés en ${k.ci.calibre} A, pas de départ à ce calibre au tableau. Poser le TD IRVE à côté du TGBT (3 m au plus, protection déportée au TD), puis corriger le relevé : la distance passe sur les liaisons TD → bornes`);
+      } else ajouter('raccordement', `DEPART-TGBT-${tri ? 'TRI' : 'MONO'}-40`, 1, '', `${k.c.nom} : ${fr(k.long)} m, plus de 3 m, protection au départ du tableau`);
     }
   }
 
