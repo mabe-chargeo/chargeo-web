@@ -35,6 +35,13 @@
 //   73), et les valeurs que la nouvelle source masque sont vidées (écart 60) ;
 // - duplication du scénario : « Recopier les distances ? » (écart 38), nom sans « (copie) » (écart 61) ;
 // - places de parking : donnée du site, écrite sur la fiche (écarts 44, 57, 68).
+// 04/11/2026 (préparation de la passe 3) :
+// - « Prêt à chiffrer » écarte les scénarios archivés (case relue sur la liste, ou statut 🏁 archivé) pour le Segment de
+//   la fiche et son passage en devis à faire (écart 22) ;
+// - l'alimentation recopie ses longueurs sur la liaison data du même tronçon à chaque enregistrement, même sans
+//   changement (écarts 48 et 78) ;
+// - RIC passé sur la colonne Enedis : « Gestionnaire de grappe » et « Switch de la boîte de dérivation », recopiés de
+//   l'infra, sont vidés pour être reposés (écart 71).
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Nature, type Segment } from '@/lib/champsClickUp';
 import { chargerTypes, champType, estDuType, estScenario, type CarteTypes } from '@/lib/typesTaches';
 import { sousTachesArchivees } from '@/lib/scenarioRetenu';
@@ -634,9 +641,10 @@ export async function enregistrerReleve(
       const n = nomLien(nomDe(depart), nomDe(arrivee), type);
       if (n !== v.nom && (await modifier(ctx.token, id, { name: n }))) messages.push(`Renommé en « ${n} »`);
     }
-    // Alimentation : ses longueurs et modes de pose passent sur la liaison data du même tronçon (écart 48)
+    // Alimentation : ses longueurs et modes de pose passent sur la liaison data du même tronçon, à chaque enregistrement
+    // (écarts 48 et 78 ; seules les valeurs qui diffèrent sont écrites, rien si l'alimentation n'a aucune longueur)
     const typeAlim = (texte(nouvelles.typeCheminement) || 'alimentation') === 'alimentation';
-    if (typeAlim && depart && arrivee && (DISTANCES.some((d) => changees.has(d)) || changees.has('depart') || changees.has('arrivee'))) {
+    if (typeAlim && depart && arrivee && DISTANCES.some((d) => Number(nouvelles[d]) > 0)) {
       for (const l of tous.filter((c) => estLiaisonData(c) && c.depart === depart && c.arrivee === arrivee)) {
         if (await recopierDistances(ctx, l, nouvelles)) messages.push(`${l.nom} : longueur et mode de pose recopiés`);
       }
@@ -673,6 +681,23 @@ export async function enregistrerReleve(
           messages.push(`${com.nom} : HUB ${hub} présélectionné`);
         }
       }
+    }
+  }
+
+  // RIC passé sur la colonne Enedis : ni grappe ni switch de boîte sur le Linky du résident ; ces choix, recopiés de l'infra,
+  // sont vidés pour être reposés (écart 71)
+  if (sourceChange && segment === 'RIC' && texte(nouvelles.sourceRaccordement) === 'colonneEnedis') {
+    for (const com of actuels.filter((e) => e.nature === 'communication')) {
+      const videes: string[] = [];
+      if (com.valeurs.gestionCharge === 'gestionnaireGrappe' && (await ecrireValeur(ctx, com.id, 'gestionCharge', null))) {
+        com.valeurs = { ...com.valeurs, gestionCharge: null };
+        videes.push('gestion de charge');
+      }
+      if (com.valeurs.connectivite === 'switchBoiteDerivation' && (await ecrireValeur(ctx, com.id, 'connectivite', null))) {
+        com.valeurs = { ...com.valeurs, connectivite: null };
+        videes.push('accès Internet');
+      }
+      if (videes.length) messages.push(`${com.nom} : ${videes.join(' et ')} à reposer (ni grappe ni switch de boîte sur la colonne Enedis)`);
     }
   }
 
@@ -802,7 +827,11 @@ export async function pretAChiffrer(ctx: Contexte, manquantsSite: string[] = [])
   const projetId = String(ctx.scenario?.parent || '');
   const projet = projetId ? await lireTache(ctx.token, projetId, true) : null;
   if (projet) {
-    const freres = (Array.isArray(projet.subtasks) ? projet.subtasks : []).filter((s: any) => (!s?.parent || String(s.parent) === projetId) && !s?.archived);
+    // Scénarios archivés écartés : case « archivé » relue sur la liste (le résumé des sous-tâches ne la porte pas toujours,
+    // recette du 03/11, cas 3) ou statut 🏁 archivé (écarts 22 et 23)
+    const archives = new Set((await sousTachesArchivees(ctx.token, ctx.listId, projetId).catch(() => [] as any[])).map((s: any) => String(s?.id || '')));
+    const freres = (Array.isArray(projet.subtasks) ? projet.subtasks : []).filter((s: any) => (!s?.parent || String(s.parent) === projetId)
+      && !s?.archived && !archives.has(String(s?.id || '')) && !normal(s?.status?.status).includes('archiv'));
     const seg = segmentDe(ctx.scenario);
     if (seg && freres.length <= 1 && segmentDe(projet) !== seg) {
       const w = ecrite(ctx.defs, CHAMPS.segment, OPTIONS.segment[seg]);
