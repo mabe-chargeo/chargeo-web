@@ -49,6 +49,10 @@
 // - SIM 4G selon la borne (écart 31, bibliothèque relue le 03/11) : 4G intégrée (Schneider Charge Pro, Peblar Business,
 //   Peblar Dual), en option (Hager Witty Plus, carte OPT-4G-HAG) ou aucune (les autres). « Intégrée à la borne (SIM 4G) »
 //   n'est proposée que si la borne l'intègre ou l'a en option ; sur une borne sans 4G, « Prêt à chiffrer » la refuse.
+// 04/11/2026, 22 h 42 (passe 3, cas 2, Mathieu : « même si là-bas on est connecté, je ne veux pas être obligé de
+// renseigner une connexion ») : en RES, DAP et RIC sur colonne Enedis (aucune supervision au devis), l'accès Internet
+// n'est plus exigé par « Prêt à chiffrer », vide ou non. Il reste obligatoire en PAR, FLT, TER, COP et RIC sur l'infra
+// (la supervision ou la gestion de l'infra en a besoin).
 import type { Nature, Segment } from '@/lib/champsClickUp';
 
 export type TypeSaisie = 'menu' | 'nombre' | 'texte' | 'case';
@@ -209,6 +213,10 @@ const sourceDe = (elements: ElementReleve[]) => texte(elements.find((e) => e.nat
 // RIC raccordé sur l'infra CHARGéO (source vide = infra, la source par défaut du segment)
 const ricSurInfra = (segment: Segment | null | undefined, source: string | null | undefined) =>
   segment === 'RIC' && texte(source) !== 'colonneEnedis';
+
+// Accès Internet facultatif (04/11, 22 h 42) : aucune supervision au devis en RES, DAP et RIC sur colonne Enedis
+const internetFacultatif = (segment: Segment | null | undefined, source: string | null | undefined) =>
+  segment === 'RES' || segment === 'DAP' || (segment === 'RIC' && !ricSurInfra(segment, source));
 
 // Points de charge desservis par les boîtes de dérivation (COP) : quantité de chaque élément Boîte, 1 si vide
 export function nombreBoites(elements: ElementReleve[]): number {
@@ -451,6 +459,8 @@ export function manquants(e: ElementReleve, ctx: ContexteReleve): string[] {
       if (!surInfra && ctx.source === 'tgbtServicesGeneraux' && gestion && gestion !== 'aucune' && !texte(v.mesurePuissance) && !texte(ctx.mesure)) {
         m.push('mesure de puissance (obligatoire sur les services généraux)');
       }
+      // RES, DAP et RIC sur colonne Enedis : accès Internet jamais exigé (04/11, 22 h 42)
+      if (internetFacultatif(ctx.segment, ctx.source)) break;
       if (ctx.tdPartage && v.connectivite !== 'modemDeporte') m.push('à enregistrer (modem déporté posé d\'office avec le TD de borne partagée)');
       else if (!v.connectivite) m.push('accès Internet');
       else if (v.connectivite === 'integreeTdIrve') m.push('accès Internet (rien dans le TD IRVE : modem déporté)');
