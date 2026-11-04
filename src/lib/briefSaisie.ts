@@ -23,6 +23,8 @@
 //   l'AMO reste sans aide (D17) ;
 // - COP sur services généraux : la phrase « pas besoin d'augmenter » de l'en-tête suit le calcul de la puissance cible
 //   (écart 53).
+// 04/11/2026, passe 3 cas 1 (choix de Mathieu vers 22 h 27) : la mise en service de la supervision (avec ou sans
+// refacturation) est comptée avec les points de recharge, plus dans la surprime équipements et cheminement.
 // 04/11/2026 (modèles V2) : le DAP a deux modèles, sur services généraux (DAP_SG, ADVENIR individuel) et sur le tableau du
 // logement (DAP_HSG, sans ADVENIR : son en-tête porte déjà la bonne phrase, plus rien à remplacer, écart 42).
 import type { Segment } from '@/lib/champsClickUp';
@@ -188,6 +190,9 @@ const SURPRIME_PARTAGE = 8000;
 const SURPRIME_PDL = 3000;
 // PAR : zones des points de recharge (avec prestations et déplacement, valeur haute) ; le reste = équipements et cheminement
 const ZONES_POINTS: Zone[] = ['borne', 'prise', 'autre', 'prestations', 'logistique'];
+// Mise en service de la supervision : comptée avec les points de recharge, pas dans la surprime équipements et cheminement
+// (choix de Mathieu du 04/11/2026 vers 22 h 27, passe 3 cas 1 ; la mise en service simple suit la même règle)
+const REFS_POINTS = ['SERV-SETUP-SUPERVISION', 'SERV-SETUP-SUPERVISION-REFACT'];
 const PERMIS_2017 = Date.UTC(2017, 0, 1);
 const PERMIS_2021 = Date.UTC(2021, 2, 10);
 
@@ -212,7 +217,7 @@ function totaux(c: ContexteSaisie): { ht: number; htPoints: number; htEquipement
     if (p === undefined) { manquants.add(l.ref); continue; }
     const v = p * l.qte;
     ht += v;
-    if (ZONES_POINTS.includes(l.zone)) htPoints += v;
+    if (ZONES_POINTS.includes(l.zone) || REFS_POINTS.includes(l.ref)) htPoints += v;
   }
   if (manquants.size) return { manquants: Array.from(manquants) };
   return { ht, htPoints, htEquipements: ht - htPoints };
@@ -263,7 +268,7 @@ function primeAdvenir(m: ModeleDevis, c: ContexteSaisie): string[] {
   } else {
     const pourquoi = t && 'manquants' in t ? `prix introuvable en bibliothèque pour ${t.manquants.join(', ')}` : 'prix de la bibliothèque non lus';
     const regle = aide === 'partage'
-      ? `50 % du sous-total HT des points de recharge plafonné à ${n} × 1 660 € = ${euros(n * PLAFOND_PARTAGE)} HT, + 50 % du sous-total HT des équipements et cheminements (TD, câbles, data, routeur) plafonné à 8 000 € HT`
+      ? `50 % du sous-total HT des points de recharge (avec la mise en service de la supervision) plafonné à ${n} × 1 660 € = ${euros(n * PLAFOND_PARTAGE)} HT, + 50 % du sous-total HT des équipements et cheminements (TD, câbles, data, routeur) plafonné à 8 000 € HT`
       : aide === 'individuel'
         ? `50 % du total HT plafonné à ${n > 1 ? `${n} × 1 000 € = ${euros(n * PLAFOND_INDIVIDUEL)}` : '1 000 €'}`
         : plafond !== null ? `50 % du total HT plafonné à ${euros(plafond)} HT` : '50 % du total HT, plafond à calculer (nombre de places à renseigner)';
