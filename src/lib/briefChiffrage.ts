@@ -38,6 +38,9 @@
 //   (✖), le contrôle vérifie d'abord qu'aucun ✖ n'est oublié ; DAP : la ligne Segment dit la source (écart 40) ; RIC sur
 //   l'infra CHARGéO : la dérivation reprend la section de l'artère de l'infra liée (écarts 66 et 70) ; ADVENIR chiffré
 //   sur les prix de la bibliothèque (src/lib/briefSaisie.ts). L'envoi sur le scénario est dans src/lib/briefPoste.ts.
+// - 04/11 (préparation de la passe 3) : RIC sur l'infra, la dérivation prend la section de l'artère mais garde les phases
+//   du raccordement du résident, 3G en monophasé, 5G en triphasé si l'artère l'est aussi (écart 66 : 3G16 pour une borne
+//   mono sur une artère 5G16).
 // Calculs (synthèse du 14/10, sections 4, 6 et 7) :
 // - réserve IRVE au barème (arrêté du 23/12/2020) en COP, avec le plafond ADVENIR infra ;
 // - puissance à demander à Enedis si PDL dédié (réserve IRVE en COP, somme des puissances visées sinon, plafonnée à
@@ -802,9 +805,9 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
         else poserLigne(ref, metres(trancheeRestante), 'ml', `${c.nom} (en tranchée)`);
       }
     } else {
-      // Section : calculée (S1), forcée (S2), de l'artère (S4) ; 3G en mono, 5G en tri (S5). RIC sur l'infra : phases de
-      // l'artère de l'infra liée (écarts 66 et 70)
-      const triCable = k.infra ? (b.infra ? b.infra.tri : triRacc)
+      // Section : calculée (S1), forcée (S2), de l'artère (S4) ; 3G en mono, 5G en tri (S5). RIC sur l'infra : section de
+      // l'artère de l'infra, phases du raccordement du résident, 5G seulement si l'artère est triphasée (écarts 66 et 70)
+      const triCable = k.infra ? (triRacc && (b.infra ? b.infra.tri : true))
         : type === 'artere' || (cop && arr?.nature === 'tdIrveCoffret') ? triRacc : (k.ci ? k.ci.tri : triRacc);
       let s = k.section;
       let noteSection = '';
