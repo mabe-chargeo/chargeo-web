@@ -15,6 +15,8 @@
 // tous les modes de pose, toutes les bornes, prises et options du segment, quantités à 1, TVA du segment ; un texte de
 // bibliothèque est placé juste en dessous de l'ouvrage qu'il qualifie (la coupure en tête du Raccordement). Les deux AMO
 // sont inchangés. ADMIN-CREATION-PDL n'est plus dans les devis de travaux sur PDL dédié : il est porté par l'AMO.
+// 04/11/2026, 22 h 15 (passe 3, cas 1, choix de Mathieu) : LIA-ROUTEUR ajouté juste sous INFRA-COP-ROUTEUR dans RES, DAP SG,
+// DAP hors SG, PAR SG et PAR PDL (COP, FLT et TER l'avaient déjà).
 
 export type CleModele =
   | 'COP_PDL' | 'COP_SG' | 'PAR_SG' | 'PAR_PDL' | 'RIC_TARIF_TYPE' | 'RIC_RESIDENT' | 'RIC_COLONNE'
@@ -153,7 +155,7 @@ const RACC_PDL = [...PDL, RESERVE, ...TERRES];
 const PLAN_RES: SectionModele[] = [
   ALIM(RACC_TABLEAU(COUPURE_TABLEAU), CHEM_AMONT, [...COFFRETS, SANS_DELESTAGE]),
   POINT_COMPLET(),
-  COMMUNICATION(Ps('INFRA-COP-ROUTEUR', 'OPT-4G-HAG')),
+  COMMUNICATION(Ps('INFRA-COP-ROUTEUR', 'LIA-ROUTEUR', 'OPT-4G-HAG')),
   PRESTATIONS([P('ADMIN-CONSUEL'), ...ZONES_DEP]),
 ];
 
@@ -167,7 +169,7 @@ const PLAN_RES_PRISE: SectionModele[] = [
 const PLAN_DAP = (sg: boolean): SectionModele[] => [
   ALIM(RACC_TABLEAU(sg ? COUPURE_TGBT : COUPURE_TABLEAU), CHEM_AMONT, [...(sg ? [P('MID-SOUS-COMPTAGE')] : []), ...COFFRETS, SANS_DELESTAGE]),
   POINT_COMPLET(),
-  COMMUNICATION(Ps('INFRA-COP-ROUTEUR', 'OPT-4G-HAG')),
+  COMMUNICATION(Ps('INFRA-COP-ROUTEUR', 'LIA-ROUTEUR', 'OPT-4G-HAG')),
   PRESTATIONS(sg
     ? [P('ADMIN-CONSUEL'), CONSUEL_COPRO, P('ADMIN-DAP'), P('ADMIN-ADVENIR'), ADV_INDIV, ...ZONES_DEP]
     : [P('ADMIN-CONSUEL'), CONSUEL_COPRO, P('ADMIN-DAP'), ...ZONES_DEP]),
@@ -176,7 +178,7 @@ const PLAN_DAP = (sg: boolean): SectionModele[] => [
 const PLAN_PAR = (sg: boolean): SectionModele[] => [
   ALIM(sg ? RACC_TABLEAU(COUPURE_TGBT) : RACC_PDL, CHEM_AMONT, [...COFFRETS, ...TD_PARTAGE, SANS_DELESTAGE]),
   POINT_COMPLET(),
-  COMMUNICATION(Ps('INFRA-COP-ROUTEUR', 'OPT-4G-HAG', 'SERV-SETUP-SUPERVISION', 'SERV-SETUP-SUPERVISION-REFACT'), sg ? [...PILOTAGES, ...COMPTAGES] : PILOTAGES),
+  COMMUNICATION(Ps('INFRA-COP-ROUTEUR', 'LIA-ROUTEUR', 'OPT-4G-HAG', 'SERV-SETUP-SUPERVISION', 'SERV-SETUP-SUPERVISION-REFACT'), sg ? [...PILOTAGES, ...COMPTAGES] : PILOTAGES),
   PRESTATIONS([P('ADMIN-CONSUEL'), CONSUEL_COPRO, ...(sg ? [] : [CONSUEL_PDL]), P('ADMIN-ADVENIR'), ADV_PARTAGE, ...ZONES_DEP]),
 ];
 
