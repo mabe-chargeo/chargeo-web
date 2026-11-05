@@ -10,6 +10,7 @@ import { demiJourneesDe, segmentsPose } from '@/lib/demiJournees';
 import { dureePose, dureeRdv } from '@/lib/dureesRdv';
 import { adresses } from '@/lib/adresses';
 import { villeDe } from '@/lib/modelesMails';
+import { effacerMailAFaire, mailAFaire, poserMailAFaire } from '@/lib/mailsAFaire';
 
 // Caler le relevé technique depuis l'application (17/10/2026, 20 h 44, choix de Matthieu : « Caler + email de
 // confirmation prêt à envoyer »). Le commercial appelle le client et fixe le rendez-vous du chef de chantier.
@@ -32,6 +33,8 @@ import { villeDe } from '@/lib/modelesMails';
 // 05/11/2026 (Phase 9, lot 2, décision de Mathieu du 05/11 à 20 h 57 : les textes des mails vivent dans l'appli) :
 //   l'email de confirmation n'est plus rédigé ici. L'écran ouvre « Visite · confirmation » (ou « Visite · déplacée »)
 //   de src/lib/modelesMails.ts, envoyé depuis contact@chargeo.fr avec sa copie sur la fiche.
+// 05/11/2026, 21 h 56 à 21 h 58 (Mathieu : l'envoi du mail est obligatoire) : caler pose « ✉️ Mail à envoyer » =
+//   visite-confirmation (visite-deplacee en cas de décalage, src/lib/mailsAFaire.ts) ; annuler l'efface. Renvoie mailPose.
 // Droits : commercial, chef de chantier et direction. Fiche de la Qualification de l'environnement (🧪 TEST en preview)
 // au statut 📍 à visiter. En preview, seules les fiches avec le mot « Test » dans le nom sont modifiées.
 // Le fichier n'exporte que les handlers (règle des routes Next).
@@ -287,12 +290,15 @@ export async function POST(request: Request) {
     const ancien = dateVisiteDe(t);
     const cd = champDuree(t);
 
-    // Annuler le rendez-vous : date et durée vidées, événement retiré des agendas Google des chefs, trace
+    // Annuler le rendez-vous : date et durée vidées, événement retiré des agendas Google des chefs, mail en attente
+    // (confirmation, rappel) effacé, trace
     if (texte(corps?.action, 20) === 'annuler') {
       if (!ancien) return json({ success: false, error: 'Aucun rendez-vous calé sur cette fiche.' }, 400);
       const r = await fetch(`${API}/task/${tid}/field/${DATE_VISITE_ID}`, { method: 'DELETE', headers: { Authorization: token }, cache: 'no-store' });
       if (!r.ok) return json({ success: false, error: `ClickUp a refusé l’annulation (${r.status})` }, 502);
       if (cd) await fetch(`${API}/task/${tid}/field/${cd.id}`, { method: 'DELETE', headers: { Authorization: token }, cache: 'no-store' }).catch(() => null);
+      const attendu = mailAFaire(t);
+      if (attendu.startsWith('visite-')) await effacerMailAFaire(token, t).catch(() => false);
       let agendaOk = true;
       if (agendaBranche()) {
         const lus = await Promise.allSettled(chefs.filter((c) => c.email).map((c) => retirerReleve(c.email, String(t.id))));
@@ -348,6 +354,9 @@ export async function POST(request: Request) {
       });
       chefOk = ra.ok;
     }
+    // 2 bis. Mail obligatoire : confirmation (ou visite déplacée) à envoyer depuis l'appli (décision du 05/11, 21 h 56)
+    const cleMail = ancien ? 'visite-deplacee' : 'visite-confirmation';
+    const mailPose = await poserMailAFaire(token, t, cleMail).catch(() => false);
 
     // 3. Google Agenda du chef (un échec n'annule pas la date, il est signalé)
     let agenda: 'cree' | 'deplace' | 'non-branche' | 'sans-chef' | 'erreur' = 'non-branche';
@@ -388,6 +397,7 @@ export async function POST(request: Request) {
       ancien ? `Ancienne date : ${libelleDate(ancien)}.` : '',
       note ? `${MARQUE_NOTE}${note}` : '',
       agenda === 'cree' ? `🗓️ Ajouté à l'agenda Google de ${chef?.nom}.` : agenda === 'deplace' ? `🗓️ Déplacé dans l'agenda Google de ${chef?.nom}.` : agenda === 'erreur' ? `⚠️ Agenda Google non mis à jour : ${agendaErreur}` : '',
+      mailPose ? `✉️ Mail « ${ancien ? 'Visite · déplacée' : 'Visite · confirmation'} » à envoyer depuis l'appli (obligatoire).` : '⚠️ Le mail à envoyer n’a pas pu être marqué sur la fiche.',
     ].filter(Boolean);
     await fetch(`${API}/task/${tid}/comment`, {
       method: 'POST',
@@ -403,6 +413,7 @@ export async function POST(request: Request) {
       agenda,
       agendaErreur,
       decale: !!ancien,
+      mailPose,
       cale: { quand, chef: chef?.nom || '', lienFiche: adresses.affaire(String(t.id)) },
     });
   } catch (e) {

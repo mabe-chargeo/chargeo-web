@@ -14,15 +14,18 @@
 // Écrit par /api/interne/caler. Ouvert depuis « Visites à caler » et depuis la fiche affaire.
 // 19/10/2026 (2e lot de cohérence) : cartes et boutons sur les briques communes (src/components/charte/Appli.tsx).
 // 05/11/2026 (Phase 9, lot 2, décisions de Mathieu du 05/11 à 20 h 57 et 21 h 22) : plus de lien Gmail ni de texte à
-//   copier. « Écrire le mail » ouvre « Visite · confirmation » (ou « Visite · déplacée » après un décalage) dans l'appli
-//   (/mail), rempli avec la fiche, en réponse au dernier échange, envoyé depuis contact@chargeo.fr avec sa copie sur la
-//   fiche.
+//   copier. Le mail « Visite · confirmation » (ou « Visite · déplacée » après un décalage) s'écrit dans l'appli,
+//   rempli avec la fiche, en réponse au dernier échange, envoyé depuis contact@chargeo.fr avec sa copie sur la fiche.
+// 05/11/2026, 21 h 56 à 21 h 58 (Mathieu : mail obligatoire, au moment opportun, et plus de page sans lien avec les
+//   autres) : le mail s'écrit SUR cet écran (src/components/ui/EcrireMail.tsx), juste après avoir calé. Il est
+//   obligatoire : la route pose « ✉️ Mail à envoyer » et la fiche reste bloquée tant qu'il n'est pas parti.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AlertTriangle, CalendarCheck, CalendarX, Check, ChevronRight, Mail, MapPin, RefreshCw, X } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal, LienPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
+import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import AgendaSemaine, { heureDe, libelleJourCourt, type BlocAgenda, type JourneeAgenda } from '@/components/ui/AgendaSemaine';
+import EcrireMail from '@/components/ui/EcrireMail';
 import { adresses } from '@/lib/adresses';
 
 type Fiche = { id: string; nom: string; statut: string; aVisiter: boolean; adresse: string; ville?: string; email: string; telephone: string; dejaCale: string; duree?: string };
@@ -186,7 +189,7 @@ export default function CalerPage() {
     );
   }
 
-  // Écran de confirmation : juste après avoir calé, ou « Renvoyer la confirmation »
+  // Écran de confirmation : juste après avoir calé (mail obligatoire), ou « Renvoyer la confirmation » (mail libre)
   const confirmation = (c: Cale, titre: string, renvoyee: boolean) => {
     const s = statutAgenda.statut;
     const modele = !renvoyee && decale ? 'visite-deplacee' : 'visite-confirmation';
@@ -210,10 +213,7 @@ export default function CalerPage() {
           </Carte>
 
           <Repere>{modele === 'visite-deplacee' ? 'Mail au client : visite déplacée' : 'Mail de confirmation au client'}</Repere>
-          <LienPrincipal href={adresses.mail(id, '', modele)}>
-            <Mail size={20} /> Écrire le mail
-          </LienPrincipal>
-          <p className="px-1 text-[12px] text-slate-500">Le mail s’ouvre déjà rempli dans l’appli, en réponse au dernier échange avec le client. Tu complètes les [crochets], tu relis et tu l’envoies depuis contact@chargeo.fr. Sa copie va sur la fiche.</p>
+          <EcrireMail ficheId={id} modele={modele} obligatoire={!renvoyee} retour={{ href: c.lienFiche, libelle: 'Revenir à la fiche' }} />
           <a href={c.lienFiche} className="flex items-center justify-center gap-1 text-[15px] font-semibold" style={{ color: CYAN }}>Ouvrir la fiche <ChevronRight size={16} /></a>
           {renvoyee
             ? <button onClick={() => setRenvoi(false)} className="block w-full text-center text-[15px] font-semibold" style={{ color: CYAN }}>Décaler ou annuler le rendez-vous</button>
@@ -317,7 +317,7 @@ export default function CalerPage() {
               {envoi ? <RefreshCw size={20} className="animate-spin" /> : <CalendarCheck size={20} />}
               {envoi ? 'Enregistrement…' : fiche.dejaCale ? 'Décaler le relevé' : 'Caler le relevé'}
             </BoutonPrincipal>
-            <p className="text-center text-[12px] text-slate-500">Ensuite, le RDV part dans l’agenda du chef et le mail de confirmation au client s’écrit dans l’appli.</p>
+            <p className="text-center text-[12px] text-slate-500">Ensuite, le RDV part dans l’agenda du chef et le mail au client s’ouvre ici, déjà rempli : il est obligatoire.</p>
           </>
         )}
       </ContenuAppli>
