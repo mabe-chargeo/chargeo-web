@@ -11,11 +11,15 @@
 // - 04/11 (préparation de la passe 3) : l'artère est d'abord cherchée sur la fiche du scénario RIC elle-même (Tarif type
 //   chiffré sur la fiche de la copropriété, cas 9 de la recette), puis sur l'infra liée ; fiches, scénarios et éléments
 //   archivés écartés (case archivée ou statut 🏁 archivé).
+// - 05/11, 10 h 40 (passe 3, cas 10, accord de Mathieu) : sur l'infra liée, le scénario « ✅ Retenu » archivé (infra gagnée
+//   puis rangée) est lu avec ses éléments archivés ; les éléments actifs passent d'abord. Les autres scénarios archivés
+//   (non retenus, Tarifs types, copies) restent écartés.
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Segment } from '@/lib/champsClickUp';
 import { BUDGET_ARTERE, chute, genererBrief, type ArtereInfra } from '@/lib/briefChiffrage';
 import { longueurTotale, type ElementReleve } from '@/lib/releveElements';
 import { lireTache, segmentDe, vue } from '@/lib/elements';
 import { CHAMP_INFRA_LIEE } from '@/lib/infraLiee';
+import { PREFIXE_RETENU, sousTachesArchivees } from '@/lib/scenarioRetenu';
 
 export const ENTETE_BRIEF = '📋 Brief de chiffrage';
 const PERIME = '⛔ BRIEF PÉRIMÉ';
@@ -26,6 +30,7 @@ const ETALON = { ref: 'BORNE-HAG-WONE-7', prix: 897.92 };
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 // Archivé : case « archivé » de ClickUp ou statut 🏁 archivé (le résumé des sous-tâches ne porte pas toujours la case)
 const estArchive = (t: any) => !!t?.archived || normal(t?.status?.status).includes('archiv');
+const estRetenu = (t: any) => String(t?.name || '').startsWith(PREFIXE_RETENU);
 
 async function api(token: string, chemin: string, methode = 'GET', corps?: any): Promise<Response> {
   return fetch(`https://api.clickup.com/api/v2${chemin}`, {
@@ -102,7 +107,8 @@ export async function prixBibliotheque(): Promise<Map<string, number> | null> {
 // Artère de l'infra CHARGéO d'un scénario RIC (écarts 66 et 70) : section forcée, sinon 16 mm² ou 25 mm² selon la chute
 // (même calcul que le brief de l'infra). Cherchée d'abord sur la fiche du scénario elle-même (Tarif type chiffré sur la
 // fiche de la copropriété, cas 9), puis sur l'infra liée (🔗 Infrastructure liée, ou tâche liée sur la liste TEST qui n'a
-// pas le champ). Scénario retenu d'abord, sinon le premier scénario COP qui a une artère.
+// pas le champ). Scénario retenu d'abord, sinon le premier scénario COP qui a une artère. Sur l'infra liée, le « ✅ Retenu »
+// archivé compte aussi, avec ses éléments archivés (cas 10, 05/11).
 async function artereInfra(token: string, fiche: any): Promise<ArtereInfra | null> {
   if (!fiche?.id) return null;
   const ficheId = String(fiche.id);
@@ -116,17 +122,32 @@ async function artereInfra(token: string, fiche: any): Promise<ArtereInfra | nul
   for (const id of ids.slice(0, 6)) {
     const infra = await lireTache(token, id, true);
     if (!infra || infra.parent || estArchive(infra)) continue;
-    const scenarios = (Array.isArray(infra.subtasks) ? infra.subtasks : [])
-      .filter((s: any) => String(s?.parent || '') === id && !estArchive(s))
-      .sort((a: any, b: any) => Number(String(b?.name || '').startsWith('✅ Retenu')) - Number(String(a?.name || '').startsWith('✅ Retenu')));
+    const listeId = String(infra?.list?.id || '');
+    const actifs = (Array.isArray(infra.subtasks) ? infra.subtasks : [])
+      .filter((s: any) => String(s?.parent || '') === id && !estArchive(s));
+    // Infra liée gagnée puis rangée : son « ✅ Retenu » est archivé (absent des sous-tâches lues ci-dessus)
+    const retenusArchives = id !== ficheId && listeId
+      ? (await sousTachesArchivees(token, listeId, id).catch(() => [])).filter((s: any) => estRetenu(s) && !actifs.some((a: any) => String(a?.id) === String(s?.id)))
+      : [];
+    const scenarios = [...actifs, ...retenusArchives]
+      .sort((a: any, b: any) => Number(estRetenu(b)) - Number(estRetenu(a)));
     for (const s of scenarios) {
+      const retenuInfra = id !== ficheId && estRetenu(s);
       const sc = await lireTache(token, String(s.id), true);
-      if (!sc || estArchive(sc) || segmentDe(sc) !== 'COP') continue;
+      if (!sc || (!retenuInfra && estArchive(sc)) || segmentDe(sc) !== 'COP') continue;
       const sous = (Array.isArray(sc.subtasks) ? sc.subtasks : []).filter((e: any) => String(e?.parent || '') === String(sc.id) && !estArchive(e));
-      const els = (await Promise.all(sous.map((e: any) => lireTache(token, String(e.id))))).filter((t: any) => t && !estArchive(t)).map(vue);
-      const artere = els.find((e) => e.nature === 'cheminement' && e.typeCheminement === 'artere');
+      const actifsEls = (await Promise.all(sous.map((e: any) => lireTache(token, String(e.id))))).filter((t: any) => t && !estArchive(t)).map(vue);
+      let artere = actifsEls.find((e) => e.nature === 'cheminement' && e.typeCheminement === 'artere');
+      let racc = actifsEls.find((e) => e.nature === 'raccordement');
+      // Retenu de l'infra liée : ses éléments archivés avec lui, lus en second
+      if ((!artere || !racc) && retenuInfra && listeId) {
+        const archives = (await sousTachesArchivees(token, listeId, String(sc.id)).catch(() => []))
+          .filter((e: any) => !sous.some((x: any) => String(x?.id) === String(e?.id)));
+        const archEls = (await Promise.all(archives.map((e: any) => lireTache(token, String(e.id))))).filter(Boolean).map(vue);
+        artere = artere ?? archEls.find((e) => e.nature === 'cheminement' && e.typeCheminement === 'artere');
+        racc = racc ?? archEls.find((e) => e.nature === 'raccordement');
+      }
       if (!artere) continue;
-      const racc = els.find((e) => e.nature === 'raccordement');
       const tri = String(racc?.valeurs.typeRaccordement ?? '') !== 'mono';
       const forcee = Number(String(artere.valeurs.sectionForcee ?? '').replace(',', '.')) || null;
       const section = forcee ?? (chute(true, longueurTotale(artere.valeurs), 63, 16) <= BUDGET_ARTERE ? 16 : 25);
