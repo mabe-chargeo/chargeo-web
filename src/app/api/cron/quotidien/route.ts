@@ -7,6 +7,7 @@ import { controlerMaintenance } from '@/lib/echeancierMaintenance';
 import { rappelerDecomptes } from '@/lib/rappelDecomptes';
 import { balayerRdvCaducs } from '@/lib/rdvOrphelins';
 import { retrouverFacturesAEmettre } from '@/lib/factureAuto';
+import { poserRappelsVeille } from '@/lib/rappelVeille';
 
 // Contrôle quotidien (cron Vercel, un seul appel par jour sur l'offre Hobby) :
 // 1. alertes d'échéance des dossiers ADVENIR (/api/advenir/alertes, règles inchangées) ;
@@ -23,6 +24,9 @@ import { retrouverFacturesAEmettre } from '@/lib/factureAuto';
 //    venir dont la tâche est supprimée, archivée ou annulée sont retirés des agendas des chefs et des installateurs.
 // 8. (18/10/2026, Matthieu : « Oui, remplissage automatique ») factures clients à émettre retrouvées dans Costructor
 //    (src/lib/factureAuto.ts) : n°, montant HT, date d'échéance remplis, passage en 📤 émise, première relance.
+// 9. (05/11/2026, Phase 9, Mathieu : mail obligatoire) rappel de la veille (src/lib/rappelVeille.ts) : « ✉️ Mail à
+//    envoyer » = visite-rappel-veille sur les visites du lendemain (du samedi au lundi le vendredi). Rien ne part tout
+//    seul : le commercial l'envoie depuis la fiche.
 // Production : appelé par le cron avec l'en-tête Authorization: Bearer CRON_SECRET (vercel.json).
 // Preview : GET ?simulation=1 (rien n'est écrit ni réactivé).
 // Jeton Vercel « Protection Bypass for Automation » créé par Matthieu le 12/10 (note « Webhooks ClickUp »).
@@ -47,7 +51,8 @@ export async function GET(request: Request) {
       const maintenance = await controlerMaintenance(false).catch((e) => ({ success: false, error: String(e) }));
       const decomptes = await rappelerDecomptes(false).catch((e) => ({ success: false, error: String(e) }));
       const rdvCaducs = await balayerRdvCaducs(false).catch((e) => ({ success: false, error: String(e) }));
-      return NextResponse.json({ advenir: await advenir.json().catch(() => null), webhooks, factures, reglements, achats, maintenance, decomptes, rdvCaducs });
+      const rappelsVeille = await poserRappelsVeille(false).catch((e) => ({ success: false, error: String(e) }));
+      return NextResponse.json({ advenir: await advenir.json().catch(() => null), webhooks, factures, reglements, achats, maintenance, decomptes, rdvCaducs, rappelsVeille });
     }
     const p = new URL(request.url).searchParams;
     if (p.get('simulation') !== '1') return NextResponse.json({ error: 'Ajoute ?simulation=1' }, { status: 400 });
@@ -59,7 +64,8 @@ export async function GET(request: Request) {
     const maintenance = await controlerMaintenance(true).catch((e) => ({ success: false, error: String(e) }));
     const decomptes = await rappelerDecomptes(true).catch((e) => ({ success: false, error: String(e) }));
     const rdvCaducs = await balayerRdvCaducs(true).catch((e) => ({ success: false, error: String(e) }));
-    return NextResponse.json({ simulation: true, advenir: await advenir.json().catch(() => null), webhooks, factures, reglements, achats, maintenance, decomptes, rdvCaducs });
+    const rappelsVeille = await poserRappelsVeille(true).catch((e) => ({ success: false, error: String(e) }));
+    return NextResponse.json({ simulation: true, advenir: await advenir.json().catch(() => null), webhooks, factures, reglements, achats, maintenance, decomptes, rdvCaducs, rappelsVeille });
   } catch (erreur) {
     console.error('Contrôle quotidien en erreur', erreur);
     return NextResponse.json({ error: 'Erreur interne du serveur' }, { status: 500 });

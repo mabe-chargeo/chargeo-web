@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getQualificationListId } from '@/lib/listesClickUp';
 import { champType } from '@/lib/typesTaches';
+import { poserMailAFaire } from '@/lib/mailsAFaire';
 
 // Liste Qualification choisie selon l'environnement (src/lib/listesClickUp.ts) :
 // production = vraie liste, preview = liste TEST uniquement, sinon refus.
 // Étape 2 (15/10/2026) : le lead naît en type Projet (repli sur Tâche si le type est introuvable).
+// 05/11/2026 (Phase 9, Mathieu : mail obligatoire) : le lead naît avec « ✉️ Mail à envoyer » = prise-en-charge
+// (src/lib/mailsAFaire.ts). Le commercial l'envoie depuis la fiche de l'appli ; un échec ne bloque jamais le formulaire.
 export async function POST(request: Request) {
   try {
     const data = await request.json();
@@ -68,6 +71,10 @@ export async function POST(request: Request) {
     });
 
     if (response.ok) {
+      // Mail de prise en charge obligatoire (un échec est seulement journalisé)
+      const tache = await response.json().catch(() => null);
+      const mailPose = tache?.id ? await poserMailAFaire(CLICKUP_API_KEY, tache, 'prise-en-charge').catch(() => false) : false;
+      if (!mailPose) console.error('Mail à envoyer non posé sur le lead', tache?.id || '(id inconnu)');
       return NextResponse.json({ success: true });
     } else {
       const errorData = await response.json();
