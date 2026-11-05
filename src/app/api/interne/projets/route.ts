@@ -10,6 +10,7 @@ import {
   type CleRoleContact, type LienProjet,
 } from '@/lib/rolesContact';
 import { adresses } from '@/lib/adresses';
+import { poserMailAFaire } from '@/lib/mailsAFaire';
 
 // Écran Nouveau projet de l'application équipe (parcours validé par Matthieu le 17/10/2026, 14 h 08).
 // 1. Qui appelle ? On relie un contact existant de la liste Contacts 👥 (son rôle est déjà connu) ou on en crée un, avec
@@ -26,10 +27,16 @@ import { adresses } from '@/lib/adresses';
 // POST { action: 'creer' | 'ajouter', … }
 // Preview : la fiche est créée dans 🧪 Qualification TEST et son nom commence par « Test ». La liste Contacts réelle n'est
 // JAMAIS écrite et les champs relation n'existent pas sur TEST : les contacts sont notés en commentaire sur la fiche test.
+// 05/11/2026 (Phase 9, Mathieu : mail obligatoire) : la fiche créée reçoit « ✉️ Mail à envoyer » (src/lib/mailsAFaire.ts) :
+// prise-en-charge-gestionnaire en copropriété (Type Client copro, ou segment COP / PAR) avec un gestionnaire parmi les
+// contacts, sinon prise-en-charge. Le mail s'écrit ensuite en tête de la fiche ; un échec est signalé, jamais bloquant.
 
 export const dynamic = 'force-dynamic';
 const PAGES_MAX = 10;
 const RAYON_DOUBLON_M = 40;
+// Index des menus (écrits par index, jamais réordonnés) : Type Client 2 = copropriété ; Segment 2 = COP, 3 = PAR
+const TYPE_CLIENT_COPRO = 2;
+const SEGMENTS_COPRO = [2, 3];
 
 const json = (corps: any, status = 200) => NextResponse.json(corps, { status });
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -367,7 +374,14 @@ export async function POST(request: Request) {
       return json({ success: false, error: `ClickUp a refusé la création du projet (${res.status})`, contacts: retenus }, 502);
     }
     const erreursLien = await relier(token, String(fiche.id), retenus, preview, auteur, true);
-    return json({ success: true, preview, fiche: { id: String(fiche.id), nom, lien: adresses.affaire(String(fiche.id)) }, contacts: retenus, avertissements: [...erreurs, ...erreursLien] });
+
+    // Mail de prise en charge obligatoire (version gestionnaire en copropriété suivie par un gestionnaire)
+    const copro = p.typeClient === TYPE_CLIENT_COPRO || SEGMENTS_COPRO.includes(Number(p.segment));
+    const cleMail = copro && retenus.some((r) => r.lien === 'gestionnaire') ? 'prise-en-charge-gestionnaire' : 'prise-en-charge';
+    const mailPose = await poserMailAFaire(token, fiche, cleMail).catch(() => false);
+    const erreurMail = mailPose ? [] : ['Le mail de prise en charge n’a pas pu être marqué « à envoyer » : écris-le depuis le bloc Contact de la fiche.'];
+
+    return json({ success: true, preview, fiche: { id: String(fiche.id), nom, lien: adresses.affaire(String(fiche.id)) }, contacts: retenus, mail: mailPose ? cleMail : '', avertissements: [...erreurs, ...erreursLien, ...erreurMail] });
   } catch (e) {
     console.error('Nouveau projet (écriture)', e);
     return json({ success: false, error: 'Erreur serveur' }, 500);
