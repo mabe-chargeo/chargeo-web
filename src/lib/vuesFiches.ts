@@ -7,9 +7,12 @@
 // 17/10/2026, 13 h 13 (Matthieu : « c'est le commercial qui planifie le relevé technique pour le chef de chantier ») :
 // « À caler » revient au commercial, qui appelle le client et fixe la 📅 Date Visite Technique.
 // 18/10/2026, 9 h 50 : vue « Perdues » (fiches ❌ perdu), pastille « Perdues » du Pipeline.
+// 05/11/2026 (Phase 9, décision de Mathieu de 21 h 56 à 21 h 58 : mails obligatoires) : vue « Mails à envoyer » (champ
+// ✉️ Mail à envoyer, src/lib/mailsAFaire.ts), en tête.
 // Pas d'accès réseau ici : fonctions pures sur les tâches lues par l'appelant.
 import { estAVisiter } from '@/lib/listesClickUp';
 import { aujourdhuiParis, comparer, type Jour } from '@/lib/joursOuvres';
+import { mailAFaire } from '@/lib/mailsAFaire';
 import type { Role } from '@/lib/roles';
 
 export const DATE_VISITE_ID = '3e633a82-89e3-4895-80d6-04ad25bbccd4';
@@ -17,6 +20,7 @@ const LIEU_CHANTIER_ID = '5b9cbfd6-535c-4416-b530-776f949ce432';
 const ADRESSE_ID = '990a7f3b-989f-416d-9a80-eba5654b228d';
 
 export type CleVue =
+  | 'mails-a-envoyer'
   | 'a-caler'
   | 'planifies'
   | 'en-retard'
@@ -85,6 +89,10 @@ export function libelleDate(ms: number, avecHeure = true): string {
 }
 
 export const VUES: Vue[] = [
+  {
+    cle: 'mails-a-envoyer', libelle: 'Mails à envoyer', description: 'Mail obligatoire pas encore parti (prise en charge, confirmation, rappel de la veille) : la fiche reste bloquée tant qu’il n’est pas envoyé',
+    roles: ['commercial'], filtre: (t) => !!mailAFaire(t), tri: 'maj',
+  },
   {
     cle: 'a-caler', libelle: 'Visites à caler', description: 'Relevés sans date de visite : appeler le client et fixer le rendez-vous du chef de chantier',
     roles: ['commercial'], filtre: (t) => aVisiter(t) && !visite(t), tri: 'maj',

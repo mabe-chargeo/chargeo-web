@@ -4,7 +4,8 @@ import { rolesDe, type Role } from '@/lib/roles';
 import { CHAMPS, OPTIONS, indexMenu } from '@/lib/champsClickUp';
 import { adresseDe, dateVisiteDe, normal } from '@/lib/vuesFiches';
 import { CONTACT_SUR_PLACE, GESTIONNAIRE, personnesLiees } from '@/lib/contactsFiche';
-import { nettoyerAdresse, villeDe, type Donnees } from '@/lib/modelesMails';
+import { modeleDe, nettoyerAdresse, remplir, villeDe, type Donnees } from '@/lib/modelesMails';
+import { effacerMailAFaire, mailAFaire, regle } from '@/lib/mailsAFaire';
 import {
   EXPEDITEUR,
   MAX_DESTINATAIRES,
@@ -20,18 +21,23 @@ import {
   type Fil,
 } from '@/lib/mails';
 
-// Écrire un mail depuis l'appli (Phase 9, lot 1, 05/11/2026 ; envoi : src/lib/mails.ts).
+// Écrire un mail depuis l'appli (Phase 9, lot 1, 05/11/2026 ; envoi : src/lib/mails.ts ; écran :
+// src/components/ui/EcrireMail.tsx).
 // GET ?fiche=<id> : nom de la fiche, 📧 Email du passeport, nom d'envoi et signature Gmail de contact@chargeo.fr,
 // branchement, préversion et droits.
-// POST { ficheId, a, cc, objet, texte, filId? } : le mail relu par la personne connectée part de contact@chargeo.fr,
-// signature Gmail ajoutée sous le texte, puis une copie est postée en commentaire sur la fiche (décision du 04/11,
-// 21 h 58). Jamais d'envoi automatique : seul le clic « Envoyer » appelle cette route.
+// POST { ficheId, a, cc, objet, texte, filId?, modele? } : le mail relu par la personne connectée part de
+// contact@chargeo.fr, signature Gmail ajoutée sous le texte, puis une copie est postée en commentaire sur la fiche
+// (décision du 04/11, 21 h 58). Jamais d'envoi automatique : seul le clic « Envoyer » appelle cette route.
 // Lot 2 (05/11/2026, décisions de Mathieu à 20 h 57 et 21 h 22) : GET renvoie aussi les données de la fiche qui
 // remplissent les textes (src/lib/modelesMails.ts) et les derniers fils échangés avec ses adresses ; POST refuse un mail
 // où il reste un « [ » et répond dans le fil choisi (filId, relu dans Gmail avant l'envoi).
+// Mails obligatoires (décision de Mathieu du 05/11 de 21 h 56 à 21 h 58, src/lib/mailsAFaire.ts) : GET renvoie le mail
+// en attente (aFaire) ; un envoi avec l'un des textes qui le règlent l'efface ; POST { ficheId, action: 'telephone',
+// phrase } note « Prévenu par téléphone » sur la fiche et l'efface, seulement quand la fiche n'a pas d'adresse pour ce
+// mail.
 // Préversion : le mail part seulement à l'adresse ClickUp de la personne connectée, avec [TEST] dans l'objet et les
-// destinataires prévus en tête du texte. Aucun client ne le reçoit. La réponse dans le fil n'y est gardée que sur une
-// fiche de test (« Test » dans le nom), pour ne pas glisser de mail de test dans le fil d'un vrai client.
+// destinataires prévus en tête du texte. Aucun client ne le reçoit. La réponse dans le fil et l'effacement du mail
+// obligatoire n'y sont faits que sur une fiche de test (« Test » dans le nom).
 // Droits : direction, commercial, chargé d'opération et back-office ; l'installateur seul n'envoie pas.
 // Mail parti mais copie refusée par ClickUp : succès avec un avertissement (jamais un échec, le mail est bien parti).
 export const dynamic = 'force-dynamic';
@@ -46,11 +52,25 @@ const texte = (v: unknown) => (v === undefined || v === null ? '' : String(v).tr
 const champs = (t: any): any[] => (Array.isArray(t?.custom_fields) ? t.custom_fields : []);
 const valeur = (t: any, id: string) => champs(t).find((c: any) => c?.id === id)?.value;
 const ficheDeTest = (t: any) => /\btest\b/i.test(String(t?.name || ''));
+const maintenantParis = () => new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' });
 
 async function lireTache(token: string, id: string): Promise<any | null> {
   if (!id || !/^[a-z0-9]+$/i.test(id)) return null;
   const r = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(id)}`, { headers: { Authorization: token }, cache: 'no-store' });
   return r.ok ? r.json().catch(() => null) : null;
+}
+
+async function commenter(token: string, id: string, contenu: string): Promise<boolean> {
+  try {
+    const r = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(id)}/comment`, {
+      method: 'POST',
+      headers: { Authorization: token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comment_text: contenu, notify_all: false }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
 }
 
 async function acces(request: Request) {
@@ -130,6 +150,7 @@ export async function GET(request: Request) {
       // Sans les identifiants techniques du fil (relus côté serveur à l'envoi)
       fils: lus.fils.map((f) => ({ id: f.id, objet: f.objet, de: f.de, date: f.date })),
       filsProbleme: lus.probleme || '',
+      aFaire: mailAFaire(tache),
     });
   } catch (e) {
     console.error('Mail (lecture)', e);
@@ -142,11 +163,28 @@ export async function POST(request: Request) {
     const a = await acces(request);
     if ('erreur' in a) return a.erreur;
     if (!a.peut) return json({ success: false, error: 'Envoi réservé à la direction, au commercial, au chargé d’opération et au back-office.' }, 403);
-    if (!mailBranche()) return json({ success: false, error: 'Envoi des mails pas encore branché (clé Google absente dans Vercel). Rien n’est parti.' }, 503);
     const corps = await request.json().catch(() => ({}));
     const tache = await lireTache(a.token, texte(corps?.ficheId));
     if (!tache) return json({ success: false, error: 'Fiche introuvable. Rien n’est parti.' }, 404);
+    const preview = enPreversion();
+    const auteur = texte(a.session.nom) || 'l’équipe';
 
+    // ── Prévenu par téléphone (seule sortie d'un mail obligatoire sans adresse mail) ──
+    if (texte(corps?.action) === 'telephone') {
+      const attendu = mailAFaire(tache);
+      if (!attendu) return json({ success: false, error: 'Aucun mail obligatoire en attente sur cette fiche.' }, 400);
+      if (preview && !ficheDeTest(tache)) return json({ success: false, error: 'En préversion, seules les fiches de test (« Test » dans le nom) peuvent être modifiées.' }, 403);
+      const phrase = texte(corps?.phrase).replace(/\s+/g, ' ').slice(0, 1000);
+      if (phrase.length < 10) return json({ success: false, error: 'Écris en une phrase ce que tu as dit au client.' }, 400);
+      const m = modeleDe(attendu);
+      if (m && remplir(m, await donneesDe(a.token, tache)).a.length) return json({ success: false, error: 'La fiche a une adresse mail pour ce mail : il doit partir par mail.' }, 400);
+      const note = await commenter(a.token, String(tache.id), `📞 Prévenu par téléphone à la place du mail « ${m?.nom || attendu} », par ${auteur} · ${maintenantParis()}\n${phrase}`);
+      if (!note) return json({ success: false, error: 'ClickUp a refusé la note : rien n’est réglé, réessaie.' }, 502);
+      const ok = await effacerMailAFaire(a.token, tache);
+      return json({ success: true, telephone: true, avertissement: ok ? undefined : 'Appel noté, mais le mail reste marqué comme à envoyer : réessaie ou préviens Mathieu.' });
+    }
+
+    if (!mailBranche()) return json({ success: false, error: 'Envoi des mails pas encore branché (clé Google absente dans Vercel). Rien n’est parti.' }, 503);
     const objet = texte(corps?.objet).replace(/[\r\n]+/g, ' ');
     const message = String(corps?.texte ?? '').replace(/\s+$/, '');
     if (!objet) return json({ success: false, error: 'Objet vide. Rien n’est parti.' }, 400);
@@ -163,7 +201,6 @@ export async function POST(request: Request) {
     if (dest.ok.length + cc.length > MAX_DESTINATAIRES) return json({ success: false, error: `${MAX_DESTINATAIRES} destinataires au plus.` }, 400);
 
     // Préversion : seulement la personne connectée
-    const preview = enPreversion();
     const moi = texte(a.session.email).toLowerCase();
     if (preview && !estEmail(moi)) return json({ success: false, error: 'Préversion : ton adresse ClickUp est introuvable, le mail de test ne peut pas partir.' }, 400);
 
@@ -190,32 +227,32 @@ export async function POST(request: Request) {
       return json({ success: false, error: `Mail non envoyé : ${e?.message || 'erreur Google'}. Rien n’est parti.` }, 502);
     }
 
+    // Mail obligatoire réglé par ce texte : effacé de la fiche (en préversion, seulement sur une fiche de test)
+    const cleTexte = texte(corps?.modele);
+    const texteUtilise = modeleDe(cleTexte);
+    const attendu = mailAFaire(tache);
+    const aRegler = regle(attendu, cleTexte) && (!preview || ficheDeTest(tache));
+    const regleOk = aRegler ? await effacerMailAFaire(a.token, tache) : false;
+
     // Copie sur la fiche
-    const quand = new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' });
     const lignes = [
-      `✉️ Mail envoyé depuis l'appli par ${texte(a.session.nom) || 'l’équipe'} · ${quand}`,
+      `✉️ Mail envoyé depuis l'appli par ${auteur} · ${maintenantParis()}`,
       `De : ${exp.nom} <${EXPEDITEUR}>`,
       `À : ${dest.ok.join(', ')}`,
       ...(cc.length ? [`Cc : ${cc.join(', ')}`] : []),
       `Objet : ${objet}`,
+      ...(texteUtilise ? [`Texte : ${texteUtilise.nom}`] : []),
+      ...(regleOk ? [`✅ Mail obligatoire réglé : ${modeleDe(attendu)?.nom || attendu}`] : []),
       ...(fil ? [`En réponse à : ${fil.objet || '(sans objet)'}${dansLeFil ? '' : ' (préversion sur une vraie fiche : parti comme un nouveau mail)'}`] : []),
       ...(preview ? [`Préversion : mail de test envoyé seulement à ${moi}, aucun client ne l'a reçu.`] : []),
       '',
       message.length > MAX_COPIE ? `${message.slice(0, MAX_COPIE)}\n[… texte coupé dans la copie]` : message,
       ...(exp.signatureTexte ? ['', exp.signatureTexte] : exp.signatureHtml ? [] : ['', `(Parti sans signature : ${exp.probleme || 'signature Gmail introuvable'}.)`]),
     ];
-    let avertissement: string | undefined;
-    try {
-      const r = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(String(tache.id))}/comment`, {
-        method: 'POST',
-        headers: { Authorization: a.token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment_text: lignes.join('\n'), notify_all: false }),
-      });
-      if (!r.ok) avertissement = `Mail envoyé, mais la copie sur la fiche a été refusée par ClickUp (${r.status}) : colle-la à la main.`;
-    } catch {
-      avertissement = 'Mail envoyé, mais la copie sur la fiche n’a pas pu être postée : colle-la à la main.';
-    }
-    return json({ success: true, preview, envoyeA: envoi.a, dansLeFil, avertissement });
+    const avertissements: string[] = [];
+    if (!(await commenter(a.token, String(tache.id), lignes.join('\n')))) avertissements.push('Mail envoyé, mais la copie sur la fiche a été refusée par ClickUp : colle-la à la main.');
+    if (aRegler && !regleOk) avertissements.push('Mail envoyé, mais il reste marqué comme à envoyer sur la fiche : préviens Mathieu.');
+    return json({ success: true, preview, envoyeA: envoi.a, dansLeFil, regle: regleOk, avertissement: avertissements.join(' ') || undefined });
   } catch (e) {
     console.error('Mail', e);
     return json({ success: false, error: 'Erreur serveur. Vérifie dans Gmail (contact@chargeo.fr, Envoyés) avant de renvoyer.' }, 500);
