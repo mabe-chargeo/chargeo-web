@@ -7,6 +7,7 @@
 // Suivi : sous-tâche « Ranger les adresses de l'application » de « Construire l'application équipe CHARGéO ».
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone, côté serveur et dans src/proxy.ts.
 // 05/11/2026 (Phase 9, lot 1) : écran « Écrire un mail », /mail?fiche=<id>&a=<destinataire>.
+// 05/11/2026 (Phase 9, lot 2) : &modele=<clé> ouvre directement un texte de src/lib/modelesMails.ts (Caler → confirmation).
 
 // Écran de liste par source (src/lib/listesAppli.ts). Recrutement s'affiche sur /candidatures : chargeo.fr/recrutement
 // est la page publique des candidats.
@@ -76,8 +77,9 @@ export const adresses = {
   // Listes et fiche générique
   liste: (source: string) => ADRESSES_LISTES[source] || `/${source}`,
   fiche: (id: string) => `/fiche/${id}`,
-  // Mails envoyés depuis l'appli (Phase 9) : la fiche reçoit la copie, a = destinataire proposé
-  mail: (ficheId: string, a = '') => `/mail?fiche=${encodeURIComponent(ficheId)}${a ? `&a=${encodeURIComponent(a)}` : ''}`,
+  // Mails envoyés depuis l'appli (Phase 9) : la fiche reçoit la copie, a = destinataire proposé, modele = texte à ouvrir
+  mail: (ficheId: string, a = '', modele = '') =>
+    `/mail?fiche=${encodeURIComponent(ficheId)}${a ? `&a=${encodeURIComponent(a)}` : ''}${modele ? `&modele=${encodeURIComponent(modele)}` : ''}`,
   // Consulter
   ressources: '/ressources',
   wikis: '/wikis',
