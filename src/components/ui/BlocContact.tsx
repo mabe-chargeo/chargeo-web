@@ -26,10 +26,14 @@
 // 03/11/2026 (Phase 8, étape 7, PR #59, choix de Mathieu à 6 h 18) : le bloc accepte un contenu en plus, affiché sous
 // l'adresse quand il est ouvert. La fiche affaire en vente y met le 🏛️ SIRET / N° RNIC du client (src/components/ui/
 // Vente.tsx, partie siret), retiré de l'ancienne carte « Le projet ».
+// 05/11/2026 (Phase 9, lot 1 ; Mathieu, 18 h 03 : « Tous les mails doivent être envoyés depuis l'application ») : quand
+// la fiche est connue (ficheId), le bouton Gmail devient « Mail » et ouvre l'écran d'envoi de l'appli (/mail), qui envoie
+// depuis contact@chargeo.fr et copie le mail sur la fiche. Sans fiche connue, le bouton Gmail reste.
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Headphones, Mail, MapPin, MessageSquare, Navigation, Phone, Users } from 'lucide-react';
 import { Carte, TitreCarte } from '@/components/charte/Appli';
 import { LABEL } from '@/components/charte/couleurs';
+import { adresses } from '@/lib/adresses';
 
 type Personne = { nom: string; tel: string; email: string };
 type FicheContact = {
@@ -90,8 +94,9 @@ function Lien({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-// Les boutons d'une personne déjà lue : Appeler, Google Voice, SMS (portables), Gmail
-export function BoutonsContact({ tel, email, moi = '' }: { tel: string; email: string; moi?: string }) {
+// Les boutons d'une personne déjà lue : Appeler, Google Voice, SMS (portables), Mail (écran d'envoi de l'appli quand la
+// fiche est connue, sinon Gmail)
+export function BoutonsContact({ tel, email, moi = '', ficheId = '' }: { tel: string; email: string; moi?: string; ficheId?: string }) {
   const [ios, setIos] = useState(false);
   useEffect(() => { setIos(estIOS()); }, []);
   if (!tel && !email) return <p className="text-[13px]">Ni téléphone ni email sur la fiche.</p>;
@@ -100,7 +105,8 @@ export function BoutonsContact({ tel, email, moi = '' }: { tel: string; email: s
       {tel && <Lien href={`tel:${international(tel)}`}><Phone size={14} /> Appeler</Lien>}
       {tel && <Lien href={lienVoice(tel, moi)}><Headphones size={14} /> Google Voice</Lien>}
       {tel && recoitSms(tel) && <Lien href={`sms:${international(tel)}`}><MessageSquare size={14} /> SMS</Lien>}
-      {email && <Lien href={lienGmail(email, moi, ios)}><Mail size={14} /> Gmail</Lien>}
+      {email && ficheId && <Lien href={adresses.mail(ficheId, email)}><Mail size={14} /> Mail</Lien>}
+      {email && !ficheId && <Lien href={lienGmail(email, moi, ios)}><Mail size={14} /> Gmail</Lien>}
     </div>
   );
 }
@@ -151,11 +157,13 @@ export function BlocContact({
 
   const moi = c?.moi || '';
   const a = c?.adresse || null;
+  // La copie du mail va sur la fiche (pas sur le scénario ni l'élément d'où le bloc est ouvert)
+  const ficheId = c?.fiche?.id || '';
 
   const personne = (titre: string, p: Personne) => (
     <div key={`${titre}-${p.nom}`} className="space-y-2">
       <p className="text-[14px]"><strong>{titre} :</strong> {p.nom || '–'}{p.tel ? ` · ${p.tel}` : ''}</p>
-      {(p.tel || p.email) && <BoutonsContact tel={p.tel} email={p.email} moi={moi} />}
+      {(p.tel || p.email) && <BoutonsContact tel={p.tel} email={p.email} moi={moi} ficheId={ficheId} />}
     </div>
   );
 
