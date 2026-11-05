@@ -19,8 +19,10 @@ import { effacerMailAFaire, mailAFaire, poserMailAFaire } from '@/lib/mailsAFair
 //   renvoyer la confirmation).
 // 17/10, 20 h 59 : occupations des chefs sur 30 jours (mêmes règles que /api/interne/planning), sans la fiche elle-même.
 //   Le commercial ne reçoit que l'heure, la durée, le type, le nom et la ville.
-// 17/10, 21 h 16 et 22 h 01 : Google Agenda des chefs (tous leurs agendas affichés, horaires seulement) ; le relevé calé
-//   est créé ou déplacé dans l'agenda du chef. Un échec Google n'annule jamais la date ClickUp : il est signalé.
+// 17/10, 21 h 16 et 22 h 01 : Google Agenda des chefs (tous leurs agendas affichés) ; le relevé calé est créé ou
+//   déplacé dans l'agenda du chef. Un échec Google n'annule jamais la date ClickUp : il est signalé.
+// 05/11/2026, 22 h 33 (Mathieu, bouton « Oui, comme ça ») : chaque créneau occupé de l'agenda Google part avec la
+//   commune de son lieu (jamais son titre), pour proposer des créneaux près des rendez-vous existants.
 // 17/10, 23 h 00 (Matthieu : « il faudrait pouvoir supprimer un créneau aussi si on se trompe et en modifier la
 //   durée ») : durée au choix, écrite dans ⏳ Durée relevé (30 min, 1 h, 1 h 30, 2 h, 3 h ; option lue par son nom, 1 h
 //   si vide) ; POST { id, action: 'annuler' } vide la date et la durée, retire l'événement de l'agenda Google des chefs
@@ -190,9 +192,9 @@ async function occupationsDes(token: string, chefs: number[], saufId: string): P
   return { occupations, incomplet: lus.some((r) => r.status !== 'fulfilled') };
 }
 
-// Créneaux occupés des Google Agendas des chefs (tous leurs agendas affichés, horaires seulement)
+// Créneaux occupés des Google Agendas des chefs (tous leurs agendas affichés), avec la commune de leur lieu
 async function lireAgendas(chefs: Chef[]) {
-  const creneaux: { chefId: number; jour: string; debut: number; fin: number; journee: boolean }[] = [];
+  const creneaux: { chefId: number; jour: string; debut: number; fin: number; journee: boolean; lieu: string }[] = [];
   const erreurs: string[] = [];
   if (!agendaBranche()) return { branche: false, creneaux, erreurs };
   const depuis = new Date();
@@ -201,7 +203,7 @@ async function lireAgendas(chefs: Chef[]) {
   const principalSeul: string[] = [];
   lus.forEach((r, i) => {
     if (r.status === 'fulfilled') {
-      for (const x of r.value.creneaux) creneaux.push({ chefId: chefs[i].id, jour: x.jour, debut: x.debut, fin: x.fin, journee: x.journee });
+      for (const x of r.value.creneaux) creneaux.push({ chefId: chefs[i].id, jour: x.jour, debut: x.debut, fin: x.fin, journee: x.journee, lieu: x.lieu || '' });
       if (!r.value.listeComplete) principalSeul.push(chefs[i].nom);
       if (r.value.sautes) erreurs.push(`${r.value.sautes} agenda(s) de ${chefs[i].nom} illisible(s) : vérifie avec lui.`);
     } else {
