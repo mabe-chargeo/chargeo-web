@@ -6,6 +6,7 @@
 // renvoyées vers les nouvelles par src/proxy.ts (adresseDepuisAncienne, redirection temporaire 307). À garder pour toujours.
 // Suivi : sous-tâche « Ranger les adresses de l'application » de « Construire l'application équipe CHARGéO ».
 // Fichier pur (aucun accès réseau) : utilisable côté téléphone, côté serveur et dans src/proxy.ts.
+// 05/11/2026 (Phase 9, lot 1) : écran « Écrire un mail », /mail?fiche=<id>&a=<destinataire>.
 
 // Écran de liste par source (src/lib/listesAppli.ts). Recrutement s'affiche sur /candidatures : chargeo.fr/recrutement
 // est la page publique des candidats.
@@ -75,6 +76,8 @@ export const adresses = {
   // Listes et fiche générique
   liste: (source: string) => ADRESSES_LISTES[source] || `/${source}`,
   fiche: (id: string) => `/fiche/${id}`,
+  // Mails envoyés depuis l'appli (Phase 9) : la fiche reçoit la copie, a = destinataire proposé
+  mail: (ficheId: string, a = '') => `/mail?fiche=${encodeURIComponent(ficheId)}${a ? `&a=${encodeURIComponent(a)}` : ''}`,
   // Consulter
   ressources: '/ressources',
   wikis: '/wikis',
@@ -86,10 +89,10 @@ export const adresses = {
 // Premier segment de chaque écran de l'application : protégé par la connexion (src/proxy.ts), servi par app.chargeo.fr,
 // renvoyé de chargeo.fr vers app.chargeo.fr. Aucun ne correspond à une page du site public (vérifié le 19/10/2026 :
 // avis, blog, connexion, copropriete, espace-client, mentions-legales, particuliers, pro, recrutement, signature, suivi,
-// vcard, zone-intervention).
+// vcard, zone-intervention ; « mail » vérifié le 05/11/2026).
 export const SEGMENTS_APPLI: string[] = [
   'journee', 'a-traiter', 'consulter', 'creer', 'pipeline', 'affaires', 'prospection', 'agenda', 'contacts', 'releves',
-  'chantiers', 'planning', 'interventions', 'fiche', 'ressources', 'wikis', 'decomptes', 'bientot',
+  'chantiers', 'planning', 'interventions', 'fiche', 'mail', 'ressources', 'wikis', 'decomptes', 'bientot',
   ...Object.values(ADRESSES_LISTES).map((a) => a.slice(1)),
 ];
 
