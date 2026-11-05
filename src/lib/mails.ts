@@ -68,7 +68,7 @@ async function jeton(scope: string): Promise<string> {
     cache: 'no-store',
   });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok || !j?.access_token) throw new Error(`accès refusé par Google (${j?.error_description || j?.error || r.status})`);
+  if (!r.ok || !j?.access_token) throw new Error(`accès refusé par Google (${j?.error || r.status}${j?.error_description ? ` : ${j.error_description}` : ''})`);
   const valeur = String(j.access_token);
   jetons.set(scope, { jeton: valeur, expire: Date.now() + (Number(j.expires_in) || 3600) * 1000 });
   return valeur;
@@ -167,7 +167,13 @@ export async function expediteur(): Promise<Expediteur> {
     reglagesEnCache = { v, expire: Date.now() + CACHE_REGLAGES };
     return v;
   } catch (e: any) {
-    return { nom: NOM_PAR_DEFAUT, signatureHtml: '', signatureTexte: '', probleme: String(e?.message || 'erreur Google') };
+    const raison = String(e?.message || 'erreur Google');
+    return {
+      nom: NOM_PAR_DEFAUT,
+      signatureHtml: '',
+      signatureTexte: '',
+      probleme: /unauthorized_client/.test(raison) ? 'droit de lecture des réglages Gmail pas encore donné au compte chargeo-mails' : raison,
+    };
   }
 }
 
