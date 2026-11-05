@@ -1,5 +1,5 @@
 import { NextResponse, after } from 'next/server';
-import { executer, listeSuivie, planifier, sansDoublon, traiterEvenement, type Changement } from '@/lib/aiguillage';
+import { adapterQualification, estListeQualification, executer, listeSuivie, planifier, sansDoublon, traiterEvenement, type Changement } from '@/lib/aiguillage';
 import { diagnostiquerAdresses, installerWebhook, secretDuWebhook, signatureValide, supprimerWebhook, verifierWebhooks, listerWebhooks, resumeWebhook } from '@/lib/webhookClickUp';
 
 // Point d'entrée unique des changements ClickUp (bascule du 12/10/2026, décision Matthieu).
@@ -13,6 +13,8 @@ import { diagnostiquerAdresses, installerWebhook, secretDuWebhook, signatureVali
 //   ?action=sante : contrôle et réactivation (aussi fait chaque matin par /api/cron/quotidien).
 // GET preview uniquement : ?action=simuler&taskId=... (option &champ=<id> ou &creation=1, sinon le statut actuel de
 //   la tâche) : montre les règles choisies et les lance en simulation ; &executer=1 pour un vrai passage (fiches Test).
+//   02/11/2026 (PR #59) : en Qualification, les règles d'un statut sont ajustées par la tâche comme dans l'aiguillage
+//   (élément ignoré, report du devis par scénario, sous-tâches qui suivent).
 //   ?action=diagnostic : teste les adresses acceptées par ClickUp (abonnements d'essai supprimés aussitôt).
 
 export const maxDuration = 60;
@@ -52,7 +54,7 @@ async function simuler(p: URLSearchParams) {
   const token = process.env.CLICKUP_API_KEY as string;
   const taskId = p.get('taskId') || '';
   if (!/^[a-z0-9]+$/i.test(taskId)) return { status: 400, body: { error: 'Ajoute &taskId=...' } };
-  const res = await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, { headers: { Authorization: token }, cache: 'no-store' });
+  const res = await fetch(`https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`, { headers: { Authorization: token }, cache: 'no-store' });
   if (!res.ok) return { status: 404, body: { error: 'Tâche introuvable' } };
   const t = await res.json();
   const listeId = String(t?.list?.id || '');
@@ -61,7 +63,9 @@ async function simuler(p: URLSearchParams) {
     : p.get('creation') === '1' ? { type: 'creation' }
     : { type: 'statut', statut: String(t?.status?.status || ''), typeStatut: String(t?.status?.type || '') };
   const reel = p.get('executer') === '1';
-  const etapes = sansDoublon(planifier(listeId, changement));
+  let prevues = planifier(listeId, changement);
+  if (changement.type === 'statut' && estListeQualification(listeId)) prevues = await adapterQualification(t, changement, prevues);
+  const etapes = sansDoublon(prevues);
   const base = { tache: t.name, liste: t?.list?.name, listeSuivie: listeSuivie(listeId), changement, regles: etapes.map((e) => e.cle), simulation: !reel };
   if (!etapes.length) return { status: 200, body: { ...base, action: 'aucune_regle' } };
   return { status: 200, body: { ...base, resultats: await executer(taskId, etapes, !reel, true) } };

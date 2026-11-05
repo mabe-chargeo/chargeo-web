@@ -7,6 +7,12 @@
 // 4. Le projet : nom (proposé), type de client, segment. Le contact principal remplit le passeport de la fiche.
 // Avec ?fiche=<id> (bouton « + Ajouter un contact » de la fiche affaire) : seule l'étape des contacts, pour un projet
 // existant. Les droits sont contrôlés par /api/interne/projets.
+// 03/11/2026 (T7, décision de Mathieu à 21 h 23) : quand la recherche ne trouve personne, le formulaire du nouveau contact
+// s'ouvre d'office, prérempli avec la saisie (e-mail, téléphone, ou prénom et nom selon le format). Il suit la saisie
+// tant qu'aucun de ses champs n'a été retouché. Depuis la fiche, son bouton relie directement le contact au projet :
+// plus d'étape « Ajouter » puis « Relier au projet ».
+// 05/11/2026 (T7, passe 3, accord de Mathieu à 13 h 46) : une saisie mixte (« Jean Dupont 06 12 34 56 78 ») est découpée :
+// l'e-mail et le téléphone vont dans leurs champs, le reste au prénom et au nom.
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check, ChevronRight, MapPin, Plus, RefreshCw, Search, Star, UserPlus, X } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
@@ -26,6 +32,32 @@ const SEGMENTS = [
   { i: 3, cle: 'PAR', libelle: 'PAR · parking' }, { i: 4, cle: 'FLT', libelle: 'FLT · flotte' }, { i: 5, cle: 'TER', libelle: 'TER · tertiaire' }, { i: 6, cle: 'RIC', libelle: 'RIC' },
 ];
 const VIDE = { prenom: '', nom: '', tel: '', email: '', societe: '', role: '' as CleRoleContact | '' };
+type Nouveau = typeof VIDE;
+
+// Saisie de la recherche rangée dans les bons champs du nouveau contact (T7) : l'e-mail et le téléphone sont extraits,
+// même mêlés à un nom (« Testeur recette 060000000 »), et le reste donne le prénom (premier mot) et le nom.
+function decouper(saisie: string): Omit<Nouveau, 'role'> {
+  let reste = saisie.trim().replace(/\s+/g, ' ');
+  const base = { prenom: '', nom: '', tel: '', email: '', societe: '' };
+  const mail = reste.match(/[^\s@]+@[^\s@]+/);
+  if (mail) {
+    base.email = mail[0];
+    reste = reste.replace(mail[0], ' ');
+  }
+  const tel = reste.match(/\+?\d[\d\s.()-]*\d/);
+  if (tel && tel[0].replace(/\D/g, '').length >= 6) {
+    base.tel = tel[0].trim();
+    reste = reste.replace(tel[0], ' ');
+  }
+  const mots = reste.trim().replace(/\s+/g, ' ').split(' ').filter(Boolean);
+  if (mots.length > 1) {
+    base.prenom = mots[0];
+    base.nom = mots.slice(1).join(' ');
+  } else if (mots.length === 1) {
+    base.nom = mots[0];
+  }
+  return base;
+}
 
 export default function NouveauProjetPage() {
   const [ficheId, setFicheId] = useState('');
@@ -40,7 +72,9 @@ export default function NouveauProjetPage() {
   const [choisis, setChoisis] = useState<Choisi[]>([]);
   const [principal, setPrincipal] = useState('');
   const [formNouveau, setFormNouveau] = useState(false);
-  const [nouveau, setNouveau] = useState(VIDE);
+  const [nouveau, setNouveau] = useState<Nouveau>(VIDE);
+  // Formulaire ouvert d'office par une recherche sans résultat, et pas encore retouché : il suit la saisie (T7)
+  const [auto, setAuto] = useState(false);
 
   const [saisieAdresse, setSaisieAdresse] = useState('');
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -134,15 +168,27 @@ export default function NouveauProjetPage() {
     setRecherche('');
   };
 
-  const ajouterNouveau = () => {
-    if (!nouveau.nom.trim() || !nouveau.role) return;
-    const cle = `n-${Date.now()}`;
+  // Nouveau contact du formulaire, prêt à être ajouté (null tant qu'il manque le nom ou le rôle)
+  const nouveauChoisi = (): Choisi | null => {
+    if (!nouveau.nom.trim() || !nouveau.role) return null;
     const role = nouveau.role as CleRoleContact;
     const affiche = [nouveau.prenom.trim(), nouveau.nom.trim().toUpperCase()].filter(Boolean).join(' ');
-    setChoisis((l) => [...l, { cle, nom: affiche, role, societe: nouveau.societe.trim(), tel: nouveau.tel.trim(), email: nouveau.email.trim(), projets: [], nouveau: { ...nouveau, role } }]);
-    if (!principal) setPrincipal(cle);
+    return { cle: `n-${Date.now()}`, nom: affiche, role, societe: nouveau.societe.trim(), tel: nouveau.tel.trim(), email: nouveau.email.trim(), projets: [], nouveau: { ...nouveau, role } };
+  };
+
+  const fermerFormulaire = () => {
     setNouveau(VIDE);
     setFormNouveau(false);
+    setAuto(false);
+    setRecherche('');
+  };
+
+  const ajouterNouveau = () => {
+    const c = nouveauChoisi();
+    if (!c) return;
+    setChoisis((l) => [...l, c]);
+    if (!principal) setPrincipal(c.cle);
+    fermerFormulaire();
   };
 
   const retirer = (cle: string) => {
@@ -150,20 +196,42 @@ export default function NouveauProjetPage() {
     if (principal === cle) setPrincipal('');
   };
 
+  // Champ du formulaire retouché : il ne suit plus la recherche
+  const saisir = (p: Partial<Omit<Nouveau, 'role'>>) => {
+    setAuto(false);
+    setNouveau((n) => ({ ...n, ...p }));
+  };
+
   const q = normal(recherche.trim());
   const resultats = q.length >= 2
     ? annuaire.filter((c) => !choisis.some((x) => x.id === c.id) && normal(`${c.nom} ${c.societe} ${c.tel} ${c.email}`).includes(q)).slice(0, 6)
     : [];
+  const sansResultat = !loading && q.length >= 2 && resultats.length === 0;
+
+  // Recherche sans résultat : formulaire ouvert d'office et prérempli ; il se referme si la saisie retrouve quelqu'un (T7)
+  useEffect(() => {
+    if (sansResultat && (!formNouveau || auto)) {
+      setNouveau((n) => ({ ...decouper(recherche), role: n.role }));
+      setFormNouveau(true);
+      setAuto(true);
+    } else if (!sansResultat && auto) {
+      setNouveau(VIDE);
+      setFormNouveau(false);
+      setAuto(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sansResultat, recherche]);
 
   const modeAjout = !!ficheId;
   const pretCreation = choisis.length > 0 && !!adresse && doublons !== null && (doublons.length === 0 || doublonVu) && !!nom.trim();
   const pret = modeAjout ? choisis.length > 0 : pretCreation;
 
-  const envoyer = async () => {
-    if (!pret || envoi) return;
+  const envoyer = async (liste: Choisi[] = choisis) => {
+    const ok = modeAjout ? liste.length > 0 : pretCreation;
+    if (!ok || envoi) return;
     setEnvoi(true);
     setErreur(null);
-    const contacts = choisis.map((c) => (c.id ? { id: c.id, principal: c.cle === principal } : { nouveau: c.nouveau, principal: c.cle === principal }));
+    const contacts = liste.map((c) => (c.id ? { id: c.id, principal: c.cle === principal } : { nouveau: c.nouveau, principal: c.cle === principal }));
     const corps = modeAjout
       ? { action: 'ajouter', ficheId, contacts }
       : { action: 'creer', contacts, projet: { nom: nom.trim(), typeClient, segment, notes: notes.trim(), adresse: adresse ? { label: adresse.label, lat: adresse.lat, lng: adresse.lng } : null } };
@@ -177,6 +245,17 @@ export default function NouveauProjetPage() {
     } finally {
       setEnvoi(false);
     }
+  };
+
+  // Depuis la fiche : le nouveau contact est relié au projet d'un seul bouton (T7). En cas d'échec, il reste dans la
+  // liste pour un nouvel essai avec « Relier au projet ».
+  const relierNouveau = () => {
+    const c = nouveauChoisi();
+    if (!c) return;
+    const liste = [...choisis, c];
+    setChoisis(liste);
+    fermerFormulaire();
+    envoyer(liste);
   };
 
   const retour = (
@@ -193,6 +272,8 @@ export default function NouveauProjetPage() {
       </span>
     );
   };
+
+  const formulaireComplet = !!nouveau.nom.trim() && !!nouveau.role;
 
   // ── Écran de fin ──
   if (resultat) {
@@ -255,7 +336,7 @@ export default function NouveauProjetPage() {
             </div>
           </button>
         ))}
-        {q.length >= 2 && !resultats.length && <p className="px-1 text-[14px]">Personne de ce nom dans Contacts : crée-le ci-dessous.</p>}
+        {sansResultat && <p className="px-1 text-[14px]">Personne dans Contacts : la fiche du nouveau contact est ouverte, remplie avec ta saisie. Complète-la et choisis son rôle.</p>}
 
         {choisis.map((c) => (
           <Carte key={c.cle} accent className="space-y-2">
@@ -286,12 +367,12 @@ export default function NouveauProjetPage() {
         ) : (
           <Carte className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div><label className={ETIQUETTE}>Prénom</label><input className={`${CHAMP} mt-1.5`} value={nouveau.prenom} onChange={(e) => setNouveau({ ...nouveau, prenom: e.target.value })} /></div>
-              <div><label className={ETIQUETTE}>Nom</label><input className={`${CHAMP} mt-1.5`} value={nouveau.nom} onChange={(e) => setNouveau({ ...nouveau, nom: e.target.value })} /></div>
+              <div><label className={ETIQUETTE}>Prénom</label><input className={`${CHAMP} mt-1.5`} value={nouveau.prenom} onChange={(e) => saisir({ prenom: e.target.value })} /></div>
+              <div><label className={ETIQUETTE}>Nom</label><input className={`${CHAMP} mt-1.5`} value={nouveau.nom} onChange={(e) => saisir({ nom: e.target.value })} /></div>
             </div>
-            <div><label className={ETIQUETTE}>Téléphone</label><input className={`${CHAMP} mt-1.5`} type="tel" inputMode="tel" value={nouveau.tel} onChange={(e) => setNouveau({ ...nouveau, tel: e.target.value })} /></div>
-            <div><label className={ETIQUETTE}>Email</label><input className={`${CHAMP} mt-1.5`} type="email" inputMode="email" value={nouveau.email} onChange={(e) => setNouveau({ ...nouveau, email: e.target.value })} /></div>
-            <div><label className={ETIQUETTE}>Société (facultatif)</label><input className={`${CHAMP} mt-1.5`} value={nouveau.societe} onChange={(e) => setNouveau({ ...nouveau, societe: e.target.value })} /></div>
+            <div><label className={ETIQUETTE}>Téléphone</label><input className={`${CHAMP} mt-1.5`} type="tel" inputMode="tel" value={nouveau.tel} onChange={(e) => saisir({ tel: e.target.value })} /></div>
+            <div><label className={ETIQUETTE}>Email</label><input className={`${CHAMP} mt-1.5`} type="email" inputMode="email" value={nouveau.email} onChange={(e) => saisir({ email: e.target.value })} /></div>
+            <div><label className={ETIQUETTE}>Société (facultatif)</label><input className={`${CHAMP} mt-1.5`} value={nouveau.societe} onChange={(e) => saisir({ societe: e.target.value })} /></div>
             <div>
               <p className={ETIQUETTE}>Rôle</p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -307,10 +388,15 @@ export default function NouveauProjetPage() {
               {nouveau.role && <p className="mt-2 text-[13px]">Sera relié au projet en {LIBELLE_LIEN[lienDuRole(nouveau.role as CleRoleContact)]}.</p>}
             </div>
             <div className="flex gap-2">
-              <button onClick={ajouterNouveau} disabled={!nouveau.nom.trim() || !nouveau.role} className={`flex grow items-center justify-center gap-2 rounded-full px-6 py-3 text-[16px] font-semibold text-white ${nouveau.nom.trim() && nouveau.role ? '' : 'opacity-40'}`} style={{ backgroundColor: CYAN }}>
-                <Check size={18} /> Ajouter
+              <button
+                onClick={modeAjout ? relierNouveau : ajouterNouveau}
+                disabled={!formulaireComplet || envoi}
+                className={`flex grow items-center justify-center gap-2 rounded-full px-6 py-3 text-[16px] font-semibold text-white ${formulaireComplet && !envoi ? '' : 'opacity-40'}`}
+                style={{ backgroundColor: CYAN }}
+              >
+                <Check size={18} /> {modeAjout ? 'Relier au projet' : 'Ajouter'}
               </button>
-              <button onClick={() => { setFormNouveau(false); setNouveau(VIDE); }} className="rounded-full px-5 py-3 text-[16px] font-semibold ring-[1.5px] ring-[#dfe3e8]">Annuler</button>
+              <button onClick={fermerFormulaire} className="rounded-full px-5 py-3 text-[16px] font-semibold ring-[1.5px] ring-[#dfe3e8]">Annuler</button>
             </div>
             <p className="text-[12px] text-slate-500">Même email ou même téléphone qu&apos;un contact existant : il est relié, pas recréé.</p>
           </Carte>
@@ -396,14 +482,18 @@ export default function NouveauProjetPage() {
           </>
         )}
 
-        <div className="h-2" />
-        <BoutonPrincipal inactif={!pret || envoi || (!modeAjout && !peutCreer)} disabled={!pret || envoi || (!modeAjout && !peutCreer)} onClick={envoyer}>
-          {envoi ? <RefreshCw size={20} className="animate-spin" /> : <Check size={20} />}
-          {modeAjout ? 'Relier au projet' : 'Créer le projet'}
-        </BoutonPrincipal>
-        {!pret && (
+        {(!modeAjout || choisis.length > 0) && (
+          <>
+            <div className="h-2" />
+            <BoutonPrincipal inactif={!pret || envoi || (!modeAjout && !peutCreer)} disabled={!pret || envoi || (!modeAjout && !peutCreer)} onClick={() => envoyer()}>
+              {envoi ? <RefreshCw size={20} className="animate-spin" /> : <Check size={20} />}
+              {modeAjout ? 'Relier au projet' : 'Créer le projet'}
+            </BoutonPrincipal>
+          </>
+        )}
+        {!pret && !modeAjout && (
           <p className="px-1 text-center text-[13px]">
-            {!choisis.length ? 'Ajoute au moins un contact.' : !modeAjout && !adresse ? 'Choisis l’adresse du chantier.' : !modeAjout && doublons && doublons.length > 0 && !doublonVu ? 'Confirme que c’est un nouveau projet, ou ouvre le projet existant.' : !modeAjout && !nom.trim() ? 'Donne un nom au projet.' : ''}
+            {!choisis.length ? 'Ajoute au moins un contact.' : !adresse ? 'Choisis l’adresse du chantier.' : doublons && doublons.length > 0 && !doublonVu ? 'Confirme que c’est un nouveau projet, ou ouvre le projet existant.' : !nom.trim() ? 'Donne un nom au projet.' : ''}
           </p>
         )}
       </ContenuAppli>

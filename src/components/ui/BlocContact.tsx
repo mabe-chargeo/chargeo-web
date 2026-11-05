@@ -23,6 +23,9 @@
 // 19/10, 8 h 35 (passe de cohérence validée sur maquette) : une seule fabrique de boutons. Les personnes du bloc passent
 // par BoutonsContact, l'adresse par BoutonsAdresse (Waze, Google Maps), aussi utilisés par les fiches génériques au lieu
 // de leurs copies.
+// 03/11/2026 (Phase 8, étape 7, PR #59, choix de Mathieu à 6 h 18) : le bloc accepte un contenu en plus, affiché sous
+// l'adresse quand il est ouvert. La fiche affaire en vente y met le 🏛️ SIRET / N° RNIC du client (src/components/ui/
+// Vente.tsx, partie siret), retiré de l'ancienne carte « Le projet ».
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Headphones, Mail, MapPin, MessageSquare, Navigation, Phone, Users } from 'lucide-react';
 import { Carte, TitreCarte } from '@/components/charte/Appli';
@@ -116,10 +119,12 @@ export function BlocContact({
   affaireId,
   ouvertParDefaut = false,
   differe = false,
+  children,
 }: {
   affaireId: string;
   ouvertParDefaut?: boolean;
   differe?: boolean;
+  children?: ReactNode;
 }) {
   const [c, setC] = useState<FicheContact | null>(null);
   const [ouvert, setOuvert] = useState(ouvertParDefaut);
@@ -167,6 +172,7 @@ export function BlocContact({
       ) : (
         <p className="text-[14px]">Pas d&apos;adresse sur la fiche.</p>
       )}
+      {children}
     </div>
   ) : etat === 'erreur' ? (
     <p className="text-[14px]">Contact illisible pour l&apos;instant (réseau ou fiche hors liste). Réessaie plus tard.</p>

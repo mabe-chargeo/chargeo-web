@@ -23,6 +23,10 @@ import { CHAMP_FEU_VERT, CHAMPS_INTERVENTION, LISTES, PREREQUIS_FEU_VERT } from 
 // devis vidé (n°, montant, lien du devis, lien Costructor), ni factures ni dossiers ADVENIR (sansPrix: true).
 // 18/10, 17 h 37 (Matthieu, au Parc : « je n'ai pas accès au PV de réception ») : la réception donne aussi les fichiers
 // du PV, du rapport et des photos (le plus récent en premier), ouverts par l'aperçu /api/interne/fichier.
+// 03/11/2026 (passe 2 de la recette sans IA) :
+// - scénario archivé masqué, qu'il le soit par la case « archivé » ou par le statut 🏁 archivé (écart 23) ;
+// - statut du scénario lu sur le scénario lui-même et non sur le résumé de la fiche, qui arrivait en retard après
+//   « Devis envoyé » (écart 11).
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +81,8 @@ const personnes = (t: any, id: string): string[] =>
   tableau(t, id).map((u: any) => String(u?.username || u?.email || '').trim()).filter(Boolean);
 const liees = (t: any, id: string) => tableau(t, id).map((x: any) => ({ id: String(x?.id || ''), nom: String(x?.name || '') })).filter((x) => x.id);
 const champNomme = (t: any, mot: string) => (Array.isArray(t?.custom_fields) ? t.custom_fields : []).find((c: any) => normal(c?.name).includes(mot));
+// Scénario archivé : case « archivé » de ClickUp ou statut 🏁 archivé (écart 23)
+const estArchive = (t: any) => !!t?.archived || normal(t?.status?.status).includes('archiv');
 // Fichiers d'un champ Fichiers, le plus récent en premier (le champ les garde dans l'ordre de dépôt)
 const fichiersDe = (t: any, id: string) => tableau(t, id)
   .map((f: any) => ({
@@ -155,14 +161,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     // Scénarios (sous-tâches directes, qui suivent la tâche voyageuse), factures et dossiers ADVENIR, en parallèle
     const { carte } = await chargerTypes(token);
-    const directes = (Array.isArray(t?.subtasks) ? t.subtasks : []).filter((s: any) => !s?.archived && (!s?.parent || String(s.parent) === String(t.id)));
+    const directes = (Array.isArray(t?.subtasks) ? t.subtasks : []).filter((s: any) => !estArchive(s) && (!s?.parent || String(s.parent) === String(t.id)));
     const enVente = etape === 'prospection';
     // Ni factures ni dossiers en prospection, ni pour l'installateur
     const sansFinances = enVente || sansPrix;
-    const [scenarios, facturesLues, dossiersLus] = await Promise.all([
+    const [scenariosLus, facturesLues, dossiersLus] = await Promise.all([
       Promise.all(
         directes.filter((s: any) => estScenario(s, carte)).map(async (s: any) => {
           const complet = await lire(token, String(s.id), true);
+          // Relu sur le scénario lui-même : archivé entre-temps, il disparaît (écart 23)
+          if (complet && estArchive(complet)) return null;
           const elements = (Array.isArray(complet?.subtasks) ? complet.subtasks : [])
             .filter((e: any) => !e?.archived && String(e?.parent || '') === String(s.id));
           const parNature = new Map<string, number>();
@@ -170,11 +178,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             const n = sansEmoji(nomOption(e, CHAMPS.nature)) || 'Autre';
             parNature.set(n, (parNature.get(n) || 0) + 1);
           }
+          // Statut lu sur le scénario : le résumé de la fiche arrive en retard après « Devis envoyé » (écart 11)
+          const statut = complet?.status || s?.status;
           return {
             id: String(s.id),
-            nom: String(s.name || ''),
-            statut: String(s?.status?.status || ''),
-            couleurStatut: String(s?.status?.color || ''),
+            nom: String(complet?.name || s.name || ''),
+            statut: String(statut?.status || ''),
+            couleurStatut: String(statut?.color || ''),
             segment: nomOption(complet || s, CHAMPS.segment),
             elements: elements.length,
             natures: [...parNature.entries()].map(([nature, n]) => ({ nature, n })),
@@ -184,6 +194,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       sansFinances ? Promise.resolve([] as any[]) : facturesDe(token, String(t.id)).catch((e) => { console.error('Fiche affaire, factures :', e); return null; }),
       sansFinances ? Promise.resolve([] as any[]) : dossiersAdvenirDe(token, t).catch((e) => { console.error('Fiche affaire, ADVENIR :', e); return null; }),
     ]);
+    const scenarios = scenariosLus.filter((x): x is NonNullable<typeof x> => x !== null);
 
     const aujourdhui = aujourdhuiParis();
     const factures = facturesLues === null ? null : facturesLues.map((f: any) => {

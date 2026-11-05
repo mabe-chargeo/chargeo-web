@@ -19,6 +19,9 @@ import { apresReceptionResident, avantReceptionResident, controlerResident, sugg
 import { aujourdhuiParis, libelleJour } from '@/lib/joursOuvres';
 import { traiterEmbauche } from '@/lib/embauche';
 import { retirerReleveCaduc } from '@/lib/rdvOrphelins';
+import { reporterDevisScenarios } from '@/lib/devisScenarios';
+import { suivreStatut } from '@/lib/statutsSousTaches';
+import { chargerTypes, estDuType, estScenario } from '@/lib/typesTaches';
 
 // Aiguillage des changements ClickUp (bascule du 12/10/2026) : remplace les automatisations « Appeler le webhook »
 // et les Super Agents de synchro. ClickUp prévient le site (src/app/api/webhooks/clickup), l'aiguillage choisit
@@ -37,6 +40,10 @@ import { retirerReleveCaduc } from '@/lib/rdvOrphelins';
 //   18/10/2026, 11 h 30 (Matthieu : « quand la fiche calée est archivée ou perdue, son rendez-vous Google disparaît ») :
 //   ❌ perdu ou 🏁 archivé → relevé retiré de l'agenda Google des chefs de chantier (src/lib/rdvOrphelins.ts). L'archivage
 //   et la suppression d'une tâche ne sont pas signalés par ClickUp : le contrôle quotidien les rattrape.
+//   02/11/2026 (Phase 8, étape 7, PR #59, choix de Mathieu à 21 h 05) : un changement de statut dans Qualification est
+//   d'abord lu sur la tâche (adapterQualification) : élément → rien (il suit son scénario) ; 📩 devis envoyé d'un
+//   scénario, ou d'une fiche qui a des scénarios → report du devis de chaque scénario (src/lib/devisScenarios.ts) à la
+//   place du montant de la fiche ; puis les sous-tâches suivent (src/lib/statutsSousTaches.ts).
 // Planning Chantiers : 🟢 Feu vert, un des 5 prérequis, 🚧 en cours → feu vert ; ✅ réalisé, 🏁 terminé → réception.
 // Commandes Matériel : tâche créée (après 15 s, le temps de relier le chantier) ou 🏗️ Chantier modifié → réception
 //   matériel ; statut → validation des achats puis réception matériel.
@@ -91,6 +98,8 @@ const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').rep
 function listesQualification(): string[] {
   return Array.from(new Set([QUALIFICATION_PROD_ID, String(getQualificationListId() || '')].filter(Boolean)));
 }
+
+export const estListeQualification = (listeId: string) => listesQualification().includes(listeId);
 
 export function listeSuivie(listeId: string): boolean {
   return [String(PROSPECTION_ID), ...listesQualification(), PLANNING_CHANTIERS_ID, COMMANDES_ID, PARC_ID, RECRUTEMENT_ID, ...SAV_IDS, String(FACTURES_ID), String(ACHATS_ID)].includes(listeId);
@@ -179,6 +188,25 @@ export function planifier(listeId: string, ch: Changement): Etape[] {
   return [];
 }
 
+// Qualification, changement de statut (02/11/2026, PR #59) : la tâche lue avec ses sous-tâches ajuste les étapes.
+// - élément : aucune étape, il suit son scénario ;
+// - 📩 devis envoyé d'un scénario, ou d'une fiche qui a des scénarios : report par scénario (devisScenarios) à la place
+//   du montant de la fiche (qui ne connaît qu'un devis par client) ; fiche sans scénario : montant inchangé ;
+// - puis les sous-tâches suivent (sousTaches, règles dans src/lib/statutsSousTaches.ts).
+export async function adapterQualification(tache: any, ch: Changement, etapes: Etape[]): Promise<Etape[]> {
+  if (!tache || ch.type !== 'statut') return etapes;
+  const { carte } = await chargerTypes(process.env.CLICKUP_API_KEY || '');
+  if (estDuType(tache, 'element', carte)) return [];
+  const id = String(tache.id);
+  const scenario = !!tache.parent && estScenario(tache, carte);
+  const aDesScenarios = !tache.parent && (Array.isArray(tache.subtasks) ? tache.subtasks : [])
+    .some((s: any) => !s?.archived && (!s?.parent || String(s.parent) === id) && estScenario(s, carte));
+  const sortie = scenario || aDesScenarios
+    ? etapes.map((e) => (e.cle === 'montant' && e.params?.evenement === 'envoye' ? { cle: 'devisScenarios' } : e))
+    : etapes;
+  return [...sortie, { cle: 'sousTaches' }];
+}
+
 // Même étape demandée deux fois dans un même envoi (deux prérequis changés d'un coup) : une seule exécution
 export function sansDoublon(etapes: Etape[]): Etape[] {
   const vues = new Set<string>();
@@ -213,6 +241,8 @@ export async function executer(taskId: string, etapes: Etape[], simulation: bool
     try {
       if (e.cle === 'gagne') r = await traiterGagne(taskId, simulation);
       else if (e.cle === 'scenarios') r = await traiterScenarios(taskId, simulation);
+      else if (e.cle === 'devisScenarios') r = await reporterDevisScenarios(taskId, simulation);
+      else if (e.cle === 'sousTaches') r = await suivreStatut(taskId, simulation);
       else if (e.cle === 'sav') r = await synchroniserSav(taskId, simulation, e.params?.declencheur);
       else if (e.cle === 'prospection') r = await traiterProspection(taskId, (e.params?.declencheur || 'statut') as DeclencheurProspection, simulation);
       else if (e.cle === 'residentSuggestion') r = await suggererInfra(taskId, simulation);
@@ -232,10 +262,10 @@ export async function executer(taskId: string, etapes: Etape[], simulation: bool
   return resultats;
 }
 
-async function lireTache(taskId: string): Promise<any | null> {
+async function lireTache(taskId: string, sousTaches = false): Promise<any | null> {
   const token = process.env.CLICKUP_API_KEY;
   if (!token) return null;
-  const res = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(taskId)}`, { headers: { Authorization: token }, cache: 'no-store' });
+  const res = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(taskId)}${sousTaches ? '?include_subtasks=true' : ''}`, { headers: { Authorization: token }, cache: 'no-store' });
   return res.ok ? res.json() : null;
 }
 
@@ -263,7 +293,15 @@ export async function traiterEvenement(data: any) {
       : c));
   }
 
-  const etapes = sansDoublon(changements.flatMap((c) => planifier(listeId, c)));
+  // Qualification : la tâche et ses sous-tâches ajustent les étapes d'un changement de statut (02/11/2026)
+  const qualif = estListeQualification(listeId) && changements.some((c) => c.type === 'statut');
+  if (qualif) tache = (await lireTache(taskId, true)) || tache;
+  const prevues: Etape[] = [];
+  for (const c of changements) {
+    const e = planifier(listeId, c);
+    prevues.push(...(qualif && c.type === 'statut' ? await adapterQualification(tache, c, e) : e));
+  }
+  const etapes = sansDoublon(prevues);
   if (!etapes.length) return { action: 'ignore_aucune_regle', evenement, taskId, listeId };
   const resultats = await executer(taskId, etapes, false);
   return { evenement, taskId, listeId, resultats };

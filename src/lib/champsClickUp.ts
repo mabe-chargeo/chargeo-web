@@ -12,6 +12,20 @@
 // - 🔋 Modèle de borne (nouveau menu, un ouvrage de borne par option, D2) et 🏢 Passage en façade (nouvelle case à cocher
 //   du cheminement) : créés le 01/11 sur 🧪 Qualification TEST. À ajouter à Qualification (« ajouter un champ existant »)
 //   avant la fusion, pour garder ces ID.
+// 02/11/2026 (Phase 8, étape 7) : 📅 Date Visite Technique, lue par le brief de chiffrage (crochet [date] de l'en-tête des
+// devis), même ID sur Qualification et sur TEST (vérifié le 02/11) ; 📌 Emplacement de la borne (texte, nouveau champ
+// de l'élément Borne, crochet [emplacements]) créé le 02/11 sur 🧪 Qualification TEST, à ajouter à Qualification
+// (« ajouter un champ existant ») avant la fusion, pour garder son ID.
+// 03/11/2026 (Phase 8, étape 7) : 🏛️ Date dépôt permis (assiette ADVENIR infra), champ déjà présent sur les deux listes,
+// relevé désormais sur le scénario COP (carte « Le site », src/components/ui/SiteCop.tsx).
+// 03/11/2026, 21 h 30 (passe 2 de la recette, vérifié dans ClickUp par Brain) :
+// - 📌 Emplacement de la borne ajouté à Qualification par Mathieu (même ID que TEST) ;
+// - 🔌 Puissance Dispo : 24 kVA (5), 30 kVA (6) et 36 kVA (7) ajoutés en fin de menu (écart 45). « 18 kVA et plus » (4)
+//   reste dans ClickUp mais n'est plus proposé à l'écran ;
+// - 📶 Réseau : « Sans objet » (3) ajouté en fin de menu (T4) ;
+// - 📈 Pointe réelle des communs (kVA) : nombre, créé sur TEST puis ajouté à Qualification (même ID), relevé sur le
+//   raccordement d'une COP sur services généraux (décision de Mathieu du 03/11, 14 h 57 : puissance cible = pointe réelle
+//   des communs + réserve IRVE, pas l'abonnement).
 
 export const CHAMPS = {
   // Passeport (le webhook Costructor les lit PAR NOM : ne pas les renommer)
@@ -22,10 +36,14 @@ export const CHAMPS = {
   lienCostructor: 'd9f88e8f-4e20-4a98-aee8-3ded30fef5fc',
   alerteSite: '42019c42-0af8-49de-a33d-8af0ddde3357',
 
+  // Fiche (lu par le brief de chiffrage, 02/11/2026)
+  dateVisiteTechnique: '3e633a82-89e3-4895-80d6-04ad25bbccd4',
+
   // Scénario
   segment: 'dbdacf18-1d26-4c58-9bbb-b4a9e443daa2',
   zoneDeplacement: '0f9043bf-ec87-4534-b8ea-af41734bdfed',
   nbPlacesParking: 'dd19d42f-8d9f-4657-bac5-942de6822468',
+  datePermis: '39fa76fa-544d-4e0e-81ab-94822296cf85', // 03/11 : relevé sur le scénario COP
   lienDevis: 'ae80f202-2ef3-4302-b778-f36075ee398f',
   montantDevisHT: '58a159c7-edbc-4d53-a81a-5ec48337c7eb',
   numeroDevis: '4423a27f-ecc1-4107-9488-4784360178c0',
@@ -40,6 +58,7 @@ export const CHAMPS = {
   etatTableau: '965fbd93-9c39-4dc4-9d3e-17aa63f667df',
   raccordementCible: '7f8283e6-ff3a-440e-90e0-72ab50d6354d',
   terre: '586b30e6-c225-4ee1-a9cb-2f2dc332fab9',
+  pointeReelle: '467cd83e-10c7-4e11-9f2e-be1305129bbe', // 03/11 : nombre (kVA), COP sur services généraux
 
   // Cheminement
   depart: '0a18a483-b21e-47a6-9ade-404ace8831f6',
@@ -71,13 +90,14 @@ export const CHAMPS = {
   marqueBorne: 'c4511794-3887-4451-af87-38fbad94b42d',
   modeleBorne: '1537bb04-8d0c-406a-ba92-69944b440535', // 01/11 : menu, TEST d'abord
   supportBorne: '02d61a39-eb1d-417c-953a-c1504dbfae50',
+  emplacementBorne: 'a8fdc273-5514-46c7-9b94-222d3f1f0cee', // 02/11 : texte ; 03/11 : ajouté à Qualification
 
   // Communication
   connectivite: 'e8dcf83c-5dc1-4ea4-b72f-f179500fb893',
   reseau: 'fe5e2142-8191-4e61-86ee-d1e88ed4dc44',
   tailleHub: '85f237d4-792e-4851-89f9-675ae1144a73',
 
-  // Autre
+  // Autre (et Boîte de dérivation, 03/11 : un seul élément avec une quantité)
   quantite: '7939e585-1167-4052-97a2-806e0cdb1ec0',
 
   // Anciens champs (remplacés par les éléments, gardés le temps de la conversion)
@@ -89,13 +109,14 @@ export const CHAMPS = {
   distRouteurTdIrve: '0ebc0cc5-97ae-4525-bc8d-ab98c3a3bd81', // → Cheminement Liaison data
 } as const;
 
-// Index des options, dans l'ordre exact de ClickUp (contrôlé le 15/10/2026, puis le 01/11/2026 pour les ajouts en fin).
+// Index des options, dans l'ordre exact de ClickUp (contrôlé le 15/10/2026, le 01/11/2026 et le 03/11/2026 pour les
+// ajouts en fin).
 export const OPTIONS = {
   typeClient: { particulier: 0, pro: 1, syndic: 2 },
   segment: { RES: 0, DAP: 1, COP: 2, PAR: 3, FLT: 4, TER: 5, RIC: 6 },
   sourceRaccordement: { tableauIndividuel: 0, tgbtServicesGeneraux: 1, pdlDedie: 2, infraCollective: 3, colonneEnedis: 4 },
   typeRaccordement: { mono: 0, tri: 1 },
-  puissanceDispo: { '3': 0, '6': 1, '9': 2, '12': 3, '18+': 4 },
+  puissanceDispo: { '3': 0, '6': 1, '9': 2, '12': 3, '18+': 4, '24': 5, '30': 6, '36': 7 },
   etatTableau: { ok: 0, aRemanier: 1, aRemplacer: 2 },
   raccordementCible: { inchange: 0, monoRenforce: 1, passageTri: 2, augmentation: 3 },
   nature: {
@@ -118,7 +139,7 @@ export const OPTIONS = {
   },
   supportBorne: { murBetonParpaing: 0, murPlaco: 1, murBois: 2, surPied: 3 },
   connectivite: { simIntegree: 0, modemDeporte: 1, integreeTdIrve: 2, switchBoiteDerivation: 3 },
-  reseau: { wifi: 0, '4g': 1, cableRequis: 2 },
+  reseau: { wifi: 0, '4g': 1, cableRequis: 2, sansObjet: 3 },
   tailleHub: { '10': 0, '20': 1, '150': 2 },
   zoneDeplacement: { Z1: 0, Z2: 1, Z3: 2 },
 } as const;

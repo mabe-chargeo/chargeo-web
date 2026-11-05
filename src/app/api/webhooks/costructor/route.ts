@@ -27,6 +27,12 @@ import { normaliserIdentifiant, rechercherEntreprise, rechercherCopro, type Iden
 // - Rien trouvé : nom de la fiche et adresse de la fiche, comme avant, avec un avertissement dans le commentaire.
 // - Aucun numéro sur une fiche société ou copro : même repli, et le commentaire prévient le commercial
 //   (le numéro est saisi par le commercial dans la fiche ClickUp, décision Matthieu 13/10).
+// 03/11/2026 (passe 2 de la recette sans IA) :
+// - nom de la fiche découpé sans les séparateurs (« · », « : ») ; fiche de test (un mot « test » dans le nom, comme
+//   « TEST · Résident 2 ») : tout le nom en nom de famille, au lieu du prénom « · Résident 2 » et du nom « TEST » (écart 25) ;
+// - particulier : un téléphone partagé (couple, famille, fiches de test) ne suffit plus pour relier un client existant,
+//   le nom complet doit correspondre (« Lead Site Web : test » ≠ « Lead Site Web : Test Test ») ; sinon un client distinct
+//   est créé, avec l'avertissement de doublon possible (écart 20).
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (vrai passage, fiches TEST uniquement).
 // La simulation est aussi acceptée sur une vraie fiche Qualification (lecture seule, décision Matthieu 11/10),
 // pour vérifier la lecture du Gestionnaire et du Contact sur place, impossibles à ajouter à la liste TEST.
@@ -75,7 +81,8 @@ function memeNomSociete(a: string, b: string): boolean {
   const dansLong = new Set(long);
   return court.every((m) => dansLong.has(m));
 }
-// Comparaison de noms de personne, dans n'importe quel ordre (« Magali DUCRET PEILLEX » = « Ducret-Peillex Magali »)
+// Comparaison de noms de personne, dans n'importe quel ordre (« Magali DUCRET PEILLEX » = « Ducret-Peillex Magali »).
+// Tous les mots comptent, y compris « test » : « TEST · Résident 2 » = « TEST Résident 2 » ≠ « TEST · Résident ».
 const clePersonne = (s: string) => mots(s).sort().join(' ');
 
 function lireChamp(tache: any, champ: { id: string; nom: string }): any {
@@ -89,15 +96,20 @@ function lireChamp(tache: any, champ: { id: string; nom: string }): any {
   return f.value;
 }
 
-// « Florian PIERRU » -> prénom Florian, nom PIERRU ; sinon premier mot = prénom
+// « Florian PIERRU » -> prénom Florian, nom PIERRU ; sinon premier mot = prénom.
+// Les séparateurs seuls (« · », « - », « : ») ne sont ni un prénom ni un nom ; une fiche de test (un mot « test » dans le
+// nom, comme « TEST · Résident 2 ») garde tout son nom en nom de famille, pour être retrouvée telle quelle (écart 25).
 function decouperNom(nom: string): { firstName?: string; lastName: string } {
-  const liste = String(nom || '').trim().split(/\s+/).filter(Boolean);
+  const liste = String(nom || '').trim().split(/\s+/).filter((m) => /[\p{L}\p{N}]/u.test(m));
+  const propre = liste.join(' ');
+  if (liste.length === 0) return { lastName: String(nom || '').trim() };
+  if (liste.length > 1 && liste.some((m) => /^test$/i.test(m))) return { lastName: propre };
   const enMajuscules = liste.filter((m) => m.length > 1 && m === m.toUpperCase() && /[A-ZÀ-Ý]/.test(m));
   if (enMajuscules.length > 0 && enMajuscules.length < liste.length) {
     return { firstName: liste.filter((m) => !enMajuscules.includes(m)).join(' '), lastName: enMajuscules.join(' ') };
   }
   if (liste.length >= 2) return { firstName: liste[0], lastName: liste.slice(1).join(' ') };
-  return { lastName: String(nom || '').trim() };
+  return { lastName: propre };
 }
 
 function texteAdresse(v: any): string {
@@ -298,7 +310,7 @@ async function traiter(taskId: string, simulation: boolean) {
   const clients = contacts.filter((c) => ['client', 'lead'].includes(String(c?.type || 'client')));
   let raison = '';
   let candidats: any[] = [];
-  let homonymes: any[] = []; // même email ou téléphone mais autre nom (sociétés seulement)
+  let homonymes: any[] = []; // même email ou téléphone mais autre nom
   if (rnic) {
     candidats = clients.filter((c) => compact(c.taxId) === rnic);
     raison = 'N° RNIC';
@@ -316,6 +328,12 @@ async function traiter(taskId: string, simulation: boolean) {
     if (estSociete) {
       homonymes = trouves.filter((c) => !memeNomSociete(nomContact(c), nomFiche));
       trouves = trouves.filter((c) => memeNomSociete(nomContact(c), nomFiche));
+    } else {
+      // Particulier : trouvé par le seul téléphone, il faut aussi le même nom (téléphone partagé, écart 20)
+      const cle = clePersonne(nomFiche);
+      const autreNom = trouves.filter((c) => !parEmail.includes(c) && clePersonne(nomContact(c)) !== cle);
+      homonymes = autreNom;
+      trouves = trouves.filter((c) => !autreNom.includes(c));
     }
     candidats = trouves;
     const viaEmail = candidats.some((c) => parEmail.includes(c));
