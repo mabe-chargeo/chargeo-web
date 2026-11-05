@@ -55,6 +55,9 @@
 //   · PDL dédié : LIA-PDL-MONO-2X16 ou LIA-PDL-TRI-4X16 en Raccordement ; ADMIN-CREATION-PDL reste dans l'AMO seul ;
 //   · comptage des services généraux (COP, PAR) rangé dans « Gestionnaire de charge » ;
 //   · liaison data vers le routeur (élément Communication) en LIA-ROUTEUR.
+// - 05/11 (passe 3, cas 11) : une liaison entièrement couverte par le câble compris dans le coffret (T5) ne donne pas de
+//   ligne ; la ligne du modèle de la même famille est écrite « ✖ REF : retirer (… compris dans les 3 m de COFF-MONO-7K) »
+//   au lieu de partir sans explication dans « rien au relevé ».
 // Calculs (synthèse du 14/10, sections 4, 6 et 7) :
 // - réserve IRVE au barème (arrêté du 23/12/2020) en COP, avec le plafond ADVENIR infra ;
 // - puissance à demander à Enedis si PDL dédié (réserve IRVE en COP, somme des puissances visées sinon, plafonnée à
@@ -727,7 +730,7 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
 // Lignes « référence × quantité » rangées par zone du modèle, à partir des éléments et des sections calculées. Table de
 // correspondance du 01/11 : R (raccordement), C (cheminement), T (TD IRVE / coffret), BD, B (borne), P (prise),
 // K (communication), A (autre), G (prestations). pdc : rang du point de recharge (0 = N°1). retirer : lignes du modèle à
-// enlever, avec la raison.
+// enlever, avec la raison (par référence, ou par « zone#pdc#famille » pour une liaison couverte par le coffret, 05/11).
 function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { lignes: LigneDevis[]; aFaire: string[]; retirer: Record<string, string> } {
   const els = b.elements;
   const seg = b.segment;
@@ -740,6 +743,9 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
     if (!(qte > 0)) return;
     lignes.push({ zone, pdc, ref, qte, unite, detail });
   };
+  // Liaison entièrement couverte par le câble compris dans le coffret (T5) : la ligne du modèle de la même famille se
+  // retire, avec la raison (passe 3, cas 11, 05/11)
+  const couvert = (zone: Zone, pdc: number, ref: string, raison: string) => { retirer[`${zone}#${pdc}#${famille(ref)}`] = raison; };
   const texteFixe = (zone: Zone, ref: string, detail?: string, pdc = 0) => {
     if (!lignes.some((l) => l.zone === zone && l.ref === ref && l.pdc === pdc)) lignes.push({ zone, pdc, ref, qte: null, unite: 'texte', detail });
   };
@@ -827,6 +833,9 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
       const horsTranchee = Math.max(0, long - enTranchee - inclus);
       const trancheeRestante = Math.max(0, enTranchee - Math.max(0, inclus - (long - enTranchee)));
       const note = inclus ? ` (${inclus} m compris dans ${texte(arr?.valeurs.coffretIrve)})` : '';
+      if (inclus > 0 && horsTranchee <= 0 && trancheeRestante <= 0) {
+        couvert(zone, pdc, ref, `${c.nom} : ${fr(long)} m compris dans les ${inclus} m de ${texte(arr?.valeurs.coffretIrve)}`);
+      }
       poserLigne(ref, metres(horsTranchee), 'ml', `${c.nom}${note}`);
       if (trancheeRestante > 0) {
         marquer('INFO-TRANCHEE-TERRASSIER', zone, pdc);
@@ -864,8 +873,13 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
           for (const d of DISTANCES) {
             let m = Number(c.valeurs[d]) || 0;
             if (m <= 0) continue;
-            if (reste > 0) { const pris = Math.min(m, reste); m -= pris; reste -= pris; }
-            if (m <= 0) continue;
+            let pris = 0;
+            if (reste > 0) { pris = Math.min(m, reste); m -= pris; reste -= pris; }
+            if (m <= 0) {
+              // Longueur entièrement dans le câble du coffret (T5) : la ligne du modèle se retire, avec la raison (05/11)
+              if (poses[d]) couvert(zone, pdc, `${poses[d]}-${code}`, `${c.nom} : ${fr(pris)} m compris dans les ${inclus} m de ${texte(arr?.valeurs.coffretIrve)}`);
+              continue;
+            }
             const famille = poses[d];
             const mode = SAISIES[d].libelle.replace(' (m)', '').toLowerCase();
             if (!famille) { aFaire.push(`${c.nom} : ${mode} ${fr(m)} m en artère, pas d'ouvrage d'artère pour ce mode de pose`); continue; }
@@ -902,6 +916,9 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
     const inclus = amont && ref === 'LIA-DATA-TIC' ? inclusDans(arr).data : 0;
     const zone: Zone = amont ? 'chemAmont' : 'chemAval';
     const pdc = zone === 'chemAval' && k.c.arrivee ? rang.get(String(k.c.arrivee)) ?? 0 : 0;
+    if (inclus > 0 && k.long - inclus <= 0) {
+      couvert(zone, pdc, ref, `${nomLien(dep?.nom ?? null, arr?.nom ?? null, 'liaisonData')} : ${fr(k.long)} m compris dans les ${inclus} m de ${texte(arr?.valeurs.coffretIrve)}`);
+    }
     ajouter(zone, ref, metres(Math.max(0, k.long - inclus)), 'ml', `${nomLien(dep?.nom ?? null, arr?.nom ?? null, 'liaisonData')} : longueur de l'alimentation${inclus ? `, ${inclus} m compris dans ${texte(arr?.valeurs.coffretIrve)}` : ''} (liaison data absente du relevé)`, pdc);
   }
   for (const t of Array.from(textesPose.values())) texteFixe(t.zone, t.ref, undefined, t.pdc);
@@ -1056,6 +1073,7 @@ const LIEU_A_CREER: Partial<Record<Zone, string>> = {
 // Rendu d'un devis dans l'ordre exact de son modèle : chaque section, chaque sous-section, chaque ligne du modèle avec
 // ce qu'il faut en faire, puis les lignes à ajouter, puis une seule ligne ✖ avec tout ce qui ne sert pas. La sous-section
 // est répétée au bout de chaque ligne (écart 15). Une zone que le modèle n'a pas devient une sous-section « à créer ».
+// Une ligne du modèle dont la liaison est couverte par le câble du coffret est retirée avec sa raison (05/11).
 export function rendreDevis(plan: SectionModele[], lignes: LigneDevis[], retirer: Record<string, string> = {}, nbPoints = 1): string[] {
   const out: string[] = [];
   const zonesDuPlan = new Set(plan.flatMap((s) => s.sous.map((ss) => ss.zone)));
@@ -1107,6 +1125,9 @@ export function rendreDevis(plan: SectionModele[], lignes: LigneDevis[], retirer
         items.push(`🔁 ${m.ref} → remplacer par ${autre.ref}${qte(total, autre.unite)}${details(memeRef)}`);
         continue;
       }
+      // Liaison couverte par le câble compris dans le coffret (T5, 05/11) : retirée avec la raison
+      const couverte = retirer[`${zone}#${pdc}#${fam}`];
+      if (couverte) { items.push(`✖ ${m.ref} : retirer (${couverte})`); continue; }
       // T2 : modèle complet qu'on élague, une ligne sans équivalent dans le relevé s'enlève
       sansObjet.push(m.ref);
     }
