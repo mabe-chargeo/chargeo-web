@@ -23,6 +23,12 @@
 // - bouton « Relevé de la fiche » pour revenir à la liste des scénarios (écart 76) ;
 // - RIC : 🏢 Type Client demandé au relevé s'il est vide sur la fiche (écart 69) ;
 // - places de la COP préremplies avec celles du site (écart 44) ; la borne s'affiche avant le coffret (écart 29).
+// 05/11/2026 (passe 3, cas 4, choix de Mathieu à 6 h 44) : un brouillon resté sur le téléphone depuis le 03/11 avait
+// écrasé la source du raccordement. Le brouillon garde sa date (le) et les valeurs de la fiche au moment où il a commencé
+// (base). Si la fiche a changé depuis, ou si le brouillon n'a pas de repère (fait avant ce jour), il ne part plus tout
+// seul : carte « Brouillons plus anciens que la fiche », avec sa date, « Envoyer quand même » ou « Le jeter » ; l'élément
+// ouvert montre la fiche, avec « Reprendre le brouillon » ou « Le jeter ». « Prêt à chiffrer » attend que les relevés
+// gardés sur le téléphone soient envoyés ou jetés (le brief du cas 4 avait été calculé sans le brouillon).
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AlertTriangle, Archive, ArrowLeft, Camera, ChevronDown, ChevronUp, Copy, FileText, GitBranch, Layers,
@@ -145,6 +151,25 @@ function valeursServeur(e: El): Record<string, string> {
   for (const [k, val] of Object.entries(e.valeurs)) v[k] = val === null || val === undefined ? '' : String(val);
   return v;
 }
+// Brouillon plus ancien que la fiche (05/11) : la fiche a changé depuis le début du brouillon, ou le brouillon n'a pas
+// de repère (fait avant le 05/11). Il ne part alors plus tout seul.
+function brouillonPerime(e: El): boolean {
+  const b = lireBrouillon(e.id);
+  if (!b) return false;
+  if (!b.base || typeof b.base !== 'object') return true;
+  const serveur = valeursServeur(e);
+  const cles = new Set([...Object.keys(b.base), ...Object.keys(serveur)]);
+  for (const k of Array.from(cles)) if (String(b.base[k] ?? '') !== String(serveur[k] ?? '')) return true;
+  if (e.nature === 'cheminement' && (String(b.baseDepart ?? '') !== (e.depart || '') || String(b.baseArrivee ?? '') !== (e.arrivee || ''))) return true;
+  return false;
+}
+function dateBrouillon(id: string): string {
+  const le = lireBrouillon(id)?.le;
+  return le ? new Date(le).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'date inconnue';
+}
+function jeterBrouillon(id: string) {
+  try { localStorage.removeItem(cleBrouillonDe(id)); } catch { /* sans gravité */ }
+}
 
 async function poster(url: string, corps: any): Promise<{ ok: boolean; j: any }> {
   try {
@@ -229,17 +254,31 @@ function FormulaireElement({
   e, elements, ctx, peut, onEnregistre, onBrouillon,
 }: { e: El; elements: El[]; ctx: ContexteReleve; peut: boolean; onEnregistre: (j: any) => Promise<void>; onBrouillon: () => void }) {
   const cleBrouillon = cleBrouillonDe(e.id);
-  const [v, setV] = useState<Record<string, string>>(() => ({ ...valeursServeur(e), ...(lireBrouillon(e.id)?.v || {}) }));
-  const [dep, setDep] = useState<string>(() => lireBrouillon(e.id)?.depart ?? (e.depart || ''));
-  const [arr, setArr] = useState<string>(() => lireBrouillon(e.id)?.arrivee ?? (e.arrivee || ''));
+  // Brouillon plus ancien que la fiche (05/11) : la fiche s'affiche, le brouillon attend la décision
+  const [perime, setPerime] = useState<boolean>(() => brouillonPerime(e));
+  const [v, setV] = useState<Record<string, string>>(() => (perime ? valeursServeur(e) : { ...valeursServeur(e), ...(lireBrouillon(e.id)?.v || {}) }));
+  const [dep, setDep] = useState<string>(() => (perime ? (e.depart || '') : lireBrouillon(e.id)?.depart ?? (e.depart || '')));
+  const [arr, setArr] = useState<string>(() => (perime ? (e.arrivee || '') : lireBrouillon(e.id)?.arrivee ?? (e.arrivee || '')));
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState('');
 
   useEffect(() => { lirePhotos(e.id).then(setPhotos); }, [e.id]);
 
+  // Le brouillon garde sa date et les valeurs de la fiche au moment où il a commencé (base). Une saisie sur un brouillon
+  // périmé repart de la fiche affichée : l'ancien brouillon est remplacé.
   const garder = (nv: Record<string, string>, nd: string, na: string) => {
-    try { localStorage.setItem(cleBrouillon, JSON.stringify({ v: nv, depart: nd, arrivee: na })); } catch { /* sans gravité */ }
+    const avant = lireBrouillon(e.id);
+    const reprendBase = !perime && avant?.base && typeof avant.base === 'object';
+    try {
+      localStorage.setItem(cleBrouillon, JSON.stringify({
+        v: nv, depart: nd, arrivee: na, le: Date.now(),
+        base: reprendBase ? avant.base : valeursServeur(e),
+        baseDepart: reprendBase ? avant.baseDepart : (e.depart || ''),
+        baseArrivee: reprendBase ? avant.baseArrivee : (e.arrivee || ''),
+      }));
+    } catch { /* sans gravité */ }
+    if (perime) setPerime(false);
     onBrouillon();
   };
   const changer = (k: string, val: string) => {
@@ -249,6 +288,28 @@ function FormulaireElement({
     if (k === 'coffretIrve' && estCoffretTd(val)) n.gestionCharge = 'gestionnaireGrappe';
     setV(n);
     garder(n, dep, arr);
+  };
+  // Brouillon périmé : le reprendre (il devient le brouillon en cours, sur la fiche d'aujourd'hui) ou le jeter
+  const reprendre = () => {
+    const b = lireBrouillon(e.id);
+    const nv = { ...valeursServeur(e), ...(b?.v || {}) };
+    const nd = b?.depart ?? (e.depart || '');
+    const na = b?.arrivee ?? (e.arrivee || '');
+    setPerime(false);
+    setV(nv);
+    setDep(nd);
+    setArr(na);
+    try {
+      localStorage.setItem(cleBrouillon, JSON.stringify({
+        v: nv, depart: nd, arrivee: na, le: Date.now(), base: valeursServeur(e), baseDepart: e.depart || '', baseArrivee: e.arrivee || '',
+      }));
+    } catch { /* sans gravité */ }
+    onBrouillon();
+  };
+  const jeter = () => {
+    jeterBrouillon(e.id);
+    setPerime(false);
+    onBrouillon();
   };
 
   const visibles = champsVisibles(e.nature, v, ctx);
@@ -340,12 +401,27 @@ function FormulaireElement({
     } else {
       setPhotos([]);
     }
+    setPerime(false);
     setEnvoi(false);
     await onEnregistre(r.j);
   };
 
   return (
     <div className="mt-4 space-y-4 border-t-[1.5px] border-[#eceef1] pt-4">
+      {perime && (
+        <div className="space-y-3 rounded-[14px] bg-white p-4 text-[14px] leading-relaxed ring-[1.5px] ring-[#FF6B00]">
+          <p className="font-semibold">
+            Un brouillon du {dateBrouillon(e.id)} attend sur ce téléphone, mais la fiche a changé depuis. Ci-dessous : ce qui est enregistré sur la fiche.
+          </p>
+          {peut && (
+            <div className="flex flex-wrap gap-2">
+              <PetitBouton onClick={reprendre}>Reprendre le brouillon</PetitBouton>
+              <PetitBouton onClick={jeter}><X size={14} /> Le jeter</PetitBouton>
+            </div>
+          )}
+        </div>
+      )}
+
       {e.nature === 'cheminement' && (
         <div className="grid grid-cols-1 gap-4">
           <div className="space-y-2">
@@ -491,6 +567,8 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
   const [ouvert, setOuvert] = useState<string | null>(null);
   // Saisies gardées sur le téléphone, pas encore envoyées (ids des éléments)
   const [enAttente, setEnAttente] = useState<string[]>([]);
+  // Dont les brouillons plus anciens que la fiche (05/11), qui ne partent plus tout seuls
+  const [perimes, setPerimes] = useState<string[]>([]);
   const [envoiTous, setEnvoiTous] = useState(false);
   // Réponse de « Prêt à chiffrer », affichée sous le bouton
   const [retourPret, setRetourPret] = useState<{ ok: boolean; texte: string } | null>(null);
@@ -520,14 +598,16 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     }
   }, [scenarioId]);
 
-  // Éléments qui ont une saisie ou des photos gardées sur le téléphone
+  // Éléments qui ont une saisie ou des photos gardées sur le téléphone, et brouillons plus anciens que la fiche
   const recompterAttente = useCallback(async (els: El[]) => {
     const ids: string[] = [];
+    const vieux: string[] = [];
     for (const e of els) {
-      if (lireBrouillon(e.id)) { ids.push(e.id); continue; }
+      if (lireBrouillon(e.id)) { ids.push(e.id); if (brouillonPerime(e)) vieux.push(e.id); continue; }
       if ((await lirePhotos(e.id)).length) ids.push(e.id);
     }
     setEnAttente(ids);
+    setPerimes(vieux);
   }, []);
 
   useEffect(() => { charger(); }, [charger]);
@@ -603,7 +683,10 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     ...(typeClientManque ? [{ e: { nom: 'Fiche' } as El, m: ['🏢 Type Client'] }] : []),
     ...d.elements.map((e) => ({ e, m: manquants(e, ctx) })).filter((x) => x.m.length),
   ];
-  const attente = d.elements.filter((e) => enAttente.includes(e.id));
+  // Relevés à envoyer d'un coup : les brouillons plus anciens que la fiche en sont exclus (05/11)
+  const attente = d.elements.filter((e) => enAttente.includes(e.id) && !perimes.includes(e.id));
+  const vieuxBrouillons = d.elements.filter((e) => perimes.includes(e.id));
+  const aTrancher = attente.length + vieuxBrouillons.length;
 
   const segmentChoisi: Segment = estSegment(segment) ? segment : d.scenario.segment || (estSegment(segmentInitial) ? segmentInitial : 'RES');
   // Places : celles du site (fiche) par défaut, plus redemandées d'un scénario à l'autre (écart 44)
@@ -671,7 +754,8 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     proposer(Array.isArray(j?.propositions) ? j.propositions[0] : null);
     await charger();
   };
-  // Tous les éléments saisis sur le téléphone, envoyés l'un après l'autre (ce qui échoue reste sur le téléphone)
+  // Tous les éléments saisis sur le téléphone, envoyés l'un après l'autre (ce qui échoue reste sur le téléphone).
+  // Les brouillons plus anciens que la fiche n'en font pas partie (05/11).
   const enregistrerTous = async () => {
     if (envoiTous || !attente.length) return;
     setOuvert(null);
@@ -685,6 +769,7 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     const propositions: any[] = [];
     let photosRatees = 0;
     for (const e of attente) {
+      if (brouillonPerime(e)) continue;
       const b = lireBrouillon(e.id);
       const v = { ...valeursServeur(e), ...(b?.v || {}) };
       const dep = b?.depart ?? (e.depart || '');
@@ -710,6 +795,27 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     proposer(propositions[0]);
     await charger();
     setEnvoiTous(false);
+  };
+  // Brouillon plus ancien que la fiche : envoyé seulement sur demande, ou jeté (05/11)
+  const envoyerQuandMeme = async (e: El) => {
+    setOccupe(true);
+    setErreur('');
+    setMessage('');
+    const b = lireBrouillon(e.id);
+    const v = { ...valeursServeur(e), ...(b?.v || {}) };
+    const r = await envoyerReleve(e, v, b?.depart ?? (e.depart || ''), b?.arrivee ?? (e.arrivee || ''), ctx, await lirePhotos(e.id));
+    setOccupe(false);
+    if (!r.ok) {
+      setErreur(r.j?.error ? `${r.j.error}. Le brouillon reste sur le téléphone.` : 'Pas envoyé : le brouillon reste sur le téléphone, réessaie avec du réseau.');
+      return;
+    }
+    await apresReleve(r.j);
+  };
+  const jeterVieux = async (e: El) => {
+    jeterBrouillon(e.id);
+    setErreur('');
+    setMessage(`Brouillon de ${e.nom} jeté : la fiche garde ce qui est enregistré.`);
+    await recompterAttente(d.elements);
   };
   // « Prêt à chiffrer » : la réponse (brief posté, statuts passés, ou erreur) s'affiche sous le bouton, et le brief juste
   // en dessous (écart 24)
@@ -767,7 +873,9 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
     return (
       <>
         <span>{base}</span>
-        {enAttente.includes(e.id) ? (
+        {perimes.includes(e.id) ? (
+          <span className="ml-1 font-semibold" style={{ color: '#FF6B00' }}> · brouillon du {dateBrouillon(e.id)} plus ancien que la fiche, à trancher</span>
+        ) : enAttente.includes(e.id) ? (
           <span className="ml-1 font-semibold" style={{ color: '#FF6B00' }}> · saisi sur le téléphone, pas encore envoyé</span>
         ) : (
           <span className="ml-1 font-semibold" style={{ color: m.length ? '#FF6B00' : CYAN }}>
@@ -818,6 +926,22 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
       <BoutonPrincipal type="button" onClick={enregistrerTous} disabled={envoiTous || occupe} inactif={envoiTous || occupe}>
         <Send size={20} /> {envoiTous ? 'Envoi…' : `Enregistrer tous les éléments (${attente.length})`}
       </BoutonPrincipal>
+    </Carte>
+  );
+
+  // Carte « Brouillons plus anciens que la fiche » (05/11) : rien ne part tout seul, chaque brouillon se tranche
+  const carteVieux = peut && vieuxBrouillons.length > 0 && (
+    <Carte accent className="space-y-3">
+      <TitreCarte icon={AlertTriangle} extra={<span className="text-[13px] font-bold">{vieuxBrouillons.length}</span>}>Brouillons plus anciens que la fiche</TitreCarte>
+      <p className="text-[14px] leading-relaxed">
+        La fiche a changé depuis ces saisies gardées sur le téléphone : elles ne partent pas toutes seules. Pour chacune, envoie-la quand même ou jette-la.
+      </p>
+      {vieuxBrouillons.map((e) => (
+        <Ligne key={e.id} titre={e.nom} sousTitre={`Brouillon du ${dateBrouillon(e.id)}`}>
+          <PetitBouton onClick={() => envoyerQuandMeme(e)} disabled={occupe}><Send size={14} /> Envoyer quand même</PetitBouton>
+          <PetitBouton onClick={() => jeterVieux(e)} disabled={occupe}><X size={14} /> Le jeter</PetitBouton>
+        </Ligne>
+      ))}
     </Carte>
   );
 
@@ -887,6 +1011,7 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
         </Carte>
       ) : (
         <>
+          {carteVieux}
           {carteAEnvoyer}
 
           <Carte className="space-y-3">
@@ -940,6 +1065,7 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
             </Carte>
           )}
 
+          {carteVieux}
           {carteAEnvoyer}
 
           <Carte accent className="space-y-3">
@@ -947,9 +1073,9 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
             <p className="text-[14px] leading-relaxed">
               Vérifie qu&apos;il ne manque rien, puis passe le scénario en « devis à faire ». Statut actuel : <strong>{d.scenario.statut || '–'}</strong>.
             </p>
-            {attente.length > 0 && (
+            {aTrancher > 0 && (
               <p className="text-[14px] leading-relaxed" style={{ color: '#FF6B00' }}>
-                Envoie d&apos;abord les relevés gardés sur le téléphone (bouton ci-dessus).
+                Envoie ou jette d&apos;abord les relevés gardés sur le téléphone (cartes ci-dessus) : sinon le brief serait calculé sans eux.
               </p>
             )}
             {incomplets.length > 0 && (
@@ -958,8 +1084,8 @@ export function ElementsScenario({ scenarioId, segmentInitial = '' }: { scenario
               </p>
             )}
             {peut && (
-              <BoutonPrincipal type="button" onClick={pret} disabled={occupe || incomplets.length > 0} inactif={occupe || incomplets.length > 0}>
-                <Send size={20} /> {occupe ? 'Envoi…' : incomplets.length > 0 ? 'Relevé incomplet' : 'Prêt à chiffrer'}
+              <BoutonPrincipal type="button" onClick={pret} disabled={occupe || incomplets.length > 0 || aTrancher > 0} inactif={occupe || incomplets.length > 0 || aTrancher > 0}>
+                <Send size={20} /> {occupe ? 'Envoi…' : incomplets.length > 0 ? 'Relevé incomplet' : aTrancher > 0 ? 'Relevés à envoyer d’abord' : 'Prêt à chiffrer'}
               </BoutonPrincipal>
             )}
             {retourPret && (
