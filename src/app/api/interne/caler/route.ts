@@ -37,6 +37,8 @@ import { effacerMailAFaire, mailAFaire, poserMailAFaire } from '@/lib/mailsAFair
 //   de src/lib/modelesMails.ts, envoyé depuis contact@chargeo.fr avec sa copie sur la fiche.
 // 05/11/2026, 21 h 56 à 21 h 58 (Mathieu : l'envoi du mail est obligatoire) : caler pose « ✉️ Mail à envoyer » =
 //   visite-confirmation (visite-deplacee en cas de décalage, src/lib/mailsAFaire.ts) ; annuler l'efface. Renvoie mailPose.
+// 05/11/2026, 22 h 49 (recette de Mathieu) : un décalage alors que la confirmation n'est pas encore partie garde la
+//   confirmation (le client n'a reçu aucune date) ; « Visite · déplacée » seulement après une confirmation envoyée.
 // Droits : commercial, chef de chantier et direction. Fiche de la Qualification de l'environnement (🧪 TEST en preview)
 // au statut 📍 à visiter. En preview, seules les fiches avec le mot « Test » dans le nom sont modifiées.
 // Le fichier n'exporte que les handlers (règle des routes Next).
@@ -356,8 +358,11 @@ export async function POST(request: Request) {
       });
       chefOk = ra.ok;
     }
-    // 2 bis. Mail obligatoire : confirmation (ou visite déplacée) à envoyer depuis l'appli (décision du 05/11, 21 h 56)
-    const cleMail = ancien ? 'visite-deplacee' : 'visite-confirmation';
+    // 2 bis. Mail obligatoire : confirmation (ou visite déplacée) à envoyer depuis l'appli (décision du 05/11, 21 h 56).
+    // Décalé alors que la confirmation attend encore : le client n'a reçu aucune date, c'est donc toujours la
+    // confirmation (avec la nouvelle date) qui est due (recette du 05/11, 22 h 49).
+    const deplacee = !!ancien && mailAFaire(t) !== 'visite-confirmation';
+    const cleMail = deplacee ? 'visite-deplacee' : 'visite-confirmation';
     const mailPose = await poserMailAFaire(token, t, cleMail).catch(() => false);
 
     // 3. Google Agenda du chef (un échec n'annule pas la date, il est signalé)
@@ -399,7 +404,7 @@ export async function POST(request: Request) {
       ancien ? `Ancienne date : ${libelleDate(ancien)}.` : '',
       note ? `${MARQUE_NOTE}${note}` : '',
       agenda === 'cree' ? `🗓️ Ajouté à l'agenda Google de ${chef?.nom}.` : agenda === 'deplace' ? `🗓️ Déplacé dans l'agenda Google de ${chef?.nom}.` : agenda === 'erreur' ? `⚠️ Agenda Google non mis à jour : ${agendaErreur}` : '',
-      mailPose ? `✉️ Mail « ${ancien ? 'Visite · déplacée' : 'Visite · confirmation'} » à envoyer depuis l'appli (obligatoire).` : '⚠️ Le mail à envoyer n’a pas pu être marqué sur la fiche.',
+      mailPose ? `✉️ Mail « ${deplacee ? 'Visite · déplacée' : 'Visite · confirmation'} » à envoyer depuis l'appli (obligatoire).` : '⚠️ Le mail à envoyer n’a pas pu être marqué sur la fiche.',
     ].filter(Boolean);
     await fetch(`${API}/task/${tid}/comment`, {
       method: 'POST',
@@ -414,7 +419,8 @@ export async function POST(request: Request) {
       chefOk,
       agenda,
       agendaErreur,
-      decale: !!ancien,
+      // decale : le mail dû est « Visite · déplacée » (l'écran choisit le texte d'après lui)
+      decale: deplacee,
       mailPose,
       cale: { quand, chef: chef?.nom || '', lienFiche: adresses.affaire(String(t.id)) },
     });
