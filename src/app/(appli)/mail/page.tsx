@@ -4,8 +4,11 @@
 // /mail?fiche=<id>&a=<destinataire>. Page blanche : le mail part de contact@chargeo.fr au clic « Envoyer », jamais tout
 // seul, et sa copie va en commentaire sur la fiche (src/app/api/interne/mail/route.ts). Les textes déjà remplis par
 // étape (nouvelle demande, visite, devis, relances, factures, candidatures) arrivent aux lots 2 à 5.
+// 05/11/2026, 19 h 00 (retour de Mathieu) : le nom d'envoi (« L'équipe CHARGéO ») et la signature viennent des réglages
+// Gmail de contact@chargeo.fr (src/lib/mails.ts). La signature s'affiche sous le message, telle qu'elle partira, et n'est
+// plus recopiée dans le message.
 // Préversion : le mail part seulement à l'adresse de la personne connectée, avec [TEST] dans l'objet.
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type SyntheticEvent } from 'react';
 import { ArrowLeft, Check, Mail, RefreshCw, Send } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, BoutonPrincipal, TitreCarte, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN } from '@/components/charte/couleurs';
@@ -15,6 +18,9 @@ type Infos = {
   branche: boolean;
   preview: boolean;
   expediteur: string;
+  nomExpediteur: string;
+  signature: { html: string; texte: string } | null;
+  signatureProbleme: string;
   moi: string;
   nom: string;
   peutEnvoyer: boolean;
@@ -22,7 +28,16 @@ type Infos = {
 };
 type Resultat = { envoyeA: string[]; preview: boolean; avertissement?: string };
 
-const signature = (nom: string) => `\n\nBonne journée,\n${nom || 'L’équipe CHARGéO'}\nCHARGéO · installateur de bornes de recharge\nchargeo.fr`;
+const TEXTE_DE_DEPART = 'Bonjour,\n\n\nÀ bientôt,';
+
+// Aperçu de la signature dans un cadre isolé (aucun script, styles de l'appli sans effet), proche du rendu Gmail
+const pageSignature = (html: string) =>
+  `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0}body{padding:12px 14px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.45;color:#222}img{max-width:100%;height:auto}a{color:#1155cc}</style></head><body>${html}</body></html>`;
+const ajusterHauteur = (e: SyntheticEvent<HTMLIFrameElement>) => {
+  const cadre = e.currentTarget;
+  const h = cadre.contentDocument?.documentElement?.scrollHeight;
+  if (h) cadre.style.height = `${Math.min(Math.max(h, 48), 420)}px`;
+};
 
 export default function MailPage() {
   const [ficheId, setFicheId] = useState('');
@@ -54,7 +69,7 @@ export default function MailPage() {
         else {
           setInfos(d as Infos);
           setA(dest || d.fiche?.email || '');
-          setTexte(`Bonjour ,${signature(String(d.nom || ''))}`);
+          setTexte(TEXTE_DE_DEPART);
         }
       } catch {
         setErreur('Impossible de joindre le serveur.');
@@ -132,7 +147,7 @@ export default function MailPage() {
             <TitreCarte icon={Mail}>Nouveau mail</TitreCarte>
             <div>
               <p className={ETIQUETTE}>De</p>
-              <p className="mt-1.5 px-1 text-[15px] font-semibold">CHARGéO &lt;{infos.expediteur}&gt;</p>
+              <p className="mt-1.5 px-1 text-[15px] font-semibold">{infos.nomExpediteur || "L'équipe CHARGéO"} &lt;{infos.expediteur}&gt;</p>
             </div>
             <div>
               <label className={ETIQUETTE} htmlFor="mail-a">À</label>
@@ -149,9 +164,27 @@ export default function MailPage() {
             </div>
             <div>
               <label className={ETIQUETTE} htmlFor="mail-texte">Message</label>
-              <textarea id="mail-texte" className={`${CHAMP} mt-1.5 min-h-[280px]`} value={texte} onChange={(e) => setTexte(e.target.value)} />
+              <textarea id="mail-texte" className={`${CHAMP} mt-1.5 min-h-[240px]`} value={texte} onChange={(e) => setTexte(e.target.value)} />
             </div>
-            <p className="text-[12px] text-slate-500">Relis avant d&apos;envoyer : le mail part tel quel, et sa copie va en commentaire sur la fiche.</p>
+            <div>
+              <p className={ETIQUETTE}>Signature</p>
+              {infos.signature ? (
+                <>
+                  <iframe
+                    title="Signature du mail"
+                    sandbox="allow-same-origin"
+                    srcDoc={pageSignature(infos.signature.html)}
+                    onLoad={ajusterHauteur}
+                    className="mt-1.5 block w-full rounded-[14px] bg-white ring-[1.5px] ring-[#dfe3e8]"
+                    style={{ height: 150, border: 0 }}
+                  />
+                  <p className="ml-1 mt-1 text-[12px] text-slate-500">Celle de Gmail (contact@chargeo.fr), ajoutée sous ton message à l&apos;envoi.</p>
+                </>
+              ) : (
+                <Alerte className="mt-1.5">Signature Gmail pas trouvée : le mail partira sans signature ({infos.signatureProbleme || 'raison inconnue'}).</Alerte>
+              )}
+            </div>
+            <p className="text-[12px] text-slate-500">Relis avant d&apos;envoyer : le mail part tel quel, signature comprise, et sa copie va en commentaire sur la fiche.</p>
           </Carte>
         )}
 

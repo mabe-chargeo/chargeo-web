@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 import { sessionDeRequete } from '@/lib/session';
 import { rolesDe, type Role } from '@/lib/roles';
 import { CHAMPS } from '@/lib/champsClickUp';
-import { EXPEDITEUR, MAX_DESTINATAIRES, adressesValides, enPreversion, envoyerMail, estEmail, mailBranche } from '@/lib/mails';
+import { EXPEDITEUR, MAX_DESTINATAIRES, adressesValides, enPreversion, envoyerMail, estEmail, expediteur, mailBranche, type Expediteur } from '@/lib/mails';
 
 // Écrire un mail depuis l'appli (Phase 9, lot 1, 05/11/2026 ; envoi : src/lib/mails.ts).
-// GET ?fiche=<id> : nom de la fiche, 📧 Email du passeport, branchement, préversion et droits.
-// POST { ficheId, a, cc, objet, texte } : le mail relu par la personne connectée part de contact@chargeo.fr, puis une
-// copie est postée en commentaire sur la fiche (décision du 04/11, 21 h 58). Jamais d'envoi automatique : seul le clic
-// « Envoyer » appelle cette route.
+// GET ?fiche=<id> : nom de la fiche, 📧 Email du passeport, nom d'envoi et signature Gmail de contact@chargeo.fr,
+// branchement, préversion et droits.
+// POST { ficheId, a, cc, objet, texte } : le mail relu par la personne connectée part de contact@chargeo.fr, signature
+// Gmail ajoutée sous le texte, puis une copie est postée en commentaire sur la fiche (décision du 04/11, 21 h 58).
+// Jamais d'envoi automatique : seul le clic « Envoyer » appelle cette route.
 // Préversion : le mail part seulement à l'adresse ClickUp de la personne connectée, avec [TEST] dans l'objet et les
 // destinataires prévus en tête du texte. Aucun client ne le reçoit.
 // Droits : direction, commercial, chargé d'opération et back-office ; l'installateur seul n'envoie pas.
@@ -47,11 +48,15 @@ export async function GET(request: Request) {
     const tache = await lireTache(a.token, id);
     if (!tache) return json({ success: false, error: 'Fiche introuvable' }, 404);
     const email = texte(valeur(tache, CHAMPS.email));
+    const exp = await expediteur();
     return json({
       success: true,
       branche: mailBranche(),
       preview: enPreversion(),
       expediteur: EXPEDITEUR,
+      nomExpediteur: exp.nom,
+      signature: exp.signatureHtml ? { html: exp.signatureHtml, texte: exp.signatureTexte } : null,
+      signatureProbleme: exp.probleme || '',
       moi: texte(a.session.email),
       nom: texte(a.session.nom),
       peutEnvoyer: a.peut,
@@ -96,8 +101,9 @@ export async function POST(request: Request) {
       ? { a: [moi], cc: [] as string[], objet: `[TEST] ${objet}`, texte: `⚠️ Mail de test (préversion de l'appli). En production, il partirait ainsi : ${prevus}\n\n${message}` }
       : { a: dest.ok, cc, objet, texte: message };
 
+    let exp: Expediteur;
     try {
-      await envoyerMail(envoi);
+      exp = (await envoyerMail(envoi)).exp;
     } catch (e: any) {
       console.error('Mail (envoi)', e);
       return json({ success: false, error: `Mail non envoyé : ${e?.message || 'erreur Google'}. Rien n’est parti.` }, 502);
@@ -107,13 +113,14 @@ export async function POST(request: Request) {
     const quand = new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' });
     const lignes = [
       `✉️ Mail envoyé depuis l'appli par ${texte(a.session.nom) || 'l’équipe'} · ${quand}`,
-      `De : CHARGéO <${EXPEDITEUR}>`,
+      `De : ${exp.nom} <${EXPEDITEUR}>`,
       `À : ${dest.ok.join(', ')}`,
       ...(cc.length ? [`Cc : ${cc.join(', ')}`] : []),
       `Objet : ${objet}`,
       ...(preview ? [`Préversion : mail de test envoyé seulement à ${moi}, aucun client ne l'a reçu.`] : []),
       '',
       message.length > MAX_COPIE ? `${message.slice(0, MAX_COPIE)}\n[… texte coupé dans la copie]` : message,
+      ...(exp.signatureTexte ? ['', exp.signatureTexte] : exp.signatureHtml ? [] : ['', `(Parti sans signature : ${exp.probleme || 'signature Gmail introuvable'}.)`]),
     ];
     let avertissement: string | undefined;
     try {
