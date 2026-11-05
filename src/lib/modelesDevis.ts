@@ -17,6 +17,8 @@
 // sont inchangés. ADMIN-CREATION-PDL n'est plus dans les devis de travaux sur PDL dédié : il est porté par l'AMO.
 // 04/11/2026, 22 h 15 (passe 3, cas 1, choix de Mathieu) : LIA-ROUTEUR ajouté juste sous INFRA-COP-ROUTEUR dans RES, DAP SG,
 // DAP hors SG, PAR SG et PAR PDL (COP, FLT et TER l'avaient déjà).
+// 05/11/2026, 7 h 31 (passe 3, cas 6, choix de Mathieu) : COP SG et COP PDL V2 ont directement les percements -40 (gaine
+// Ø40 du 5G25) dans leurs deux sous-sections Cheminement, à la place des percements normaux.
 
 export type CleModele =
   | 'COP_PDL' | 'COP_SG' | 'PAR_SG' | 'PAR_PDL' | 'RIC_TARIF_TYPE' | 'RIC_RESIDENT' | 'RIC_COLONNE'
@@ -104,6 +106,8 @@ const LINKY = T('INFO-RACC-LINKY-ENEDIS', 'Raccordement sur compteur Linky Enedi
 const MODES = ['TUBE', 'GOUL', 'CDC-EX', 'VIDE', 'ENC', 'TIR', 'ENT'];
 const cables = (section: string) => MODES.map((m) => P(`LIA-${m}-${section}`));
 const PERCEMENTS = Ps('PER-PLACO', 'PER-PARPAING', 'PER-BETON', 'PER-DALLE');
+// COP : percements -40 directement dans le modèle (05/11, 7 h 31), le 5G25 passe en gaine Ø40
+const PERCEMENTS_40 = Ps('PER-PLACO-40', 'PER-PARPAING-40', 'PER-BETON-40', 'PER-DALLE-40');
 const DEPARTS = Ps('DEPART-TGBT-MONO-40', 'DEPART-TGBT-TRI-40');
 const TERRES = Ps('TERRE-RENF', 'TERRE-PIQ');
 const PDL = Ps('LIA-PDL-MONO-2X16', 'LIA-PDL-TRI-4X16');
@@ -185,14 +189,14 @@ const PLAN_PAR = (sg: boolean): SectionModele[] => [
 const PLAN_COP = (sg: boolean): SectionModele[] => [
   ALIM(
     sg ? [COUPURE_TGBT, RESERVE, P('ADMIN-AUGM-PDL'), AUGM, ...TERRES] : RACC_PDL,
-    [...Ps('LIA-TUBE-5G25', 'LIA-CDC-5G25', 'LIA-ENT-5G25'), ...(sg ? [P('LIA-DATA-MOD')] : []), ...PERCEMENTS, TRANCHEE],
+    [...Ps('LIA-TUBE-5G25', 'LIA-CDC-5G25', 'LIA-ENT-5G25'), ...(sg ? [P('LIA-DATA-MOD')] : []), ...PERCEMENTS_40, TRANCHEE],
     Ps('INFRA-COP-TETE-MONO', 'INFRA-COP-TETE-TRI'),
     '1. INFRASTRUCTURE & TÊTE DE DISTRIBUTION',
   ),
   {
     titre: '2. ARTÈRE DE DISTRIBUTION DU PARKING',
     sous: [
-      { zone: 'chemAval', lignes: [...Ps('LIA-CDC-5G25', 'LIA-TUBE-5G25', 'LIA-ENT-5G25', 'LIA-DATA-RJ45', 'LIA-ENT-RJ45'), ...PERCEMENTS, TRANCHEE] },
+      { zone: 'chemAval', lignes: [...Ps('LIA-CDC-5G25', 'LIA-TUBE-5G25', 'LIA-ENT-5G25', 'LIA-DATA-RJ45', 'LIA-ENT-RJ45'), ...PERCEMENTS_40, TRANCHEE] },
       { zone: 'boite', lignes: [P('INFRA-COP-BOITE')] },
     ],
   },
