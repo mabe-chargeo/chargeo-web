@@ -28,6 +28,11 @@ import { nettoyerAdresse, villeDe } from '@/lib/modelesMails';
 //   ancien fonctionnement (tous ignorés).
 // 18/10, 13 h 05 (« non ça n'apparaît toujours pas ») : le préfixe est transmis, car une même fiche porte son relevé
 //   (« releve… ») puis sa pose (« pose… ») : le chantier à planifier n'exclut que ses propres poses.
+// 05/11/2026, 23 h 01 (Mathieu : « lorsqu'on choisit un créneau, il faudrait qu'il reste en pré-réservation sur
+//   l'agenda ») : pré-réservations = créneaux proposés par mail à un client injoignable, posés « provisoires » dans
+//   l'agenda principal du chef (identifiant « prereserv » + fiche + j<n>, 3 au plus). Ils comptent comme occupés pour
+//   les autres fiches ; occupationsAgenda(…, saufFiche) les laisse de côté pour leur propre fiche, qui les montre comme
+//   « proposés » (lirePrereservations). Retirés quand la fiche est calée ou le rendez-vous annulé.
 // Gratuit (doc Google « Usage limits », 11/09/2026) : 10 000 requêtes par minute par projet, 600 par utilisateur.
 
 const SCOPE_EVENEMENTS = 'https://www.googleapis.com/auth/calendar.events';
@@ -37,6 +42,8 @@ const API = `${RACINE}/calendars/primary/events`;
 const PAGES_MAX = 4;
 const AGENDAS_MAX = 12;
 const NOS_PREFIXES = ['releve', 'pose', 'visite', 'depan'];
+const PREFIXE_PRERESERVATION = 'prereserv';
+export const PRERESERVATIONS_MAX = 3;
 
 function compte(): { email: string; cle: string } | null {
   const brut = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
@@ -84,6 +91,7 @@ async function jetonPour(sujet: string, scopes: string[] = [SCOPE_EVENEMENTS]): 
 // Identifiant d'événement (caractères a à v et 0 à 9 seulement, exigés par Google)
 export const idEvenement = (prefixe: string, ficheId: string, n = 0) => `${prefixe}${Buffer.from(String(ficheId)).toString('hex')}${n ? `j${n}` : ''}`;
 export const idEvenementReleve = (ficheId: string) => idEvenement('releve', ficheId);
+const idPrereservation = (ficheId: string, n: number) => idEvenement(PREFIXE_PRERESERVATION, ficheId, n);
 
 // Inverse de idEvenement : type (préfixe) et id de la tâche d'un de nos rendez-vous, null sinon
 export function ficheDeEvenement(id: string): { prefixe: string; ficheId: string } | null {
@@ -93,6 +101,12 @@ export function ficheDeEvenement(id: string): { prefixe: string; ficheId: string
   if (!m) return null;
   const ficheId = Buffer.from(m[1], 'hex').toString('utf8');
   return /^[0-9a-z]+$/i.test(ficheId) ? { prefixe, ficheId } : null;
+}
+// Fiche d'une pré-réservation, null sinon
+function ficheDePrereservation(id: string): string | null {
+  if (!String(id || '').startsWith(PREFIXE_PRERESERVATION)) return null;
+  const m = String(id).slice(PREFIXE_PRERESERVATION.length).match(/^((?:[0-9a-f]{2})+)(?:j\d+)?$/);
+  return m ? Buffer.from(m[1], 'hex').toString('utf8') : null;
 }
 
 // Jour (AAAA-MM-JJ) et minutes depuis minuit, heure de Paris
@@ -137,8 +151,8 @@ export type LectureAgenda = { creneaux: CreneauAgenda[]; agendas: number; listeC
 // prefixe = type du rendez-vous : 'releve', 'pose', 'visite' ou 'depan'
 export type GarderNos = (ficheId: string, prefixe: string) => boolean;
 
-// Créneaux occupés d'un agenda, découpés par jour
-async function lireUnAgenda(jeton: string, agendaId: string, depuis: Date, jusque: Date, garderNos?: GarderNos): Promise<CreneauAgenda[]> {
+// Créneaux occupés d'un agenda, découpés par jour. saufFiche : ses pré-réservations ne comptent pas.
+async function lireUnAgenda(jeton: string, agendaId: string, depuis: Date, jusque: Date, garderNos?: GarderNos, saufFiche?: string): Promise<CreneauAgenda[]> {
   const creneaux: CreneauAgenda[] = [];
   let page = '';
   for (let n = 0; n < PAGES_MAX; n++) {
@@ -157,6 +171,7 @@ async function lireUnAgenda(jeton: string, agendaId: string, depuis: Date, jusqu
     for (const e of Array.isArray(j?.items) ? j.items : []) {
       if (e?.status === 'cancelled' || e?.transparency === 'transparent' || e?.eventType === 'workingLocation') continue;
       const id = String(e?.id || '');
+      if (saufFiche && ficheDePrereservation(id) === saufFiche) continue;
       if (NOS_PREFIXES.some((p) => id.startsWith(p))) {
         // Un de nos rendez-vous : ignoré s'il est déjà montré par l'ERP (ou sans garderNos, ancien fonctionnement)
         const f = ficheDeEvenement(id);
@@ -190,11 +205,12 @@ async function lireUnAgenda(jeton: string, agendaId: string, depuis: Date, jusqu
   return creneaux;
 }
 
-// Créneaux occupés de tous les agendas affichés de la personne (sans doublon)
-export async function occupationsAgenda(email: string, depuis: Date, jusque: Date, garderNos?: GarderNos): Promise<LectureAgenda> {
+// Créneaux occupés de tous les agendas affichés de la personne (sans doublon). saufFiche : les pré-réservations de
+// cette fiche ne comptent pas (elle les montre comme proposées).
+export async function occupationsAgenda(email: string, depuis: Date, jusque: Date, garderNos?: GarderNos, saufFiche?: string): Promise<LectureAgenda> {
   const jeton = await jetonPour(email);
   const { ids, complet } = await agendasAffiches(email);
-  const lus = await Promise.allSettled(ids.map((id) => lireUnAgenda(jeton, id, depuis, jusque, garderNos)));
+  const lus = await Promise.allSettled(ids.map((id) => lireUnAgenda(jeton, id, depuis, jusque, garderNos, saufFiche)));
   if (lus[0].status !== 'fulfilled') throw (lus[0] as PromiseRejectedResult).reason;
   const vus = new Set<string>();
   const creneaux: CreneauAgenda[] = [];
@@ -242,8 +258,9 @@ export async function nosEvenementsAVenir(email: string, jusque: Date): Promise<
   return trouves;
 }
 
-// Crée (ou déplace et réactive) un événement d'identifiant fixe dans l'agenda principal de la personne
-export async function poserEvenement(email: string, id: string, e: { debutMs: number; finMs: number; titre: string; lieu: string; description: string }): Promise<'cree' | 'deplace'> {
+// Crée (ou déplace et réactive) un événement d'identifiant fixe dans l'agenda principal de la personne.
+// provisoire : événement « à confirmer » (pré-réservation).
+export async function poserEvenement(email: string, id: string, e: { debutMs: number; finMs: number; titre: string; lieu: string; description: string }, provisoire = false): Promise<'cree' | 'deplace'> {
   const jeton = await jetonPour(email);
   const corps = {
     summary: e.titre,
@@ -251,7 +268,7 @@ export async function poserEvenement(email: string, id: string, e: { debutMs: nu
     description: e.description,
     start: { dateTime: new Date(e.debutMs).toISOString(), timeZone: 'Europe/Paris' },
     end: { dateTime: new Date(e.finMs).toISOString(), timeZone: 'Europe/Paris' },
-    status: 'confirmed',
+    status: provisoire ? 'tentative' : 'confirmed',
   };
   const entetes = { Authorization: `Bearer ${jeton}`, 'Content-Type': 'application/json' };
   const r = await fetch(API, { method: 'POST', headers: entetes, body: JSON.stringify(Object.assign({ id }, corps)), cache: 'no-store' });
@@ -283,4 +300,36 @@ export async function poserReleve(email: string, ficheId: string, e: { debutMs: 
 }
 export async function retirerReleve(email: string, ficheId: string): Promise<boolean> {
   return retirerEvenement(email, idEvenementReleve(ficheId));
+}
+
+// Pré-réservations d'une fiche (3 au plus) : posées provisoires, les anciennes en trop sont retirées. Renvoie le nombre posé.
+export async function poserPrereservations(email: string, ficheId: string, plages: { debutMs: number; finMs: number }[], e: { titre: string; lieu: string; description: string }): Promise<number> {
+  const liste = plages.slice(0, PRERESERVATIONS_MAX);
+  for (let i = 0; i < liste.length; i++) {
+    await poserEvenement(email, idPrereservation(ficheId, i + 1), { ...e, debutMs: liste[i].debutMs, finMs: liste[i].finMs }, true);
+  }
+  for (let n = liste.length + 1; n <= PRERESERVATIONS_MAX; n++) await retirerEvenement(email, idPrereservation(ficheId, n)).catch(() => false);
+  return liste.length;
+}
+// Retire les pré-réservations d'une fiche : nombre retiré
+export async function retirerPrereservations(email: string, ficheId: string): Promise<number> {
+  let n = 0;
+  for (let k = 1; k <= PRERESERVATIONS_MAX; k++) {
+    if (await retirerEvenement(email, idPrereservation(ficheId, k)).catch(() => false)) n++;
+  }
+  return n;
+}
+// Pré-réservations à venir d'une fiche dans l'agenda de la personne
+export async function lirePrereservations(email: string, ficheId: string): Promise<{ debutMs: number; finMs: number }[]> {
+  const jeton = await jetonPour(email);
+  const lus = await Promise.all(Array.from({ length: PRERESERVATIONS_MAX }, (_, k) => k + 1).map(async (k) => {
+    const r = await fetch(`${API}/${idPrereservation(ficheId, k)}?fields=status,start,end`, { headers: { Authorization: `Bearer ${jeton}` }, cache: 'no-store' });
+    if (!r.ok) return null;
+    const j = await r.json().catch(() => null);
+    if (!j || j.status === 'cancelled') return null;
+    const debutMs = Date.parse(String(j?.start?.dateTime || ''));
+    const finMs = Date.parse(String(j?.end?.dateTime || ''));
+    return Number.isFinite(debutMs) && Number.isFinite(finMs) && finMs > Date.now() ? { debutMs, finMs } : null;
+  }));
+  return lus.filter((x): x is { debutMs: number; finMs: number } => x !== null).sort((a, b) => a.debutMs - b.debutMs);
 }
