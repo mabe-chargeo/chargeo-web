@@ -29,6 +29,8 @@
 // 05/11/2026 (Phase 9, lot 1 ; Mathieu, 18 h 03 : « Tous les mails doivent être envoyés depuis l'application ») : quand
 // la fiche est connue (ficheId), le bouton Gmail devient « Mail » et ouvre l'écran d'envoi de l'appli (/mail), qui envoie
 // depuis contact@chargeo.fr et copie le mail sur la fiche. Sans fiche connue, le bouton Gmail reste.
+// 05/11, 18 h 46 (recette, fiche sans téléphone ni email) : le bloc ouvert montre toujours « Écrire un mail », destinataire
+// à saisir, pour que chaque fiche puisse envoyer un mail.
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Headphones, Mail, MapPin, MessageSquare, Navigation, Phone, Users } from 'lucide-react';
 import { Carte, TitreCarte } from '@/components/charte/Appli';
@@ -179,6 +181,11 @@ export function BlocContact({
         </div>
       ) : (
         <p className="text-[14px]">Pas d&apos;adresse sur la fiche.</p>
+      )}
+      {ficheId && (
+        <div className="flex flex-wrap gap-2">
+          <Lien href={adresses.mail(ficheId)}><Mail size={14} /> Écrire un mail</Lien>
+        </div>
       )}
       {children}
     </div>
