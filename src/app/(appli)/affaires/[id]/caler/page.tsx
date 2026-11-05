@@ -20,15 +20,20 @@
 //   autres) : le mail s'écrit SUR cet écran (src/components/ui/EcrireMail.tsx), juste après avoir calé. Il est
 //   obligatoire : la route pose « ✉️ Mail à envoyer » et la fiche reste bloquée tant qu'il n'est pas parti.
 // 05/11/2026, 22 h 33 (Mathieu, bouton « Oui, comme ça ») : les rendez-vous de l'agenda Google affichent la commune de
-//   leur lieu (« Occupé · Évian »), mis en avant quand c'est la ville du client. « Client injoignable : proposer des
-//   créneaux par mail » : on touche jusqu'à 3 créneaux libres, puis le mail « Visite · créneaux » s'écrit avec eux ;
-//   rien n'est calé, la fiche reste dans Visites à caler. La note d'accès saisie ici complète les mails.
+//   leur lieu (« Occupé · Évian »), mis en avant quand c'est la ville du client. Client injoignable : on choisit jusqu'à
+//   3 créneaux libres, puis le mail « Visite · créneaux » s'écrit avec eux ; rien n'est calé. La note d'accès saisie ici
+//   complète les mails.
+// 05/11/2026, 23 h 01 (Mathieu : bouton « plus visible, comme les autres », créneau qui « reste en pré-réservation sur
+//   l'agenda », « rester dans la fiche pour assurer une continuité ») : vrai bouton « Client injoignable » ; les créneaux
+//   choisis restent marqués sur l'agenda ; le mail s'écrit sans la liste des modèles ; une fois parti, les créneaux sont
+//   pré-réservés dans l'agenda Google du chef (provisoires). À la réouverture, ils s'affichent « ⏳ proposé », avec
+//   « Caler ce créneau » quand le client a répondu ; caler ou annuler les retire.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertTriangle, CalendarCheck, CalendarX, Check, ChevronRight, Mail, MapPin, RefreshCw, X } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
+import { AlertTriangle, CalendarCheck, CalendarX, Check, ChevronRight, Hourglass, Mail, MapPin, RefreshCw, X } from 'lucide-react';
+import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal, BoutonSecondaire, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
-import AgendaSemaine, { heureDe, libelleJourCourt, type BlocAgenda, type JourneeAgenda } from '@/components/ui/AgendaSemaine';
+import AgendaSemaine, { heureDe, libelleJourCourt, type BlocAgenda, type JourneeAgenda, type MarqueAgenda } from '@/components/ui/AgendaSemaine';
 import EcrireMail from '@/components/ui/EcrireMail';
 import { adresses } from '@/lib/adresses';
 
@@ -42,6 +47,7 @@ type Agenda = { branche: boolean; creneaux: CreneauAgenda[]; erreurs: string[] }
 type StatutAgenda = 'cree' | 'deplace' | 'non-branche' | 'sans-chef' | 'erreur';
 type Duree = { libelle: string; minutes: number };
 type Propose = { jour: string; minutes: number };
+type DejaPropose = Propose & { chefId: number; duree: number };
 
 const MARGE_ROUTE = 30;
 const DUREE_ERP: Record<TypeRdv, number> = { releve: 60, visite: 90, depannage: 90, pose: 240 };
@@ -50,6 +56,7 @@ const TYPES: Record<TypeRdv, string> = { pose: '🏗️ Pose', visite: '🔧 Mai
 const PROPOSES_MAX = 3;
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const avant = (a: Propose, b: Propose) => (a.jour < b.jour ? -1 : a.jour > b.jour ? 1 : a.minutes - b.minutes);
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
 export default function CalerPage() {
   const params = useParams<{ id: string }>();
@@ -77,10 +84,12 @@ export default function CalerPage() {
   const [renvoi, setRenvoi] = useState(false);
   const [chefOk, setChefOk] = useState(true);
   const [statutAgenda, setStatutAgenda] = useState<{ statut: StatutAgenda; erreur: string }>({ statut: 'non-branche', erreur: '' });
-  // Client injoignable : créneaux à proposer par mail, choisis sur l'agenda (rien n'est calé)
+  // Client injoignable : créneaux à proposer par mail, choisis sur l'agenda (rien n'est calé), puis pré-réservés
   const [proposer, setProposer] = useState(false);
   const [proposes, setProposes] = useState<Propose[]>([]);
   const [ecrireCreneaux, setEcrireCreneaux] = useState(false);
+  const [dejaProposes, setDejaProposes] = useState<DejaPropose[]>([]);
+  const [preReserve, setPreReserve] = useState<{ ok: boolean; texte: string } | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -96,6 +105,7 @@ export default function CalerPage() {
           setOccupations(data.occupations || []);
           setPlanningIncomplet(!!data.planningIncomplet);
           if (data.agenda) setAgenda({ branche: !!data.agenda.branche, creneaux: data.agenda.creneaux || [], erreurs: data.agenda.erreurs || [] });
+          setDejaProposes(Array.isArray(data.proposes) ? data.proposes : []);
           const ds: Duree[] = Array.isArray(data.durees) ? data.durees : [];
           setDurees(ds);
           const actuelle = ds.find((d) => d.libelle === data.fiche?.duree) || ds.find((d) => d.minutes === 60);
@@ -118,6 +128,7 @@ export default function CalerPage() {
   const memeVille = (ville: string) => !!fiche?.ville && !!ville && normal(ville) === normal(fiche.ville);
   const duChef = chefId === null ? [] : occupations.filter((o) => o.techniciens.includes(chefId));
   const agendaDuChef = chefId === null ? [] : agenda.creneaux.filter((c) => c.chefId === chefId);
+  const proposesDuChef = chefId === null ? [] : dejaProposes.filter((p) => p.chefId === chefId).sort(avant);
   const blocs: BlocAgenda[] = duChef
     .filter((o) => o.minutes !== null)
     .map((o) => ({ jour: o.jour, debut: o.minutes as number, fin: (o.minutes as number) + (o.duree || DUREE_ERP[o.type]), titre: TYPES[o.type], detail: [o.nom, o.ville].filter(Boolean).join(' · '), ton: (memeVille(o.ville) ? 'proche' : 'erp') as BlocAgenda['ton'] }))
@@ -126,6 +137,10 @@ export default function CalerPage() {
     .filter((o) => o.minutes === null)
     .map((o) => ({ jour: o.jour, titre: o.type === 'pose' ? `🏗️ Chantier ${o.ville || o.nom}` : `${TYPES[o.type]} ${o.nom}` }))
     .concat(agendaDuChef.filter((c) => c.journee).map((c) => ({ jour: c.jour, titre: c.lieu ? `📆 Journée · ${c.lieu}` : '📆 Journée' })));
+  // Créneaux montrés sur l'agenda : en cours de choix (turquoise), ou déjà proposés au client (ambre, touchables)
+  const marques: MarqueAgenda[] = proposer
+    ? proposes.map((p) => ({ ...p, libelle: 'proposé', ton: 'choisi' as const }))
+    : proposesDuChef.map((p) => ({ jour: p.jour, minutes: p.minutes, libelle: '⏳ proposé', ton: 'reserve' as const }));
   const choix = date && /^\d{2}:\d{2}$/.test(heure) ? { jour: date, minutes: Number(heure.slice(0, 2)) * 60 + Number(heure.slice(3, 5)) } : null;
   const journeeDuChoix = choix ? journees.filter((x) => x.jour === choix.jour) : [];
   const effacer = () => { setDate(''); setHeure(''); };
@@ -141,12 +156,31 @@ export default function CalerPage() {
     }
     if (choix && choix.jour === jour && choix.minutes === minutes) { effacer(); return; }
     setDate(jour);
-    setHeure(`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`);
+    setHeure(hhmm(minutes));
   };
+  // Entrer dans « proposer » reprend les créneaux déjà proposés au client (pour les changer)
   const basculerProposer = () => {
+    if (!proposer) setProposes(proposesDuChef.map((p) => ({ jour: p.jour, minutes: p.minutes })));
     setProposer(!proposer);
     effacer();
     setErreur(null);
+  };
+
+  // Mail des créneaux parti : pré-réservation dans l'agenda Google du chef
+  const preReserver = async () => {
+    setPreReserve(null);
+    try {
+      const res = await fetch('/api/interne/caler', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action: 'pre-reserver', creneaux: proposes, chefId, duree: duree.libelle }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) setPreReserve({ ok: false, texte: data?.error || `Pré-réservation impossible (${res.status}) : pense à bloquer ces créneaux à la main.` });
+      else setPreReserve({ ok: true, texte: `${data.preReserves} créneau${data.preReserves > 1 ? 'x' : ''} pré-réservé${data.preReserves > 1 ? 's' : ''} dans l’agenda de ${data.chef}, en attendant la réponse du client.` });
+    } catch {
+      setPreReserve({ ok: false, texte: 'Impossible de joindre le serveur : les créneaux ne sont pas pré-réservés.' });
+    }
   };
 
   const pret = !!choix && (chefs.length === 0 || chefId !== null);
@@ -214,13 +248,13 @@ export default function CalerPage() {
     );
   }
 
-  // Écran de confirmation : juste après avoir calé (mail obligatoire), ou « Renvoyer la confirmation » (mail libre)
+  // Écran de confirmation : juste après avoir calé (mail obligatoire), ou « Renvoyer la confirmation » (mail imposé)
   const confirmation = (c: Cale, titre: string, renvoyee: boolean) => {
     const s = statutAgenda.statut;
     const modele = !renvoyee && decale ? 'visite-deplacee' : 'visite-confirmation';
     return (
       <PageAppli>
-        <EnTeteAppli surtitre="Relevé technique" titre={titre} retour={{ href: c.lienFiche, libelle: 'Fiche' }} />
+        <EnTeteAppli surtitre={titre} titre={fiche?.nom || 'Relevé technique'} retour={{ href: c.lienFiche, libelle: 'Fiche' }} />
         <ContenuAppli className="space-y-4">
           {preview && !renvoyee && <Alerte>Preview : seule cette fiche de test a été modifiée.</Alerte>}
           {!renvoyee && !chefOk && <Alerte>La date est enregistrée, mais le chef de chantier n’a pas pu être assigné à la fiche.</Alerte>}
@@ -238,7 +272,7 @@ export default function CalerPage() {
           </Carte>
 
           <Repere>{modele === 'visite-deplacee' ? 'Mail au client : visite déplacée' : 'Mail de confirmation au client'}</Repere>
-          <EcrireMail ficheId={id} modele={modele} obligatoire={!renvoyee} complements={{ acces: note }} retour={{ href: c.lienFiche, libelle: 'Revenir à la fiche' }} />
+          <EcrireMail ficheId={id} modele={modele} obligatoire={!renvoyee} fixe complements={{ acces: note }} retour={{ href: c.lienFiche, libelle: 'Revenir à la fiche' }} />
           <a href={c.lienFiche} className="flex items-center justify-center gap-1 text-[15px] font-semibold" style={{ color: CYAN }}>Ouvrir la fiche <ChevronRight size={16} /></a>
           {renvoyee
             ? <button onClick={() => setRenvoi(false)} className="block w-full text-center text-[15px] font-semibold" style={{ color: CYAN }}>Décaler ou annuler le rendez-vous</button>
@@ -251,29 +285,36 @@ export default function CalerPage() {
   if (cale) return confirmation(cale, 'Rendez-vous calé', false);
   if (renvoi && dejaCale) return confirmation(dejaCale, 'Renvoyer la confirmation', true);
 
-  // Client injoignable : le mail « Visite · créneaux » s'écrit avec les créneaux choisis (rien n'est calé)
+  // Client injoignable : le mail « Visite · créneaux » s'écrit avec les créneaux choisis (rien n'est calé), puis ils
+  // sont pré-réservés dans l'agenda du chef
   if (ecrireCreneaux && fiche) {
     return (
       <PageAppli>
-        <EnTeteAppli surtitre="Relevé technique" titre="Proposer des créneaux" retour={{ href: adresses.affaire(id), libelle: 'Fiche' }} />
+        <EnTeteAppli surtitre="Proposer des créneaux" titre={fiche.nom} retour={{ href: adresses.affaire(id), libelle: 'Fiche' }} />
         <ContenuAppli className="space-y-4">
           <Carte accent>
-            <p className="text-[18px] font-bold">{fiche.nom}</p>
             {proposes.map((p) => (
-              <p key={`${p.jour}-${p.minutes}`} className="mt-1 flex items-center gap-1.5 text-[15px] font-bold" style={{ color: CYAN }}>
+              <p key={`${p.jour}-${p.minutes}`} className="flex items-center gap-1.5 text-[15px] font-bold" style={{ color: CYAN }}>
                 <CalendarCheck size={16} /> {libelleJourCourt(p.jour)} à {heureDe(p.minutes)}
               </p>
             ))}
-            <p className="mt-1 text-[14px]">Rien n&apos;est calé : la fiche reste dans Visites à caler jusqu&apos;à la réponse du client.</p>
+            <p className="mt-1 text-[14px]">Rien n&apos;est calé : ces créneaux seront pré-réservés dans l&apos;agenda dès que le mail sera parti, et la fiche reste dans Visites à caler jusqu&apos;à la réponse du client.</p>
           </Carte>
           <EcrireMail
             key={proposes.map((p) => `${p.jour}-${p.minutes}`).join('|')}
             ficheId={id}
             modele="visite-creneaux"
+            fixe
             complements={{ creneaux: proposes, acces: note }}
+            onEnvoye={preReserver}
             retour={{ href: adresses.affaire(id), libelle: 'Revenir à la fiche' }}
           />
-          <button onClick={() => setEcrireCreneaux(false)} className="block w-full text-center text-[15px] font-semibold" style={{ color: CYAN }}>Modifier les créneaux</button>
+          {preReserve && (
+            preReserve.ok
+              ? <Carte><p className="flex items-center gap-1.5 text-[14px] font-semibold" style={{ color: VERT }}><Hourglass size={15} /> {preReserve.texte}</p></Carte>
+              : <Alerte>{preReserve.texte}</Alerte>
+          )}
+          {!preReserve && <button onClick={() => setEcrireCreneaux(false)} className="block w-full text-center text-[15px] font-semibold" style={{ color: CYAN }}>Modifier les créneaux</button>}
         </ContenuAppli>
       </PageAppli>
     );
@@ -328,9 +369,27 @@ export default function CalerPage() {
             )}
 
             <Repere>{proposer ? '3 · Les créneaux à proposer' : '3 · Le créneau'}</Repere>
-            <button onClick={basculerProposer} className="block px-1 text-left text-[14px] font-bold" style={{ color: CYAN }}>
-              {proposer ? '← Revenir au calage du rendez-vous' : '📨 Client injoignable : proposer des créneaux par mail'}
-            </button>
+            {!proposer && proposesDuChef.length > 0 && (
+              <Carte className="space-y-2">
+                <p className="flex items-center gap-1.5 text-[15px] font-bold"><Hourglass size={16} color={ORANGE} /> Créneaux proposés au client, pré-réservés</p>
+                {proposesDuChef.map((p) => (
+                  <div key={`${p.jour}-${p.minutes}`} className="flex items-center justify-between gap-3">
+                    <p className="text-[15px] font-semibold">{libelleJourCourt(p.jour)} à {heureDe(p.minutes)}</p>
+                    <button onClick={() => { setDate(p.jour); setHeure(hhmm(p.minutes)); }} className="shrink-0 text-[14px] font-bold" style={{ color: CYAN }}>
+                      Caler ce créneau
+                    </button>
+                  </div>
+                ))}
+                <p className="text-[12px] text-slate-500">Quand le client a choisi, cale son créneau : les autres pré-réservations sont retirées de l&apos;agenda.</p>
+              </Carte>
+            )}
+            {proposer ? (
+              <button onClick={basculerProposer} className="block px-1 text-left text-[14px] font-bold" style={{ color: CYAN }}>← Revenir au calage du rendez-vous</button>
+            ) : (
+              <BoutonSecondaire compact onClick={basculerProposer}>
+                <Mail size={17} /> {proposesDuChef.length ? 'Client injoignable : changer les créneaux proposés' : 'Client injoignable : proposer des créneaux par mail'}
+              </BoutonSecondaire>
+            )}
             {chefId === null && chefs.length > 0 ? (
               <p className="px-1 text-[14px] font-semibold">Choisis d’abord le chef de chantier pour voir son agenda.</p>
             ) : (
@@ -339,10 +398,11 @@ export default function CalerPage() {
                 journees={journees}
                 duree={duree.minutes}
                 marge={MARGE_ROUTE}
-                choix={proposer ? proposes[proposes.length - 1] || null : choix}
+                choix={proposer ? null : choix}
                 onChoisir={choisir}
                 semaine={semaine}
                 onSemaine={setSemaine}
+                marques={marques}
               />
             )}
 
@@ -357,17 +417,16 @@ export default function CalerPage() {
                       </button>
                     </div>
                   )) : (
-                    <p className="text-[14px]">Touche jusqu&apos;à {PROPOSES_MAX} créneaux blancs sur l&apos;agenda : ils seront proposés au client dans le mail. Les rendez-vous dans sa ville sont mis en avant.</p>
+                    <p className="text-[14px]">Touche jusqu&apos;à {PROPOSES_MAX} créneaux blancs sur l&apos;agenda : ils restent marqués, puis seront proposés au client dans le mail et pré-réservés. Les rendez-vous dans sa ville sont mis en avant.</p>
                   )}
                 </Carte>
                 <div>
                   <label className={ETIQUETTE}>Accès et remarques (facultatif)</label>
                   <textarea className={`${CHAMP} mt-1.5 min-h-[90px]`} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Code portail, gardien à prévenir, place de parking, qui sera présent…" />
                 </div>
-                <BoutonPrincipal inactif={!proposes.length} disabled={!proposes.length} onClick={() => setEcrireCreneaux(true)}>
+                <BoutonPrincipal inactif={!proposes.length} disabled={!proposes.length} onClick={() => { setPreReserve(null); setEcrireCreneaux(true); }}>
                   <Mail size={20} /> {proposes.length > 1 ? 'Écrire le mail avec ces créneaux' : 'Écrire le mail avec ce créneau'}
                 </BoutonPrincipal>
-                <p className="text-center text-[12px] text-slate-500">Rien n&apos;est calé : quand le client répond, reviens ici et cale le créneau qu&apos;il a choisi.</p>
               </>
             ) : (
               <>

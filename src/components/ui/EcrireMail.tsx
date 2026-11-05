@@ -7,6 +7,9 @@
 // ouverte depuis le bloc 📇 Contact).
 // obligatoire : le texte attendu est celui du champ ✉️ Mail à envoyer de la fiche (src/lib/mailsAFaire.ts), à défaut
 // `modele`. On ne choisit qu'entre les textes qui le règlent (textesPour). Rien en attente : le composant n'affiche rien.
+// fixe (05/11, 23 h 01, Mathieu : « il ne faudrait pas retomber sur l'écran initial de rédaction d'un mail avec tous
+// les modèles accessibles ») : le texte `modele` est imposé, sans la liste des modèles (créneaux, renvoi de la
+// confirmation). La liste complète ne reste que sur la page blanche du bloc Contact.
 // complements (05/11, 22 h 33) : ce que l'écran sait en plus de la fiche (créneaux choisis dans Caler, note d'accès
 // saisie dans Caler quand la fiche n'a pas de 🔑 Accès site).
 // Sans adresse mail : « Prévenu par téléphone », avec une phrase obligatoire copiée sur la fiche.
@@ -66,6 +69,7 @@ type Props = {
   modele?: string;
   dest?: string;
   obligatoire?: boolean;
+  fixe?: boolean;
   complements?: Partial<Donnees>;
   retour?: { href: string; libelle: string };
   onEtat?: (aFaire: string) => void;
@@ -73,7 +77,7 @@ type Props = {
   onFiche?: (nom: string) => void;
 };
 
-export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoire = false, complements, retour, onEtat, onEnvoye, onFiche }: Props) {
+export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoire = false, fixe = false, complements, retour, onEtat, onEnvoye, onFiche }: Props) {
   const [infos, setInfos] = useState<Infos | null>(null);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -255,7 +259,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
             </div>
           )}
         </Carte>
-      ) : (
+      ) : fixe ? null : (
         <Carte className="space-y-3">
           <TitreCarte icon={FileText}>Quel mail ?</TitreCarte>
           {ETAPES.map((etape) => (
