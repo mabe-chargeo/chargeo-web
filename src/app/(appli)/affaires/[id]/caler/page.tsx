@@ -1,31 +1,32 @@
 "use client";
 
 // Caler le relevé technique (17/10/2026, 20 h 44, choix de Matthieu : « Caler + email de confirmation prêt à
-// envoyer »). Le commercial a le client au téléphone : chef de chantier, durée, créneau, note d'accès. Ensuite l'email
-// de confirmation s'ouvre déjà rédigé, il le relit et l'envoie (ou le copie).
-// 17/10, 20 h 53 : ?confirmation=1 (« Renvoyer la confirmation » de la fiche) ouvre l'email du rendez-vous déjà calé.
+// envoyer »). Le commercial a le client au téléphone : chef de chantier, durée, créneau, note d'accès. Ensuite le mail
+// de confirmation s'ouvre déjà rédigé, il le relit et l'envoie.
+// 17/10, 20 h 53 : ?confirmation=1 (« Renvoyer la confirmation » de la fiche) ouvre la confirmation du rendez-vous déjà
+//   calé.
 // 17/10, 20 h 59 et 21 h 16 : planning du chef (ERP) + son Google Agenda (tous ses agendas affichés, horaires seulement).
-// 17/10, 22 h 42 : agenda de la semaine (src/components/ui/AgendaSemaine.tsx) ; email par l'application Gmail sur
-//   iPhone et iPad, Gmail web sur le compte CHARGéO ailleurs. Durées supposées des RDV ERP sans durée : maintenance et
-//   dépannage 1 h 30, pose avec heure 4 h ; pose sans heure = bandeau chantier. Marge de route 30 min.
+// 17/10, 22 h 42 : agenda de la semaine (src/components/ui/AgendaSemaine.tsx). Durées supposées des RDV ERP sans durée :
+//   maintenance et dépannage 1 h 30, pose avec heure 4 h ; pose sans heure = bandeau chantier. Marge de route 30 min.
 // 17/10, 23 h 00 (Matthieu : « il faudrait pouvoir supprimer un créneau aussi si on se trompe et en modifier la
 //   durée ») : durée au choix (⏳ Durée relevé), créneau choisi effaçable (le toucher à nouveau, ou « Effacer »),
 //   « Annuler le rendez-vous » pour une fiche déjà calée (date vidée, événement retiré de l'agenda du chef).
 // Écrit par /api/interne/caler. Ouvert depuis « Visites à caler » et depuis la fiche affaire.
-// 19/10/2026 (2e lot de cohérence) : cartes et boutons sur les briques communes (src/components/charte/Appli.tsx),
-// détection iPhone du bloc Contact.
+// 19/10/2026 (2e lot de cohérence) : cartes et boutons sur les briques communes (src/components/charte/Appli.tsx).
+// 05/11/2026 (Phase 9, lot 2, décisions de Mathieu du 05/11 à 20 h 57 et 21 h 22) : plus de lien Gmail ni de texte à
+//   copier. « Écrire le mail » ouvre « Visite · confirmation » (ou « Visite · déplacée » après un décalage) dans l'appli
+//   (/mail), rempli avec la fiche, en réponse au dernier échange, envoyé depuis contact@chargeo.fr avec sa copie sur la
+//   fiche.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertTriangle, CalendarCheck, CalendarX, Check, ChevronRight, Copy, Mail, MapPin, RefreshCw, X } from 'lucide-react';
-import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal, BoutonSecondaire, LienPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
+import { AlertTriangle, CalendarCheck, CalendarX, Check, ChevronRight, Mail, MapPin, RefreshCw, X } from 'lucide-react';
+import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal, LienPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import AgendaSemaine, { heureDe, libelleJourCourt, type BlocAgenda, type JourneeAgenda } from '@/components/ui/AgendaSemaine';
-import { estIOS } from '@/components/ui/BlocContact';
 import { adresses } from '@/lib/adresses';
 
 type Fiche = { id: string; nom: string; statut: string; aVisiter: boolean; adresse: string; ville?: string; email: string; telephone: string; dejaCale: string; duree?: string };
 type Chef = { id: number; nom: string };
-type Email = { a: string; sujet: string; texte: string; signature?: string };
 type Cale = { quand: string; chef: string; lienFiche: string };
 type TypeRdv = 'pose' | 'visite' | 'depannage' | 'releve';
 type Occupation = { jour: string; minutes: number | null; duree?: number; type: TypeRdv; nom: string; ville: string; techniciens: number[] };
@@ -39,12 +40,6 @@ const DUREE_ERP: Record<TypeRdv, number> = { releve: 60, visite: 90, depannage: 
 const VERT = '#16a34a';
 const TYPES: Record<TypeRdv, string> = { pose: '🏗️ Pose', visite: '🔧 Maintenance', depannage: '🚨 Dépannage', releve: '📋 Relevé' };
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-// Nouveau message Gmail déjà rédigé : application Gmail sur iPhone et iPad, Gmail web sur le compte CHARGéO ailleurs
-const lienGmail = (e: Email, moi: string, ios: boolean) =>
-  ios
-    ? `googlegmail://co?to=${encodeURIComponent(e.a)}&subject=${encodeURIComponent(e.sujet)}&body=${encodeURIComponent(e.texte)}`
-    : `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(e.a)}&su=${encodeURIComponent(e.sujet)}&body=${encodeURIComponent(e.texte)}${moi ? `&authuser=${encodeURIComponent(moi)}` : ''}`;
 
 export default function CalerPage() {
   const params = useParams<{ id: string }>();
@@ -66,20 +61,12 @@ export default function CalerPage() {
   const [envoi, setEnvoi] = useState(false);
   const [annule, setAnnule] = useState(false);
   const [cale, setCale] = useState<Cale | null>(null);
-  const [email, setEmail] = useState<Email | null>(null);
+  const [decale, setDecale] = useState(false);
   // Rendez-vous déjà calé (lu à l'ouverture) : pour renvoyer la confirmation
-  const [dejaCale, setDejaCale] = useState<{ cale: Cale; email: Email } | null>(null);
+  const [dejaCale, setDejaCale] = useState<Cale | null>(null);
   const [renvoi, setRenvoi] = useState(false);
   const [chefOk, setChefOk] = useState(true);
   const [statutAgenda, setStatutAgenda] = useState<{ statut: StatutAgenda; erreur: string }>({ statut: 'non-branche', erreur: '' });
-  const [copie, setCopie] = useState(false);
-  const [ios, setIos] = useState(false);
-  const [moi, setMoi] = useState('');
-
-  useEffect(() => {
-    setIos(estIOS());
-    fetch('/api/interne/moi', { cache: 'no-store' }).then((r) => r.json()).then((j) => setMoi(String(j?.email || ''))).catch(() => null);
-  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -101,8 +88,8 @@ export default function CalerPage() {
           if (actuelle) setDuree(actuelle);
           setPreview(!!data.preview);
           setChefId(data.chefAssigne || (data.chefs?.length === 1 ? data.chefs[0].id : null));
-          if (data.cale && data.emailConfirmation) {
-            setDejaCale({ cale: data.cale, email: data.emailConfirmation });
+          if (data.cale) {
+            setDejaCale(data.cale);
             if (confirmation) setRenvoi(true);
           }
         }
@@ -149,7 +136,7 @@ export default function CalerPage() {
       if (!res.ok || !data?.success) setErreur(data?.error || `Enregistrement impossible (${res.status})`);
       else {
         setCale(data.cale);
-        setEmail(data.emailConfirmation);
+        setDecale(!!data.decale);
         setChefOk(data.chefOk !== false);
         setStatutAgenda({ statut: (data.agenda as StatutAgenda) || 'non-branche', erreur: String(data.agendaErreur || '') });
         setPreview(!!data.preview);
@@ -200,12 +187,9 @@ export default function CalerPage() {
   }
 
   // Écran de confirmation : juste après avoir calé, ou « Renvoyer la confirmation »
-  const confirmation = (c: Cale, e: Email, titre: string, renvoyee: boolean) => {
-    const gmail = e.a ? lienGmail(e, moi, ios) : '';
-    const copier = async () => {
-      try { await navigator.clipboard.writeText(`${e.sujet}\n\n${e.texte}${e.signature ? `\n${e.signature}` : ''}`); setCopie(true); } catch { setCopie(false); }
-    };
+  const confirmation = (c: Cale, titre: string, renvoyee: boolean) => {
     const s = statutAgenda.statut;
+    const modele = !renvoyee && decale ? 'visite-deplacee' : 'visite-confirmation';
     return (
       <PageAppli>
         <EnTeteAppli surtitre="Relevé technique" titre={titre} retour={{ href: c.lienFiche, libelle: 'Fiche' }} />
@@ -225,23 +209,11 @@ export default function CalerPage() {
             )}
           </Carte>
 
-          <Repere>Email de confirmation</Repere>
-          {gmail ? (
-            <LienPrincipal href={gmail}>
-              <Mail size={20} /> Ouvrir dans Gmail pour {e.a}
-            </LienPrincipal>
-          ) : (
-            <Alerte>Pas d’email sur la fiche du client : copie le texte et envoie-le par le moyen de ton choix.</Alerte>
-          )}
-          <p className="px-1 text-[12px] text-slate-500">Sur iPhone et iPad, l’application Gmail s’ouvre ; ailleurs, Gmail sur ton compte CHARGéO. Ta signature Gmail s’ajoute si elle est réglée pour les nouveaux messages. Le texte est aussi gardé dans les commentaires de la fiche.</p>
-          <Carte className="space-y-2">
-            <p className="text-[13px] font-bold text-slate-500">{e.sujet}</p>
-            <p className="whitespace-pre-line text-[14px] leading-relaxed">{e.texte}</p>
-            <p className="text-[13px] italic text-slate-400">+ ta signature</p>
-          </Carte>
-          <BoutonSecondaire compact onClick={copier}>
-            {copie ? <Check size={17} /> : <Copy size={17} />} {copie ? 'Texte copié (avec ton nom)' : 'Copier le texte'}
-          </BoutonSecondaire>
+          <Repere>{modele === 'visite-deplacee' ? 'Mail au client : visite déplacée' : 'Mail de confirmation au client'}</Repere>
+          <LienPrincipal href={adresses.mail(id, '', modele)}>
+            <Mail size={20} /> Écrire le mail
+          </LienPrincipal>
+          <p className="px-1 text-[12px] text-slate-500">Le mail s’ouvre déjà rempli dans l’appli, en réponse au dernier échange avec le client. Tu complètes les [crochets], tu relis et tu l’envoies depuis contact@chargeo.fr. Sa copie va sur la fiche.</p>
           <a href={c.lienFiche} className="flex items-center justify-center gap-1 text-[15px] font-semibold" style={{ color: CYAN }}>Ouvrir la fiche <ChevronRight size={16} /></a>
           {renvoyee
             ? <button onClick={() => setRenvoi(false)} className="block w-full text-center text-[15px] font-semibold" style={{ color: CYAN }}>Décaler ou annuler le rendez-vous</button>
@@ -251,8 +223,8 @@ export default function CalerPage() {
     );
   };
 
-  if (cale && email) return confirmation(cale, email, 'Rendez-vous calé', false);
-  if (renvoi && dejaCale) return confirmation(dejaCale.cale, dejaCale.email, 'Renvoyer la confirmation', true);
+  if (cale) return confirmation(cale, 'Rendez-vous calé', false);
+  if (renvoi && dejaCale) return confirmation(dejaCale, 'Renvoyer la confirmation', true);
 
   return (
     <PageAppli>
@@ -345,7 +317,7 @@ export default function CalerPage() {
               {envoi ? <RefreshCw size={20} className="animate-spin" /> : <CalendarCheck size={20} />}
               {envoi ? 'Enregistrement…' : fiche.dejaCale ? 'Décaler le relevé' : 'Caler le relevé'}
             </BoutonPrincipal>
-            <p className="text-center text-[12px] text-slate-500">Ensuite, le RDV part dans l’agenda du chef et l’email de confirmation au client est prêt à envoyer.</p>
+            <p className="text-center text-[12px] text-slate-500">Ensuite, le RDV part dans l’agenda du chef et le mail de confirmation au client s’écrit dans l’appli.</p>
           </>
         )}
       </ContenuAppli>
