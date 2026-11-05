@@ -19,6 +19,8 @@
 // DAP hors SG, PAR SG et PAR PDL (COP, FLT et TER l'avaient déjà).
 // 05/11/2026, 7 h 31 (passe 3, cas 6, choix de Mathieu) : COP SG et COP PDL V2 ont directement les percements -40 (gaine
 // Ø40 du 5G25) dans leurs deux sous-sections Cheminement, à la place des percements normaux.
+// 05/11/2026, 10 h 58 (passe 3, cas 11, accord de Mathieu) : RIC colonne V2 a une sous-section Cheminement en section 1,
+// entre Raccordement et TD IRVE (LIA-TUBE-3G10 × 5, LIA-DATA-TIC × 5), pour la liaison Linky → coffret.
 
 export type CleModele =
   | 'COP_PDL' | 'COP_SG' | 'PAR_SG' | 'PAR_PDL' | 'RIC_TARIF_TYPE' | 'RIC_RESIDENT' | 'RIC_COLONNE'
@@ -206,11 +208,12 @@ const PLAN_COP = (sg: boolean): SectionModele[] => [
   ]),
 ];
 
+// RIC colonne : Cheminement Linky → coffret en section 1 depuis le 05/11 (cas 11)
 const PLAN_RIC = (colonne: boolean): SectionModele[] => [
   {
     titre: '1. ALIMENTATION & PROTECTION IRVE',
     sous: colonne
-      ? [{ zone: 'raccordement', lignes: [LINKY] }, { zone: 'td', lignes: COFFRETS_RIC }]
+      ? [{ zone: 'raccordement', lignes: [LINKY] }, { zone: 'chemAmont', lignes: [P('LIA-TUBE-3G10', 5), P('LIA-DATA-TIC', 5)] }, { zone: 'td', lignes: COFFRETS_RIC }]
       : [{ zone: 'chemAmont', lignes: [P('LIA-DERIV-3G25', 5), P('LIA-DATA-RJ45', 5)] }, { zone: 'td', lignes: COFFRETS_RIC }],
   },
   POINT_N1([
