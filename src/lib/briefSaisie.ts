@@ -27,6 +27,7 @@
 // refacturation) est comptée avec les points de recharge, plus dans la surprime équipements et cheminement.
 // 04/11/2026 (modèles V2) : le DAP a deux modèles, sur services généraux (DAP_SG, ADVENIR individuel) et sur le tableau du
 // logement (DAP_HSG, sans ADVENIR : son en-tête porte déjà la bonne phrase, plus rien à remplacer, écart 42).
+// 05/11/2026 (lot de fin de passe 3) : l'en-tête DAP SG V2 n'a plus de [raccordement], retiré de ses crochets.
 import type { Segment } from '@/lib/champsClickUp';
 import type { CleModele, ModeleDevis, Zone } from '@/lib/modelesDevis';
 import { DISTANCES, SAISIES, type ElementReleve } from '@/lib/releveElements';
@@ -77,12 +78,12 @@ export function nomDevis(m: ModeleDevis, c: ContexteSaisie): string {
 }
 
 // Crochets de l'en-tête de chaque modèle, dans l'ordre du texte (en-têtes lus dans Costructor le 02/11/2026, 19 h 30,
-// gardés par les V2 du 04/11)
+// gardés par les V2 du 04/11 ; DAP SG V2 sans [raccordement], 05/11)
 const PAR_CROCHETS = ['[Nombre]', '[marque, puissance]', '[emplacements]', '[date]'];
 const CROCHETS: Record<CleModele, string[]> = {
   RES: ['[marque, puissance]', '[mode de pose, longueur]', '[date]'],
   RES_PRISE: ['[marque]', '[mode de pose, longueur]', '[date]'],
-  DAP_SG: ['[marque, puissance]', '[raccordement]', '[mode de pose, longueur]', '[date]'],
+  DAP_SG: ['[marque, puissance]', '[mode de pose, longueur]', '[date]'],
   DAP_HSG: ['[marque, puissance]', '[mode de pose, longueur]', '[date]'],
   PAR_SG: PAR_CROCHETS,
   PAR_PDL: PAR_CROCHETS,
