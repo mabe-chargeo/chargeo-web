@@ -1,4 +1,5 @@
 import { createSign } from 'crypto';
+import { nettoyerAdresse, villeDe } from '@/lib/modelesMails';
 
 // Google Agenda des chefs de chantier et des installateurs (17/10/2026, 21 h 16, Matthieu : « il va falloir caler avec
 // le Google agenda de toute façon pour être sûr de ne pas avoir de conflit »). Compte de service Google Workspace
@@ -9,9 +10,11 @@ import { createSign } from 'crypto';
 // - https://www.googleapis.com/auth/calendar.calendarlist.readonly : liste des agendas affichés (17/10, 22 h 01, choix de
 //   Matthieu « lis tous ses agendas affichés »). Sans cette autorisation, repli sur l'agenda principal seul, signalé.
 // Sans la variable : « non branché », les écrans montrent seulement le planning de l'ERP.
-// Lecture : horaires des événements seulement (ni titre ni lieu : l'agenda perso reste privé). Ignorés : annulés,
-// « disponible », refusés, lieux de travail, nos propres rendez-vous (« releve… », « pose… », « visite… », « depan… »,
-// déjà dans le planning ERP), agendas de jours fériés, anniversaires et météo. Un agenda secondaire illisible est sauté.
+// Lecture : horaires des événements, et depuis le 05/11/2026 à 22 h 33 (Mathieu valide un agenda « qui affiche les
+// rendez-vous avec leur lieu ») la COMMUNE de leur lieu, pour caler près des rendez-vous existants. Le titre n'est jamais
+// lu (l'agenda perso reste privé). Ignorés : annulés, « disponible », refusés, lieux de travail, nos propres
+// rendez-vous (« releve… », « pose… », « visite… », « depan… », déjà dans le planning ERP), agendas de jours fériés,
+// anniversaires et météo. Un agenda secondaire illisible est sauté.
 // Écriture : dans l'agenda principal, identifiant fixe (préfixe + id de la fiche en hexadécimal, + « j<n> » par jour
 // pour une pose sur plusieurs jours) : créé, déplacé au décalage, retiré de l'agenda d'une personne qui n'y est plus.
 // 17/10, 22 h 49 : poserEvenement / retirerEvenement génériques pour les poses (src/app/api/interne/planifier).
@@ -104,6 +107,11 @@ const lendemain = (iso: string) => {
 };
 // Agendas sans rendez-vous réels : jours fériés, anniversaires des contacts, météo
 const agendaIgnore = (id: string) => /#holiday@|#contacts@|#weather@|#daynum@/i.test(id);
+// Commune du lieu d'un événement (« 41 Av. Anna de Noailles, 74500 Évian-les-Bains, France » → « Évian-les-Bains »)
+const communeDe = (lieu: unknown) => {
+  const t = nettoyerAdresse(String(lieu ?? '')).replace(/\s+/g, ' ').trim();
+  return t ? villeDe(t).slice(0, 40) : '';
+};
 
 // Agendas affichés de la personne (principal en premier). complet = false si la liste n'est pas autorisée.
 async function agendasAffiches(email: string): Promise<{ ids: string[]; complet: boolean }> {
@@ -122,7 +130,8 @@ async function agendasAffiches(email: string): Promise<{ ids: string[]; complet:
   return { ids: ['primary'].concat(autres).slice(0, AGENDAS_MAX), complet: true };
 }
 
-export type CreneauAgenda = { jour: string; debut: number; fin: number; journee: boolean };
+// lieu : commune du rendez-vous ('' si l'événement n'a pas de lieu)
+export type CreneauAgenda = { jour: string; debut: number; fin: number; journee: boolean; lieu?: string };
 export type LectureAgenda = { creneaux: CreneauAgenda[]; agendas: number; listeComplete: boolean; sautes: number };
 // Garder un de nos rendez-vous (à compter comme occupé) : true si l'écran ne le montre pas déjà depuis l'ERP.
 // prefixe = type du rendez-vous : 'releve', 'pose', 'visite' ou 'depan'
@@ -139,7 +148,7 @@ async function lireUnAgenda(jeton: string, agendaId: string, depuis: Date, jusqu
       singleEvents: 'true',
       orderBy: 'startTime',
       maxResults: '250',
-      fields: 'items(id,status,transparency,eventType,start,end,attendees(self,responseStatus)),nextPageToken',
+      fields: 'items(id,status,transparency,eventType,start,end,location,attendees(self,responseStatus)),nextPageToken',
     });
     if (page) q.set('pageToken', page);
     const r = await fetch(`${RACINE}/calendars/${encodeURIComponent(agendaId)}/events?${q.toString()}`, { headers: { Authorization: `Bearer ${jeton}` }, cache: 'no-store' });
@@ -155,11 +164,12 @@ async function lireUnAgenda(jeton: string, agendaId: string, depuis: Date, jusqu
       }
       const moi = (Array.isArray(e?.attendees) ? e.attendees : []).find((a: any) => a?.self);
       if (moi?.responseStatus === 'declined') continue;
+      const lieu = communeDe(e?.location);
       if (e?.start?.date) {
         // Toute la journée : de start.date à end.date (exclu)
         let jour = String(e.start.date);
         const fin = String(e?.end?.date || lendemain(jour));
-        for (let k = 0; jour < fin && k < 40; k++, jour = lendemain(jour)) creneaux.push({ jour, debut: 0, fin: 1440, journee: true });
+        for (let k = 0; jour < fin && k < 40; k++, jour = lendemain(jour)) creneaux.push({ jour, debut: 0, fin: 1440, journee: true, lieu });
         continue;
       }
       const debutMs = Date.parse(String(e?.start?.dateTime || ''));
@@ -170,7 +180,7 @@ async function lireUnAgenda(jeton: string, agendaId: string, depuis: Date, jusqu
         const p = paris(cur);
         const finJour = cur + (1440 - p.minutes) * 60000;
         const bout = Math.min(finMs, finJour);
-        creneaux.push({ jour: p.jour, debut: p.minutes, fin: Math.min(1440, p.minutes + Math.round((bout - cur) / 60000)), journee: false });
+        creneaux.push({ jour: p.jour, debut: p.minutes, fin: Math.min(1440, p.minutes + Math.round((bout - cur) / 60000)), journee: false, lieu });
         cur = bout;
       }
     }
