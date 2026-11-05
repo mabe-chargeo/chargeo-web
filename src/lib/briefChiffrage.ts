@@ -58,6 +58,9 @@
 // - 05/11 (passe 3, cas 11) : une liaison entièrement couverte par le câble compris dans le coffret (T5) ne donne pas de
 //   ligne ; la ligne du modèle de la même famille est écrite « ✖ REF : retirer (… compris dans les 3 m de COFF-MONO-7K) »
 //   au lieu de partir sans explication dans « rien au relevé ».
+// - 05/11 (lot de fin de passe 3) : RIC sur l'infra, la chute de la dérivation est calculée sur le courant de la borne
+//   (32 A mono en 7,4 kW) à la section de l'artère ; ligne Segment « Résident sur colonne Enedis » en RIC colonne ;
+//   consigne du gestionnaire de grappe citée dans la Méthode seulement s'il y en a un.
 // Calculs (synthèse du 14/10, sections 4, 6 et 7) :
 // - réserve IRVE au barème (arrêté du 23/12/2020) en COP, avec le plafond ADVENIR infra ;
 // - puissance à demander à Enedis si PDL dédié (réserve IRVE en COP, somme des puissances visées sinon, plafonnée à
@@ -356,12 +359,15 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
   const gestion = !!site.gestion && site.gestion !== 'aucune';
   const grappe = site.gestion === 'gestionnaireGrappe' && !cop && !ric;
 
-  // En-tête (D9 : la zone n'est citée que si elle est saisie). DAP : la ligne Segment dit la source (écart 40)
+  // En-tête (D9 : la zone n'est citée que si elle est saisie). DAP : la ligne Segment dit la source (écart 40) ; RIC sur
+  // la colonne Enedis : « Résident sur colonne Enedis » (05/11)
   const quand = new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' });
   const libelleSegment = !seg ? 'à renseigner'
     : seg === 'DAP'
       ? `DAP · Droit à la prise, ${source === 'tgbtServicesGeneraux' ? 'sur les services généraux de la copro' : source === 'tableauIndividuel' ? 'sur le compteur du résident' : 'source à relever'}`
-      : LIBELLE_SEGMENT[seg];
+      : seg === 'RIC' && source === 'colonneEnedis'
+        ? 'RIC · Résident sur colonne Enedis'
+        : LIBELLE_SEGMENT[seg];
   const entete = [
     `📋 Brief de chiffrage · ${b.scenarioNom}`,
     `Calculé par le site au clic « Prêt à chiffrer » (${quand}). Les puissances et sections sont à valider avant l'envoi du devis.`,
@@ -483,9 +489,12 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
     }
     const dep = els.find((e) => e.id === c.depart);
     const arr = els.find((e) => e.id === c.arrivee);
-    // RIC sur l'infra : la dérivation reprend la section de l'artère de l'infra liée (écarts 66 et 70)
+    // RIC sur l'infra : la dérivation reprend la section de l'artère de l'infra liée (écarts 66 et 70) ; sa chute est
+    // calculée sur le courant de la borne en aval (32 A mono en 7,4 kW, 05/11)
     if (ric && dep?.nature === 'raccordement' && source !== 'colonneEnedis') {
-      return { c, type, long, ci: null, forcee, section: forcee ?? b.infra?.section ?? null, fixe: true, infra: true };
+      const a = c.arrivee ? aval(String(c.arrivee), els, false) : { courant: 0, tri: false };
+      const ciInfra = a.courant > 0 ? circuit(a.courant, a.tri) : null;
+      return { c, type, long, ci: ciInfra, forcee, section: forcee ?? b.infra?.section ?? null, fixe: true, infra: true };
     }
     let ci: Circuit | null = null;
     if (cop && arr?.nature === 'tdIrveCoffret') ci = { tri: true, courant: 63, calibre: 63, sectionMin: 16 };
@@ -558,8 +567,10 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
     let section = '';
     if (type === 'liaisonData') section = 'câble data';
     else if (k.infra) {
-      section = k.forcee ? `${fr(k.forcee)} mm² (forcée)`
-        : b.infra ? `${fr(b.infra.section)} mm², section de l'artère de l'infra liée (${b.infra.nom})`
+      const du = chuteDe(k);
+      const finChute = du !== null && k.ci ? `, ${k.ci.tri ? 'tri' : 'mono'} ${fr(k.ci.courant)} A assignés, chute ${fr(du, 2)} %` : '';
+      section = k.forcee ? `${fr(k.forcee)} mm² (forcée)${finChute}`
+        : b.infra ? `${fr(b.infra.section)} mm², section de l'artère de l'infra liée (${b.infra.nom})${finChute}`
           : "section de l'artère de l'infra : infra liée introuvable, 25 mm² par défaut, à vérifier";
     } else if (!k.ci) section = 'puissance en aval inconnue, section non calculée';
     else if (long <= 0) section = `longueur à renseigner (minimum ${fr(k.ci.sectionMin)} mm² pour ${k.ci.calibre} A)`;
@@ -716,7 +727,8 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
   fin.push('', '⚠️ ALERTES', ...(alertes.length ? alertes.map((a) => `• ${a}`) : ['Aucune']));
   const notes = els.filter((e) => texte(e.valeurs.notesCheminement).trim()).map((e) => `• ${e.nom} : ${texte(e.valeurs.notesCheminement).trim()}`);
   if (notes.length) fin.push('', '📝 NOTES DU RELEVÉ', ...notes);
-  fin.push('', `Méthode : NF C 15-100 art. 525, u = b (ρ1 L / S cos φ + λ L sin φ) IB, ρ1 cuivre 0,0225 Ω·mm²/m (service normal), λ 0,08 mΩ/m, cos φ = 1 (charge VE), IB = courant assigné, b = 2 mono / 1 tri, rapportée à 230 V. Limite ${LIMITE_CUMULEE} % cumulée depuis le raccordement relevé (tableau 52W, autres usages, réseau BT public), chute en amont non comptée. Protections et sections minimales : guide UTE C 15-722 tableau 2. Artère COP : budget CHARGéO de ${BUDGET_ARTERE} %. Gestionnaire de grappe : consigne de ${PLAFOND_GESTION_KVA} kVA (${COURANT_PLAFOND} A, protection 63 A).`);
+  // Consigne du gestionnaire de grappe citée seulement s'il y en a un (05/11)
+  fin.push('', `Méthode : NF C 15-100 art. 525, u = b (ρ1 L / S cos φ + λ L sin φ) IB, ρ1 cuivre 0,0225 Ω·mm²/m (service normal), λ 0,08 mΩ/m, cos φ = 1 (charge VE), IB = courant assigné, b = 2 mono / 1 tri, rapportée à 230 V. Limite ${LIMITE_CUMULEE} % cumulée depuis le raccordement relevé (tableau 52W, autres usages, réseau BT public), chute en amont non comptée. Protections et sections minimales : guide UTE C 15-722 tableau 2. Artère COP : budget CHARGéO de ${BUDGET_ARTERE} %.${grappe ? ` Gestionnaire de grappe : consigne de ${PLAFOND_GESTION_KVA} kVA (${COURANT_PLAFOND} A, protection 63 A).` : ''}`);
 
   const detail = ['', '———— DÉTAIL DES CALCULS ————'];
   return {
