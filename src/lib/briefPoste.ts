@@ -14,6 +14,8 @@
 // - 05/11, 10 h 40 (passe 3, cas 10, accord de Mathieu) : sur l'infra liée, le scénario « ✅ Retenu » archivé (infra gagnée
 //   puis rangée) est lu avec ses éléments archivés ; les éléments actifs passent d'abord. Les autres scénarios archivés
 //   (non retenus, Tarifs types, copies) restent écartés.
+// - 05/11, suite du cas 10 : l'infra liée elle-même peut être archivée (fiche de la copropriété rangée) ; elle compte
+//   encore, puisqu'elle est liée exprès au résident. Seule la fiche du scénario est écartée si elle est archivée.
 import { CHAMPS, OPTIONS, cleOption, indexMenu, type Segment } from '@/lib/champsClickUp';
 import { BUDGET_ARTERE, chute, genererBrief, type ArtereInfra } from '@/lib/briefChiffrage';
 import { longueurTotale, type ElementReleve } from '@/lib/releveElements';
@@ -108,7 +110,7 @@ export async function prixBibliotheque(): Promise<Map<string, number> | null> {
 // (même calcul que le brief de l'infra). Cherchée d'abord sur la fiche du scénario elle-même (Tarif type chiffré sur la
 // fiche de la copropriété, cas 9), puis sur l'infra liée (🔗 Infrastructure liée, ou tâche liée sur la liste TEST qui n'a
 // pas le champ). Scénario retenu d'abord, sinon le premier scénario COP qui a une artère. Sur l'infra liée, le « ✅ Retenu »
-// archivé compte aussi, avec ses éléments archivés (cas 10, 05/11).
+// archivé compte aussi, avec ses éléments archivés (cas 10, 05/11), et l'infra liée compte même si sa fiche est rangée.
 async function artereInfra(token: string, fiche: any): Promise<ArtereInfra | null> {
   if (!fiche?.id) return null;
   const ficheId = String(fiche.id);
@@ -121,7 +123,8 @@ async function artereInfra(token: string, fiche: any): Promise<ArtereInfra | nul
   }
   for (const id of ids.slice(0, 6)) {
     const infra = await lireTache(token, id, true);
-    if (!infra || infra.parent || estArchive(infra)) continue;
+    // Infra liée rangée (fiche archivée) : elle reste l'infra du résident (cas 10, 05/11)
+    if (!infra || infra.parent || (id === ficheId && estArchive(infra))) continue;
     const listeId = String(infra?.list?.id || '');
     const actifs = (Array.isArray(infra.subtasks) ? infra.subtasks : [])
       .filter((s: any) => String(s?.parent || '') === id && !estArchive(s));
@@ -155,6 +158,7 @@ async function artereInfra(token: string, fiche: any): Promise<ArtereInfra | nul
       return { section, tri, nom };
     }
   }
+  console.log(`Artère de l'infra introuvable pour la fiche ${ficheId} (fiches lues : ${ids.slice(0, 6).join(', ')})`);
   return null;
 }
 
