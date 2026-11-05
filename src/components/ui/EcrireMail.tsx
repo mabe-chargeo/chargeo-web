@@ -3,9 +3,12 @@
 // Écrire un mail depuis l'appli (Phase 9), DANS l'écran de l'étape (décision de Mathieu du 05/11/2026, 21 h 56 à
 // 21 h 58 : le bon mail au bon moment, obligatoire, et plus de page sans lien avec les autres). Sorti de /mail.
 // Utilisé par la fiche affaire (mail obligatoire en attente, en tête de fiche), par Caler (confirmation ou visite
-// déplacée, sur l'écran du rendez-vous) et par /mail (page blanche ouverte depuis le bloc 📇 Contact).
+// déplacée, sur l'écran du rendez-vous ; créneaux proposés quand le client est injoignable) et par /mail (page blanche
+// ouverte depuis le bloc 📇 Contact).
 // obligatoire : le texte attendu est celui du champ ✉️ Mail à envoyer de la fiche (src/lib/mailsAFaire.ts), à défaut
 // `modele`. On ne choisit qu'entre les textes qui le règlent (textesPour). Rien en attente : le composant n'affiche rien.
+// complements (05/11, 22 h 33) : ce que l'écran sait en plus de la fiche (créneaux choisis dans Caler, note d'accès
+// saisie dans Caler quand la fiche n'a pas de 🔑 Accès site).
 // Sans adresse mail : « Prévenu par téléphone », avec une phrase obligatoire copiée sur la fiche.
 // Textes : src/lib/modelesMails.ts (seule source, décision du 05/11 à 20 h 57), envoi : /api/interne/mail.
 import { useEffect, useState, type SyntheticEvent } from 'react';
@@ -42,7 +45,7 @@ function preparer(cle: string, d: Infos, dest: string): Brouillon {
   if (!m) return { modele: '', filId: '', a: dest || d.fiche.email, cc: '', objet: '', texte: pageBlanche(d.donnees) };
   const r = remplir(m, d.donnees);
   const fil = m.reponse ? d.fils[0] : undefined;
-  return { modele: m.cle, filId: fil?.id || '', a: r.a.join(', '), cc: r.cc.join(', '), objet: fil ? objetReponse(fil.objet) : r.objet, texte: r.corps };
+  return { modele: m.cle, filId: fil?.id || '', a: r.a.join(', '), cc: r.cc.join(', '), objet: fil ? objetReponse(fil.objet, r.objet) : r.objet, texte: r.corps };
 }
 const dateCourte = (ms: number) =>
   ms ? new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(ms)) : '';
@@ -63,13 +66,14 @@ type Props = {
   modele?: string;
   dest?: string;
   obligatoire?: boolean;
+  complements?: Partial<Donnees>;
   retour?: { href: string; libelle: string };
   onEtat?: (aFaire: string) => void;
   onEnvoye?: () => void;
   onFiche?: (nom: string) => void;
 };
 
-export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoire = false, retour, onEtat, onEnvoye, onFiche }: Props) {
+export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoire = false, complements, retour, onEtat, onEnvoye, onFiche }: Props) {
   const [infos, setInfos] = useState<Infos | null>(null);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -101,7 +105,14 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
           setErreur(d?.error || `Lecture impossible (${res.status})`);
           return;
         }
-        const lu: Infos = { ...d, fils: Array.isArray(d.fils) ? d.fils : [], filsProbleme: String(d.filsProbleme || ''), aFaire: String(d.aFaire || '') };
+        // Compléments de l'écran : créneaux choisis, note d'accès quand la fiche n'en a pas
+        const fiche: Donnees = d.donnees;
+        const donnees: Donnees = {
+          ...fiche,
+          ...(complements?.creneaux?.length ? { creneaux: complements.creneaux } : {}),
+          acces: String(fiche?.acces || complements?.acces || ''),
+        };
+        const lu: Infos = { ...d, donnees, fils: Array.isArray(d.fils) ? d.fils : [], filsProbleme: String(d.filsProbleme || ''), aFaire: String(d.aFaire || '') };
         setInfos(lu);
         onFiche?.(lu.fiche.nom);
         onEtat?.(lu.aFaire);
@@ -145,9 +156,9 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const choisirFil = (id: string) => {
     if (!infos) return;
     setFilId(id);
+    const propre = courant ? remplir(courant, infos.donnees).objet : '';
     const f = infos.fils.find((x) => x.id === id);
-    if (f) setObjet(objetReponse(f.objet));
-    else if (courant) setObjet(remplir(courant, infos.donnees).objet);
+    setObjet(f ? objetReponse(f.objet, propre) : propre);
   };
 
   const envoyer = async () => {
