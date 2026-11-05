@@ -11,6 +11,8 @@
 // s'ouvre d'office, prérempli avec la saisie (e-mail, téléphone, ou prénom et nom selon le format). Il suit la saisie
 // tant qu'aucun de ses champs n'a été retouché. Depuis la fiche, son bouton relie directement le contact au projet :
 // plus d'étape « Ajouter » puis « Relier au projet ».
+// 05/11/2026 (T7, passe 3, accord de Mathieu à 13 h 46) : une saisie mixte (« Jean Dupont 06 12 34 56 78 ») est découpée :
+// l'e-mail et le téléphone vont dans leurs champs, le reste au prénom et au nom.
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check, ChevronRight, MapPin, Plus, RefreshCw, Search, Star, UserPlus, X } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
@@ -32,14 +34,29 @@ const SEGMENTS = [
 const VIDE = { prenom: '', nom: '', tel: '', email: '', societe: '', role: '' as CleRoleContact | '' };
 type Nouveau = typeof VIDE;
 
-// Saisie de la recherche rangée dans le bon champ du nouveau contact (T7) : e-mail, téléphone, sinon prénom et nom
+// Saisie de la recherche rangée dans les bons champs du nouveau contact (T7) : l'e-mail et le téléphone sont extraits,
+// même mêlés à un nom (« Testeur recette 060000000 »), et le reste donne le prénom (premier mot) et le nom.
 function decouper(saisie: string): Omit<Nouveau, 'role'> {
-  const s = saisie.trim().replace(/\s+/g, ' ');
+  let reste = saisie.trim().replace(/\s+/g, ' ');
   const base = { prenom: '', nom: '', tel: '', email: '', societe: '' };
-  if (s.includes('@')) return { ...base, email: s };
-  if (/^[+\d\s.()-]+$/.test(s) && s.replace(/\D/g, '').length >= 6) return { ...base, tel: s };
-  const mots = s.split(' ');
-  return mots.length > 1 ? { ...base, prenom: mots[0], nom: mots.slice(1).join(' ') } : { ...base, nom: s };
+  const mail = reste.match(/[^\s@]+@[^\s@]+/);
+  if (mail) {
+    base.email = mail[0];
+    reste = reste.replace(mail[0], ' ');
+  }
+  const tel = reste.match(/\+?\d[\d\s.()-]*\d/);
+  if (tel && tel[0].replace(/\D/g, '').length >= 6) {
+    base.tel = tel[0].trim();
+    reste = reste.replace(tel[0], ' ');
+  }
+  const mots = reste.trim().replace(/\s+/g, ' ').split(' ').filter(Boolean);
+  if (mots.length > 1) {
+    base.prenom = mots[0];
+    base.nom = mots.slice(1).join(' ');
+  } else if (mots.length === 1) {
+    base.nom = mots[0];
+  }
+  return base;
 }
 
 export default function NouveauProjetPage() {
