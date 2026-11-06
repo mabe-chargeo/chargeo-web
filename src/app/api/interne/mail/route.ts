@@ -8,6 +8,7 @@ import { modeleDe, nettoyerAdresse, remplir, villeDe, type Donnees } from '@/lib
 import { effacerMailAFaire, enRelance, estRelance, mailAFaire, regle } from '@/lib/mailsAFaire';
 import { devisPourMail, reporterDevisScenarios } from '@/lib/devisScenarios';
 import { noterRelanceParMail, relancesApresRevision } from '@/lib/relancesDevis';
+import { CLE_MAIL_AVIS, LIEN_AVIS, avisAEnvoyer, noterRappelAvis } from '@/lib/avisGoogle';
 import {
   EXPEDITEUR,
   MAX_DESTINATAIRES,
@@ -48,16 +49,20 @@ import {
 //   aussi coder comme ça », 21 h 16, sur la proposition qui bloquait l'envoi sans brochure) ;
 // - une fois ce mail parti, la fiche en 📝 devis à faire passe en 📩 devis envoyé (18 h 30 : « seulement quand le mail
 //   part »). Le report des devis et la relance J+3 partent ensuite de l'aiguillage, comme pour le bouton d'avant.
-// Lot 4 (06/11/2026, accords de Mathieu à 22 h 20 et 22 h 42, src/lib/relancesDevis.ts) :
+// Lot 4 (06/11/2026, accords de Mathieu à 22 h 20, 22 h 42, 23 h 13 et 23 h 25) :
 // - les devis sont aussi lus quand la fiche attend un mail de devis (relance posée par le contrôle quotidien) ;
 // - « Devis · relance » ou « Devis · dernière relance » parti : la relance est comptée (prochaine à J+3 ouvrés,
-//   suspension à la 3e), sans rien noter dans 🔁 Suivi relance ;
+//   suspension à la 3e), sans rien noter dans 🔁 Suivi relance (src/lib/relancesDevis.ts) ;
 // - « Devis · révisé » parti : relances remises à zéro (première à J+3 ouvrés) et nouveaux devis reportés sur les
 //   scénarios (n°, montant, lien), comme au premier envoi ;
-// - un autre mail de devis (envoi, validé, révisé, refus) efface la relance en attente.
+// - un autre mail de devis (envoi, validé, révisé, refus) efface la relance en attente ;
+// - fiche du Parc dont le rappel ⭐ Avis Google est arrivé (src/lib/avisGoogle.ts, avisAEnvoyer) : mail en attente
+//   « avis-google », sans champ ✉️ Mail à envoyer ; parti (ou client prévenu par téléphone faute d'adresse), il compte
+//   comme le rappel (noterRappelAvis : dernier rappel à J+14, puis fin).
 // Préversion : le mail part seulement à l'adresse ClickUp de la personne connectée, avec [TEST] dans l'objet et les
 // destinataires prévus en tête du texte. Aucun client ne le reçoit. La réponse dans le fil, l'effacement du mail
-// obligatoire, le passage en devis envoyé et les relances n'y sont faits que sur une fiche de test (« Test » dans le nom).
+// obligatoire, le passage en devis envoyé, les relances et les rappels d'avis n'y sont faits que sur une fiche de test
+// (« Test » dans le nom).
 // Droits : direction, commercial, chargé d'opération et back-office ; l'installateur seul n'envoie pas.
 // Mail parti mais copie refusée par ClickUp : succès avec un avertissement (jamais un échec, le mail est bien parti).
 export const dynamic = 'force-dynamic';
@@ -78,9 +83,10 @@ const valeur = (t: any, id: string) => champs(t).find((c: any) => c?.id === id)?
 const ficheDeTest = (t: any) => /\btest\b/i.test(String(t?.name || ''));
 const maintenantParis = () => new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' });
 
+// Fiche lue avec ses sous-tâches (la sous-tâche ⭐ Avis Google d'une fiche du Parc)
 async function lireTache(token: string, id: string): Promise<any | null> {
   if (!id || !/^[a-z0-9]+$/i.test(id)) return null;
-  const r = await fetch(`${API}/task/${encodeURIComponent(id)}`, { headers: { Authorization: token }, cache: 'no-store' });
+  const r = await fetch(`${API}/task/${encodeURIComponent(id)}?include_subtasks=true`, { headers: { Authorization: token }, cache: 'no-store' });
   return r.ok ? r.json().catch(() => null) : null;
 }
 
@@ -198,6 +204,14 @@ async function donneesDe(token: string, t: any): Promise<Donnees> {
   };
 }
 
+// Mail en attente : celui du champ ✉️ Mail à envoyer (vente), sinon l'avis Google d'une fiche du Parc
+async function attenduDe(token: string, t: any): Promise<{ cle: string; avis: Awaited<ReturnType<typeof avisAEnvoyer>> }> {
+  const champ = mailAFaire(t);
+  if (champ) return { cle: champ, avis: null };
+  const avis = await avisAEnvoyer(t, token).catch(() => null);
+  return { cle: avis ? CLE_MAIL_AVIS : '', avis };
+}
+
 export async function GET(request: Request) {
   try {
     const a = await acces(request);
@@ -208,7 +222,13 @@ export async function GET(request: Request) {
     if (!tache) return json({ success: false, error: 'Fiche introuvable' }, 404);
     // Devis lus pour un mail de devis : demandé par l'écran, ou mail de devis en attente sur la fiche (relance)
     const avecDevis = url.searchParams.get('devis') === '1' || mailAFaire(tache).startsWith('devis');
-    const donnees = await donneesDe(a.token, tache);
+    const [donnees, attendu] = await Promise.all([donneesDe(a.token, tache), attenduDe(a.token, tache)]);
+    if (attendu.avis) {
+      donnees.avisRappel = attendu.avis.rappel;
+      donnees.miseEnService = attendu.avis.miseEnService;
+      donnees.poseur = attendu.avis.poseur;
+      donnees.lienAvis = LIEN_AVIS;
+    }
     const [exp, lus, lesDevis] = await Promise.all([
       expediteur(),
       filsAvec([donnees.email, donnees.gestionnaire?.email || '', donnees.contactSurPlace?.email || '']),
@@ -231,7 +251,7 @@ export async function GET(request: Request) {
       // Sans les identifiants techniques du fil (relus côté serveur à l'envoi)
       fils: lus.fils.map((f) => ({ id: f.id, objet: f.objet, de: f.de, date: f.date })),
       filsProbleme: lus.probleme || '',
-      aFaire: mailAFaire(tache),
+      aFaire: attendu.cle,
       // Fichiers PDF de la fiche, sans leur adresse (relue côté serveur à l'envoi)
       pieces: piecesDe(tache).map(({ url: _u, type: _t, ...p }) => p),
       devisProblemes: lesDevis?.problemes || [],
@@ -255,7 +275,7 @@ export async function POST(request: Request) {
 
     // ── Prévenu par téléphone (seule sortie d'un mail obligatoire sans adresse mail) ──
     if (texte(corps?.action) === 'telephone') {
-      const attendu = mailAFaire(tache);
+      const { cle: attendu, avis } = await attenduDe(a.token, tache);
       if (!attendu) return json({ success: false, error: 'Aucun mail obligatoire en attente sur cette fiche.' }, 400);
       if (preview && !ficheDeTest(tache)) return json({ success: false, error: 'En préversion, seules les fiches de test (« Test » dans le nom) peuvent être modifiées.' }, 403);
       const phrase = texte(corps?.phrase).replace(/\s+/g, ' ').slice(0, 1000);
@@ -264,6 +284,11 @@ export async function POST(request: Request) {
       if (m && remplir(m, await donneesDe(a.token, tache)).a.length) return json({ success: false, error: 'La fiche a une adresse mail pour ce mail : il doit partir par mail.' }, 400);
       const note = await commenter(a.token, String(tache.id), `📞 Prévenu par téléphone à la place du mail « ${m?.nom || attendu} », par ${auteur} · ${maintenantParis()}\n${phrase}`);
       if (!note) return json({ success: false, error: 'ClickUp a refusé la note : rien n’est réglé, réessaie.' }, 502);
+      // Avis Google : l'appel compte comme le rappel
+      if (avis) {
+        const r = await noterRappelAvis(a.token, tache, 'telephone');
+        return json({ success: true, telephone: true, avertissement: r.probleme ? `Appel noté, mais ${r.probleme} : préviens Mathieu.` : undefined });
+      }
       const ok = await effacerMailAFaire(a.token, tache);
       return json({ success: true, telephone: true, avertissement: ok ? undefined : 'Appel noté, mais le mail reste marqué comme à envoyer : réessaie ou préviens Mathieu.' });
     }
@@ -386,7 +411,14 @@ export async function POST(request: Request) {
         avertissements.push('Mail envoyé, mais le nouveau devis n’a pas été reporté sur les scénarios : préviens Mathieu.');
       }
     }
-    return json({ success: true, preview, envoyeA: envoi.a, dansLeFil, regle: regleOk, statut, relance, relanceRepart, pieces: pieces.map((p) => p.nom), avertissement: avertissements.join(' ') || undefined });
+    // Avis Google parti le jour du rappel : compté comme le rappel (lot 4, 23 h 13)
+    let avis: { n: number; prochain: string; fin: boolean } | undefined;
+    if (cleTexte === CLE_MAIL_AVIS && surFicheModifiable && (await avisAEnvoyer(tache, a.token).catch(() => null))) {
+      const r = await noterRappelAvis(a.token, tache, 'mail');
+      avis = { n: r.n, prochain: r.prochain, fin: r.fin };
+      if (r.probleme) avertissements.push(`Mail envoyé, mais le rappel n’est pas compté entièrement (${r.probleme}) : préviens Mathieu.`);
+    }
+    return json({ success: true, preview, envoyeA: envoi.a, dansLeFil, regle: regleOk, statut, relance, relanceRepart, avis, pieces: pieces.map((p) => p.nom), avertissement: avertissements.join(' ') || undefined });
   } catch (e) {
     console.error('Mail', e);
     return json({ success: false, error: 'Erreur serveur. Vérifie dans Gmail (contact@chargeo.fr, Envoyés) avant de renvoyer.' }, 500);

@@ -27,6 +27,8 @@
 // l'annonce) ; décochée, un avertissement demande de retirer la phrase.
 // 06/11/2026 (lot 4, accord de Mathieu à 22 h 20) : la relance de devis en attente s'affiche en tête de fiche, seulement
 // en devis envoyé ou en négociation, et ne bloque rien : onEtat ne signale que les mails bloquants (bloquant).
+// 06/11/2026 (lot 4, accords de Mathieu à 23 h 13 et 23 h 25) : « Avis Google » en tête de la fiche du Parc le jour du
+// rappel (J+7, J+14), non bloquant ; le mail parti compte comme le rappel.
 // Textes : src/lib/modelesMails.ts (seule source, décision du 05/11 à 20 h 57), envoi : /api/interne/mail.
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import { Check, FileText, Mail, Paperclip, Phone, RefreshCw, Send } from 'lucide-react';
@@ -34,7 +36,7 @@ import { Carte, Alerte, BoutonPrincipal, BoutonSecondaire, TitreCarte, PastilleC
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BoutonsContact } from '@/components/ui/BlocContact';
 import { ETAPES, MODELES, modeleDe, objetReponse, pageBlanche, remplir, type Donnees } from '@/lib/modelesMails';
-import { bloquant, enRelance, estRelance, textesPour } from '@/lib/mailsAFaire';
+import { AVIS, bloquant, enRelance, estRelance, textesPour } from '@/lib/mailsAFaire';
 
 type Fil = { id: string; objet: string; de: string; date: number };
 type PieceFiche = { id: string; nom: string; taille: number; brochure: boolean };
@@ -194,6 +196,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const attendu = obligatoire && infos ? enAttente(infos) || modele : '';
   const mAttendu = modeleDe(attendu);
   const relanceAttendue = estRelance(attendu);
+  const avisAttendu = attendu === AVIS;
   const courant = modeleDe(cle);
   const choix = attendu ? MODELES.filter((m) => textesPour(attendu).includes(m.cle)) : MODELES;
   const crochets = crochetsDe(objet) + crochetsDe(texte);
@@ -255,6 +258,11 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
             : `Relance n°${d.relance.tentative} notée : prochaine relance le ${d.relance.prochaine}.`);
         }
         if (d.relanceRepart) lignes.push(`Relances remises à zéro : première relance le ${d.relanceRepart}.`);
+        if (d.avis) {
+          lignes.push(d.avis.fin
+            ? `Rappel n°${d.avis.n} noté : la demande d’avis s’arrête là pour ce chantier.`
+            : `Rappel n°${d.avis.n} noté : dernier rappel le ${d.avis.prochain}, s’il n’y a toujours pas d’avis.`);
+        }
         setFin({ titre: 'Mail envoyé', lignes, avertissement: d.avertissement });
         if (infos) onEtat?.(d.regle ? '' : bloquantDe(enAttente(infos)));
         onEnvoye?.();
@@ -279,7 +287,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
       const d = await res.json().catch(() => ({}));
       if (!res.ok || !d?.success) setErreur(d?.error || `Enregistrement impossible (${res.status}).`);
       else {
-        setFin({ titre: 'Appel noté', lignes: ['La note est en commentaire sur la fiche, et la suite de la fiche est débloquée.'], avertissement: d.avertissement });
+        setFin({ titre: 'Appel noté', lignes: [avisAttendu ? 'La note est en commentaire sur la fiche, et l’appel compte comme le rappel.' : 'La note est en commentaire sur la fiche, et la suite de la fiche est débloquée.'], avertissement: d.avertissement });
         onEtat?.('');
         onEnvoye?.();
       }
@@ -330,6 +338,8 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
           <p className="flex items-center gap-2 text-[17px] font-bold"><Mail size={20} color={CYAN} /> Mail à envoyer : {mAttendu?.nom || attendu}</p>
           {relanceAttendue ? (
             <p className="text-[14px]">C&apos;est le jour de la relance : écris ta phrase utile, puis envoie. Le mail compte comme la relance. Elle ne bloque pas la suite de la fiche. Relance faite par téléphone : note 🔁 Suivi relance, ce mail disparaît.</p>
+          ) : avisAttendu ? (
+            <p className="text-[14px]">C&apos;est le jour du rappel pour l&apos;avis Google : ajoute un détail du chantier, puis envoie. Le mail compte comme le rappel et ne bloque rien.</p>
           ) : (
             <p className="text-[14px]">Obligatoire : la suite de la fiche reste bloquée tant qu&apos;il n&apos;est pas parti.</p>
           )}
