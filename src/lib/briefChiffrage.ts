@@ -68,6 +68,9 @@
 //     câble attaché, et pilotage) ; ADMIN-ADVENIR et le texte ADVENIR du modèle sont marqués ✖ avec la raison ;
 //   · hors RES, le modèle du segment est gardé avec la TVA à 10 % au lieu de 5,5 % (tvaDevis, src/lib/briefSaisie.ts),
 //     écrite aussi dans le titre du devis ; points de charge ADVENIR comptés sur les bornes seules.
+// - 06/11, 19 h 08 (accord de Mathieu, Phase 9) : prise renforcée seule en DAP (SG ou hors SG) et en RIC sur colonne
+//   Enedis : le brief choisit le modèle prise du segment (VERSION_PRISE, src/lib/modelesDevis.ts). RIC sur l'infra
+//   collective CHARGéO : pas de prise (choix de Mathieu du 06/11), alerte. PAR, COP, FLT et TER gardent le contournement.
 // Calculs (synthèse du 14/10, sections 4, 6 et 7) :
 // - réserve IRVE au barème (arrêté du 23/12/2020) en COP, avec le plafond ADVENIR infra ;
 // - puissance à demander à Enedis si PDL dédié (réserve IRVE en COP, somme des puissances visées sinon, plafonnée à
@@ -91,7 +94,7 @@
 import type { Segment } from '@/lib/champsClickUp';
 import { LIBELLE_SEGMENT, ORDRE_NATURE, FORFAIT_RIC_TUBE_APPARENT, estDepose, nomLien } from '@/lib/elementsModele';
 import {
-  MODELES, NOM_ZONE, ORDRE_ZONES, PLANS, REPLI_ZONE, TEXTES_CONDITIONNELS, ZONES_PAR_POINT, lienModele,
+  MODELES, MODELES_PRISE, NOM_ZONE, ORDRE_ZONES, PLANS, REPLI_ZONE, TEXTES_CONDITIONNELS, VERSION_PRISE, ZONES_PAR_POINT, lienModele,
   type ModeleDevis, type SectionModele, type Zone,
 } from '@/lib/modelesDevis';
 import {
@@ -239,7 +242,7 @@ export function modelesDuScenario(
       else alertes.push('RIC : 🏢 Type Client vide sur la fiche. Syndic ou pro = tarif type, particulier = vrai devis résident');
       break;
     case 'RES':
-      principal = priseSeule ? MODELES.RES_PRISE : MODELES.RES;
+      principal = MODELES.RES;
       break;
     case 'DAP':
       // Deux modèles depuis le 04/11 : services généraux de la copropriété, ou tableau du logement
@@ -256,11 +259,17 @@ export function modelesDuScenario(
     default:
       alertes.push('Segment du scénario à renseigner pour choisir le modèle');
   }
-  // Prise renforcée hors RES (06/11) : modèle du segment gardé ; 10 % au lieu de 5,5 %, et jamais d'ADVENIR
-  if (priseSeule && seg && seg !== 'RES') {
-    alertes.push(principal?.tva === '5,5 %'
-      ? `Prise renforcée en ${seg} : pas de modèle prise pour ce segment, le modèle ${seg} est gardé avec toutes ses lignes à 10 % (prise renforcée en logement de plus de 2 ans) et sans ADVENIR (prise non éligible)`
-      : `Prise renforcée en ${seg} : pas de modèle prise pour ce segment, le modèle ${seg} est gardé, sans ADVENIR (prise non éligible)`);
+  // Prise renforcée seule (06/11, 19 h 08) : version prise du modèle quand elle existe (RES, DAP SG, DAP hors SG, RIC colonne)
+  const versionPrise = priseSeule && principal ? VERSION_PRISE[principal.cle] : undefined;
+  if (versionPrise) principal = MODELES[versionPrise];
+  // Pas de modèle prise pour le segment (06/11) : RIC sur l'infra CHARGéO non proposé ; PAR, COP, FLT, TER : modèle du
+  // segment gardé, 10 % au lieu de 5,5 %, et jamais d'ADVENIR
+  if (priseSeule && seg && principal && !MODELES_PRISE.has(principal.cle)) {
+    alertes.push(seg === 'RIC'
+      ? "Prise renforcée en RIC sur l'infra collective CHARGéO : pas proposée (prise seulement sur colonne Enedis, choix de Mathieu du 06/11). Mettre une borne au relevé, ou chiffrer à la main"
+      : principal.tva === '5,5 %'
+        ? `Prise renforcée en ${seg} : pas de modèle prise pour ce segment, le modèle ${seg} est gardé avec toutes ses lignes à 10 % (prise renforcée en logement de plus de 2 ans) et sans ADVENIR (prise non éligible)`
+        : `Prise renforcée en ${seg} : pas de modèle prise pour ce segment, le modèle ${seg} est gardé, sans ADVENIR (prise non éligible)`);
   }
   if (principal) devis.push({ modele: principal, role: source === 'pdlDedie' ? 'devis des travaux' : '' });
   return { devis, alertes };
