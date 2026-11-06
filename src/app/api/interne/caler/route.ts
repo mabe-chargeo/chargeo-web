@@ -5,20 +5,24 @@ import { estAVisiter, getQualificationListId, lireTacheQualification } from '@/l
 import { CHAMPS } from '@/lib/champsClickUp';
 import { CHAMPS_INTERVENTION, LISTES, etapePlanning } from '@/lib/espaces';
 import { DATE_VISITE_ID, adresseDe, champ, dateVisiteDe, libelleDate } from '@/lib/vuesFiches';
-import { agendaBranche, occupationsAgenda, poserReleve, retirerReleve } from '@/lib/googleAgenda';
+import { PRERESERVATIONS_MAX, agendaBranche, lirePrereservations, occupationsAgenda, poserPrereservations, poserReleve, retirerPrereservations, retirerReleve } from '@/lib/googleAgenda';
 import { demiJourneesDe, segmentsPose } from '@/lib/demiJournees';
 import { dureePose, dureeRdv } from '@/lib/dureesRdv';
 import { adresses } from '@/lib/adresses';
+import { villeDe } from '@/lib/modelesMails';
+import { effacerMailAFaire, mailAFaire, poserMailAFaire } from '@/lib/mailsAFaire';
 
 // Caler le relevé technique depuis l'application (17/10/2026, 20 h 44, choix de Matthieu : « Caler + email de
 // confirmation prêt à envoyer »). Le commercial appelle le client et fixe le rendez-vous du chef de chantier.
 // GET ?id=<fiche> : la fiche (nom, adresse, email et téléphone du passeport, date déjà calée, durée), les chefs de
-//   chantier (groupe ClickUp du rôle), le chef déjà assigné et, si la visite est déjà calée, l'email de confirmation à
-//   renvoyer (note d'accès reprise du dernier commentaire « 📅 Relevé technique »).
+//   chantier (groupe ClickUp du rôle), le chef déjà assigné et, si la visite est déjà calée, le rendez-vous (pour
+//   renvoyer la confirmation).
 // 17/10, 20 h 59 : occupations des chefs sur 30 jours (mêmes règles que /api/interne/planning), sans la fiche elle-même.
 //   Le commercial ne reçoit que l'heure, la durée, le type, le nom et la ville.
-// 17/10, 21 h 16 et 22 h 01 : Google Agenda des chefs (tous leurs agendas affichés, horaires seulement) ; le relevé calé
-//   est créé ou déplacé dans l'agenda du chef. Un échec Google n'annule jamais la date ClickUp : il est signalé.
+// 17/10, 21 h 16 et 22 h 01 : Google Agenda des chefs (tous leurs agendas affichés) ; le relevé calé est créé ou
+//   déplacé dans l'agenda du chef. Un échec Google n'annule jamais la date ClickUp : il est signalé.
+// 05/11/2026, 22 h 33 (Mathieu, bouton « Oui, comme ça ») : chaque créneau occupé de l'agenda Google part avec la
+//   commune de son lieu (jamais son titre), pour proposer des créneaux près des rendez-vous existants.
 // 17/10, 23 h 00 (Matthieu : « il faudrait pouvoir supprimer un créneau aussi si on se trompe et en modifier la
 //   durée ») : durée au choix, écrite dans ⏳ Durée relevé (30 min, 1 h, 1 h 30, 2 h, 3 h ; option lue par son nom, 1 h
 //   si vide) ; POST { id, action: 'annuler' } vide la date et la durée, retire l'événement de l'agenda Google des chefs
@@ -27,8 +31,20 @@ import { adresses } from '@/lib/adresses';
 //   ClickUp (src/lib/dureesRdv.ts) : relevés ⏳ Durée relevé, visites et dépannages ⏳ Durée RDV, poses ⏳ Durée
 //   intervention sur leurs demi-journées (pose sans heure ni durée : bandeau « chantier »).
 // POST { id, date (AAAA-MM-JJ), heure (HH:MM), duree?, chefId?, note? } → 📅 Date Visite Technique avec l'heure (Paris),
-//   durée, chef assigné, commentaire de trace avec le texte de l'email. Renvoie l'email de confirmation prêt à envoyer
-//   (le texte s'arrête à « Bien cordialement, » : la messagerie ajoute la signature).
+//   durée, chef assigné, commentaire de trace. Renvoie le rendez-vous calé (et s'il est décalé).
+// 05/11/2026 (Phase 9, lot 2, décision de Mathieu du 05/11 à 20 h 57 : les textes des mails vivent dans l'appli) :
+//   l'email de confirmation n'est plus rédigé ici. L'écran ouvre « Visite · confirmation » (ou « Visite · déplacée »)
+//   de src/lib/modelesMails.ts, envoyé depuis contact@chargeo.fr avec sa copie sur la fiche.
+// 05/11/2026, 21 h 56 à 21 h 58 (Mathieu : l'envoi du mail est obligatoire) : caler pose « ✉️ Mail à envoyer » =
+//   visite-confirmation (visite-deplacee en cas de décalage, src/lib/mailsAFaire.ts) ; annuler l'efface. Renvoie mailPose.
+// 05/11/2026, 22 h 49 (recette de Mathieu) : un décalage alors que la confirmation n'est pas encore partie garde la
+//   confirmation (le client n'a reçu aucune date) ; « Visite · déplacée » seulement après une confirmation envoyée.
+// 05/11/2026, 23 h 01 (Mathieu : « lorsqu'on choisit un créneau, il faudrait qu'il reste en pré-réservation sur
+//   l'agenda ») : client injoignable, POST { id, action: 'pre-reserver', creneaux: [{ jour, minutes }], chefId, duree }
+//   une fois le mail « Visite · créneaux » parti : les créneaux (3 au plus) sont posés « provisoires » dans l'agenda
+//   Google du chef (src/lib/googleAgenda.ts), retirés des autres chefs, avec une trace sur la fiche. GET renvoie
+//   `proposes` (créneaux déjà pré-réservés) et l'agenda de la fiche ne compte pas ses propres pré-réservations comme
+//   occupées. Caler le relevé ou annuler le rendez-vous retire les pré-réservations.
 // Droits : commercial, chef de chantier et direction. Fiche de la Qualification de l'environnement (🧪 TEST en preview)
 // au statut 📍 à visiter. En preview, seules les fiches avec le mot « Test » dans le nom sont modifiées.
 // Le fichier n'exporte que les handlers (règle des routes Next).
@@ -72,6 +88,7 @@ function minutesDe(libelle: string): number {
 }
 const dureeMinutes = (t: any) => minutesDe(libelleDuree(t)) || DUREE_DEFAUT;
 const libelleMinutes = (m: number) => (m < 60 ? `${m} minutes` : m % 60 ? `${Math.floor(m / 60)} h ${m % 60}` : m === 60 ? 'une heure' : `${m / 60} heures`);
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
 // « 2026-10-22 » + « 14:30 », heure de Paris → horodatage
 function parisVersMs(date: string, heure: string): number {
@@ -103,14 +120,6 @@ function jourEtMinutes(ms: unknown): { jour: string; minutes: number | null } | 
   return { jour: `${v('year')}-${v('month')}-${v('day')}`, minutes: m === 0 && (h === 0 || h === 4) ? null : h * 60 + m };
 }
 const jourParis = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
-// Ville d'une adresse (« 41 Av. Anna de Noailles, 74500 Évian-les-Bains, France » → « Évian-les-Bains »)
-function villeDe(adresse: string): string {
-  const m = adresse.match(/\b\d{5}\s+([^,]+)/);
-  if (m) return m[1].trim();
-  const morceaux = adresse.split(',').map((s) => s.trim()).filter(Boolean);
-  return morceaux.length > 1 ? morceaux[morceaux.length - 2] : morceaux[0] || '';
-}
-const prenom = (nom: string) => nom.split(/\s+/)[0] || nom;
 
 async function lister(token: string, listId: string): Promise<any[]> {
   const toutes: any[] = [];
@@ -192,18 +201,19 @@ async function occupationsDes(token: string, chefs: number[], saufId: string): P
   return { occupations, incomplet: lus.some((r) => r.status !== 'fulfilled') };
 }
 
-// Créneaux occupés des Google Agendas des chefs (tous leurs agendas affichés, horaires seulement)
-async function lireAgendas(chefs: Chef[]) {
-  const creneaux: { chefId: number; jour: string; debut: number; fin: number; journee: boolean }[] = [];
+// Créneaux occupés des Google Agendas des chefs (tous leurs agendas affichés), avec la commune de leur lieu.
+// saufFiche : les pré-réservations de cette fiche ne comptent pas (l'écran les montre comme proposées).
+async function lireAgendas(chefs: Chef[], saufFiche?: string) {
+  const creneaux: { chefId: number; jour: string; debut: number; fin: number; journee: boolean; lieu: string }[] = [];
   const erreurs: string[] = [];
   if (!agendaBranche()) return { branche: false, creneaux, erreurs };
   const depuis = new Date();
   const jusque = new Date(Date.now() + JOURS_PLANNING * 86400000);
-  const lus = await Promise.allSettled(chefs.map((c) => (c.email ? occupationsAgenda(c.email, depuis, jusque) : Promise.reject(new Error('pas d’email dans ClickUp')))));
+  const lus = await Promise.allSettled(chefs.map((c) => (c.email ? occupationsAgenda(c.email, depuis, jusque, undefined, saufFiche) : Promise.reject(new Error('pas d’email dans ClickUp')))));
   const principalSeul: string[] = [];
   lus.forEach((r, i) => {
     if (r.status === 'fulfilled') {
-      for (const x of r.value.creneaux) creneaux.push({ chefId: chefs[i].id, jour: x.jour, debut: x.debut, fin: x.fin, journee: x.journee });
+      for (const x of r.value.creneaux) creneaux.push({ chefId: chefs[i].id, jour: x.jour, debut: x.debut, fin: x.fin, journee: x.journee, lieu: x.lieu || '' });
       if (!r.value.listeComplete) principalSeul.push(chefs[i].nom);
       if (r.value.sautes) erreurs.push(`${r.value.sautes} agenda(s) de ${chefs[i].nom} illisible(s) : vérifie avec lui.`);
     } else {
@@ -214,40 +224,26 @@ async function lireAgendas(chefs: Chef[]) {
   return { branche: true, creneaux, erreurs };
 }
 
-// Email de confirmation (sans signature : la messagerie ajoute celle du compte qui envoie)
-function emailDe(t: any, ms: number, chefNom: string, note: string, auteur: string, duree: number) {
-  const quand = libelleLong(ms);
-  const adresse = adresseDe(t);
-  const lignes = [
-    'Bonjour,',
-    '',
-    `Je vous confirme notre rendez-vous pour le relevé technique de votre projet de recharge, le ${quand}${adresse ? `, au ${adresse}` : ''}.`,
-    '',
-    `${chefNom ? `${prenom(chefNom)}, notre chef de chantier,` : 'Notre chef de chantier'} viendra sur place pour environ ${libelleMinutes(duree)}. Il aura besoin d’accéder au tableau électrique (ou au local compteurs) et aux emplacements prévus pour les bornes.`,
-  ];
-  if (note) lignes.push('', `Noté pour l’accès : ${note}`);
-  lignes.push('', 'En cas d’empêchement, il suffit de répondre à ce message pour convenir d’un autre créneau.', '', 'Bien cordialement,');
-  return {
-    a: texte(champ(t, CHAMPS.email)?.value, 120),
-    sujet: `Confirmation de votre rendez-vous de relevé technique le ${quand.replace(/ à .*/, '')}`,
-    texte: lignes.join('\n'),
-    signature: `${auteur}\nCHARGéO`,
-    quand,
-  };
+// Créneaux déjà proposés au client et pré-réservés dans l'agenda des chefs (05/11/2026, 23 h 01)
+async function lireProposes(chefs: Chef[], ficheId: string) {
+  const proposes: { chefId: number; jour: string; minutes: number; duree: number }[] = [];
+  if (!agendaBranche()) return proposes;
+  const avecEmail = chefs.filter((c) => c.email);
+  const lus = await Promise.allSettled(avecEmail.map((c) => lirePrereservations(c.email, ficheId)));
+  lus.forEach((r, i) => {
+    if (r.status !== 'fulfilled') return;
+    for (const p of r.value) {
+      const d = jourEtMinutes(p.debutMs);
+      if (d && d.minutes !== null) proposes.push({ chefId: avecEmail[i].id, jour: d.jour, minutes: d.minutes, duree: Math.round((p.finMs - p.debutMs) / 60000) });
+    }
+  });
+  return proposes;
 }
-
-// Note d'accès du dernier rendez-vous calé depuis l'application (commentaire de trace)
-async function derniereNote(token: string, id: string): Promise<string> {
-  try {
-    const res = await fetch(`${API}/task/${encodeURIComponent(id)}/comment`, { headers: { Authorization: token }, cache: 'no-store' });
-    if (!res.ok) return '';
-    const corps = await res.json().catch(() => ({}));
-    const c = (Array.isArray(corps?.comments) ? corps.comments : []).find((x: any) => String(x?.comment_text || '').startsWith(MARQUE_COMMENTAIRE));
-    const ligne = String(c?.comment_text || '').split('\n').find((l) => l.startsWith(MARQUE_NOTE));
-    return ligne ? ligne.slice(MARQUE_NOTE.length).trim() : '';
-  } catch {
-    return '';
-  }
+// Retire les pré-réservations de la fiche dans l'agenda des chefs (sauf un) : nombre retiré
+async function retirerProposes(chefs: Chef[], ficheId: string, saufChef?: number): Promise<number> {
+  if (!agendaBranche()) return 0;
+  const lus = await Promise.allSettled(chefs.filter((c) => c.email && c.id !== saufChef).map((c) => retirerPrereservations(c.email, ficheId)));
+  return lus.reduce((n, r) => n + (r.status === 'fulfilled' ? r.value : 0), 0);
 }
 
 async function autoriser(request: Request, token: string) {
@@ -263,7 +259,6 @@ export async function GET(request: Request) {
   if (!token) return json({ success: false, error: 'Configuration serveur incomplète' }, 500);
   const a = await autoriser(request, token);
   if (!a.ok) return a.reponse;
-  const auteur = texte((a.session as any).nom) || texte((a.session as any).email) || 'CHARGéO';
   try {
     const lu = await lireTacheQualification(texte(new URL(request.url).searchParams.get('id'), 30), token);
     if (!lu.ok) return json({ success: false, error: lu.erreur }, lu.status);
@@ -273,13 +268,11 @@ export async function GET(request: Request) {
     const assignes = (Array.isArray(t?.assignees) ? t.assignees : []).map((u: any) => Number(u?.id));
     const chefAssigne = chefs.find((c) => assignes.includes(c.id)) || null;
     const visite = dateVisiteDe(t);
-    const [note, planning, agenda] = await Promise.all([
-      visite ? derniereNote(token, String(t.id)) : Promise.resolve(''),
+    const [planning, agenda, proposes] = await Promise.all([
       occupationsDes(token, chefs.map((c) => c.id), String(t.id)),
-      lireAgendas(chefs),
+      lireAgendas(chefs, String(t.id)),
+      lireProposes(chefs, String(t.id)).catch(() => []),
     ]);
-    const duree = dureeMinutes(t);
-    const email = visite ? emailDe(t, visite, chefAssigne?.nom || '', note, auteur, duree) : null;
     const cd = champDuree(t);
     return json({
       success: true,
@@ -303,9 +296,10 @@ export async function GET(request: Request) {
       occupations: planning.occupations,
       planningIncomplet: planning.incomplet,
       agenda,
+      // Créneaux proposés au client injoignable, pré-réservés dans l'agenda du chef
+      proposes,
       // Visite déjà calée : de quoi renvoyer la confirmation sans recaler
-      cale: email ? { quand: email.quand, chef: chefAssigne?.nom || '', lienFiche: adresses.affaire(String(t.id)) } : null,
-      emailConfirmation: email ? { a: email.a, sujet: email.sujet, texte: email.texte, signature: email.signature } : null,
+      cale: visite ? { quand: libelleLong(visite), chef: chefAssigne?.nom || '', lienFiche: adresses.affaire(String(t.id)) } : null,
     });
   } catch (e) {
     console.error('Caler le relevé (lecture)', e);
@@ -332,22 +326,74 @@ export async function POST(request: Request) {
     const chefs: Chef[] = await membresDuRole(token, 'chargeOperation');
     const ancien = dateVisiteDe(t);
     const cd = champDuree(t);
+    const action = texte(corps?.action, 20);
 
-    // Annuler le rendez-vous : date et durée vidées, événement retiré des agendas Google des chefs, trace
-    if (texte(corps?.action, 20) === 'annuler') {
+    // Client injoignable, mail des créneaux parti : pré-réservation provisoire dans l'agenda Google du chef (23 h 01)
+    if (action === 'pre-reserver') {
+      if (!agendaBranche()) return json({ success: false, error: 'Google Agenda n’est pas branché : bloque ces créneaux à la main dans l’agenda du chef.' }, 400);
+      const chef = chefs.find((c) => c.id === (Number(corps?.chefId) || 0));
+      if (!chef) return json({ success: false, error: 'Choisis le chef de chantier pour pré-réserver ses créneaux.' }, 400);
+      if (!chef.email) return json({ success: false, error: `${chef.nom} n’a pas d’email dans ClickUp : bloque ces créneaux à la main dans son agenda.` }, 400);
+      const optionP = cd ? cd.options.find((o) => o.nom === texte(corps?.duree, 20)) : undefined;
+      const dureeP = optionP ? minutesDe(optionP.nom) || DUREE_DEFAUT : dureeMinutes(t);
+      const plages = (Array.isArray(corps?.creneaux) ? corps.creneaux : [])
+        .map((c: any) => ({ jour: texte(c?.jour, 10), minutes: Number(c?.minutes) }))
+        .filter((c: { jour: string; minutes: number }) => /^\d{4}-\d{2}-\d{2}$/.test(c.jour) && Number.isInteger(c.minutes) && c.minutes >= 0 && c.minutes < 1440)
+        .map((c: { jour: string; minutes: number }) => {
+          const debutMs = parisVersMs(c.jour, hhmm(c.minutes));
+          return { debutMs, finMs: debutMs + dureeP * 60000 };
+        })
+        .filter((p: { debutMs: number; finMs: number }) => Number.isFinite(p.debutMs) && p.debutMs > Date.now())
+        .sort((x: { debutMs: number }, y: { debutMs: number }) => x.debutMs - y.debutMs)
+        .slice(0, PRERESERVATIONS_MAX) as { debutMs: number; finMs: number }[];
+      if (!plages.length) return json({ success: false, error: 'Aucun créneau à venir à pré-réserver.' }, 400);
+      const origine = new URL(request.url).origin;
+      const tel = texte(champ(t, CHAMPS.telephone)?.value, 30);
+      let poses = 0;
+      try {
+        poses = await poserPrereservations(chef.email, String(t.id), plages, {
+          titre: `⏳ Pré-réservé · Relevé · ${String(t.name || '')}`,
+          lieu: adresseDe(t),
+          description: [
+            'Créneau proposé par mail au client, en attente de sa réponse.',
+            tel ? `Téléphone : ${tel}` : '',
+            `Pré-réservé par ${auteur} depuis l'application CHARGéO. Caler le relevé dans l'appli retire les autres créneaux.`,
+            `Fiche : ${origine}${adresses.affaire(String(t.id))}`,
+          ].filter(Boolean).join('\n'),
+        });
+      } catch (e) {
+        console.error('Google Agenda (pré-réservation)', e);
+        return json({ success: false, error: `L’agenda Google a refusé la pré-réservation (${texte((e as any)?.message || e, 160)}) : bloque ces créneaux à la main.` }, 502);
+      }
+      await retirerProposes(chefs, String(t.id), chef.id).catch(() => 0);
+      await fetch(`${API}/task/${tid}/comment`, {
+        method: 'POST',
+        headers: { Authorization: token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment_text: `⏳ Créneaux proposés au client par mail et pré-réservés dans l'agenda Google de ${chef.nom} par ${auteur} : ${plages.slice(0, poses).map((p) => libelleLong(p.debutMs)).join(' ; ')} (${libelleMinutes(dureeP)}). Ils restent provisoires jusqu'à sa réponse : caler le relevé les retire.`, notify_all: false }),
+        cache: 'no-store',
+      }).catch(() => null);
+      return json({ success: true, preReserves: poses, chef: chef.nom, preview });
+    }
+
+    // Annuler le rendez-vous : date et durée vidées, événement et pré-réservations retirés des agendas Google des
+    // chefs, mail en attente (confirmation, rappel) effacé, trace
+    if (action === 'annuler') {
       if (!ancien) return json({ success: false, error: 'Aucun rendez-vous calé sur cette fiche.' }, 400);
       const r = await fetch(`${API}/task/${tid}/field/${DATE_VISITE_ID}`, { method: 'DELETE', headers: { Authorization: token }, cache: 'no-store' });
       if (!r.ok) return json({ success: false, error: `ClickUp a refusé l’annulation (${r.status})` }, 502);
       if (cd) await fetch(`${API}/task/${tid}/field/${cd.id}`, { method: 'DELETE', headers: { Authorization: token }, cache: 'no-store' }).catch(() => null);
+      const attendu = mailAFaire(t);
+      if (attendu.startsWith('visite-')) await effacerMailAFaire(token, t).catch(() => false);
       let agendaOk = true;
       if (agendaBranche()) {
         const lus = await Promise.allSettled(chefs.filter((c) => c.email).map((c) => retirerReleve(c.email, String(t.id))));
         agendaOk = lus.every((x) => x.status === 'fulfilled');
       }
+      const retirees = await retirerProposes(chefs, String(t.id)).catch(() => 0);
       await fetch(`${API}/task/${tid}/comment`, {
         method: 'POST',
         headers: { Authorization: token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment_text: `${MARQUE_COMMENTAIRE} annulé depuis l'application par ${auteur} (il était calé le ${libelleDate(ancien)}). La fiche revient dans Visites à caler.${agendaOk ? '' : '\n⚠️ L’événement n’a pas pu être retiré de tous les agendas Google.'}`, notify_all: false }),
+        body: JSON.stringify({ comment_text: `${MARQUE_COMMENTAIRE} annulé depuis l'application par ${auteur} (il était calé le ${libelleDate(ancien)}). La fiche revient dans Visites à caler.${retirees ? `\n⏳ ${retirees} pré-réservation${retirees > 1 ? 's' : ''} retirée${retirees > 1 ? 's' : ''} de l'agenda.` : ''}${agendaOk ? '' : '\n⚠️ L’événement n’a pas pu être retiré de tous les agendas Google.'}`, notify_all: false }),
         cache: 'no-store',
       }).catch(() => null);
       return json({ success: true, annule: true, agendaOk, preview });
@@ -394,6 +440,12 @@ export async function POST(request: Request) {
       });
       chefOk = ra.ok;
     }
+    // 2 bis. Mail obligatoire : confirmation (ou visite déplacée) à envoyer depuis l'appli (décision du 05/11, 21 h 56).
+    // Décalé alors que la confirmation attend encore : le client n'a reçu aucune date, c'est donc toujours la
+    // confirmation (avec la nouvelle date) qui est due (recette du 05/11, 22 h 49).
+    const deplacee = !!ancien && mailAFaire(t) !== 'visite-confirmation';
+    const cleMail = deplacee ? 'visite-deplacee' : 'visite-confirmation';
+    const mailPose = await poserMailAFaire(token, t, cleMail).catch(() => false);
 
     // 3. Google Agenda du chef (un échec n'annule pas la date, il est signalé)
     let agenda: 'cree' | 'deplace' | 'non-branche' | 'sans-chef' | 'erreur' = 'non-branche';
@@ -426,27 +478,23 @@ export async function POST(request: Request) {
         }
       }
     }
+    // 3 bis. Le client a choisi : les créneaux pré-réservés pour lui sont retirés de l'agenda (05/11, 23 h 01)
+    const retirees = await retirerProposes(chefs, String(t.id)).catch(() => 0);
 
-    const email = emailDe(t, ms, chef?.nom || '', note, auteur, duree);
-    // 4. Commentaire de trace, avec le texte de l'email préparé
+    const quand = libelleLong(ms);
+    // 4. Commentaire de trace (le mail au client s'écrit ensuite dans l'appli, sa copie arrive sur la fiche)
     const entete = [
-      `${MARQUE_COMMENTAIRE} ${ancien ? 'décalé' : 'calé'} depuis l'application par ${auteur} : ${email.quand} (${libelleMinutes(duree)})${chef ? `, avec ${chef.nom}` : ''}.`,
+      `${MARQUE_COMMENTAIRE} ${ancien ? 'décalé' : 'calé'} depuis l'application par ${auteur} : ${quand} (${libelleMinutes(duree)})${chef ? `, avec ${chef.nom}` : ''}.`,
       ancien ? `Ancienne date : ${libelleDate(ancien)}.` : '',
       note ? `${MARQUE_NOTE}${note}` : '',
       agenda === 'cree' ? `🗓️ Ajouté à l'agenda Google de ${chef?.nom}.` : agenda === 'deplace' ? `🗓️ Déplacé dans l'agenda Google de ${chef?.nom}.` : agenda === 'erreur' ? `⚠️ Agenda Google non mis à jour : ${agendaErreur}` : '',
+      retirees ? `⏳ ${retirees} pré-réservation${retirees > 1 ? 's' : ''} retirée${retirees > 1 ? 's' : ''} de l'agenda.` : '',
+      mailPose ? `✉️ Mail « ${deplacee ? 'Visite · déplacée' : 'Visite · confirmation'} » à envoyer depuis l'appli (obligatoire).` : '⚠️ Le mail à envoyer n’a pas pu être marqué sur la fiche.',
     ].filter(Boolean);
     await fetch(`${API}/task/${tid}/comment`, {
       method: 'POST',
       headers: { Authorization: token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        comment_text: entete.concat([
-          '',
-          `✉️ Email de confirmation préparé${email.a ? ` pour ${email.a}` : ' (pas d’email sur la fiche)'} :`,
-          `Objet : ${email.sujet}`,
-          email.texte,
-        ]).join('\n'),
-        notify_all: false,
-      }),
+      body: JSON.stringify({ comment_text: entete.join('\n'), notify_all: false }),
       cache: 'no-store',
     }).catch(() => null);
 
@@ -456,8 +504,11 @@ export async function POST(request: Request) {
       chefOk,
       agenda,
       agendaErreur,
-      cale: { quand: email.quand, chef: chef?.nom || '', lienFiche: adresses.affaire(String(t.id)) },
-      emailConfirmation: { a: email.a, sujet: email.sujet, texte: email.texte, signature: email.signature },
+      // decale : le mail dû est « Visite · déplacée » (l'écran choisit le texte d'après lui)
+      decale: deplacee,
+      mailPose,
+      preReservationsRetirees: retirees,
+      cale: { quand, chef: chef?.nom || '', lienFiche: adresses.affaire(String(t.id)) },
     });
   } catch (e) {
     console.error('Caler le relevé (écriture)', e);

@@ -12,12 +12,19 @@
 // 17/10, 22 h 49 (poses) : departs = heures de départ possibles (8 h et 13 h 30 pour une pose) ; segments = ce que
 // le rendez-vous occupe s'il part de ce créneau (plusieurs demi-journées, sur plusieurs jours). Par défaut, un
 // rendez-vous de « duree » minutes à chaque demi-heure.
+// 05/11/2026, 23 h 01 (Mathieu : « lorsqu'on choisit un créneau, il faudrait qu'il reste en pré-réservation sur
+// l'agenda ») : marques = créneaux montrés par-dessus la grille sans bloquer le toucher : « choisi » (turquoise, les
+// créneaux sélectionnés pour un mail) ou « reserve » (ambre, pré-réservé pour le client de la fiche, touchable pour le
+// caler).
+// 06/11/2026, 6 h 37 (Mathieu : « Je ne peux pas cliquer sur Caler ce créneau ») : semaineDe(jour) pour afficher la
+// semaine d'un créneau ; curseur main sur les créneaux libres.
 // Composant d'affichage, sans lecture réseau.
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 
 export type BlocAgenda = { jour: string; debut: number; fin: number; titre: string; detail?: string; ton: 'erp' | 'agenda' | 'proche' };
 export type JourneeAgenda = { jour: string; titre: string };
+export type MarqueAgenda = { jour: string; minutes: number; libelle: string; ton: 'choisi' | 'reserve' };
 type Seg = { jour: string; debut: number; fin: number };
 
 const DEBUT = 8 * 60;
@@ -25,6 +32,7 @@ const FIN = 18 * 60;
 const PAS = 30;
 const HAUTEUR = 26;
 const VERT = '#16a34a';
+const AMBRE = '#fef3c7';
 
 const parisAujourdhui = () => {
   const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
@@ -52,6 +60,11 @@ function lundi(semaine: number): string {
   const base = w === 6 ? decaler(a, 2) : w === 0 ? decaler(a, 1) : decaler(a, 1 - w);
   return decaler(base, semaine * 7);
 }
+// Numéro de la semaine affichée (0 = celle d'aujourd'hui) qui contient ce jour
+export function semaineDe(iso: string): number {
+  const ecart = (Date.parse(`${iso}T12:00:00Z`) - Date.parse(`${lundi(0)}T12:00:00Z`)) / 86400000;
+  return Number.isFinite(ecart) ? Math.max(0, Math.floor(ecart / 7)) : 0;
+}
 
 export default function AgendaSemaine({
   blocs,
@@ -65,6 +78,7 @@ export default function AgendaSemaine({
   semainesMax = 3,
   departs,
   segments,
+  marques = [],
 }: {
   blocs: BlocAgenda[];
   journees: JourneeAgenda[];
@@ -77,6 +91,7 @@ export default function AgendaSemaine({
   semainesMax?: number;
   departs?: number[];
   segments?: (jour: string, minutes: number) => Seg[];
+  marques?: MarqueAgenda[];
 }) {
   const debutSemaine = lundi(semaine);
   const jours = [0, 1, 2, 3, 4].map((i) => decaler(debutSemaine, i));
@@ -96,15 +111,16 @@ export default function AgendaSemaine({
   const haut = (m: number) => ((Math.max(m, DEBUT) - DEBUT) / PAS) * HAUTEUR;
   const taille = (d: number, f: number) => Math.max(HAUTEUR - 2, ((Math.min(f, FIN) - Math.max(d, DEBUT)) / PAS) * HAUTEUR - 2);
   const choisis = choix ? segs(choix.jour, choix.minutes) : [];
+  const reserves = marques.some((x) => x.ton === 'reserve');
 
   return (
     <div className="rounded-[20px] bg-white p-2 ring-[1.5px] ring-[#dfe3e8]">
       <div className="flex items-center justify-between px-1 pb-2">
-        <button onClick={() => onSemaine(semaine - 1)} disabled={semaine <= 0} aria-label="Semaine précédente" className="flex h-9 w-9 items-center justify-center rounded-full disabled:opacity-30">
+        <button onClick={() => onSemaine(semaine - 1)} disabled={semaine <= 0} aria-label="Semaine précédente" className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full disabled:cursor-default disabled:opacity-30">
           <ChevronLeft size={20} color={CYAN} />
         </button>
         <p className="text-[14px] font-bold">Semaine du {libelleJourCourt(debutSemaine)}</p>
-        <button onClick={() => onSemaine(semaine + 1)} disabled={semaine >= semainesMax} aria-label="Semaine suivante" className="flex h-9 w-9 items-center justify-center rounded-full disabled:opacity-30">
+        <button onClick={() => onSemaine(semaine + 1)} disabled={semaine >= semainesMax} aria-label="Semaine suivante" className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full disabled:cursor-default disabled:opacity-30">
           <ChevronRight size={20} color={CYAN} />
         </button>
       </div>
@@ -154,7 +170,7 @@ export default function AgendaSemaine({
                   disabled={!ok}
                   onClick={() => onChoisir(j, m)}
                   aria-label={`${libelleJourCourt(j)} à ${heureDe(m)}${ok ? '' : ' (pris)'}`}
-                  className={`absolute left-0 right-0 ${ok ? 'bg-white/90 active:bg-[#e6f6f9]' : 'cursor-default bg-transparent'} ${departs ? 'rounded-[6px] ring-1 ring-inset ring-[#dfe3e8]' : ''}`}
+                  className={`absolute left-0 right-0 ${ok ? 'cursor-pointer bg-white/90 active:bg-[#e6f6f9]' : 'cursor-default bg-transparent'} ${departs ? 'rounded-[6px] ring-1 ring-inset ring-[#dfe3e8]' : ''}`}
                   style={{ top: haut(m) + (departs ? 1 : 0), height: ((Math.min(suivant, FIN) - m) / PAS) * HAUTEUR - (departs ? 2 : 0) }}
                 >
                   {departs && ok && <span className="text-[10px] font-semibold text-slate-400">{m < 12 * 60 ? 'matin' : 'après-midi'}</span>}
@@ -177,6 +193,20 @@ export default function AgendaSemaine({
                 {b.detail && <p className="truncate text-[9px] leading-tight">{b.detail}</p>}
               </div>
             ))}
+            {marques.filter((x) => x.jour === j).flatMap((x, i) => segs(x.jour, x.minutes).filter((s) => s.jour === j).map((s, k) => (
+              <div
+                key={`m${i}-${k}`}
+                className={`pointer-events-none absolute left-0.5 right-0.5 overflow-hidden rounded-[6px] px-1 py-0.5 ${x.ton === 'choisi' ? 'text-white' : ''}`}
+                style={{
+                  top: haut(s.debut) + 1,
+                  height: taille(s.debut, s.fin),
+                  backgroundColor: x.ton === 'choisi' ? CYAN : AMBRE,
+                  boxShadow: x.ton === 'reserve' ? `inset 0 0 0 1.5px ${ORANGE}` : undefined,
+                }}
+              >
+                <p className="truncate text-[9px] font-bold leading-tight">{heureDe(s.debut)} {x.libelle}</p>
+              </div>
+            )))}
             {choisis.filter((s) => s.jour === j).map((s, i) => (
               <div key={`c${i}`} className="pointer-events-none absolute left-0.5 right-0.5 rounded-[6px] px-1 py-0.5 text-white" style={{ top: haut(s.debut) + 1, height: taille(s.debut, s.fin), backgroundColor: CYAN }}>
                 <p className="text-[10px] font-bold leading-tight">{heureDe(s.debut)}</p>
@@ -191,6 +221,7 @@ export default function AgendaSemaine({
         <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: '#d6eef3' }} /> RDV ERP</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: '#dcfce7' }} /> même ville</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: '#cfd5dc' }} /> agenda Google</span>
+        {reserves && <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: AMBRE, boxShadow: `inset 0 0 0 1px ${ORANGE}` }} /> ⏳ proposé au client</span>}
       </div>
     </div>
   );

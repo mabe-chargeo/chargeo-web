@@ -41,6 +41,9 @@
 // 03/11/2026 (passe 2 de la recette sans IA) : en vente, une ligne de la carte Scénarios ouvre le relevé du scénario
 // (écart 37) ; après un changement dans « Suite de la vente » (Devis envoyé…), la fiche est relue tout de suite puis une
 // seconde fois 3 s plus tard, le temps que ClickUp passe les scénarios au nouveau statut (écart 11).
+// 05/11/2026, 21 h 56 à 21 h 58 (Phase 9, Mathieu : l'envoi du bon mail est obligatoire, au moment opportun) : en vente,
+// le mail en attente (« ✉️ Mail à envoyer », src/lib/mailsAFaire.ts) s'écrit en tête de fiche (EcrireMail). Tant qu'il
+// n'est pas parti, les boutons du relevé, « Préparer le devis dans Costructor » et la suite de la vente sont masqués.
 import { useEffect, useRef, useState, type ElementType, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import {
@@ -51,6 +54,7 @@ import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, TitreCarte, LienPr
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
 import { Vente } from '@/components/ui/Vente';
+import EcrireMail from '@/components/ui/EcrireMail';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 import { adresses } from '@/lib/adresses';
 
@@ -127,6 +131,10 @@ const boutonCostructor = (href: string) => (
     💼 Préparer le devis dans Costructor <ExternalLink size={16} />
   </LienPrincipal>
 );
+// Mail obligatoire en attente : la suite de la fiche attend qu'il parte
+const noteMailAttendu = (
+  <p className="text-[13px] font-semibold" style={{ color: ORANGE }}>Envoie d&apos;abord le mail en haut de la fiche : la suite se débloque dès qu&apos;il est parti.</p>
+);
 
 const pastilleStatut = (statut: string, couleur: string) => (
   <span className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-white" style={{ backgroundColor: couleur || '#9aa3ad' }}>
@@ -142,6 +150,8 @@ export default function FichePage() {
   const [preview, setPreview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+  // Clé du mail obligatoire en attente ('' = rien), donnée par EcrireMail
+  const [mailAttendu, setMailAttendu] = useState('');
   const relecture = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const charger = async () => {
@@ -203,7 +213,8 @@ export default function FichePage() {
     );
   };
 
-  // Relevé (Qualification) : caler le rendez-vous tant qu'il n'y a pas de date, puis renvoyer la confirmation ou décaler
+  // Relevé (Qualification) : caler le rendez-vous tant qu'il n'y a pas de date, puis renvoyer la confirmation ou décaler.
+  // Mail obligatoire en attente : boutons masqués, la note renvoie au mail en tête de fiche.
   const carteReleve = (f: Fiche) => {
     const aVisiter = normal(f.statut).includes('visiter') && !f.sansPrix;
     const cale = !!f.releve.visite;
@@ -211,19 +222,23 @@ export default function FichePage() {
       <Carte className="space-y-3">
         <TitreCarte icon={ClipboardList}>Relevé</TitreCarte>
         {ligne(CalendarClock, cale ? `Visite ${f.releve.visite}` : 'Visite pas encore calée', cale ? CYAN : ORANGE)}
-        {aVisiter && !cale && boutonAction(adresses.calerReleve(encodeURIComponent(f.id)), '📅 Caler le relevé')}
-        {f.releve.lien && !f.sansPrix && (aVisiter && !cale ? boutonSecondaire(f.releve.lien, 'Ouvrir le relevé') : boutonAction(f.releve.lien, 'Ouvrir le relevé'))}
-        {aVisiter && cale && (
-          <div className="grid grid-cols-2 gap-2">
-            {boutonSecondaire(`${adresses.calerReleve(encodeURIComponent(f.id))}?confirmation=1`, '✉️ Renvoyer la confirmation')}
-            {boutonSecondaire(adresses.calerReleve(encodeURIComponent(f.id)), '📅 Décaler')}
-          </div>
+        {mailAttendu ? noteMailAttendu : (
+          <>
+            {aVisiter && !cale && boutonAction(adresses.calerReleve(encodeURIComponent(f.id)), '📅 Caler le relevé')}
+            {f.releve.lien && !f.sansPrix && (aVisiter && !cale ? boutonSecondaire(f.releve.lien, 'Ouvrir le relevé') : boutonAction(f.releve.lien, 'Ouvrir le relevé'))}
+            {aVisiter && cale && (
+              <div className="grid grid-cols-2 gap-2">
+                {boutonSecondaire(`${adresses.calerReleve(encodeURIComponent(f.id))}?confirmation=1`, '✉️ Renvoyer la confirmation')}
+                {boutonSecondaire(adresses.calerReleve(encodeURIComponent(f.id)), '📅 Décaler')}
+              </div>
+            )}
+          </>
         )}
       </Carte>
     );
   };
 
-  // preparer = en vente : gros bouton « Préparer le devis dans Costructor »
+  // preparer = en vente : gros bouton « Préparer le devis dans Costructor » (masqué tant qu'un mail obligatoire attend)
   const carteDevis = (f: Fiche, titre: string, preparer = false) => {
     if (f.sansPrix) return null;
     const d = f.devis;
@@ -239,7 +254,8 @@ export default function FichePage() {
           {!preparer && d.lienCostructor && ligne(ExternalLink, lienExterne(d.lienCostructor, 'Client dans Costructor'))}
           {vide && <p className="text-[14px]">Pas encore de devis.</p>}
         </div>
-        {preparer && (d.lienCostructor
+        {preparer && mailAttendu && noteMailAttendu}
+        {preparer && !mailAttendu && (d.lienCostructor
           ? <div className="pt-1">{boutonCostructor(d.lienCostructor)}</div>
           : <p className="text-[13px] font-semibold" style={{ color: ORANGE }}>Client pas encore créé dans Costructor : le bouton « Préparer le devis » apparaîtra ici dès qu&apos;il le sera.</p>)}
       </Carte>
@@ -465,6 +481,11 @@ export default function FichePage() {
               {fiche.projet.places !== null && <span className="text-[13px] font-bold text-slate-500">· {fiche.projet.places} places</span>}
             </div>
 
+            {/* Mail obligatoire en attente (prise en charge, confirmation, rappel de la veille) : rien ne s'affiche sinon */}
+            {fiche.etape === 'qualification' && !fiche.sansPrix && (
+              <EcrireMail key={fiche.id} ficheId={fiche.id} obligatoire onEtat={setMailAttendu} />
+            )}
+
             <BlocContact affaireId={fiche.id} ouvertParDefaut>
               {fiche.etape === 'qualification' && peutVendre(fiche) && <Vente ficheId={fiche.id} partie="siret" />}
             </BlocContact>
@@ -482,7 +503,7 @@ export default function FichePage() {
               <>
                 {carteReleve(fiche)}
                 {carteDevis(fiche, 'Devis', true)}
-                {peutVendre(fiche) && <Vente key={fiche.statut} ficheId={fiche.id} partie="suite" onChange={apresVente} />}
+                {peutVendre(fiche) && !mailAttendu && <Vente key={fiche.statut} ficheId={fiche.id} partie="suite" onChange={apresVente} />}
                 {carteScenarios(fiche)}
               </>
             )}

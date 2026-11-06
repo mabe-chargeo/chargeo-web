@@ -29,6 +29,8 @@ import { adresses } from '@/lib/adresses';
 // 17/10, 19 h 42 (choix de Matthieu : « À relancer ») : l'échéance de la tâche Factures est la date de RELANCE
 // (J+3, J+10, J+15), pas la date limite de paiement (champ 📅 Date d'échéance) : libellés des cartes corrigés.
 // 19/10/2026 (adresses propres) : tous les liens des cartes passent par src/lib/adresses.ts.
+// 05/11/2026 (Phase 9, Mathieu : mail obligatoire) : carte « Mails à envoyer » (vue mails-a-envoyer) en tête du
+// commercial, urgente : les fiches dont le mail obligatoire n'est pas encore parti.
 // Preview : fiches lues dans 🧪 Qualification TEST, le reste dans les listes réelles, en lecture seule.
 
 export const dynamic = 'force-dynamic';
@@ -190,6 +192,8 @@ export async function GET(request: Request) {
     };
 
     // ── Commercial ──
+    // Mails obligatoires pas encore partis : en tête, ils bloquent la suite des fiches
+    carteVue('mails-a-envoyer', 'commercial', 'Commercial', true);
     carteVue('a-caler', 'commercial', 'Commercial', false);
     carteVue('relances-echues', 'commercial', 'Commercial', true,
       { titre: 'Relances du jour', detail: 'Devis envoyés à relancer aujourd’hui' },

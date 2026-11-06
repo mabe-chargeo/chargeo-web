@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { sessionDeRequete } from '@/lib/session';
 import { getQualificationListId } from '@/lib/listesClickUp';
 import { CHAMPS } from '@/lib/champsClickUp';
+import { CONTACT_SUR_PLACE, GESTIONNAIRE, personnesLiees } from '@/lib/contactsFiche';
 
 // Bloc 📇 Contact (étape 4 du plan du 15/10/2026, synthèse du 14/10, section 10). LECTURE SEULE.
 // GET ?affaireId=… (la fiche, ou un scénario : on remonte à la fiche) : adresse, téléphone et email du passeport,
@@ -14,13 +15,9 @@ import { CHAMPS } from '@/lib/champsClickUp';
 // au Planning Chantiers et au Parc Installé, qui portent les mêmes champs 📞 Telephone, 📧 Email et 📍 Adresse (mêmes
 // identifiants, vérifiés le 17/10). Qualification reste lue dans 🧪 TEST en preview ; les autres listes sont lues dans
 // les vraies listes, en lecture seule, comme les écrans Feu vert et Réception.
+// 05/11/2026 (Phase 9, lot 2) : lecture des contacts reliés sortie dans src/lib/contactsFiche.ts (sert aussi aux mails).
 export const dynamic = 'force-dynamic';
 
-const CONTACT_SUR_PLACE = '7d20a03c-f9b5-4395-9114-362e194a9a85';
-const GESTIONNAIRE = '0a6a88d4-1d1a-4034-8e7b-bf6213b1d9c3';
-// Liste Contacts 👥
-const TEL_CONTACT = '9f8e22e3-656d-4d9b-b923-cfff21366e8f';
-const EMAIL_CONTACT = 'fe270c78-ce53-427c-ad4f-73090f7c3252';
 // Prospection (Chasse) ❄️, Planning Chantiers 🚧 et Parc Installé (Maintenance) 🔄
 const PROSPECTION_ID = '901519675281';
 const PLANNING_CHANTIERS_ID = '901520038258';
@@ -44,22 +41,6 @@ async function lireAffaire(token: string, id: string): Promise<{ ok: true; tache
   if (!tache) return { ok: false, status: 404, erreur: 'Fiche introuvable' };
   if (!autorisees.includes(String(tache?.list?.id ?? ''))) return { ok: false, status: 403, erreur: 'Fiche hors des listes autorisées' };
   return { ok: true, tache };
-}
-
-async function personnes(token: string, fiche: any, champId: string) {
-  const brut = valeur(fiche, champId);
-  const liens: any[] = Array.isArray(brut) ? brut : [];
-  const sortie: { nom: string; tel: string; email: string }[] = [];
-  for (const lien of liens.slice(0, 5)) {
-    if (!lien?.id) continue;
-    const c = await lire(token, String(lien.id));
-    sortie.push({
-      nom: texte(c?.name || lien?.name),
-      tel: texte(valeur(c, TEL_CONTACT)),
-      email: texte(valeur(c, EMAIL_CONTACT)),
-    });
-  }
-  return sortie;
 }
 
 export async function GET(request: Request) {
@@ -87,8 +68,8 @@ export async function GET(request: Request) {
       adresse: adresse?.formatted_address
         ? { texte: String(adresse.formatted_address), lat: adresse?.location?.lat ?? null, lng: adresse?.location?.lng ?? null }
         : null,
-      contactSurPlace: await personnes(token, fiche, CONTACT_SUR_PLACE),
-      gestionnaire: await personnes(token, fiche, GESTIONNAIRE),
+      contactSurPlace: await personnesLiees(token, fiche, CONTACT_SUR_PLACE),
+      gestionnaire: await personnesLiees(token, fiche, GESTIONNAIRE),
     });
   } catch (e) {
     console.error('Bloc Contact', e);
