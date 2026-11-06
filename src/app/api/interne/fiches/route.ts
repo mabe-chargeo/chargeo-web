@@ -6,10 +6,15 @@ import { rolesDe } from '@/lib/roles';
 import { chargerTypes, estScenario } from '@/lib/typesTaches';
 import { CHAMPS } from '@/lib/champsClickUp';
 import { adresseDe, dateVisiteDe, libelleDate, nomOption, sansEmoji, trier, vuesVisibles } from '@/lib/vuesFiches';
+import { mailAFaire } from '@/lib/mailsAFaire';
+import { modeleDe } from '@/lib/modelesMails';
 
 // Écran Fiches de l'application équipe (structure validée par Matthieu le 16/10/2026). LECTURE SEULE.
 // GET ?vue=<clé> : fiches principales de Qualification (TEST en preview) filtrées par la vue (src/lib/vuesFiches.ts),
 // avec le compteur de chaque vue accessible pour le sous-menu. Vues filtrées côté serveur selon les rôles.
+// 06/11/2026, 17 h 55 (Phase 9, choix de Mathieu « Partout où la fiche apparaît ») : chaque fiche renvoie `mail`, le
+// nom du mail obligatoire en attente (champ ✉️ Mail à envoyer, src/lib/mailsAFaire.ts ; nom du texte dans
+// src/lib/modelesMails.ts), vide sinon. La carte le montre dans toutes les vues.
 
 export const dynamic = 'force-dynamic';
 const PAGES_MAX = 10;
@@ -64,6 +69,8 @@ export async function GET(request: Request) {
         ? `Relance ${libelleDate(echeance, false)}`
         : visite ? `Visite ${libelleDate(visite)}` : '';
       const scenarios = (enfants.get(String(t.id)) || []).filter((s) => !s?.archived && estScenario(s, carte)).length;
+      // Mail obligatoire en attente : nom du texte (« Visite · rappel de la veille »), à défaut sa clé
+      const cleMail = mailAFaire(t);
       return {
         id: String(t.id),
         nom: String(t.name || ''),
@@ -74,6 +81,7 @@ export async function GET(request: Request) {
         quand,
         adresse: adresseDe(t),
         scenarios,
+        mail: cleMail ? modeleDe(cleMail)?.nom || cleMail : '',
       };
     });
 
