@@ -9,12 +9,33 @@
 // écrire (créneaux d'un mail « Créneaux » ouvert hors de Caler, date d'une visite pas encore calée). L'envoi reste
 // bloqué tant qu'il en reste un. Chaque texte a son vrai objet ; en réponse dans un fil, l'objet devient « RE: » + l'objet
 // du fil. Pas de signature ici : celle de Gmail (contact@chargeo.fr) s'ajoute à l'envoi.
+// 06/11/2026 (Phase 9, lot 3 ; décisions de Mathieu à 18 h 30, 18 h 34 et 21 h 16) : texte « Devis · envoi », ouvert par
+// le bouton « ✉️ Envoyer le devis » de la fiche. Il reprend les modèles 9 à 16 du 02/11 (un par segment, plus l'AMO
+// seul) en un seul texte qui suit le segment de la fiche, réécrit au « nous » sur le même ton. Chaque devis finalisé
+// est lu dans Costructor (src/lib/devisScenarios.ts) : n°, HT, TTC, TVA, lien de signature en ligne et date de
+// validité. La brochure projet déposée sur la fiche part en pièce jointe et le texte l'annonce (« il faut également que
+// le modèle de mail annonce la présence de la brochure », 21 h 16). Prime ADVENIR : jamais de montant ici, le montant
+// estimé et le reste à charge sont dans la brochure et le devis. Crochets restants : la recommandation entre plusieurs
+// scénarios (seul le commercial la connaît) et une donnée que Costructor ne donne pas.
 // Fichier pur (aucun accès réseau) : lu par l'écriture des mails (EcrireMail), la route /api/interne/mail, Caler et
 // l'agenda Google (villeDe).
 
 export type Personne = { nom: string; tel: string; email: string };
 // Créneau proposé : jour AAAA-MM-JJ (Paris) et minutes depuis minuit
 export type Creneau = { jour: string; minutes: number };
+// Devis finalisé lu dans Costructor pour le mail d'envoi (src/lib/devisScenarios.ts, devisPourMail)
+export type DevisMail = {
+  scenario: string; // nom du scénario ClickUp
+  numero: string;
+  nom: string; // nom du devis dans Costructor (« … · Scénario A · SG · Borne 7,4 kW », donné par le brief)
+  ht: number;
+  ttc: number | null;
+  tva: string; // « 5,5 % », « 10 % », « 20 % » ou '' si inconnue
+  lien: string; // page client Costructor (consultation et signature en ligne), '' si introuvable
+  expire: string; // AAAA-MM-JJ, '' si inconnue
+  amo: boolean;
+  tarifType: boolean;
+};
 export type Donnees = {
   nomFiche: string;
   commune: string;
@@ -30,8 +51,14 @@ export type Donnees = {
   contactSurPlace: Personne | null;
   // Créneaux choisis dans Caler (mail « Créneaux », relais gestionnaire)
   creneaux?: Creneau[];
+  // Lot 3 (06/11) : segment de la fiche (RES, DAP, COP, PAR, RIC, FLT, TER), devis finalisés, brochure projet sur la fiche
+  segment?: string;
+  devis?: DevisMail[];
+  brochure?: boolean;
 };
-export type Etape = 'Nouvelle demande' | 'Visite technique';
+export type Etape = 'Nouvelle demande' | 'Visite technique' | 'Devis';
+// Étapes proposées sur la page blanche du bloc Contact. Le devis s'envoie depuis la Suite de la vente, avec ses données
+// Costructor : il n'est pas dans cette liste.
 export const ETAPES: Etape[] = ['Nouvelle demande', 'Visite technique'];
 export type Modele = {
   cle: string;
@@ -48,6 +75,7 @@ export type Modele = {
 
 const liste = (...l: (string | null | undefined)[]) => l.map((x) => String(x ?? '').trim()).filter(Boolean);
 const majuscule1 = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+const minuscule1 = (s: string) => (s && !/^[A-ZÀ-Ý]{2}/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 const sansPoint = (s: string) => String(s || '').trim().replace(/[\s.;,!]+$/, '');
 // Lignes du mail : null ou false = ligne retirée ; jamais plus d'une ligne vide de suite
 const texteDe = (...l: (string | null | undefined | false)[]) =>
@@ -153,6 +181,183 @@ function creneauEnClair(c: Creneau): string {
   const h = Math.floor(c.minutes / 60);
   const mi = c.minutes % 60;
   return `${date} à ${h} h${mi ? ` ${String(mi).padStart(2, '0')}` : ''}`;
+}
+
+// ── Envoi du devis (lot 3, 06/11) ──
+const euros = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+// « 2026-12-06 » → « 6 décembre 2026 »
+function dateLongue(jour: string): string {
+  const [a, mo, j] = String(jour || '').slice(0, 10).split('-').map(Number);
+  if (!a || !mo || !j) return '';
+  return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(Date.UTC(a, mo - 1, j, 12)));
+}
+// Nom donné par le brief (src/lib/briefSaisie.ts, nomDevis) : « [fiche ·] Scénario A · SG · Borne 7,4 kW »
+function morceauxDevis(x: DevisMail): { lettre: string; source: string; materiel: string } {
+  const parts = String(x.nom || '').split('·').map((s) => s.trim()).filter(Boolean);
+  const i = parts.findIndex((p) => /^sc[ée]nario\s+[a-z0-9]+$/i.test(p));
+  const lettre = i >= 0 ? parts[i] : (String(x.scenario || '').match(/Sc[ée]nario\s+[A-Za-z0-9]+/)?.[0] || '');
+  return { lettre, source: i >= 0 ? parts[i + 1] || '' : '', materiel: i >= 0 ? parts.slice(i + 2).join(' · ') : '' };
+}
+const SOURCES: Record<string, string> = {
+  SG: 'sur les services généraux de la copropriété',
+  Tableau: 'sur votre tableau électrique',
+  'PDL dédié': 'sur un point de livraison dédié',
+  'Colonne Enedis': 'au compteur Linky de votre place',
+  'Infra CHARGéO': "sur l'infrastructure collective de la résidence",
+};
+const estPrise = (x: DevisMail) => /prise/i.test(morceauxDevis(x).materiel);
+// « Infra 30 places » → « infrastructure collective de 30 places » ; « 2 bornes 22 kW » → accord au pluriel
+function descriptionDevis(x: DevisMail): string {
+  const m = morceauxDevis(x);
+  const infra = m.materiel.match(/^infra\s+(.+)$/i);
+  const quoi = infra ? `infrastructure collective de ${infra[1]}` : minuscule1(m.materiel);
+  const pluriel = /^\d+\s/.test(m.materiel) && !/^1\s/.test(m.materiel) && !infra;
+  const ou = SOURCES[m.source] ? `, raccordée${pluriel ? 's' : ''} ${SOURCES[m.source]}` : '';
+  return quoi ? `${quoi}${ou}` : String(x.scenario || '').replace(/^Sc[ée]nario\s+[A-Za-z0-9]+\s*:\s*/, '');
+}
+function blocDevis(x: DevisMail): string[] {
+  const montant = `${euros(x.ht)} HT, soit ${x.ttc !== null ? euros(x.ttc) : '[montant TTC]'} TTC${x.tva ? ` (TVA ${x.tva})` : ''}`;
+  const num = x.numero ? `, devis n° ${x.numero}` : '';
+  const lien = x.lien || `[lien de signature en ligne du devis${x.numero ? ` ${x.numero}` : ''}, à copier depuis Costructor]`;
+  if (x.amo) {
+    const colonne = /colonne/i.test(x.nom);
+    return [
+      `• Assistance Enedis pour ${colonne ? 'la colonne électrique horizontale' : 'la création du point de livraison dédié'} : ${montant}${num}`,
+      colonne
+        ? "  Enedis réalise ensuite la colonne ; chaque résident recevra son propre devis pour sa borne, raccordée au compteur Linky de sa place."
+        : "  La contribution de raccordement fera l'objet d'un devis séparé, émis directement par Enedis.",
+      `  À consulter et à signer en ligne : ${lien}`,
+    ];
+  }
+  if (x.tarifType) {
+    return [
+      `• Tarif type de raccordement d'un résident, pour l'assemblée générale : ${montant}${num}`,
+      "  Ce tarif n'est pas une commande : chaque résident recevra son propre devis, ajusté à sa place.",
+      `  À consulter en ligne : ${lien}`,
+    ];
+  }
+  const m = morceauxDevis(x);
+  return [
+    `• ${m.lettre ? `${m.lettre} : ` : ''}${descriptionDevis(x)}`,
+    `  ${montant}${num}`,
+    `  À consulter et à signer en ligne : ${lien}`,
+  ];
+}
+// Destinataires : le gestionnaire en COP et PAR (copie au contact sur place), le client sinon
+function destinatairesDevis(d: Donnees): { a: string[]; cc: string[] } {
+  if (d.segment === 'COP' || d.segment === 'PAR') {
+    const a = liste(d.gestionnaire?.email || d.email || d.contactSurPlace?.email);
+    return { a, cc: liste(d.contactSurPlace?.email).filter((x) => !a.includes(x)) };
+  }
+  return { a: liste(d.email || contact(d)?.email), cc: [] };
+}
+function salutDevis(d: Donnees): string {
+  if (d.segment === 'COP' || d.segment === 'PAR') return vous(d.gestionnaire?.nom || '') || salutContact(d);
+  return salutContact(d);
+}
+function objetDevis(d: Donnees): string {
+  const l = d.devis || [];
+  const combien = l.length > 1 ? `nos ${l.length} devis` : 'notre devis';
+  const res = residence(d);
+  if (l.length && l.every((x) => x.amo)) return `Votre raccordement Enedis${aCommune(d)} : notre devis d'assistance`;
+  if (d.segment === 'COP') return `${res ? `${res} : ` : ''}${combien} pour l'infrastructure de recharge`;
+  if (d.segment === 'PAR') return `${res ? `${res} : ` : ''}${combien} pour les bornes de recharge partagées`;
+  if (d.segment === 'FLT') return `La recharge de votre flotte : ${combien}`;
+  if (d.segment === 'TER') return `La recharge pour vos clients : ${combien}`;
+  return `Votre projet de recharge${aCommune(d)} : ${combien}`;
+}
+function corpsDevis(d: Donnees): string {
+  const seg = d.segment || '';
+  const l = d.devis || [];
+  const amo = l.filter((x) => x.amo);
+  const types = l.filter((x) => x.tarifType && !x.amo);
+  const travaux = l.filter((x) => !x.amo && !x.tarifType);
+  const plusieurs = l.length > 1;
+  const copro = seg === 'COP' || seg === 'PAR';
+  const v = visite(d);
+  const res = residence(d);
+  const prises = travaux.filter(estPrise);
+  const bornes = travaux.filter((x) => !estPrise(x));
+  const surSg = (x: DevisMail) => morceauxDevis(x).source === 'SG';
+
+  const quoi = l.length && l.every((x) => x.amo)
+    ? "notre devis d'assistance pour vos démarches auprès d'Enedis"
+    : seg === 'RES' ? `${plusieurs ? 'nos propositions' : 'notre proposition'} pour recharger votre véhicule chez vous`
+      : seg === 'DAP' ? `${plusieurs ? 'nos propositions' : 'notre proposition'} pour recharger votre véhicule sur votre place, dans votre copropriété`
+        : seg === 'RIC' ? `notre devis pour votre point de recharge${aCommune(d)}`
+          : seg === 'COP' ? `notre dossier pour équiper ${res || 'la copropriété'} d'une infrastructure collective de recharge`
+            : seg === 'PAR' ? `notre proposition pour équiper ${res || 'la résidence'} de bornes de recharge partagées`
+              : seg === 'FLT' ? 'notre proposition pour la recharge des véhicules de votre flotte'
+                : seg === 'TER' ? 'notre proposition pour offrir la recharge à vos clients et visiteurs'
+                  : plusieurs ? 'nos devis' : 'notre devis';
+  const blocs = l.length
+    ? [...amo, ...travaux, ...types].flatMap((x, i) => [...(i ? [''] : []), ...blocDevis(x)])
+    : ['[Aucun devis finalisé trouvé dans Costructor pour cette fiche : finalise le devis dans Costructor, puis rouvre ce mail]'];
+
+  // Prime ADVENIR : jamais acquise, jamais chiffrée ici (montant estimé et reste à charge dans la brochure et le devis)
+  const eligible = seg === 'COP'
+    ? "L'infrastructure est éligible à la prime Advenir « infrastructure collective », sous réserve d'acceptation du dossier et selon la date du permis de construire de la résidence."
+    : seg === 'PAR' && bornes.length
+      ? 'Les bornes partagées sont éligibles à la prime Advenir « point de recharge partagé », sous réserve d’acceptation du dossier.'
+      : seg === 'RIC' && bornes.length
+        ? 'Votre borne est éligible à la prime Advenir « point de recharge individuel », jusqu’à 1 000 € par point de recharge, sous réserve d’acceptation du dossier.'
+        : seg === 'DAP' && bornes.some(surSg)
+          ? 'La solution avec borne sur les services généraux est éligible à la prime Advenir « point de recharge individuel », jusqu’à 1 000 € par point de recharge, sous réserve d’acceptation du dossier.'
+          : '';
+  const advenir = eligible
+    ? `${eligible} La facture est réglée en totalité, puis la prime est versée si le dossier est accepté : le montant estimé et le reste à charge figurent ${d.brochure ? 'dans la brochure jointe' : 'dans le devis'}. Les travaux ne démarrent qu'après la validation du dossier, sinon ils ne pourraient pas être subventionnés.`
+    : null;
+
+  const signer = l.filter((x) => !x.tarifType);
+  const expires = l.map((x) => x.expire).filter(Boolean).sort();
+  const validite = expires.length
+    ? ` ${signer.length > 1 || l.length > 1 ? 'Les devis sont valables' : 'Il est valable'} jusqu'au ${dateLongue(expires[0])}.`
+    : ` ${l.length > 1 ? 'Les devis sont valables' : 'Il est valable'} 30 jours.`;
+  const noteAmo = amo.length && travaux.length ? " Le devis d'assistance Enedis, à signer en premier pour lancer la demande, se règle à 100 % à la signature." : '';
+  const conditions = amo.length && !travaux.length && !types.length
+    ? `Le devis se signe en ligne, avec un règlement de 100 % à la signature, par virement.${validite}`
+    : copro
+      ? `${signer.length > 1 ? 'Chaque devis' : 'Le devis'} se signe en ligne. L'acompte de 50 % n'est exigible qu'après l'autorisation des travaux par l'assemblée générale ; le solde est réglé à réception de la facture, par virement.${noteAmo}${validite}`
+      : `${signer.length > 1 ? 'Chaque devis' : 'Le devis'} se signe en ligne : acompte de 50 % à la signature, solde à réception de la facture, par virement.${noteAmo}${validite}`;
+
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    `Merci encore pour l'accueil que vous nous avez réservé lors de la visite technique${v ? ` du ${v.date}` : ''}.`,
+    '',
+    `Comme promis, voici ${quoi} :`,
+    '',
+    ...blocs,
+    '',
+    travaux.length > 1 ? 'Notre recommandation : [scénario conseillé et raison concrète vue à la visite].' : null,
+    travaux.length > 1 ? '' : null,
+    seg === 'DAP' && travaux.some(surSg)
+      ? "La solution sur les services généraux relève du droit à la prise : une simple notification au syndic suffit, sans vote en assemblée générale, et nous nous occupons de ce dossier pour vous. Un sous-compteur certifié MID mesure votre seule consommation, pour un remboursement transparent à la copropriété."
+      : null,
+    seg === 'DAP' && travaux.some(surSg) ? '' : null,
+    advenir,
+    advenir ? '' : null,
+    prises.length && ['RES', 'DAP', 'RIC'].includes(seg) ? `${prises.length > 1 ? 'Les prises renforcées bénéficient' : 'La prise renforcée bénéficie'} d'une TVA à 10 % ; elle n'ouvre pas droit à la prime Advenir.` : null,
+    prises.length && ['RES', 'DAP', 'RIC'].includes(seg) ? '' : null,
+    seg === 'PAR' ? "Chaque utilisateur recharge avec son badge et règle directement sa consommation : la copropriété n'avance rien et n'a aucune facture de recharge à émettre." : null,
+    seg === 'COP' ? "Une convention d'exploitation sera établie dès la validation du devis ; elle précisera les engagements de CHARGéO : accès de tous les utilisateurs à des conditions non discriminatoires, portabilité des données et durée d'engagement." : null,
+    seg === 'FLT' ? 'La supervision relève les consommations, pour suivre et refacturer la recharge de chaque véhicule ou salarié.' : null,
+    seg === 'TER' ? "Vos clients règlent leur recharge par carte bancaire ou par application, et l'électricité consommée vous est reversée : vous n'avez rien à encaisser ni à facturer." : null,
+    ['PAR', 'COP', 'FLT', 'TER'].includes(seg) ? '' : null,
+    d.brochure
+      ? `Vous trouverez en pièce jointe la brochure de votre projet, avec les photos de la visite${copro ? ' : elle peut être transmise telle quelle au conseil syndical' : ''}.`
+      : null,
+    d.brochure ? '' : null,
+    conditions,
+    '',
+    copro
+      ? 'Nous serions ravis de venir présenter le dossier en conseil syndical ou en assemblée générale.'
+      : seg === 'FLT'
+        ? 'Nous pouvons volontiers venir le présenter à votre équipe.'
+        : 'Nous restons à votre entière disposition pour en parler, par téléphone ou par simple retour de mail.',
+    '',
+    'Bien cordialement,',
+  );
 }
 
 export const MODELES: Modele[] = [
@@ -392,6 +597,18 @@ export const MODELES: Modele[] = [
         v ? `Au plaisir de vous rencontrer ${v.jour},` : 'Au plaisir de vous rencontrer très prochainement,',
       );
     },
+  },
+  {
+    // Lot 3 (06/11) : ouvert par « ✉️ Envoyer le devis » (Suite de la vente) ; la fiche passe en 📩 devis envoyé quand il part
+    cle: 'devis-envoi',
+    nom: 'Devis · envoi',
+    court: 'Envoi du devis',
+    etape: 'Devis',
+    reponse: false,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetDevis,
+    corps: corpsDevis,
   },
 ];
 
