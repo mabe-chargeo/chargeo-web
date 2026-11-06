@@ -16,6 +16,8 @@
 // l'agenda ») : marques = créneaux montrés par-dessus la grille sans bloquer le toucher : « choisi » (turquoise, les
 // créneaux sélectionnés pour un mail) ou « reserve » (ambre, pré-réservé pour le client de la fiche, touchable pour le
 // caler).
+// 06/11/2026, 6 h 37 (Mathieu : « Je ne peux pas cliquer sur Caler ce créneau ») : semaineDe(jour) pour afficher la
+// semaine d'un créneau ; curseur main sur les créneaux libres.
 // Composant d'affichage, sans lecture réseau.
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
@@ -57,6 +59,11 @@ function lundi(semaine: number): string {
   const w = jourSemaine(a);
   const base = w === 6 ? decaler(a, 2) : w === 0 ? decaler(a, 1) : decaler(a, 1 - w);
   return decaler(base, semaine * 7);
+}
+// Numéro de la semaine affichée (0 = celle d'aujourd'hui) qui contient ce jour
+export function semaineDe(iso: string): number {
+  const ecart = (Date.parse(`${iso}T12:00:00Z`) - Date.parse(`${lundi(0)}T12:00:00Z`)) / 86400000;
+  return Number.isFinite(ecart) ? Math.max(0, Math.floor(ecart / 7)) : 0;
 }
 
 export default function AgendaSemaine({
@@ -109,11 +116,11 @@ export default function AgendaSemaine({
   return (
     <div className="rounded-[20px] bg-white p-2 ring-[1.5px] ring-[#dfe3e8]">
       <div className="flex items-center justify-between px-1 pb-2">
-        <button onClick={() => onSemaine(semaine - 1)} disabled={semaine <= 0} aria-label="Semaine précédente" className="flex h-9 w-9 items-center justify-center rounded-full disabled:opacity-30">
+        <button onClick={() => onSemaine(semaine - 1)} disabled={semaine <= 0} aria-label="Semaine précédente" className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full disabled:cursor-default disabled:opacity-30">
           <ChevronLeft size={20} color={CYAN} />
         </button>
         <p className="text-[14px] font-bold">Semaine du {libelleJourCourt(debutSemaine)}</p>
-        <button onClick={() => onSemaine(semaine + 1)} disabled={semaine >= semainesMax} aria-label="Semaine suivante" className="flex h-9 w-9 items-center justify-center rounded-full disabled:opacity-30">
+        <button onClick={() => onSemaine(semaine + 1)} disabled={semaine >= semainesMax} aria-label="Semaine suivante" className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full disabled:cursor-default disabled:opacity-30">
           <ChevronRight size={20} color={CYAN} />
         </button>
       </div>
@@ -163,7 +170,7 @@ export default function AgendaSemaine({
                   disabled={!ok}
                   onClick={() => onChoisir(j, m)}
                   aria-label={`${libelleJourCourt(j)} à ${heureDe(m)}${ok ? '' : ' (pris)'}`}
-                  className={`absolute left-0 right-0 ${ok ? 'bg-white/90 active:bg-[#e6f6f9]' : 'cursor-default bg-transparent'} ${departs ? 'rounded-[6px] ring-1 ring-inset ring-[#dfe3e8]' : ''}`}
+                  className={`absolute left-0 right-0 ${ok ? 'cursor-pointer bg-white/90 active:bg-[#e6f6f9]' : 'cursor-default bg-transparent'} ${departs ? 'rounded-[6px] ring-1 ring-inset ring-[#dfe3e8]' : ''}`}
                   style={{ top: haut(m) + (departs ? 1 : 0), height: ((Math.min(suivant, FIN) - m) / PAS) * HAUTEUR - (departs ? 2 : 0) }}
                 >
                   {departs && ok && <span className="text-[10px] font-semibold text-slate-400">{m < 12 * 60 ? 'matin' : 'après-midi'}</span>}
@@ -214,7 +221,7 @@ export default function AgendaSemaine({
         <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: '#d6eef3' }} /> RDV ERP</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: '#dcfce7' }} /> même ville</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: '#cfd5dc' }} /> agenda Google</span>
-        {reserves && <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: AMBRE, boxShadow: `inset 0 0 0 1px ${ORANGE}` }} /> proposé au client</span>}
+        {reserves && <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: AMBRE, boxShadow: `inset 0 0 0 1px ${ORANGE}` }} /> ⏳ proposé au client</span>}
       </div>
     </div>
   );

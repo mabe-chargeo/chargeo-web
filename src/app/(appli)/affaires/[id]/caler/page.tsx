@@ -28,12 +28,15 @@
 //   choisis restent marqués sur l'agenda ; le mail s'écrit sans la liste des modèles ; une fois parti, les créneaux sont
 //   pré-réservés dans l'agenda Google du chef (provisoires). À la réouverture, ils s'affichent « ⏳ proposé », avec
 //   « Caler ce créneau » quand le client a répondu ; caler ou annuler les retire.
+// 06/11/2026, 6 h 37 (Mathieu : « Je ne peux pas cliquer sur Caler ce créneau ») : vrai bouton plein ; il choisit le
+//   créneau, fait passer l'agenda à sa semaine et descend jusqu'au créneau choisi et au bouton Caler. Marques courtes
+//   sur l'agenda (« ⏳ » proposé, « ✓ » en cours de choix).
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AlertTriangle, CalendarCheck, CalendarX, Check, ChevronRight, Hourglass, Mail, MapPin, RefreshCw, X } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, Alerte, BoutonPrincipal, BoutonSecondaire, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
-import AgendaSemaine, { heureDe, libelleJourCourt, type BlocAgenda, type JourneeAgenda, type MarqueAgenda } from '@/components/ui/AgendaSemaine';
+import AgendaSemaine, { heureDe, libelleJourCourt, semaineDe, type BlocAgenda, type JourneeAgenda, type MarqueAgenda } from '@/components/ui/AgendaSemaine';
 import EcrireMail from '@/components/ui/EcrireMail';
 import { adresses } from '@/lib/adresses';
 
@@ -137,10 +140,10 @@ export default function CalerPage() {
     .filter((o) => o.minutes === null)
     .map((o) => ({ jour: o.jour, titre: o.type === 'pose' ? `🏗️ Chantier ${o.ville || o.nom}` : `${TYPES[o.type]} ${o.nom}` }))
     .concat(agendaDuChef.filter((c) => c.journee).map((c) => ({ jour: c.jour, titre: c.lieu ? `📆 Journée · ${c.lieu}` : '📆 Journée' })));
-  // Créneaux montrés sur l'agenda : en cours de choix (turquoise), ou déjà proposés au client (ambre, touchables)
+  // Créneaux montrés sur l'agenda : en cours de choix (turquoise, ✓), ou déjà proposés au client (ambre, ⏳, touchables)
   const marques: MarqueAgenda[] = proposer
-    ? proposes.map((p) => ({ ...p, libelle: 'proposé', ton: 'choisi' as const }))
-    : proposesDuChef.map((p) => ({ jour: p.jour, minutes: p.minutes, libelle: '⏳ proposé', ton: 'reserve' as const }));
+    ? proposes.map((p) => ({ ...p, libelle: '✓', ton: 'choisi' as const }))
+    : proposesDuChef.map((p) => ({ jour: p.jour, minutes: p.minutes, libelle: '⏳', ton: 'reserve' as const }));
   const choix = date && /^\d{2}:\d{2}$/.test(heure) ? { jour: date, minutes: Number(heure.slice(0, 2)) * 60 + Number(heure.slice(3, 5)) } : null;
   const journeeDuChoix = choix ? journees.filter((x) => x.jour === choix.jour) : [];
   const effacer = () => { setDate(''); setHeure(''); };
@@ -164,6 +167,14 @@ export default function CalerPage() {
     setProposer(!proposer);
     effacer();
     setErreur(null);
+  };
+  // « Caler ce créneau » (06/11, 6 h 37) : le créneau proposé est choisi, l'agenda passe à sa semaine et l'écran
+  // descend jusqu'au créneau choisi et au bouton Caler
+  const calerPropose = (p: Propose) => {
+    setDate(p.jour);
+    setHeure(hhmm(p.minutes));
+    setSemaine(semaineDe(p.jour));
+    window.setTimeout(() => document.getElementById('creneau-choisi')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
   };
 
   // Mail des créneaux parti : pré-réservation dans l'agenda Google du chef
@@ -227,7 +238,7 @@ export default function CalerPage() {
   };
 
   const pastille = (actif: boolean, libelle: string, changer: () => void) => (
-    <button key={libelle} onClick={changer} className={`rounded-full px-4 py-2 text-[14px] font-bold ${actif ? 'text-white' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'}`} style={actif ? { backgroundColor: CYAN } : undefined}>
+    <button key={libelle} onClick={changer} className={`cursor-pointer rounded-full px-4 py-2 text-[14px] font-bold ${actif ? 'text-white' : 'bg-white ring-[1.5px] ring-[#dfe3e8]'}`} style={actif ? { backgroundColor: CYAN } : undefined}>
       {libelle}
     </button>
   );
@@ -241,7 +252,7 @@ export default function CalerPage() {
             <p className="mt-1 text-[14px]">Le rendez-vous du {fiche?.dejaCale} est annulé : la fiche revient dans Visites à caler et sort de l’agenda du chef.</p>
           </Carte>
           <p className="px-1 text-[13px] font-semibold" style={{ color: ORANGE }}>Préviens le client, l’annulation ne lui envoie rien.</p>
-          <button onClick={() => window.location.reload()} className="block w-full text-center text-[15px] font-semibold" style={{ color: CYAN }}>Caler un nouveau rendez-vous</button>
+          <button onClick={() => window.location.reload()} className="block w-full cursor-pointer text-center text-[15px] font-semibold" style={{ color: CYAN }}>Caler un nouveau rendez-vous</button>
           <a href={adresses.affaire(id)} className="flex items-center justify-center gap-1 text-[15px] font-semibold" style={{ color: CYAN }}>Ouvrir la fiche <ChevronRight size={16} /></a>
         </ContenuAppli>
       </PageAppli>
@@ -275,7 +286,7 @@ export default function CalerPage() {
           <EcrireMail ficheId={id} modele={modele} obligatoire={!renvoyee} fixe complements={{ acces: note }} retour={{ href: c.lienFiche, libelle: 'Revenir à la fiche' }} />
           <a href={c.lienFiche} className="flex items-center justify-center gap-1 text-[15px] font-semibold" style={{ color: CYAN }}>Ouvrir la fiche <ChevronRight size={16} /></a>
           {renvoyee
-            ? <button onClick={() => setRenvoi(false)} className="block w-full text-center text-[15px] font-semibold" style={{ color: CYAN }}>Décaler ou annuler le rendez-vous</button>
+            ? <button onClick={() => setRenvoi(false)} className="block w-full cursor-pointer text-center text-[15px] font-semibold" style={{ color: CYAN }}>Décaler ou annuler le rendez-vous</button>
             : <a href={adresses.agenda} className="block text-center text-[15px] font-semibold" style={{ color: CYAN }}>Voir l’agenda des visites</a>}
         </ContenuAppli>
       </PageAppli>
@@ -314,7 +325,7 @@ export default function CalerPage() {
               ? <Carte><p className="flex items-center gap-1.5 text-[14px] font-semibold" style={{ color: VERT }}><Hourglass size={15} /> {preReserve.texte}</p></Carte>
               : <Alerte>{preReserve.texte}</Alerte>
           )}
-          {!preReserve && <button onClick={() => setEcrireCreneaux(false)} className="block w-full text-center text-[15px] font-semibold" style={{ color: CYAN }}>Modifier les créneaux</button>}
+          {!preReserve && <button onClick={() => setEcrireCreneaux(false)} className="block w-full cursor-pointer text-center text-[15px] font-semibold" style={{ color: CYAN }}>Modifier les créneaux</button>}
         </ContenuAppli>
       </PageAppli>
     );
@@ -336,12 +347,12 @@ export default function CalerPage() {
                 {fiche.dejaCale && <p className="text-[14px] font-bold">Déjà calé le {fiche.dejaCale}{fiche.duree ? ` (${fiche.duree})` : ''} : choisir un autre créneau le décale.</p>}
                 <div className="flex flex-wrap gap-4">
                   {dejaCale && (
-                    <button onClick={() => setRenvoi(true)} className="inline-flex items-center gap-1.5 text-[14px] font-bold" style={{ color: CYAN }}>
+                    <button onClick={() => setRenvoi(true)} className="inline-flex cursor-pointer items-center gap-1.5 text-[14px] font-bold" style={{ color: CYAN }}>
                       <Mail size={15} /> Renvoyer la confirmation
                     </button>
                   )}
                   {fiche.dejaCale && (
-                    <button onClick={annuler} disabled={envoi} className="inline-flex items-center gap-1.5 text-[14px] font-bold" style={{ color: ORANGE }}>
+                    <button onClick={annuler} disabled={envoi} className="inline-flex cursor-pointer items-center gap-1.5 text-[14px] font-bold" style={{ color: ORANGE }}>
                       <CalendarX size={15} /> Annuler le rendez-vous
                     </button>
                   )}
@@ -370,21 +381,29 @@ export default function CalerPage() {
 
             <Repere>{proposer ? '3 · Les créneaux à proposer' : '3 · Le créneau'}</Repere>
             {!proposer && proposesDuChef.length > 0 && (
-              <Carte className="space-y-2">
+              <Carte className="space-y-3">
                 <p className="flex items-center gap-1.5 text-[15px] font-bold"><Hourglass size={16} color={ORANGE} /> Créneaux proposés au client, pré-réservés</p>
-                {proposesDuChef.map((p) => (
-                  <div key={`${p.jour}-${p.minutes}`} className="flex items-center justify-between gap-3">
-                    <p className="text-[15px] font-semibold">{libelleJourCourt(p.jour)} à {heureDe(p.minutes)}</p>
-                    <button onClick={() => { setDate(p.jour); setHeure(hhmm(p.minutes)); }} className="shrink-0 text-[14px] font-bold" style={{ color: CYAN }}>
-                      Caler ce créneau
-                    </button>
-                  </div>
-                ))}
+                {proposesDuChef.map((p) => {
+                  const actif = !!choix && choix.jour === p.jour && choix.minutes === p.minutes;
+                  return (
+                    <div key={`${p.jour}-${p.minutes}`} className="flex items-center justify-between gap-3">
+                      <p className="text-[15px] font-semibold">{libelleJourCourt(p.jour)} à {heureDe(p.minutes)}</p>
+                      <button
+                        type="button"
+                        onClick={() => calerPropose(p)}
+                        className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold ${actif ? 'text-white' : 'bg-white ring-[1.5px] ring-[#0097b2]'}`}
+                        style={actif ? { backgroundColor: CYAN } : { color: CYAN }}
+                      >
+                        {actif ? <Check size={15} /> : <CalendarCheck size={15} />} {actif ? 'Choisi' : 'Caler ce créneau'}
+                      </button>
+                    </div>
+                  );
+                })}
                 <p className="text-[12px] text-slate-500">Quand le client a choisi, cale son créneau : les autres pré-réservations sont retirées de l&apos;agenda.</p>
               </Carte>
             )}
             {proposer ? (
-              <button onClick={basculerProposer} className="block px-1 text-left text-[14px] font-bold" style={{ color: CYAN }}>← Revenir au calage du rendez-vous</button>
+              <button onClick={basculerProposer} className="block cursor-pointer px-1 text-left text-[14px] font-bold" style={{ color: CYAN }}>← Revenir au calage du rendez-vous</button>
             ) : (
               <BoutonSecondaire compact onClick={basculerProposer}>
                 <Mail size={17} /> {proposesDuChef.length ? 'Client injoignable : changer les créneaux proposés' : 'Client injoignable : proposer des créneaux par mail'}
@@ -412,7 +431,7 @@ export default function CalerPage() {
                   {proposes.length ? proposes.map((p) => (
                     <div key={`${p.jour}-${p.minutes}`} className="flex items-center justify-between gap-3">
                       <p className="flex items-center gap-1.5 text-[15px] font-bold"><CalendarCheck size={16} color={CYAN} /> {libelleJourCourt(p.jour)} à {heureDe(p.minutes)}</p>
-                      <button onClick={() => choisir(p.jour, p.minutes)} aria-label="Retirer ce créneau" className="inline-flex shrink-0 items-center gap-1 text-[13px] font-bold" style={{ color: ORANGE }}>
+                      <button onClick={() => choisir(p.jour, p.minutes)} aria-label="Retirer ce créneau" className="inline-flex shrink-0 cursor-pointer items-center gap-1 text-[13px] font-bold" style={{ color: ORANGE }}>
                         <X size={15} /> Retirer
                       </button>
                     </div>
@@ -430,23 +449,25 @@ export default function CalerPage() {
               </>
             ) : (
               <>
-                {choix ? (
-                  <Carte accent>
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="flex items-center gap-1.5 text-[16px] font-bold"><CalendarCheck size={17} color={CYAN} /> {libelleJourCourt(choix.jour)} à {heureDe(choix.minutes)} · {duree.libelle}</p>
-                      <button onClick={effacer} aria-label="Effacer le créneau" className="inline-flex shrink-0 items-center gap-1 text-[13px] font-bold" style={{ color: ORANGE }}>
-                        <X size={15} /> Effacer
-                      </button>
-                    </div>
-                    {journeeDuChoix.map((x, i) => (
-                      <p key={i} className="mt-1 flex items-center gap-1.5 text-[13px] font-bold" style={{ color: ORANGE }}>
-                        <AlertTriangle size={14} /> {x.titre} ce jour-là : vérifie avec le chef.
-                      </p>
-                    ))}
-                  </Carte>
-                ) : (
-                  <p className="px-1 text-[13px] text-slate-500">Touche un créneau blanc pour placer le relevé ({duree.libelle}, 30 min de route comprises autour des autres rendez-vous). Le toucher à nouveau l’efface.</p>
-                )}
+                <div id="creneau-choisi" className="scroll-mt-4">
+                  {choix ? (
+                    <Carte accent>
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="flex items-center gap-1.5 text-[16px] font-bold"><CalendarCheck size={17} color={CYAN} /> {libelleJourCourt(choix.jour)} à {heureDe(choix.minutes)} · {duree.libelle}</p>
+                        <button onClick={effacer} aria-label="Effacer le créneau" className="inline-flex shrink-0 cursor-pointer items-center gap-1 text-[13px] font-bold" style={{ color: ORANGE }}>
+                          <X size={15} /> Effacer
+                        </button>
+                      </div>
+                      {journeeDuChoix.map((x, i) => (
+                        <p key={i} className="mt-1 flex items-center gap-1.5 text-[13px] font-bold" style={{ color: ORANGE }}>
+                          <AlertTriangle size={14} /> {x.titre} ce jour-là : vérifie avec le chef.
+                        </p>
+                      ))}
+                    </Carte>
+                  ) : (
+                    <p className="px-1 text-[13px] text-slate-500">Touche un créneau blanc pour placer le relevé ({duree.libelle}, 30 min de route comprises autour des autres rendez-vous). Le toucher à nouveau l’efface.</p>
+                  )}
+                </div>
 
                 <div>
                   <label className={ETIQUETTE}>Accès et remarques (facultatif)</label>
