@@ -10,10 +10,12 @@
 // 17/10, 20 h 44 (choix de Matthieu : caler le relevé depuis l'appli) : sur les vues de visite (À caler, Relevés
 // planifiés, En retard), chaque fiche à visiter a son bouton « 📅 Caler le relevé » (ou « Décaler » si une date est déjà
 // posée), vers /affaires/<id>/caler.
+// 06/11/2026, 17 h 55 (Phase 9, choix de Mathieu « Partout où la fiche apparaît ») : une fiche qui attend un mail
+// obligatoire affiche « À envoyer : <nom du mail> » sous son nom, dans toutes les vues (route Fiches, champ `mail`).
 import { useEffect, useState } from 'react';
-import { CalendarCheck, CalendarClock, ChevronRight, GitBranch, MapPin, RefreshCw } from 'lucide-react';
+import { CalendarCheck, CalendarClock, ChevronRight, GitBranch, Mail, MapPin, RefreshCw } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, Repere } from '@/components/charte/Appli';
-import { CYAN, GRIS } from '@/components/charte/couleurs';
+import { CYAN, GRIS, ORANGE } from '@/components/charte/couleurs';
 import { etapeQualification } from '@/lib/espaces';
 import { adresses } from '@/lib/adresses';
 
@@ -28,6 +30,8 @@ type Fiche = {
   quand: string;
   adresse: string;
   scenarios: number;
+  // Nom du mail obligatoire en attente ('' = aucun)
+  mail?: string;
 };
 type Reponse = { vues: VueMenu[]; vue: { cle: string; libelle: string; description: string } | null; fiches: Fiche[]; preview: boolean };
 
@@ -99,6 +103,12 @@ export default function FichesPage() {
               )}
             </div>
             <p className="mt-1.5 text-[17px] font-bold leading-tight">{f.nom}</p>
+            {f.mail && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: ORANGE }}>
+                <Mail size={15} className="shrink-0" color={ORANGE} />
+                À envoyer : {f.mail}
+              </p>
+            )}
             {f.quand && (
               <p className="mt-1.5 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: CYAN }}>
                 <CalendarClock size={15} className="shrink-0" color={CYAN} />
