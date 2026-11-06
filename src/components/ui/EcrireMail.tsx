@@ -33,9 +33,12 @@
 // blanche (étape Administratif). Carte « Dossier entreprise » avec les documents en cours du Drive (GET …&documents=1),
 // cochés d'office selon src/lib/dossierEntreprise.ts, alertes URSSAF et assurance ; la liste du mail suit les cases tant
 // que le texte n'a pas été retouché. Au moins un document pour envoyer.
+// 07/11/2026 (lot 4, choix de Mathieu à 0 h 00 : « Oui, depuis GitHub ») : carte « Brochures projet (GitHub) » pour
+// l'envoi du devis et le devis révisé (src/lib/brochuresGithub.ts). La brochure de la fiche trouvée dans GitHub est
+// cochée d'office, sinon celle déposée sur la fiche.
 // Textes : src/lib/modelesMails.ts (seule source, décision du 05/11 à 20 h 57), envoi : /api/interne/mail.
 import { useEffect, useState, type SyntheticEvent } from 'react';
-import { Check, FileText, FolderOpen, Mail, Paperclip, Phone, RefreshCw, Send } from 'lucide-react';
+import { BookOpen, Check, FileText, FolderOpen, Mail, Paperclip, Phone, RefreshCw, Send } from 'lucide-react';
 import { Carte, Alerte, BoutonPrincipal, BoutonSecondaire, TitreCarte, PastilleChoix, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BoutonsContact } from '@/components/ui/BlocContact';
@@ -45,6 +48,7 @@ import { AVIS, bloquant, enRelance, estRelance, textesPour } from '@/lib/mailsAF
 type Fil = { id: string; objet: string; de: string; date: number };
 type PieceFiche = { id: string; nom: string; taille: number; brochure: boolean };
 type DocDrive = { id: string; nom: string; sorte: string; libelle: string; ligne: string; date: string; alerte: string; coche: boolean; taille: number };
+type BrochureGh = { id: string; nom: string; taille: number; probable: boolean };
 type Infos = {
   branche: boolean;
   preview: boolean;
@@ -64,6 +68,8 @@ type Infos = {
   devisProblemes: string[];
   documents: DocDrive[];
   documentsProblemes: string[];
+  brochures: BrochureGh[];
+  brochuresProbleme: string;
 };
 type Brouillon = { modele: string; filId: string; a: string; cc: string; objet: string; texte: string };
 type Fin = { titre: string; lignes: string[]; avertissement?: string };
@@ -83,6 +89,8 @@ const nonVides = (c: Partial<Donnees> | undefined) =>
   Object.fromEntries(Object.entries(c || {}).filter(([, v]) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0)));
 // Documents du Drive cochés d'office
 const docsParDefaut = (d: Infos) => d.documents.filter((x) => x.coche).map((x) => x.id);
+// Brochure cochée d'office : celle de la fiche dans GitHub, sinon celle déposée sur la fiche
+const brochureParDefaut = (d: Infos) => d.brochures.find((x) => x.probable)?.id || d.pieces.find((p) => p.brochure)?.id || '';
 // Données du texte : pour les documents administratifs, la liste des documents cochés
 const donneesPour = (cle: string, d: Infos, ids: string[]): Donnees =>
   cle === DOCUMENTS ? { ...d.donnees, documents: d.documents.filter((x) => ids.includes(x.id)).map((x) => x.ligne) } : d.donnees;
@@ -122,7 +130,7 @@ const ajusterHauteur = (e: SyntheticEvent<HTMLIFrameElement>) => {
   if (h) cadre.style.height = `${Math.min(Math.max(h, 48), 420)}px`;
 };
 
-// Case à cocher d'une pièce jointe (fiche ou Drive)
+// Case à cocher d'une pièce jointe (fiche, Drive ou GitHub)
 function LignePiece({ coche, titre, sous, alerte, onClick }: { coche: boolean; titre: string; sous: string; alerte?: string; onClick: () => void }) {
   return (
     <button
@@ -208,6 +216,8 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
           devisProblemes: Array.isArray(d.devisProblemes) ? d.devisProblemes : [],
           documents: Array.isArray(d.documents) ? d.documents : [],
           documentsProblemes: Array.isArray(d.documentsProblemes) ? d.documentsProblemes : [],
+          brochures: Array.isArray(d.brochures) ? d.brochures : [],
+          brochuresProbleme: String(d.brochuresProbleme || ''),
         };
         setInfos(lu);
         onFiche?.(lu.fiche.nom);
@@ -220,10 +230,10 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
         setCc(b.cc);
         setObjet(b.objet);
         setTexte(b.texte);
-        // Envoi du devis ou devis révisé : la brochure projet (la plus récente) est cochée d'office ; documents
+        // Envoi du devis ou devis révisé : la brochure projet est cochée d'office (GitHub, sinon la fiche) ; documents
         // administratifs : les documents du Drive cochés d'office
-        const brochure = lu.pieces.find((p) => p.brochure);
-        if (AVEC_BROCHURE.includes(b.modele) && brochure) setChoisies([brochure.id]);
+        const brochure = brochureParDefaut(lu);
+        if (AVEC_BROCHURE.includes(b.modele) && brochure) setChoisies([brochure]);
         if (b.modele === DOCUMENTS) setChoisies(docsParDefaut(lu));
       } catch {
         if (!annule) setErreur('Impossible de joindre le serveur.');
@@ -242,10 +252,12 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const choix = attendu ? MODELES.filter((m) => textesPour(attendu).includes(m.cle)) : MODELES;
   const crochets = crochetsDe(objet) + crochetsDe(texte);
   const devisEnvoi = cle === 'devis-envoi';
+  const avecBrochure = AVEC_BROCHURE.includes(cle);
   const mailDevis = cle.startsWith('devis');
   const mailDocuments = cle === DOCUMENTS;
   const brochureFacultative = infos?.donnees.segment === 'RIC';
-  const brochureCochee = (infos?.pieces || []).some((p) => p.brochure && choisies.includes(p.id));
+  const brochureExiste = (infos?.pieces || []).some((p) => p.brochure) || (infos?.brochures || []).length > 0;
+  const brochureCochee = (infos?.pieces || []).some((p) => p.brochure && choisies.includes(p.id)) || (infos?.brochures || []).some((x) => choisies.includes(x.id));
   const brochureManque = devisEnvoi && !brochureFacultative && !brochureCochee;
   const documentManque = mailDocuments && !(infos?.documents || []).some((x) => choisies.includes(x.id));
   // Devis révisé : le texte annonce la brochure mais elle est décochée
@@ -488,6 +500,44 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
             </p>
           )}
         </div>
+        {avecBrochure && (
+          <div>
+            <p className={`${ETIQUETTE} flex items-center gap-1.5`}><BookOpen size={14} /> Brochures projet (GitHub)</p>
+            {infos.brochures.length ? (
+              <div className="mt-1.5 space-y-2">
+                {infos.brochures.map((x) => (
+                  <LignePiece
+                    key={x.id}
+                    coche={choisies.includes(x.id)}
+                    titre={x.nom}
+                    sous={[x.probable ? 'Correspond à cette fiche' : '', taille(x.taille)].filter(Boolean).join(' · ')}
+                    onClick={() => basculerPiece(x.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="ml-1 mt-1.5 text-[13px] text-slate-500">
+                {infos.brochuresProbleme ? `Brochures GitHub illisibles (${infos.brochuresProbleme}).` : 'Aucune brochure projet dans GitHub.'}
+              </p>
+            )}
+            {infos.brochures.length > 0 && !infos.brochures.some((x) => x.probable) && (
+              <p className="ml-1 mt-1.5 text-[12px] text-slate-500">Aucune brochure ne porte le nom de cette fiche : coche la bonne, ou ajoute la sienne au dépôt des brochures.</p>
+            )}
+            {brochureManque && (
+              <p className="ml-1 mt-1.5 text-[13px] font-semibold" style={{ color: ORANGE }}>
+                {brochureExiste
+                  ? 'Coche la brochure projet : elle part avec le devis.'
+                  : 'Aucune brochure projet pour cette fiche : ajoute son PDF « PROJET-… » au dépôt des brochures (ou sur la fiche), puis rouvre ce mail.'}
+              </p>
+            )}
+            {brochureAnnonceeSansPiece && (
+              <p className="ml-1 mt-1.5 text-[13px] font-semibold" style={{ color: ORANGE }}>Le texte annonce la brochure : coche-la, ou retire la phrase qui l&apos;annonce.</p>
+            )}
+            {devisEnvoi && brochureFacultative && !brochureExiste && (
+              <p className="ml-1 mt-1.5 text-[13px] text-slate-500">En RIC, la brochure projet est facultative.</p>
+            )}
+          </div>
+        )}
         {mailDocuments && (
           <div>
             <p className={`${ETIQUETTE} flex items-center gap-1.5`}><FolderOpen size={14} /> Dossier entreprise (Drive)</p>
@@ -513,37 +563,20 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
             {modifie && <p className="ml-1 mt-1.5 text-[12px] text-slate-500">Tu as retouché le texte : la liste du mail ne suit plus les cases, vérifie-la avant l&apos;envoi.</p>}
           </div>
         )}
-        {(devisEnvoi || infos.pieces.length > 0) && (
+        {infos.pieces.length > 0 && (
           <div>
-            <p className={`${ETIQUETTE} flex items-center gap-1.5`}><Paperclip size={14} /> Pièces jointes{mailDocuments ? ' de la fiche' : ''}</p>
-            {infos.pieces.length ? (
-              <div className="mt-1.5 space-y-2">
-                {infos.pieces.map((p) => (
-                  <LignePiece
-                    key={p.id}
-                    coche={choisies.includes(p.id)}
-                    titre={p.nom}
-                    sous={[p.brochure ? 'Brochure projet' : '', taille(p.taille)].filter(Boolean).join(' · ')}
-                    onClick={() => basculerPiece(p.id)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="ml-1 mt-1.5 text-[13px] text-slate-500">Aucun PDF sur la fiche.</p>
-            )}
-            {brochureManque && (
-              <p className="ml-1 mt-1.5 text-[13px] font-semibold" style={{ color: ORANGE }}>
-                {infos.pieces.some((p) => p.brochure)
-                  ? 'Coche la brochure projet : elle part avec le devis.'
-                  : 'Brochure projet absente de la fiche : dépose son PDF (« PROJET-… ») sur la fiche, puis rouvre ce mail. Elle part avec le devis.'}
-              </p>
-            )}
-            {brochureAnnonceeSansPiece && (
-              <p className="ml-1 mt-1.5 text-[13px] font-semibold" style={{ color: ORANGE }}>Le texte annonce la brochure : coche-la, ou retire la phrase qui l&apos;annonce.</p>
-            )}
-            {devisEnvoi && brochureFacultative && !infos.pieces.some((p) => p.brochure) && (
-              <p className="ml-1 mt-1.5 text-[13px] text-slate-500">En RIC, la brochure projet est facultative.</p>
-            )}
+            <p className={`${ETIQUETTE} flex items-center gap-1.5`}><Paperclip size={14} /> Pièces jointes de la fiche</p>
+            <div className="mt-1.5 space-y-2">
+              {infos.pieces.map((p) => (
+                <LignePiece
+                  key={p.id}
+                  coche={choisies.includes(p.id)}
+                  titre={p.nom}
+                  sous={[p.brochure ? 'Brochure projet' : '', taille(p.taille)].filter(Boolean).join(' · ')}
+                  onClick={() => basculerPiece(p.id)}
+                />
+              ))}
+            </div>
           </div>
         )}
         <div>
