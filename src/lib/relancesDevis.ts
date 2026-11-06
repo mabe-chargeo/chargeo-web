@@ -13,6 +13,8 @@ import { aujourdhuiParis, ajouterJoursOuvres, comparer, echeanceClickUp, libelle
 //   ouvrés, suspension à la 3e ;
 // - une relance en attente sur une fiche qui n'est plus en devis envoyé ni en négociation (gagnée, perdue) est
 //   effacée au contrôle quotidien.
+// 06/11/2026, 22 h 42 (accord de Mathieu) : devis révisé envoyé par mail = relances remises à zéro, comme après un
+// premier envoi (relancesApresRevision).
 // Tentatives = commentaires « 🔁 Relance n° » depuis le dernier envoi (📩) ou la dernière pause (📅), comme avant.
 // Rien ne part tout seul : le commercial écrit la phrase utile et clique « Envoyer ».
 
@@ -83,6 +85,20 @@ export async function noterRelanceParMail(token: string, t: any, nomTexte: strin
   }
   await commenter(token, id, `🔁 Relance n°${n} faite par mail le ${libelleJour(aujourdhui)} (« ${nomTexte} »). Prochaine relance le ${libelleJour(prochaine)} (J+${DELAI_RELANCE_OUVRES} ouvrés).`);
   return { tentative: n, prochaine: libelleJour(prochaine), suspendu: false };
+}
+
+// Devis révisé envoyé par mail : relances remises à zéro (commentaire 📩, comme un premier envoi), première à J+3 ouvrés
+export async function relancesApresRevision(token: string, t: any, auteur: string): Promise<{ prochaine: string; probleme?: string }> {
+  const id = String(t?.id || '');
+  const aujourdhui = aujourdhuiParis();
+  const prochaine = ajouterJoursOuvres(aujourdhui, DELAI_RELANCE_OUVRES);
+  const ok = await ecrireEcheance(token, id, prochaine);
+  await commenter(
+    token,
+    id,
+    `📩 Devis révisé envoyé par mail le ${libelleJour(aujourdhui)} par ${auteur} : relances remises à zéro.${ok ? ` Première relance le ${libelleJour(prochaine)} (J+${DELAI_RELANCE_OUVRES} ouvrés).` : ` ⚠️ La relance du ${libelleJour(prochaine)} n'a pas pu être enregistrée : mets l'échéance à la main.`}`,
+  );
+  return { prochaine: libelleJour(prochaine), probleme: ok ? undefined : 'première relance non enregistrée' };
 }
 
 // Contrôle quotidien : relances à envoyer aujourd'hui, et relances en attente devenues inutiles. Simulation : rien

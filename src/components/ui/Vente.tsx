@@ -28,6 +28,8 @@
 // 06/11/2026 (lot 4, accord de Mathieu à 22 h 34) : même chose au perdu. Après le choix du motif, « Écrire le mail
 // « Refus du client » » ouvre le mail rempli selon le motif ; la fiche passe en ❌ perdu dès qu'il est parti. Motif prix :
 // rappel de tenter d'abord une version optimisée du devis (compétence Suivi et négociation, section 5).
+// 06/11/2026 (lot 4, accord de Mathieu à 22 h 42) : en devis envoyé ou en négociation, « ✉️ Envoyer le devis révisé »
+// ouvre le mail « Devis · révisé » (nouveau devis Costructor) ; une fois parti, les relances repartent de zéro.
 import { useEffect, useState } from 'react';
 import { Check, Flame, Link2, Mail, RefreshCw, Send, Trophy, XCircle } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, BoutonSecondaire, PastilleChoix as Pastille, CadreConfirmation, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
@@ -68,7 +70,7 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
   const [motif, setMotif] = useState('');
   const [liens, setLiens] = useState<Record<string, string>>({});
   const [retenu, setRetenu] = useState('');
-  // Mail d'envoi des devis ouvert dans la carte (lot 3)
+  // Mail des devis ouvert dans la carte : envoi (lot 3) en devis à faire, devis révisé (lot 4) ensuite
   const [ecrire, setEcrire] = useState(false);
   // Mail de fin de vente (« Devis · validé » au gagné, « Refus du client » au perdu) ouvert dans la confirmation, puis parti
   const [ecrireFin, setEcrireFin] = useState(false);
@@ -145,6 +147,7 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
   const nomRetenu = avecLien.find((x) => x.id === retenuEffectif)?.nom || scenarios.find((x) => x.retenu)?.nom || '';
   const libelleEnvoi = aTrancher.length > 1 ? '✉️ Envoyer les devis' : '✉️ Envoyer le devis';
   const motifPrix = normal(motif).includes('cher') || normal(motif).includes('budget');
+  const relire = () => { setTimeout(() => onChange?.(), RELECTURE_APRES_ENVOI_MS); };
 
   const fermerConfirmation = () => {
     setConfirmer(null);
@@ -246,17 +249,19 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
               <p className="px-1 text-[12px] text-slate-500">Ouvre le mail déjà rempli avec Costructor et la brochure projet jointe. La fiche passe en 📩 devis envoyé dès qu’il est parti, et la relance J+3 est lancée.</p>
             </>
           )}
-          {!envoye && !nego && ecrire && (
+          {ecrire && (
             <>
-              <EcrireMail ficheId={ficheId} modele="devis-envoi" fixe onEnvoye={() => { setTimeout(() => onChange?.(), RELECTURE_APRES_ENVOI_MS); }} />
+              <EcrireMail ficheId={ficheId} modele={envoye || nego ? 'devis-revise' : 'devis-envoi'} fixe onEnvoye={relire} />
               <BoutonSecondaire compact onClick={() => setEcrire(false)}>Fermer le mail sans l’envoyer</BoutonSecondaire>
             </>
           )}
-          {envoye && <BoutonSecondaire compact onClick={() => passer('negociation')} disabled={envoi}><Flame size={18} /> En négociation</BoutonSecondaire>}
-          {(envoye || nego) && (
+          {(envoye || nego) && !ecrire && (
             <>
+              {envoye && <BoutonSecondaire compact onClick={() => passer('negociation')} disabled={envoi}><Flame size={18} /> En négociation</BoutonSecondaire>}
               <BoutonPrincipal type="button" onClick={() => setConfirmer('gagne')} disabled={envoi} inactif={envoi}><Trophy size={20} /> Gagné</BoutonPrincipal>
               <BoutonSecondaire compact onClick={() => setConfirmer('perdu')} disabled={envoi}><XCircle size={18} /> Perdu</BoutonSecondaire>
+              <BoutonSecondaire compact onClick={() => setEcrire(true)} disabled={envoi}><Mail size={18} /> ✉️ Envoyer le devis révisé</BoutonSecondaire>
+              <p className="px-1 text-[12px] text-slate-500">Devis révisé : monte d&apos;abord la nouvelle version dans Costructor (finalisée, l&apos;ancienne archivée). Une fois le mail parti, les relances repartent de zéro.</p>
             </>
           )}
         </div>
@@ -296,7 +301,7 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
             {e.motifs.map((m) => <Pastille key={m} actif={motif === m} onClick={() => { if (!ecrireFin) setMotif(m); }}>{m}</Pastille>)}
           </div>
           {motifPrix && !ecrireFin && (
-            <p className="text-[13px] font-semibold" style={{ color: ORANGE }}>Motif prix : une version optimisée du devis peut-elle le faire changer d&apos;avis ? Si oui, monte-la et renvoie-la plutôt que d&apos;écrire ce mail.</p>
+            <p className="text-[13px] font-semibold" style={{ color: ORANGE }}>Motif prix : une version optimisée du devis peut-elle le faire changer d&apos;avis ? Si oui, monte-la et envoie-la avec « Envoyer le devis révisé » plutôt que d&apos;écrire ce mail.</p>
           )}
           <p className="text-[13px]">Le relevé calé sort de l’agenda Google, la fiche passe dans Perdues.</p>
           {ecrireFin ? mailDeFin('perdu') : (
