@@ -30,8 +30,10 @@
 // ❌ perdu (Suite de la vente), avec une phrase selon le ⛔ Motif Refus choisi. Le motif est toujours donné au perdu :
 // la ligne qui le demandait au client n'a plus lieu d'être.
 // 06/11/2026 (lot 4, accord de Mathieu à 22 h 42) : « Devis · révisé » (modèle 19 du 02/11), ouvert par « ✉️ Envoyer le
-// devis révisé » (Suite de la vente). Nouveaux devis lus dans Costructor comme à l'envoi ; seuls « ce qui change » et le
-// n° de l'ancien devis restent à écrire. Même phrase Advenir et même annonce de la brochure que « Devis · envoi ».
+// devis révisé » (Suite de la vente). Nouveaux devis lus dans Costructor comme à l'envoi. Même phrase Advenir et même
+// annonce de la brochure que « Devis · envoi ». 23 h 13 (Mathieu : « Tu ne peux pas les préremplir ? ») : « Ce qui
+// change » et le n° remplacé sont écrits avec l'ancienne version lue dans Costructor (DevisMail.ancien) ; le crochet ne
+// reste que si rien n'a pu être lu.
 // Fichier pur (aucun accès réseau) : lu par l'écriture des mails (EcrireMail), la route /api/interne/mail, Caler et
 // l'agenda Google (villeDe).
 
@@ -50,6 +52,16 @@ export type DevisMail = {
   expire: string; // AAAA-MM-JJ, '' si inconnue
   amo: boolean;
   tarifType: boolean;
+  // Version remplacée d'un devis révisé (lot 4, 06/11, 23 h 13) : n°, HT, lignes ajoutées, retirées, quantités et prix
+  // revus (listes vides si Costructor ne donne pas les lignes)
+  ancien?: {
+    numero: string;
+    ht: number | null;
+    ajoutees: string[];
+    retirees: string[];
+    quantites: { libelle: string; avant: number; apres: number }[];
+    prix: string[];
+  };
 };
 export type Donnees = {
   nomFiche: string;
@@ -390,8 +402,28 @@ function corpsDevis(d: Donnees): string {
   );
 }
 
-// ── Devis révisé (lot 4, accord de Mathieu du 06/11 à 22 h 42) ──
-// Nouveaux devis lus dans Costructor ; la personne écrit seulement ce qui change et le n° de l'ancien devis
+// ── Devis révisé (lot 4, accord de Mathieu du 06/11 à 22 h 42 ; préremplissage demandé à 23 h 13) ──
+const LIGNES_MAX = 6;
+const qte = (n: number) => String(Math.round(n * 100) / 100).replace('.', ',');
+const enumerer = (l: string[]) => {
+  if (l.length <= LIGNES_MAX) return l.join(', ');
+  const reste = l.length - LIGNES_MAX;
+  return `${l.slice(0, LIGNES_MAX).join(', ')} et ${reste} autre${reste > 1 ? 's' : ''}`;
+};
+const etEntre = (l: string[]) => (l.length > 1 ? `${l.slice(0, -1).join(', ')} et ${l[l.length - 1]}` : l[0] || '');
+// Ce qui change sur un devis, lu dans Costructor (vide si rien n'a pu être lu)
+function changementsDe(x: DevisMail): string[] {
+  const a = x.ancien;
+  if (!a) return [];
+  const l: string[] = [];
+  if (a.ht !== null && Math.abs(a.ht - x.ht) >= 0.005) l.push(`le montant passe de ${euros(a.ht)} HT à ${euros(x.ht)} HT`);
+  if (a.ajoutees.length) l.push(`${a.ajoutees.length > 1 ? 'lignes ajoutées' : 'ligne ajoutée'} : ${enumerer(a.ajoutees)}`);
+  if (a.retirees.length) l.push(`${a.retirees.length > 1 ? 'lignes retirées' : 'ligne retirée'} : ${enumerer(a.retirees)}`);
+  if (a.quantites.length) l.push(`${a.quantites.length > 1 ? 'quantités revues' : 'quantité revue'} : ${enumerer(a.quantites.map((q) => `${q.libelle} (${qte(q.avant)} → ${qte(q.apres)})`))}`);
+  if (a.prix.length) l.push(`${a.prix.length > 1 ? 'prix revus' : 'prix revu'} : ${enumerer(a.prix)}`);
+  return l;
+}
+const CRO_CHANGE = '[les lignes modifiées, en clair]';
 function corpsRevise(d: Donnees): string {
   const l = d.devis || [];
   const travaux = l.filter((x) => !x.amo && !x.tarifType);
@@ -401,6 +433,23 @@ function corpsRevise(d: Donnees): string {
   const plusieurs = signer.length > 1;
   const expires = l.map((x) => x.expire).filter(Boolean).sort();
   const validite = `${plusieurs ? 'Les nouveaux devis se signent' : 'Le nouveau devis se signe'} en ligne, aux mêmes conditions de paiement, et ${plusieurs ? 'restent valables' : 'reste valable'} ${expires.length ? `jusqu'au ${dateLongue(expires[0])}` : '30 jours'}.`;
+
+  // Devis dont l'ancienne version est connue : ce qui change et le n° remplacé, sinon un crochet
+  const revus = l.filter((x) => x.ancien);
+  const nomDe = (x: DevisMail) => (x.amo ? 'Assistance Enedis' : morceauxDevis(x).lettre || x.scenario);
+  const ceQuiChange = !revus.length
+    ? [`Ce qui change : ${CRO_CHANGE}.`]
+    : revus.length === 1
+      ? [`Ce qui change : ${changementsDe(revus[0]).join(' ; ') || CRO_CHANGE}.`]
+      : ['Ce qui change :', ...revus.map((x) => `• ${nomDe(x)} : ${changementsDe(x).join(' ; ') || CRO_CHANGE}`)];
+  const numeros = revus.map((x) => x.ancien?.numero || '').filter(Boolean);
+  const memeNumero = revus.length > 0 && revus.every((x) => x.ancien?.numero === x.numero);
+  const remplace = !numeros.length
+    ? `${plusieurs ? 'Ces devis remplacent' : 'Ce devis remplace'} notre devis n° [numéro de l’ancien devis].`
+    : memeNumero
+      ? `${revus.length > 1 ? 'Ces versions remplacent les précédentes' : 'Cette version remplace la précédente'} (devis n° ${etEntre(numeros)}).`
+      : `${revus.length > 1 ? 'Ces devis remplacent nos devis' : 'Ce devis remplace notre devis'} n° ${etEntre(numeros)}.`;
+
   return texteDe(
     bonjour(salutDevis(d)),
     '',
@@ -408,9 +457,9 @@ function corpsRevise(d: Donnees): string {
     '',
     ...blocsDevis(l),
     '',
-    'Ce qui change : [les lignes modifiées, en clair].',
+    ...ceQuiChange,
     '',
-    `${plusieurs ? 'Ces devis remplacent' : 'Ce devis remplace'} notre devis n° [numéro de l’ancien devis].`,
+    remplace,
     '',
     advenir,
     advenir ? '' : null,
