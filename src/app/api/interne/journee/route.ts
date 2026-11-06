@@ -31,6 +31,8 @@ import { adresses } from '@/lib/adresses';
 // 19/10/2026 (adresses propres) : tous les liens des cartes passent par src/lib/adresses.ts.
 // 05/11/2026 (Phase 9, Mathieu : mail obligatoire) : carte « Mails à envoyer » (vue mails-a-envoyer) en tête du
 // commercial, urgente : les fiches dont le mail obligatoire n'est pas encore parti.
+// 06/11/2026 (Phase 9, lot 4, accords de Mathieu à 23 h 13 et 23 h 25) : carte « Avis Google à demander » du
+// commercial : fiches du Parc dont le rappel ⭐ est arrivé (J+7, J+14) ; le mail est prêt en tête de la fiche.
 // Preview : fiches lues dans 🧪 Qualification TEST, le reste dans les listes réelles, en lecture seule.
 
 export const dynamic = 'force-dynamic';
@@ -99,6 +101,28 @@ async function lister(token: string, listId: string): Promise<any[]> {
     if (json?.last_page !== false || lot.length === 0) break;
   }
   return toutes;
+}
+
+// Fiches du Parc dont le rappel ⭐ Avis Google est arrivé : sous-tâche ouverte (pas « terminé »), échéance passée ou du jour
+async function avisDuJour(token: string, aujourdhui: Jour): Promise<Set<string>> {
+  const ids = new Set<string>();
+  for (let page = 0; page < PAGES_MAX; page++) {
+    const res = await fetch(`https://api.clickup.com/api/v2/list/${PARC_ID}/task?archived=false&include_closed=false&subtasks=true&page=${page}`, {
+      headers: { Authorization: token },
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`ClickUp a refusé la lecture (${res.status})`);
+    const json = await res.json().catch(() => ({}));
+    const lot: any[] = Array.isArray(json?.tasks) ? json.tasks : [];
+    for (const t of lot) {
+      const n = normal(t?.name);
+      if (!t?.parent || !n.includes('avis google') || n.includes('termine')) continue;
+      const j = jourDe(t?.due_date);
+      if (j && comparer(j, aujourdhui) <= 0) ids.add(String(t.parent));
+    }
+    if (json?.last_page !== false || lot.length === 0) break;
+  }
+  return ids;
 }
 
 const lu = (r: PromiseSettledResult<any[]>): { taches: any[] | null; erreur?: string } =>
@@ -199,6 +223,23 @@ export async function GET(request: Request) {
       { titre: 'Relances du jour', detail: 'Devis envoyés à relancer aujourd’hui' },
       { dateDe: (t) => jourDe(t?.due_date), titreRetard: 'Relances en retard', detailRetard: 'Devis envoyés dont la date de relance est passée' });
     carteVue('devis-a-chiffrer', 'commercial', 'Commercial', false);
+    // Avis Google : rappel arrivé sur une fiche du Parc, le mail est prêt en tête de la fiche (lot 4, 06/11)
+    if (visible('commercial')) {
+      let avis: any[] | null = null;
+      let erreurAvis: string | undefined = parc.erreur;
+      if (parc.taches) {
+        try {
+          const ids = await avisDuJour(token, aujourdhui);
+          avis = parc.taches.filter((t) => ids.has(String(t.id)));
+        } catch (e: any) {
+          erreurAvis = String(e?.message || 'lecture impossible');
+        }
+      }
+      pousser({
+        cle: 'avisGoogle', role: 'commercial', surtitre: 'Commercial', titre: 'Avis Google à demander',
+        detail: 'Chantiers mis en service sans avis : le mail est prêt en haut de la fiche', urgent: false, lien: adresses.liste('parc'), externe: false,
+      }, avis, erreurAvis, (t) => ({ nom: String(t?.name || ''), url: urlFiche(t) }));
+    }
 
     // ── Installateur : ses chantiers du jour ou en retard, pas encore réalisés ──
     const moi = Number(session.id);

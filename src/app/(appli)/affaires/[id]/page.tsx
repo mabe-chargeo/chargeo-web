@@ -44,6 +44,8 @@
 // 05/11/2026, 21 h 56 à 21 h 58 (Phase 9, Mathieu : l'envoi du bon mail est obligatoire, au moment opportun) : en vente,
 // le mail en attente (« ✉️ Mail à envoyer », src/lib/mailsAFaire.ts) s'écrit en tête de fiche (EcrireMail). Tant qu'il
 // n'est pas parti, les boutons du relevé, « Préparer le devis dans Costructor » et la suite de la vente sont masqués.
+// 06/11/2026 (Phase 9, lot 4, accords de Mathieu à 23 h 13 et 23 h 25) : au Parc aussi, le mail « Avis Google » s'écrit
+// en tête de fiche le jour du rappel (J+7, J+14). Il ne bloque rien.
 import { useEffect, useRef, useState, type ElementType, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import {
@@ -481,8 +483,8 @@ export default function FichePage() {
               {fiche.projet.places !== null && <span className="text-[13px] font-bold text-slate-500">· {fiche.projet.places} places</span>}
             </div>
 
-            {/* Mail obligatoire en attente (prise en charge, confirmation, rappel de la veille) : rien ne s'affiche sinon */}
-            {fiche.etape === 'qualification' && !fiche.sansPrix && (
+            {/* Mail en attente (vente : prise en charge, confirmation, rappel de la veille, relance ; Parc : avis Google) */}
+            {(fiche.etape === 'qualification' || fiche.etape === 'parc') && !fiche.sansPrix && (
               <EcrireMail key={fiche.id} ficheId={fiche.id} obligatoire onEtat={setMailAttendu} />
             )}
 
