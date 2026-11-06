@@ -29,9 +29,13 @@
 // seul : carte « Brouillons plus anciens que la fiche », avec sa date, « Envoyer quand même » ou « Le jeter » ; l'élément
 // ouvert montre la fiche, avec « Reprendre le brouillon » ou « Le jeter ». « Prêt à chiffrer » attend que les relevés
 // gardés sur le téléphone soient envoyés ou jetés (le brief du cas 4 avait été calculé sans le brouillon).
+// 06/11/2026 (premier vrai relevé, Mathieu : « j'aimerais avoir la possibilité d'ajouter des photos directement depuis la
+// galerie du téléphone ») : deux boutons sous les photos de chaque élément, « Prendre une photo » (appareil photo, comme
+// avant) et « Depuis la galerie » (photos déjà prises, plusieurs d'un coup). Une photo que le navigateur ne sait pas lire
+// est signalée au lieu de bloquer l'ajout des autres.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  AlertTriangle, Archive, ArrowLeft, Camera, ChevronDown, ChevronUp, Copy, FileText, GitBranch, Layers,
+  AlertTriangle, Archive, ArrowLeft, Camera, ChevronDown, ChevronUp, Copy, FileText, GitBranch, ImagePlus, Layers,
   Pencil, Plus, RotateCcw, Send, UserCheck, X,
 } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, Repere, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
@@ -108,24 +112,32 @@ async function ecrirePhotos(id: string, liste: Photo[]) {
     db.transaction('photos', 'readwrite').objectStore('photos').put(liste, `${id}_element`);
   } catch { /* sans gravité */ }
 }
+// Photo réduite à 2 500 px de large, en JPEG. Chaîne vide si le navigateur ne sait pas la lire (06/11 : une photo de la
+// galerie dans un format non pris en charge ne doit plus bloquer l'ajout des autres)
 function compresser(file: File): Promise<string> {
   return new Promise((resolve) => {
     const reader = new FileReader();
-    reader.readAsDataURL(file);
+    reader.onerror = () => resolve('');
     reader.onload = (ev) => {
       const img = new Image();
-      img.src = ev.target?.result as string;
+      img.onerror = () => resolve('');
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let w = img.width;
-        let h = img.height;
-        if (w > 2500) { h = Math.round((h * 2500) / w); w = 2500; }
-        canvas.width = w;
-        canvas.height = h;
-        canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.9));
+        try {
+          const canvas = document.createElement('canvas');
+          let w = img.width;
+          let h = img.height;
+          if (w > 2500) { h = Math.round((h * 2500) / w); w = 2500; }
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+        } catch {
+          resolve('');
+        }
       };
+      img.src = ev.target?.result as string;
     };
+    reader.readAsDataURL(file);
   });
 }
 function versBlob(dataurl: string): Blob {
@@ -245,6 +257,23 @@ function Ligne({ titre, sousTitre, children, apres }: { titre: string; sousTitre
       <div className="mt-1 text-[13px]">{sousTitre}</div>
       {children && <div className="mt-3 flex flex-wrap gap-2">{children}</div>}
       {apres}
+    </div>
+  );
+}
+
+// Bouton photo : un champ fichier invisible posé sur une pastille. capture : appareil photo direct ; sans capture, le
+// téléphone propose la galerie (06/11)
+function BoutonPhoto({ capture, onChange, children }: { capture: boolean; onChange: (ev: React.ChangeEvent<HTMLInputElement>) => void; children: ReactNode }) {
+  return (
+    <div className="relative w-full overflow-hidden rounded-full bg-white p-3 text-center ring-[1.5px] ring-[#dfe3e8]">
+      <span className="flex items-center justify-center gap-2 text-[14px] font-semibold" style={{ color: LABEL }}>
+        {children}
+      </span>
+      {capture ? (
+        <input type="file" accept="image/*" capture="environment" multiple aria-label="Prendre une photo" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={onChange} />
+      ) : (
+        <input type="file" accept="image/*" multiple aria-label="Choisir des photos dans la galerie" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={onChange} />
+      )}
     </div>
   );
 }
@@ -369,12 +398,22 @@ function FormulaireElement({
     );
   };
 
+  // Photos de l'appareil photo ou de la galerie (06/11) : une photo illisible est signalée, les autres sont gardées
   const ajouterPhotos = async (ev: React.ChangeEvent<HTMLInputElement>) => {
     const fichiers = Array.from(ev.target.files || []);
     ev.target.value = '';
     if (!fichiers.length) return;
     const nouvelles: Photo[] = [];
-    for (const f of fichiers) nouvelles.push({ id: nouvelId(), data: await compresser(f) });
+    let illisibles = 0;
+    for (const f of fichiers) {
+      const data = await compresser(f);
+      if (data) nouvelles.push({ id: nouvelId(), data });
+      else illisibles++;
+    }
+    if (illisibles) {
+      setErreur(`${illisibles} photo${illisibles > 1 ? 's' : ''} illisible${illisibles > 1 ? 's' : ''} par le navigateur, non ajoutée${illisibles > 1 ? 's' : ''}. Réessaie avec l’appareil photo, ou enregistre-la en JPEG.`);
+    }
+    if (!nouvelles.length) return;
     const liste = [...photos, ...nouvelles];
     setPhotos(liste);
     await ecrirePhotos(e.id, liste);
@@ -498,11 +537,14 @@ function FormulaireElement({
           </div>
         )}
         {peut && (
-          <div className="relative w-full overflow-hidden rounded-full bg-white p-3 text-center ring-[1.5px] ring-[#dfe3e8]">
-            <span className="flex items-center justify-center gap-2 text-[14px] font-semibold" style={{ color: LABEL }}>
+          <div className="space-y-2">
+            <BoutonPhoto capture onChange={ajouterPhotos}>
               <Camera size={18} /> Prendre une photo
-            </span>
-            <input type="file" accept="image/*" capture="environment" multiple className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={ajouterPhotos} />
+            </BoutonPhoto>
+            <BoutonPhoto capture={false} onChange={ajouterPhotos}>
+              <ImagePlus size={18} /> Depuis la galerie
+            </BoutonPhoto>
+            <p className="ml-1 text-[13px] leading-relaxed">Galerie : les photos déjà prises sur le téléphone, plusieurs d’un coup.</p>
           </div>
         )}
       </div>

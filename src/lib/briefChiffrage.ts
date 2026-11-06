@@ -61,6 +61,13 @@
 // - 05/11 (lot de fin de passe 3) : RIC sur l'infra, la chute de la dérivation est calculée sur le courant de la borne
 //   (32 A mono en 7,4 kW) à la section de l'artère ; ligne Segment « Résident sur colonne Enedis » en RIC colonne ;
 //   consigne du gestionnaire de grappe citée dans la Méthode seulement s'il y en a un.
+// - 06/11 (premier vrai relevé, ARTAZ Melody, scénario B : prise renforcée en DAP sur services généraux) :
+//   · T5 étendu : COFF-MONO-3K contient lui aussi 3 m de câble (H07RN-F 3G2.5) et 3 m de téléreport (composition lue
+//     dans Costructor le 06/11) ; la liaison Raccordement → coffret de 3 m ou moins se retire comme pour le COFF-MONO-7K ;
+//   · prise renforcée seule : pas d'ADVENIR (cahier des charges ADVENIR du point de recharge individuel : socle T2S ou
+//     câble attaché, et pilotage) ; ADMIN-ADVENIR et le texte ADVENIR du modèle sont marqués ✖ avec la raison ;
+//   · hors RES, le modèle du segment est gardé avec la TVA à 10 % au lieu de 5,5 % (tvaDevis, src/lib/briefSaisie.ts),
+//     écrite aussi dans le titre du devis ; points de charge ADVENIR comptés sur les bornes seules.
 // Calculs (synthèse du 14/10, sections 4, 6 et 7) :
 // - réserve IRVE au barème (arrêté du 23/12/2020) en COP, avec le plafond ADVENIR infra ;
 // - puissance à demander à Enedis si PDL dédié (réserve IRVE en COP, somme des puissances visées sinon, plafonnée à
@@ -91,7 +98,7 @@ import {
   DISTANCES, PERCEMENTS, PLAFOND_GESTION_KVA, POINTS_PAR_BOITE, PRISES, SAISIES, alerteTroisMetres, estCoffretTd, gestionDuSite, hubSuggere,
   ligneBorne, longueurTotale, modeleCoherent, nombreBoites, type ElementReleve,
 } from '@/lib/releveElements';
-import { avantFinaliser, avantSaisie, type ContexteSaisie } from '@/lib/briefSaisie';
+import { avantFinaliser, avantSaisie, tvaDevis, type ContexteSaisie } from '@/lib/briefSaisie';
 
 const RHO = 0.0225; // Ω·mm²/m, cuivre en service normal
 const LAMBDA = 0.00008; // Ω/m (0,08 mΩ/m)
@@ -115,9 +122,10 @@ const KW: Record<string, number> = { '3.7': 3.7, '7.4': 7.4, '11': 11, '22': 22 
 const ASSIGNE: Record<string, number> = { '3.7': 16, '7.4': 32, '11': 16, '22': 32 };
 // « 18 kVA et plus » (ancien palier) n'a pas de valeur : il n'est plus lu comme 18 kVA (écart 50)
 const DISPO_KVA: Record<string, number> = { '3': 3, '6': 6, '9': 9, '12': 12, '24': 24, '30': 30, '36': 36 };
-// Câble déjà compris dans un coffret (T5, 03/11 à 21 h 21 ; composition lue dans Costructor le 03/11)
+// Câble déjà compris dans un coffret (T5, 03/11 à 21 h 21 ; composition lue dans Costructor le 03/11, COFF-MONO-3K le 06/11)
 const CABLE_INCLUS: Record<string, { puissance: number; data: number }> = {
   'COFF-MONO-7K': { puissance: 3, data: 3 }, // 3 m de H07RN-F 3G16 « liaison TGBT éloigné » + 3 m de téléreport
+  'COFF-MONO-3K': { puissance: 3, data: 3 }, // 3 m de H07RN-F 3G2.5 + 3 m de téléreport (06/11)
 };
 
 // Ligne à saisir : zone du modèle, rang du point de recharge (0 = N°1), référence, quantité (null pour un texte), unité,
@@ -248,7 +256,12 @@ export function modelesDuScenario(
     default:
       alertes.push('Segment du scénario à renseigner pour choisir le modèle');
   }
-  if (priseSeule && seg && seg !== 'RES') alertes.push(`Prise renforcée en ${seg} : pas de modèle prise pour ce segment, TVA à fixer (10 % pour une prise en logement de plus de 2 ans)`);
+  // Prise renforcée hors RES (06/11) : modèle du segment gardé ; 10 % au lieu de 5,5 %, et jamais d'ADVENIR
+  if (priseSeule && seg && seg !== 'RES') {
+    alertes.push(principal?.tva === '5,5 %'
+      ? `Prise renforcée en ${seg} : pas de modèle prise pour ce segment, le modèle ${seg} est gardé avec toutes ses lignes à 10 % (prise renforcée en logement de plus de 2 ans) et sans ADVENIR (prise non éligible)`
+      : `Prise renforcée en ${seg} : pas de modèle prise pour ce segment, le modèle ${seg} est gardé, sans ADVENIR (prise non éligible)`);
+  }
   if (principal) devis.push({ modele: principal, role: source === 'pdlDedie' ? 'devis des travaux' : '' });
   return { devis, alertes };
 }
@@ -629,6 +642,10 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
   const priseSeule = els.some((e) => e.nature === 'priseRenforcee') && !els.some((e) => e.nature === 'borne');
   const choix = modelesDuScenario(seg, source, b.typeClient ?? null, priseSeule);
   alertes.push(...choix.alertes);
+  // Borne et prise dans le même scénario (06/11) : la prise n'ouvre pas droit à ADVENIR
+  if (!priseSeule && els.some((e) => e.nature === 'priseRenforcee') && (seg === 'DAP' || seg === 'RIC' || seg === 'PAR')) {
+    alertes.push("Borne et prise renforcée dans le même scénario : la prise n'ouvre pas droit à ADVENIR, prime estimée à recalculer sans les lignes de la prise");
+  }
 
   // Consignes de saisie de chaque devis (étape 7, 02/11) : nom, TVA, crochets de l'en-tête, prime, contrôle final
   const groupes = new Map<string, { n: number; kw: number; gamme: string }>();
@@ -648,7 +665,8 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
     ...parts.map((g) => (g.n > 1 ? `${g.n} bornes ${fr(g.kw)} kW` : `Borne ${fr(g.kw)} kW`)),
     ...(nbPrises ? [nbPrises > 1 ? `${nbPrises} prises renforcées` : 'Prise renforcée'] : []),
   ].join(' + ') || 'matériel à préciser';
-  const pointsDeCharge = els.filter((e) => e.nature === 'borne').reduce((n, bo) => n + (ligneBorne(bo.valeurs.modeleBorne)?.points ?? 1), 0) + nbPrises;
+  // Points de charge éligibles ADVENIR : les bornes seules (une prise renforcée n'y a pas droit, 06/11)
+  const pointsDeCharge = els.filter((e) => e.nature === 'borne').reduce((n, bo) => n + (ligneBorne(bo.valeurs.modeleBorne)?.points ?? 1), 0);
   const ctxSaisie: ContexteSaisie = {
     ficheNom: b.ficheNom ?? null,
     scenarioNom: b.scenarioNom,
@@ -668,6 +686,7 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
     datePermis: b.datePermis ?? null,
     lignes: lignes.map((l) => ({ zone: l.zone, ref: l.ref, qte: l.qte })),
     prix: b.prix ?? null,
+    priseSeule,
   };
 
   const saisie: string[] = ['', '🧾 À SAISIR DANS COSTRUCTOR'];
@@ -678,7 +697,8 @@ export function genererBrief(b: EntreeBrief): { texte: string; alertes: string[]
   }
   choix.devis.forEach((d, i) => {
     const titre = choix.devis.length > 1 ? `DEVIS ${i + 1}` : 'DEVIS';
-    saisie.push('', `━━ ${titre} : Nouveau devis ▾ › Créer à partir d'un modèle › « ${d.modele.nom} » (TVA ${d.modele.tva}${d.role ? `, ${d.role}` : ''}) : ${lienModele(d.modele)}`);
+    const tva = tvaDevis(d.modele, ctxSaisie);
+    saisie.push('', `━━ ${titre} : Nouveau devis ▾ › Créer à partir d'un modèle › « ${d.modele.nom} » (TVA ${tva}${tva !== d.modele.tva ? ` au lieu de ${d.modele.tva}` : ''}${d.role ? `, ${d.role}` : ''}) : ${lienModele(d.modele)}`);
     saisie.push(...avantSaisie(d.modele, ctxSaisie));
     if (d.modele.cle === 'AMO_PDL') {
       const amo: LigneDevis[] = [
@@ -1045,10 +1065,17 @@ function lignesDevis(b: EntreeBrief, calculs: Calcul[], alertes: string[]): { li
   else if (seg === 'RES' || seg === 'DAP' || seg === 'PAR' || seg === 'COP' || (ric && source === 'colonneEnedis')) ajouter('prestations', 'ADMIN-CONSUEL', 1);
   if (seg === 'DAP') ajouter('prestations', 'ADMIN-DAP', 1);
   if (cop) { ajouter('prestations', 'SERV-ETUDE-COP', 1); ajouter('prestations', 'ADMIN-CONTROLE', 1); }
-  const advenir = cop ? 'INFO-ADVENIR-INFRA' : seg === 'PAR' ? 'INFO-ADVENIR-PARTAGE' : ric || (seg === 'DAP' && sg) ? 'INFO-ADVENIR-INDIVIDUEL' : '';
+  // Prise renforcée seule (06/11) : pas d'ADVENIR (cahier des charges ADVENIR : socle T2S ou câble attaché, et pilotage).
+  // Les lignes ADVENIR du modèle sont marquées ✖ avec la raison, au lieu d'être gardées.
+  const priseSeule = els.some((e) => e.nature === 'priseRenforcee') && !els.some((e) => e.nature === 'borne');
+  const advenir = priseSeule && !cop ? ''
+    : cop ? 'INFO-ADVENIR-INFRA' : seg === 'PAR' ? 'INFO-ADVENIR-PARTAGE' : ric || (seg === 'DAP' && sg) ? 'INFO-ADVENIR-INDIVIDUEL' : '';
   if (advenir) {
     ajouter('prestations', 'ADMIN-ADVENIR', 1);
     texteFixe('prestations', advenir, 'les 3 valeurs du texte : voir « Avant de saisir »');
+  } else if (priseSeule && !cop) {
+    const raison = 'prise renforcée : pas de prime ADVENIR, le cahier des charges exige un socle T2S ou un câble attaché et un pilotage';
+    for (const ref of ['ADMIN-ADVENIR', 'INFO-ADVENIR-INDIVIDUEL', 'INFO-ADVENIR-PARTAGE']) retirer[ref] = raison;
   }
   ajouter('logistique', `LOG-DEP-${zoneDeplacement(b.zone)}`, 1, '', '1 par jour de pose (environ 7 h sur place), zone et jours à ajuster au montage (D9)');
 

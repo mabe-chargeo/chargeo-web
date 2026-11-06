@@ -28,6 +28,13 @@
 // 04/11/2026 (modèles V2) : le DAP a deux modèles, sur services généraux (DAP_SG, ADVENIR individuel) et sur le tableau du
 // logement (DAP_HSG, sans ADVENIR : son en-tête porte déjà la bonne phrase, plus rien à remplacer, écart 42).
 // 05/11/2026 (lot de fin de passe 3) : l'en-tête DAP SG V2 n'a plus de [raccordement], retiré de ses crochets.
+// 06/11/2026 (premier vrai relevé, ARTAZ Melody, scénario B : prise renforcée en DAP sur services généraux) :
+// - prise renforcée seule hors RES (pas de modèle prise pour le segment) : le modèle du segment est gardé, mais la TVA
+//   passe à 10 % sur toutes les lignes au lieu de 5,5 % (règle de la compétence Devis après relevé : 10 % pour une prise
+//   renforcée en logement de plus de 2 ans), mention de pied et calculs suivent (tvaDevis) ;
+// - pas de prime ADVENIR sur une prise renforcée (cahier des charges ADVENIR du point de recharge individuel, relu le
+//   06/11 sur advenir.mobi : socle T2S ou câble attaché, et pilotage énergétique obligatoires) ;
+// - [marque, puissance] dit « prise renforcée Hager, 3,7 kW » au lieu de « borne à choisir au relevé ».
 import type { Segment } from '@/lib/champsClickUp';
 import type { CleModele, ModeleDevis, Zone } from '@/lib/modelesDevis';
 import { DISTANCES, SAISIES, type ElementReleve } from '@/lib/releveElements';
@@ -44,7 +51,7 @@ export type ContexteSaisie = {
   materiel: string; // pour le nom du devis, ex. « 2 bornes 22 kW »
   nombreBornes: number;
   marquePuissance: string; // pour l'en-tête, ex. « Schneider Charge Pro, 22 kW »
-  points: number; // points de charge (borne double = 2)
+  points: number; // points de charge éligibles ADVENIR (bornes seules, borne double = 2 ; 06/11 : sans les prises)
   puissanceKva: number | null; // puissance à demander à Enedis (PDL dédié) ou cible
   dateVisite: string | null; // JJ/MM/AAAA
   plafondInfra: number | null; // COP : plafond ADVENIR infra en € HT
@@ -54,6 +61,7 @@ export type ContexteSaisie = {
   datePermis?: number | null; // 🏛️ Date dépôt permis (ms)
   lignes?: LigneSaisie[]; // lignes du devis principal (pour le calcul ADVENIR)
   prix?: Map<string, number> | null; // prix de vente HT de la bibliothèque, par référence
+  priseSeule?: boolean; // prise(s) renforcée(s) sans borne (06/11)
 };
 
 const SOURCE_COURTE: Record<string, string> = {
@@ -68,6 +76,12 @@ const metres = (m: number) => Math.ceil(m - 1e-9);
 const estDap = (m: ModeleDevis) => m.cle === 'DAP_SG' || m.cle === 'DAP_HSG';
 // « Scénario A : Borne partagée » → « Scénario A »
 const lettre = (nom: string) => nom.match(/Scénario\s+[A-Z]+/)?.[0] ?? 'Scénario';
+
+// TVA du devis (06/11) : prise renforcée seule sur un modèle à 5,5 % (DAP, RIC… : pas de modèle prise pour le segment) =
+// 10 % (prise renforcée en logement de plus de 2 ans). Les autres cas gardent la TVA du modèle.
+export function tvaDevis(m: ModeleDevis, c: Pick<ContexteSaisie, 'priseSeule'>): string {
+  return c.priseSeule && m.tva === '5,5 %' ? '10 %' : m.tva;
+}
 
 // Nom court et unique (écart 7) : « Scénario A · SG · Borne 7,4 kW », « Scénario A · PDL dédié · AMO création PDL »
 export function nomDevis(m: ModeleDevis, c: ContexteSaisie): string {
@@ -122,6 +136,15 @@ function marquePrise(els: ElementReleve[]): string {
   return SAISIES.marqueBorne.options?.find((o) => o.cle === cle)?.libelle ?? 'marque de la prise à choisir au relevé';
 }
 
+// Prises renforcées du scénario pour [marque, puissance] (06/11) : « prise renforcée Hager, 3,7 kW »
+function prisesPuissance(els: ElementReleve[]): string {
+  const prises = els.filter((e) => e.nature === 'priseRenforcee');
+  if (!prises.length) return '';
+  const cle = texte(prises[0].valeurs.marqueBorne);
+  const marque = SAISIES.marqueBorne.options?.find((o) => o.cle === cle)?.libelle;
+  return `${prises.length > 1 ? `${prises.length} prises renforcées` : 'prise renforcée'}${marque ? ` ${marque}` : ''}, 3,7 kW`;
+}
+
 // 📌 Emplacement de la borne, borne par borne, sans doublon ni ponctuation de fin, « et » avant le dernier (écart 10)
 export function emplacements(els: ElementReleve[]): string {
   const liste = els.filter((e) => e.nature === 'borne')
@@ -139,7 +162,7 @@ function valeurCrochet(cr: string, c: ContexteSaisie): string {
     case '[Nombre]':
       return c.nombreBornes > 0 ? String(c.nombreBornes) : 'nombre de bornes à relever';
     case '[marque, puissance]':
-      return c.marquePuissance || 'borne à choisir au relevé';
+      return [c.marquePuissance, prisesPuissance(c.elements)].filter(Boolean).join(' et ') || 'borne à choisir au relevé';
     case '[marque]':
       return marquePrise(c.elements);
     case '[mode de pose, longueur]':
@@ -232,6 +255,10 @@ function primeAdvenir(m: ModeleDevis, c: ContexteSaisie): string[] {
     if (m.cle === 'DAP_HSG') return ["   Prime ADVENIR : aucune hors services généraux (le modèle n'a ni ADMIN-ADVENIR ni texte ADVENIR)"];
     return [];
   }
+  // Prise renforcée seule (06/11) : le cahier des charges ADVENIR exige un socle T2S ou un câble attaché, et un pilotage
+  if (c.priseSeule && aide !== 'infra') {
+    return ['   Prime ADVENIR : aucune sur une prise renforcée (cahier des charges ADVENIR : socle T2S ou câble attaché, et pilotage obligatoires). ADMIN-ADVENIR et le texte ADVENIR sont à retirer (lignes ✖ ci-dessous)'];
+  }
   const n = Math.max(1, c.points);
   const out: string[] = [];
   // COP : assiette selon la date du permis
@@ -245,7 +272,7 @@ function primeAdvenir(m: ModeleDevis, c: ContexteSaisie): string[] {
   }
   const plafond = aide === 'individuel' ? n * PLAFOND_INDIVIDUEL : aide === 'partage' ? n * PLAFOND_PARTAGE : c.plafondInfra;
   const t = totaux(c);
-  const taux = TAUX_TVA[m.tva] ?? 0.2;
+  const taux = TAUX_TVA[tvaDevis(m, c)] ?? 0.2;
   if (t && 'ht' in t && plafond !== null) {
     const ttc = arrondi(t.ht * (1 + taux));
     let prime: number;
@@ -291,11 +318,21 @@ function primeAdvenir(m: ModeleDevis, c: ContexteSaisie): string[] {
 // Juste sous « Nouveau devis ▾ › Créer à partir d'un modèle » : ce qu'il faut savoir avant de saisir les lignes
 export function avantSaisie(m: ModeleDevis, c: ContexteSaisie): string[] {
   const out: string[] = ['📝 AVANT DE SAISIR', `   Nom du devis : ${nomDevis(m, c)}`];
-  out.push(m.tva === '20 %'
-    ? '   TVA : 20 % sur toutes les lignes (réglage par défaut de Costructor, rien à changer)'
-    : `   TVA : passer chaque ligne ajoutée à ${m.tva} (Costructor met 20 % par défaut sur une ligne de la bibliothèque ; les lignes du modèle y sont déjà)`);
+  const tva = tvaDevis(m, c);
+  if (tva !== m.tva) {
+    // Prise renforcée seule sur un modèle à 5,5 % (06/11) : toutes les lignes changent, celles du modèle comprises
+    out.push(`   TVA : passer TOUTES les lignes à ${tva}, celles du modèle comprises (le modèle est à ${m.tva} ; prise renforcée seule en logement de plus de 2 ans. Logement de moins de 2 ans : 20 %)`);
+  } else {
+    out.push(m.tva === '20 %'
+      ? '   TVA : 20 % sur toutes les lignes (réglage par défaut de Costructor, rien à changer)'
+      : `   TVA : passer chaque ligne ajoutée à ${m.tva} (Costructor met 20 % par défaut sur une ligne de la bibliothèque ; les lignes du modèle y sont déjà)`);
+  }
   const crochets = (CROCHETS[m.cle] ?? []).map((cr) => `« ${cr} » → ${valeurCrochet(cr, c)}`);
   if (crochets.length) out.push('   En-tête, remplacer :', ...crochets.map((x) => `      ${x}`));
+  // Prise renforcée seule sur un modèle de borne (06/11) : l'en-tête parle d'une borne
+  if (c.priseSeule && m.cle !== 'RES_PRISE') {
+    out.push("   En-tête : le texte du modèle parle d'une borne, écrire « prise renforcée » à la place");
+  }
   // COP sur services généraux : la phrase sur l'augmentation de puissance suit le calcul (écart 53)
   if (m.cle === 'COP_SG') {
     out.push(c.augmentation === true
@@ -311,6 +348,7 @@ export function avantSaisie(m: ModeleDevis, c: ContexteSaisie): string[] {
 // Après les lignes : ce qu'il faut vérifier avant de cliquer « Finaliser »
 export function avantFinaliser(m: ModeleDevis, c: ContexteSaisie): string[] {
   const tarifType = m.cle === 'RIC_TARIF_TYPE';
+  const tva = tvaDevis(m, c);
   return [
     '✅ AVANT DE FINALISER',
     '   • Aucun ✖ oublié : chaque ligne à retirer est bien retirée',
@@ -318,7 +356,7 @@ export function avantFinaliser(m: ModeleDevis, c: ContexteSaisie): string[] {
     '   • Validité 30 jours (vérifier la date de fin)',
     `   • Signature en ligne ${tarifType ? 'désactivée (tarif type, indicatif)' : 'activée'}`,
     `   • Conditions de paiement : « ${conditions(m, c)} »${m.cle.startsWith('AMO') ? ' (réglage « Aucun acompte » : ce n\'est pas un écart)' : ''}`,
-    `   • Pied de devis : ${MENTION_TVA[m.tva] ?? 'mention TVA du modèle'}`,
+    `   • Pied de devis : ${MENTION_TVA[tva] ?? 'mention TVA du modèle'}${tva !== m.tva ? ` (remplace la mention ${m.tva} du modèle)` : ''}`,
     '   • Plus aucun « [ » dans le devis (en-tête et textes)',
     '   • Une fois finalisé : 💶 Montant devis HT, 📝 N° devis et 🔗 Lien devis à reporter sur le scénario',
   ];
