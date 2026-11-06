@@ -29,9 +29,13 @@
 // en devis envoyé ou en négociation, et ne bloque rien : onEtat ne signale que les mails bloquants (bloquant).
 // 06/11/2026 (lot 4, accords de Mathieu à 23 h 13 et 23 h 25) : « Avis Google » en tête de la fiche du Parc le jour du
 // rappel (J+7, J+14), non bloquant ; le mail parti compte comme le rappel.
+// 06/11/2026 (lot 4, choix de Mathieu à 23 h 43 : « Depuis le Drive ») : « Documents administratifs », sur la page
+// blanche (étape Administratif). Carte « Dossier entreprise » avec les documents en cours du Drive (GET …&documents=1),
+// cochés d'office selon src/lib/dossierEntreprise.ts, alertes URSSAF et assurance ; la liste du mail suit les cases tant
+// que le texte n'a pas été retouché. Au moins un document pour envoyer.
 // Textes : src/lib/modelesMails.ts (seule source, décision du 05/11 à 20 h 57), envoi : /api/interne/mail.
 import { useEffect, useState, type SyntheticEvent } from 'react';
-import { Check, FileText, Mail, Paperclip, Phone, RefreshCw, Send } from 'lucide-react';
+import { Check, FileText, FolderOpen, Mail, Paperclip, Phone, RefreshCw, Send } from 'lucide-react';
 import { Carte, Alerte, BoutonPrincipal, BoutonSecondaire, TitreCarte, PastilleChoix, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BoutonsContact } from '@/components/ui/BlocContact';
@@ -40,6 +44,7 @@ import { AVIS, bloquant, enRelance, estRelance, textesPour } from '@/lib/mailsAF
 
 type Fil = { id: string; objet: string; de: string; date: number };
 type PieceFiche = { id: string; nom: string; taille: number; brochure: boolean };
+type DocDrive = { id: string; nom: string; sorte: string; libelle: string; ligne: string; date: string; alerte: string; coche: boolean; taille: number };
 type Infos = {
   branche: boolean;
   preview: boolean;
@@ -57,6 +62,8 @@ type Infos = {
   aFaire: string;
   pieces: PieceFiche[];
   devisProblemes: string[];
+  documents: DocDrive[];
+  documentsProblemes: string[];
 };
 type Brouillon = { modele: string; filId: string; a: string; cc: string; objet: string; texte: string };
 type Fin = { titre: string; lignes: string[]; avertissement?: string };
@@ -64,6 +71,8 @@ type Appel = { titre: string; nom: string; tel: string };
 
 // Textes qui joignent la brochure projet d'office (et l'annoncent)
 const AVEC_BROCHURE = ['devis-envoi', 'devis-revise'];
+// Texte qui joint les documents du dossier entreprise (Drive)
+const DOCUMENTS = 'documents-administratifs';
 // Mail en attente sur la fiche : une relance de devis ne compte que si la fiche est encore en devis envoyé ou en
 // négociation (gagnée ou perdue entre-temps, elle sera effacée au contrôle quotidien)
 const enAttente = (d: Infos) => (estRelance(d.aFaire) && !enRelance(d.fiche.statut) ? '' : d.aFaire);
@@ -72,13 +81,18 @@ const bloquantDe = (cle: string) => (bloquant(cle) ? cle : '');
 // Compléments de l'écran sans les valeurs vides
 const nonVides = (c: Partial<Donnees> | undefined) =>
   Object.fromEntries(Object.entries(c || {}).filter(([, v]) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0)));
+// Documents du Drive cochés d'office
+const docsParDefaut = (d: Infos) => d.documents.filter((x) => x.coche).map((x) => x.id);
+// Données du texte : pour les documents administratifs, la liste des documents cochés
+const donneesPour = (cle: string, d: Infos, ids: string[]): Donnees =>
+  cle === DOCUMENTS ? { ...d.donnees, documents: d.documents.filter((x) => ids.includes(x.id)).map((x) => x.ligne) } : d.donnees;
 
 // Mail prêt à relire pour un texte ('' = page blanche) : destinataires, objet (« RE: » du dernier échange si le texte
 // répond dans le fil) et texte rempli avec la fiche
-function preparer(cle: string, d: Infos, dest: string): Brouillon {
+function preparer(cle: string, d: Infos, dest: string, ids: string[]): Brouillon {
   const m = modeleDe(cle);
   if (!m) return { modele: '', filId: '', a: dest || d.fiche.email, cc: '', objet: '', texte: pageBlanche(d.donnees) };
-  const r = remplir(m, d.donnees);
+  const r = remplir(m, donneesPour(m.cle, d, ids));
   const fil = m.reponse ? d.fils[0] : undefined;
   return { modele: m.cle, filId: fil?.id || '', a: r.a.join(', '), cc: r.cc.join(', '), objet: fil ? objetReponse(fil.objet, r.objet) : r.objet, texte: r.corps };
 }
@@ -97,6 +111,7 @@ const dateCourte = (ms: number) =>
 const nomSeul = (de: string) => de.replace(/\s*<[^>]*>\s*$/, '').replace(/^"|"$/g, '').trim() || de;
 const crochetsDe = (s: string) => (s.match(/\[/g) || []).length;
 const taille = (o: number) => (o >= 1024 * 1024 ? `${(o / 1024 / 1024).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Mo` : o > 0 ? `${Math.max(1, Math.round(o / 1024))} Ko` : '');
+const jourCourt = (j: string) => { const [a, m, d] = String(j || '').split('-'); return a && m && d ? `${d}/${m}/${a}` : ''; };
 
 // Aperçu de la signature dans un cadre isolé (aucun script, styles de l'appli sans effet), proche du rendu Gmail
 const pageSignature = (html: string) =>
@@ -106,6 +121,26 @@ const ajusterHauteur = (e: SyntheticEvent<HTMLIFrameElement>) => {
   const h = cadre.contentDocument?.documentElement?.scrollHeight;
   if (h) cadre.style.height = `${Math.min(Math.max(h, 48), 420)}px`;
 };
+
+// Case à cocher d'une pièce jointe (fiche ou Drive)
+function LignePiece({ coche, titre, sous, alerte, onClick }: { coche: boolean; titre: string; sous: string; alerte?: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full cursor-pointer items-center gap-3 rounded-[14px] px-4 py-3 text-left ring-[1.5px] ${coche ? 'bg-[#e6f6f9] ring-[#0097b2]' : 'bg-white ring-[#dfe3e8]'}`}
+    >
+      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] ring-[1.5px] ${coche ? 'bg-[#0097b2] ring-[#0097b2]' : 'bg-white ring-[#9aa3ad]'}`}>
+        {coche && <Check size={14} color="#fff" />}
+      </span>
+      <span className="min-w-0 grow">
+        <span className="block truncate text-[14px] font-semibold">{titre}</span>
+        {sous && <span className="block text-[12px] text-slate-500">{sous}</span>}
+        {alerte && <span className="block text-[12px] font-semibold" style={{ color: ORANGE }}>{alerte}</span>}
+      </span>
+    </button>
+  );
+}
 
 type Props = {
   ficheId: string;
@@ -147,7 +182,9 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
     (async () => {
       try {
         const avecDevis = modele.startsWith('devis') ? '&devis=1' : '';
-        const res = await fetch(`/api/interne/mail?fiche=${encodeURIComponent(ficheId)}${avecDevis}`, { cache: 'no-store' });
+        // Documents du Drive : page blanche (on peut y choisir « Documents administratifs ») ou ce texte demandé
+        const avecDocuments = !obligatoire && !fixe && (!modele || modele === DOCUMENTS) ? '&documents=1' : '';
+        const res = await fetch(`/api/interne/mail?fiche=${encodeURIComponent(ficheId)}${avecDevis}${avecDocuments}`, { cache: 'no-store' });
         const d = await res.json().catch(() => ({}));
         if (annule) return;
         if (!res.ok || !d?.success) {
@@ -169,21 +206,25 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
           aFaire: String(d.aFaire || ''),
           pieces: Array.isArray(d.pieces) ? d.pieces : [],
           devisProblemes: Array.isArray(d.devisProblemes) ? d.devisProblemes : [],
+          documents: Array.isArray(d.documents) ? d.documents : [],
+          documentsProblemes: Array.isArray(d.documentsProblemes) ? d.documentsProblemes : [],
         };
         setInfos(lu);
         onFiche?.(lu.fiche.nom);
         onEtat?.(bloquantDe(enAttente(lu)));
         const attendu = obligatoire ? enAttente(lu) || modele : '';
-        const b = preparer(attendu || modele, lu, dest);
+        const b = preparer(attendu || modele, lu, dest, docsParDefaut(lu));
         setCle(b.modele);
         setFilId(b.filId);
         setA(b.a);
         setCc(b.cc);
         setObjet(b.objet);
         setTexte(b.texte);
-        // Envoi du devis ou devis révisé : la brochure projet (la plus récente) est cochée d'office
+        // Envoi du devis ou devis révisé : la brochure projet (la plus récente) est cochée d'office ; documents
+        // administratifs : les documents du Drive cochés d'office
         const brochure = lu.pieces.find((p) => p.brochure);
         if (AVEC_BROCHURE.includes(b.modele) && brochure) setChoisies([brochure.id]);
+        if (b.modele === DOCUMENTS) setChoisies(docsParDefaut(lu));
       } catch {
         if (!annule) setErreur('Impossible de joindre le serveur.');
       } finally {
@@ -202,19 +243,22 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const crochets = crochetsDe(objet) + crochetsDe(texte);
   const devisEnvoi = cle === 'devis-envoi';
   const mailDevis = cle.startsWith('devis');
+  const mailDocuments = cle === DOCUMENTS;
   const brochureFacultative = infos?.donnees.segment === 'RIC';
   const brochureCochee = (infos?.pieces || []).some((p) => p.brochure && choisies.includes(p.id));
   const brochureManque = devisEnvoi && !brochureFacultative && !brochureCochee;
+  const documentManque = mailDocuments && !(infos?.documents || []).some((x) => choisies.includes(x.id));
   // Devis révisé : le texte annonce la brochure mais elle est décochée
   const brochureAnnonceeSansPiece = cle === 'devis-revise' && !brochureCochee && /brochure/i.test(texte);
-  const pret = !!infos?.branche && !!infos?.peutEnvoyer && !!a.trim() && !!objet.trim() && !!texte.trim() && crochets === 0 && !brochureManque;
+  const pret = !!infos?.branche && !!infos?.peutEnvoyer && !!a.trim() && !!objet.trim() && !!texte.trim() && crochets === 0 && !brochureManque && !documentManque;
   const sansAdresse = !!mAttendu && !!infos && remplir(mAttendu, infos.donnees).a.length === 0;
   const appels = sansAdresse && infos ? appelsDe(infos.donnees) : [];
 
   const choisirModele = (nouvelle: string) => {
     if (!infos || nouvelle === cle) return;
     if (modifie && !window.confirm('Remplacer le mail en cours par ce texte ? Ce que tu as écrit sera perdu.')) return;
-    const b = preparer(nouvelle, infos, dest);
+    const ids = docsParDefaut(infos);
+    const b = preparer(nouvelle, infos, dest, ids);
     setCle(b.modele);
     setFilId(b.filId);
     setA(b.a);
@@ -222,15 +266,22 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
     setObjet(b.objet);
     setTexte(b.texte);
     setModifie(false);
+    // Documents du Drive : cochés d'office pour les documents administratifs, retirés pour les autres textes
+    setChoisies((l) => (b.modele === DOCUMENTS ? [...l.filter((x) => !x.startsWith('drive:')), ...ids] : l.filter((x) => !x.startsWith('drive:'))));
   };
   const choisirFil = (id: string) => {
     if (!infos) return;
     setFilId(id);
-    const propre = courant ? remplir(courant, infos.donnees).objet : '';
+    const propre = courant ? remplir(courant, donneesPour(cle, infos, choisies)).objet : '';
     const f = infos.fils.find((x) => x.id === id);
     setObjet(f ? objetReponse(f.objet, propre) : propre);
   };
-  const basculerPiece = (id: string) => setChoisies((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
+  // Une case cochée ou décochée ; documents administratifs : la liste du mail suit, tant que le texte n'est pas retouché
+  const basculerPiece = (id: string) => {
+    const nouvelles = choisies.includes(id) ? choisies.filter((x) => x !== id) : [...choisies, id];
+    setChoisies(nouvelles);
+    if (infos && courant && mailDocuments && id.startsWith('drive:') && !modifie) setTexte(remplir(courant, donneesPour(cle, infos, nouvelles)).corps);
+  };
 
   const envoyer = async () => {
     if (!pret || envoi) return;
@@ -332,6 +383,12 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
           {infos.devisProblemes.map((p) => <span key={p} className="block">• {p}</span>)}
         </Alerte>
       )}
+      {mailDocuments && infos.documentsProblemes.length > 0 && (
+        <Alerte>
+          <span className="block font-semibold">À regarder dans le Drive avant l&apos;envoi :</span>
+          {infos.documentsProblemes.map((p) => <span key={p} className="block">• {p}</span>)}
+        </Alerte>
+      )}
 
       {attendu ? (
         <Carte accent className="space-y-3">
@@ -431,30 +488,45 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
             </p>
           )}
         </div>
+        {mailDocuments && (
+          <div>
+            <p className={`${ETIQUETTE} flex items-center gap-1.5`}><FolderOpen size={14} /> Dossier entreprise (Drive)</p>
+            {infos.documents.length ? (
+              <div className="mt-1.5 space-y-2">
+                {infos.documents.map((x) => (
+                  <LignePiece
+                    key={x.id}
+                    coche={choisies.includes(x.id)}
+                    titre={x.libelle}
+                    sous={[jourCourt(x.date) ? `du ${jourCourt(x.date)}` : '', taille(x.taille)].filter(Boolean).join(' · ')}
+                    alerte={x.alerte}
+                    onClick={() => basculerPiece(x.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="ml-1 mt-1.5 text-[13px] font-semibold" style={{ color: ORANGE }}>Aucun document lu dans le Drive pour l&apos;instant.</p>
+            )}
+            {documentManque && infos.documents.length > 0 && (
+              <p className="ml-1 mt-1.5 text-[13px] font-semibold" style={{ color: ORANGE }}>Coche au moins un document.</p>
+            )}
+            {modifie && <p className="ml-1 mt-1.5 text-[12px] text-slate-500">Tu as retouché le texte : la liste du mail ne suit plus les cases, vérifie-la avant l&apos;envoi.</p>}
+          </div>
+        )}
         {(devisEnvoi || infos.pieces.length > 0) && (
           <div>
-            <p className={`${ETIQUETTE} flex items-center gap-1.5`}><Paperclip size={14} /> Pièces jointes</p>
+            <p className={`${ETIQUETTE} flex items-center gap-1.5`}><Paperclip size={14} /> Pièces jointes{mailDocuments ? ' de la fiche' : ''}</p>
             {infos.pieces.length ? (
               <div className="mt-1.5 space-y-2">
-                {infos.pieces.map((p) => {
-                  const coche = choisies.includes(p.id);
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => basculerPiece(p.id)}
-                      className={`flex w-full cursor-pointer items-center gap-3 rounded-[14px] px-4 py-3 text-left ring-[1.5px] ${coche ? 'bg-[#e6f6f9] ring-[#0097b2]' : 'bg-white ring-[#dfe3e8]'}`}
-                    >
-                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] ring-[1.5px] ${coche ? 'bg-[#0097b2] ring-[#0097b2]' : 'bg-white ring-[#9aa3ad]'}`}>
-                        {coche && <Check size={14} color="#fff" />}
-                      </span>
-                      <span className="min-w-0 grow">
-                        <span className="block truncate text-[14px] font-semibold">{p.nom}</span>
-                        <span className="block text-[12px] text-slate-500">{[p.brochure ? 'Brochure projet' : '', taille(p.taille)].filter(Boolean).join(' · ')}</span>
-                      </span>
-                    </button>
-                  );
-                })}
+                {infos.pieces.map((p) => (
+                  <LignePiece
+                    key={p.id}
+                    coche={choisies.includes(p.id)}
+                    titre={p.nom}
+                    sous={[p.brochure ? 'Brochure projet' : '', taille(p.taille)].filter(Boolean).join(' · ')}
+                    onClick={() => basculerPiece(p.id)}
+                  />
+                ))}
               </div>
             ) : (
               <p className="ml-1 mt-1.5 text-[13px] text-slate-500">Aucun PDF sur la fiche.</p>
@@ -510,7 +582,9 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
                 ? 'Écris le message.'
                 : crochets > 0
                   ? `Il reste ${crochets} passage${crochets > 1 ? 's' : ''} entre [crochets] : complète-les ou supprime-les.`
-                  : 'La brochure projet doit partir avec le devis.'}
+                  : documentManque
+                    ? 'Coche au moins un document du dossier entreprise.'
+                    : 'La brochure projet doit partir avec le devis.'}
         </p>
       )}
 
