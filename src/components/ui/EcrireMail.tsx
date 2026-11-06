@@ -13,11 +13,15 @@
 // complements (05/11, 22 h 33) : ce que l'écran sait en plus de la fiche (créneaux choisis dans Caler, note d'accès
 // saisie dans Caler quand la fiche n'a pas de 🔑 Accès site).
 // Sans adresse mail : « Prévenu par téléphone », avec une phrase obligatoire copiée sur la fiche.
+// 06/11/2026, 9 h 22 (Mathieu : « ça serait bien qu'il y ait la possibilité d'appeler directement depuis l'application,
+// comme le bouton d'appel Google Voice ») : la carte « Pas d'adresse mail ? » montre les numéros de la fiche (client,
+// contact sur place, gestionnaire) avec les boutons Appeler, Google Voice et SMS du bloc Contact, avant la note d'appel.
 // Textes : src/lib/modelesMails.ts (seule source, décision du 05/11 à 20 h 57), envoi : /api/interne/mail.
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import { Check, FileText, Mail, Phone, RefreshCw, Send } from 'lucide-react';
 import { Carte, Alerte, BoutonPrincipal, BoutonSecondaire, TitreCarte, PastilleChoix, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
+import { BoutonsContact } from '@/components/ui/BlocContact';
 import { ETAPES, MODELES, modeleDe, objetReponse, pageBlanche, remplir, type Donnees } from '@/lib/modelesMails';
 import { textesPour } from '@/lib/mailsAFaire';
 
@@ -40,6 +44,7 @@ type Infos = {
 };
 type Brouillon = { modele: string; filId: string; a: string; cc: string; objet: string; texte: string };
 type Fin = { titre: string; lignes: string[]; avertissement?: string };
+type Appel = { titre: string; nom: string; tel: string };
 
 // Mail prêt à relire pour un texte ('' = page blanche) : destinataires, objet (« RE: » du dernier échange si le texte
 // répond dans le fil) et texte rempli avec la fiche
@@ -49,6 +54,16 @@ function preparer(cle: string, d: Infos, dest: string): Brouillon {
   const r = remplir(m, d.donnees);
   const fil = m.reponse ? d.fils[0] : undefined;
   return { modele: m.cle, filId: fil?.id || '', a: r.a.join(', '), cc: r.cc.join(', '), objet: fil ? objetReponse(fil.objet, r.objet) : r.objet, texte: r.corps };
+}
+// Numéros à appeler quand la fiche n'a pas d'adresse mail : client, contact sur place, gestionnaire
+function appelsDe(d: Donnees): Appel[] {
+  const x: any = d || {};
+  const liste: Appel[] = [
+    { titre: 'Client', nom: '', tel: String(x.telephone || '') },
+    { titre: 'Contact sur place', nom: String(x.contactSurPlace?.nom || ''), tel: String(x.contactSurPlace?.tel || '') },
+    { titre: 'Gestionnaire', nom: String(x.gestionnaire?.nom || ''), tel: String(x.gestionnaire?.tel || '') },
+  ];
+  return liste.filter((p) => p.tel.trim());
 }
 const dateCourte = (ms: number) =>
   ms ? new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(ms)) : '';
@@ -144,6 +159,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const crochets = crochetsDe(objet) + crochetsDe(texte);
   const pret = !!infos?.branche && !!infos?.peutEnvoyer && !!a.trim() && !!objet.trim() && !!texte.trim() && crochets === 0;
   const sansAdresse = !!mAttendu && !!infos && remplir(mAttendu, infos.donnees).a.length === 0;
+  const appels = sansAdresse && infos ? appelsDe(infos.donnees) : [];
 
   const choisirModele = (nouvelle: string) => {
     if (!infos || nouvelle === cle) return;
@@ -294,7 +310,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
                     key={f.id}
                     type="button"
                     onClick={() => choisirFil(f.id)}
-                    className={`block w-full rounded-[14px] px-4 py-3 text-left ring-[1.5px] ${filId === f.id ? 'bg-[#e6f6f9] ring-[#0097b2]' : 'bg-white ring-[#dfe3e8]'}`}
+                    className={`block w-full cursor-pointer rounded-[14px] px-4 py-3 text-left ring-[1.5px] ${filId === f.id ? 'bg-[#e6f6f9] ring-[#0097b2]' : 'bg-white ring-[#dfe3e8]'}`}
                   >
                     <span className="block text-[14px] font-semibold">{f.objet || '(sans objet)'}</span>
                     <span className="block text-[12px] text-slate-500">{nomSeul(f.de)} · {dateCourte(f.date)}</span>
@@ -303,7 +319,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
                 <button
                   type="button"
                   onClick={() => choisirFil('')}
-                  className={`block w-full rounded-[14px] px-4 py-3 text-left text-[14px] font-semibold ring-[1.5px] ${!filId ? 'bg-[#e6f6f9] ring-[#0097b2]' : 'bg-white ring-[#dfe3e8]'}`}
+                  className={`block w-full cursor-pointer rounded-[14px] px-4 py-3 text-left text-[14px] font-semibold ring-[1.5px] ${!filId ? 'bg-[#e6f6f9] ring-[#0097b2]' : 'bg-white ring-[#dfe3e8]'}`}
                 >
                   Nouveau mail, sans répondre à un échange
                 </button>
@@ -380,13 +396,21 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
       {sansAdresse && (
         <Carte className="space-y-3">
           <TitreCarte icon={Phone}>Pas d&apos;adresse mail ?</TitreCarte>
+          <p className="text-[14px]">La fiche n&apos;a pas d&apos;adresse pour ce mail. Appelle le client, puis note ce que tu lui as dit : c&apos;est la seule façon de régler ce mail sans l&apos;envoyer.</p>
+          {appels.length ? (
+            appels.map((p) => (
+              <div key={`${p.titre}-${p.tel}`} className="space-y-2">
+                <p className="text-[14px]"><strong>{p.titre} :</strong> {p.nom ? `${p.nom} · ` : ''}{p.tel}</p>
+                <BoutonsContact tel={p.tel} email="" moi={infos.moi} />
+              </div>
+            ))
+          ) : (
+            <p className="text-[13px] font-semibold" style={{ color: ORANGE }}>Pas de numéro de téléphone sur la fiche : ajoute-le pour pouvoir appeler depuis l&apos;appli.</p>
+          )}
           {!telephone ? (
-            <>
-              <p className="text-[14px]">La fiche n&apos;a pas d&apos;adresse pour ce mail. Préviens le client par téléphone et note ce que tu lui as dit : c&apos;est la seule façon de régler ce mail sans l&apos;envoyer.</p>
-              <BoutonSecondaire compact onClick={() => setTelephone(true)}>
-                <Phone size={17} /> Prévenu par téléphone
-              </BoutonSecondaire>
-            </>
+            <BoutonSecondaire compact onClick={() => setTelephone(true)}>
+              <Phone size={17} /> Prévenu par téléphone
+            </BoutonSecondaire>
           ) : (
             <>
               <label className={ETIQUETTE} htmlFor={`mail-tel-${ficheId}`}>Ce que tu lui as dit (obligatoire)</label>
