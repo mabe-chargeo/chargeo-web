@@ -16,9 +16,13 @@
 // 06/11/2026, 9 h 22 (Mathieu : « ça serait bien qu'il y ait la possibilité d'appeler directement depuis l'application,
 // comme le bouton d'appel Google Voice ») : la carte « Pas d'adresse mail ? » montre les numéros de la fiche (client,
 // contact sur place, gestionnaire) avec les boutons Appeler, Google Voice et SMS du bloc Contact, avant la note d'appel.
+// 06/11/2026, 21 h 16 (lot 3, accord de Mathieu : la brochure projet part avec le devis, et le mail l'annonce) : carte
+// « Pièces jointes » avec les PDF de la fiche. Pour « Devis · envoi » (ouvert depuis la Suite de la vente), la brochure
+// projet est cochée d'office et l'envoi reste bloqué sans elle, sauf en RIC (brochure facultative) ; les devis viennent
+// de Costructor (GET …&devis=1) et leurs problèmes de lecture s'affichent avant l'envoi.
 // Textes : src/lib/modelesMails.ts (seule source, décision du 05/11 à 20 h 57), envoi : /api/interne/mail.
 import { useEffect, useState, type SyntheticEvent } from 'react';
-import { Check, FileText, Mail, Phone, RefreshCw, Send } from 'lucide-react';
+import { Check, FileText, Mail, Paperclip, Phone, RefreshCw, Send } from 'lucide-react';
 import { Carte, Alerte, BoutonPrincipal, BoutonSecondaire, TitreCarte, PastilleChoix, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BoutonsContact } from '@/components/ui/BlocContact';
@@ -26,6 +30,7 @@ import { ETAPES, MODELES, modeleDe, objetReponse, pageBlanche, remplir, type Don
 import { textesPour } from '@/lib/mailsAFaire';
 
 type Fil = { id: string; objet: string; de: string; date: number };
+type PieceFiche = { id: string; nom: string; taille: number; brochure: boolean };
 type Infos = {
   branche: boolean;
   preview: boolean;
@@ -36,11 +41,13 @@ type Infos = {
   moi: string;
   nom: string;
   peutEnvoyer: boolean;
-  fiche: { id: string; nom: string; email: string };
+  fiche: { id: string; nom: string; email: string; statut?: string };
   donnees: Donnees;
   fils: Fil[];
   filsProbleme: string;
   aFaire: string;
+  pieces: PieceFiche[];
+  devisProblemes: string[];
 };
 type Brouillon = { modele: string; filId: string; a: string; cc: string; objet: string; texte: string };
 type Fin = { titre: string; lignes: string[]; avertissement?: string };
@@ -69,6 +76,7 @@ const dateCourte = (ms: number) =>
   ms ? new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(ms)) : '';
 const nomSeul = (de: string) => de.replace(/\s*<[^>]*>\s*$/, '').replace(/^"|"$/g, '').trim() || de;
 const crochetsDe = (s: string) => (s.match(/\[/g) || []).length;
+const taille = (o: number) => (o >= 1024 * 1024 ? `${(o / 1024 / 1024).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Mo` : o > 0 ? `${Math.max(1, Math.round(o / 1024))} Ko` : '');
 
 // Aperçu de la signature dans un cadre isolé (aucun script, styles de l'appli sans effet), proche du rendu Gmail
 const pageSignature = (html: string) =>
@@ -103,6 +111,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const [cc, setCc] = useState('');
   const [objet, setObjet] = useState('');
   const [texte, setTexte] = useState('');
+  const [choisies, setChoisies] = useState<string[]>([]);
   const [envoi, setEnvoi] = useState(false);
   const [fin, setFin] = useState<Fin | null>(null);
   const [telephone, setTelephone] = useState(false);
@@ -117,7 +126,8 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
     }
     (async () => {
       try {
-        const res = await fetch(`/api/interne/mail?fiche=${encodeURIComponent(ficheId)}`, { cache: 'no-store' });
+        const avecDevis = modele.startsWith('devis') ? '&devis=1' : '';
+        const res = await fetch(`/api/interne/mail?fiche=${encodeURIComponent(ficheId)}${avecDevis}`, { cache: 'no-store' });
         const d = await res.json().catch(() => ({}));
         if (annule) return;
         if (!res.ok || !d?.success) {
@@ -131,7 +141,15 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
           ...(complements?.creneaux?.length ? { creneaux: complements.creneaux } : {}),
           acces: String(fiche?.acces || complements?.acces || ''),
         };
-        const lu: Infos = { ...d, donnees, fils: Array.isArray(d.fils) ? d.fils : [], filsProbleme: String(d.filsProbleme || ''), aFaire: String(d.aFaire || '') };
+        const lu: Infos = {
+          ...d,
+          donnees,
+          fils: Array.isArray(d.fils) ? d.fils : [],
+          filsProbleme: String(d.filsProbleme || ''),
+          aFaire: String(d.aFaire || ''),
+          pieces: Array.isArray(d.pieces) ? d.pieces : [],
+          devisProblemes: Array.isArray(d.devisProblemes) ? d.devisProblemes : [],
+        };
         setInfos(lu);
         onFiche?.(lu.fiche.nom);
         onEtat?.(lu.aFaire);
@@ -143,6 +161,9 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
         setCc(b.cc);
         setObjet(b.objet);
         setTexte(b.texte);
+        // Envoi du devis : la brochure projet (la plus récente) est cochée d'office
+        const brochure = lu.pieces.find((p) => p.brochure);
+        if (b.modele === 'devis-envoi' && brochure) setChoisies([brochure.id]);
       } catch {
         if (!annule) setErreur('Impossible de joindre le serveur.');
       } finally {
@@ -157,7 +178,10 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const courant = modeleDe(cle);
   const choix = attendu ? MODELES.filter((m) => textesPour(attendu).includes(m.cle)) : MODELES;
   const crochets = crochetsDe(objet) + crochetsDe(texte);
-  const pret = !!infos?.branche && !!infos?.peutEnvoyer && !!a.trim() && !!objet.trim() && !!texte.trim() && crochets === 0;
+  const devisEnvoi = cle === 'devis-envoi';
+  const brochureFacultative = infos?.donnees.segment === 'RIC';
+  const brochureManque = devisEnvoi && !brochureFacultative && !(infos?.pieces || []).some((p) => p.brochure && choisies.includes(p.id));
+  const pret = !!infos?.branche && !!infos?.peutEnvoyer && !!a.trim() && !!objet.trim() && !!texte.trim() && crochets === 0 && !brochureManque;
   const sansAdresse = !!mAttendu && !!infos && remplir(mAttendu, infos.donnees).a.length === 0;
   const appels = sansAdresse && infos ? appelsDe(infos.donnees) : [];
 
@@ -180,6 +204,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
     const f = infos.fils.find((x) => x.id === id);
     setObjet(f ? objetReponse(f.objet, propre) : propre);
   };
+  const basculerPiece = (id: string) => setChoisies((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
 
   const envoyer = async () => {
     if (!pret || envoi) return;
@@ -189,16 +214,18 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
       const res = await fetch('/api/interne/mail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ficheId, a, cc, objet, texte, filId: courant?.reponse ? filId : '', modele: cle }),
+        body: JSON.stringify({ ficheId, a, cc, objet, texte, filId: courant?.reponse ? filId : '', modele: cle, pieces: choisies }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || !d?.success) setErreur(d?.error || `Envoi impossible (${res.status}). Rien n’est parti.`);
       else {
         const lignes = [`À : ${(Array.isArray(d.envoyeA) ? d.envoyeA : []).join(', ')}`];
+        if (Array.isArray(d.pieces) && d.pieces.length) lignes.push(`Pièces jointes : ${d.pieces.join(', ')}`);
         if (d.dansLeFil) lignes.push('Parti en réponse, dans le même fil que l’échange choisi.');
         if (d.preview) lignes.push('Préversion : mail de test envoyé seulement à ton adresse, aucun client ne l’a reçu.');
         if (!d.avertissement) lignes.push('La copie est en commentaire sur la fiche.');
         if (d.regle) lignes.push('Mail obligatoire réglé : la suite de la fiche est débloquée.');
+        if (d.statut) lignes.push(`Fiche passée en ${d.statut} : la relance J+3 est lancée.`);
         setFin({ titre: 'Mail envoyé', lignes, avertissement: d.avertissement });
         if (infos) onEtat?.(d.regle ? '' : infos.aFaire);
         onEnvoye?.();
@@ -238,7 +265,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
     return obligatoire ? null : (
       <Carte className="p-8 text-center">
         <RefreshCw className="mx-auto animate-spin" size={28} color={CYAN} />
-        <p className="mt-3 text-[15px] font-semibold">Chargement...</p>
+        <p className="mt-3 text-[15px] font-semibold">{modele.startsWith('devis') ? 'Lecture des devis dans Costructor...' : 'Chargement...'}</p>
       </Carte>
     );
   }
@@ -262,6 +289,12 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
       )}
       {!infos.branche && <Alerte>Envoi pas encore branché : la clé Google des mails est absente dans Vercel.</Alerte>}
       {!infos.peutEnvoyer && <Alerte>L&apos;envoi est réservé à la direction, au commercial, au chargé d&apos;opération et au back-office.</Alerte>}
+      {devisEnvoi && infos.devisProblemes.length > 0 && (
+        <Alerte>
+          <span className="block font-semibold">À regarder dans Costructor avant l&apos;envoi :</span>
+          {infos.devisProblemes.map((p) => <span key={p} className="block">• {p}</span>)}
+        </Alerte>
+      )}
 
       {attendu ? (
         <Carte accent className="space-y-3">
@@ -355,6 +388,46 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
             </p>
           )}
         </div>
+        {(devisEnvoi || infos.pieces.length > 0) && (
+          <div>
+            <p className={`${ETIQUETTE} flex items-center gap-1.5`}><Paperclip size={14} /> Pièces jointes</p>
+            {infos.pieces.length ? (
+              <div className="mt-1.5 space-y-2">
+                {infos.pieces.map((p) => {
+                  const coche = choisies.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => basculerPiece(p.id)}
+                      className={`flex w-full cursor-pointer items-center gap-3 rounded-[14px] px-4 py-3 text-left ring-[1.5px] ${coche ? 'bg-[#e6f6f9] ring-[#0097b2]' : 'bg-white ring-[#dfe3e8]'}`}
+                    >
+                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] ring-[1.5px] ${coche ? 'bg-[#0097b2] ring-[#0097b2]' : 'bg-white ring-[#9aa3ad]'}`}>
+                        {coche && <Check size={14} color="#fff" />}
+                      </span>
+                      <span className="min-w-0 grow">
+                        <span className="block truncate text-[14px] font-semibold">{p.nom}</span>
+                        <span className="block text-[12px] text-slate-500">{[p.brochure ? 'Brochure projet' : '', taille(p.taille)].filter(Boolean).join(' · ')}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="ml-1 mt-1.5 text-[13px] text-slate-500">Aucun PDF sur la fiche.</p>
+            )}
+            {brochureManque && (
+              <p className="ml-1 mt-1.5 text-[13px] font-semibold" style={{ color: ORANGE }}>
+                {infos.pieces.some((p) => p.brochure)
+                  ? 'Coche la brochure projet : elle part avec le devis.'
+                  : 'Brochure projet absente de la fiche : dépose son PDF (« PROJET-… ») sur la fiche, puis rouvre ce mail. Elle part avec le devis.'}
+              </p>
+            )}
+            {devisEnvoi && brochureFacultative && !infos.pieces.some((p) => p.brochure) && (
+              <p className="ml-1 mt-1.5 text-[13px] text-slate-500">En RIC, la brochure projet est facultative.</p>
+            )}
+          </div>
+        )}
         <div>
           <p className={ETIQUETTE}>Signature</p>
           {infos.signature ? (
@@ -389,7 +462,9 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
               ? 'Donne un objet au mail.'
               : !texte.trim()
                 ? 'Écris le message.'
-                : `Il reste ${crochets} passage${crochets > 1 ? 's' : ''} entre [crochets] : complète-les ou supprime-les.`}
+                : crochets > 0
+                  ? `Il reste ${crochets} passage${crochets > 1 ? 's' : ''} entre [crochets] : complète-les ou supprime-les.`
+                  : 'La brochure projet doit partir avec le devis.'}
         </p>
       )}
 
