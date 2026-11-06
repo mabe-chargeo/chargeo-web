@@ -10,6 +10,7 @@ import { devisPourMail, reporterDevisScenarios } from '@/lib/devisScenarios';
 import { noterRelanceParMail, relancesApresRevision } from '@/lib/relancesDevis';
 import { CLE_MAIL_AVIS, LIEN_AVIS, avisAEnvoyer, noterRappelAvis } from '@/lib/avisGoogle';
 import { listerDocuments, telechargerDocument } from '@/lib/dossierEntreprise';
+import { listerBrochures, telechargerBrochure } from '@/lib/brochuresGithub';
 import {
   EXPEDITEUR,
   MAX_DESTINATAIRES,
@@ -50,7 +51,7 @@ import {
 //   aussi coder comme ça », 21 h 16, sur la proposition qui bloquait l'envoi sans brochure) ;
 // - une fois ce mail parti, la fiche en 📝 devis à faire passe en 📩 devis envoyé (18 h 30 : « seulement quand le mail
 //   part »). Le report des devis et la relance J+3 partent ensuite de l'aiguillage, comme pour le bouton d'avant.
-// Lot 4 (06/11/2026, accords de Mathieu à 22 h 20, 22 h 42, 23 h 13, 23 h 25 et 23 h 43) :
+// Lot 4 (06/11/2026, accords de Mathieu à 22 h 20, 22 h 42, 23 h 13, 23 h 25 et 23 h 43 ; 07/11 à 0 h 00) :
 // - les devis sont aussi lus quand la fiche attend un mail de devis (relance posée par le contrôle quotidien) ;
 // - « Devis · relance » ou « Devis · dernière relance » parti : la relance est comptée (prochaine à J+3 ouvrés,
 //   suspension à la 3e), sans rien noter dans 🔁 Suivi relance (src/lib/relancesDevis.ts) ;
@@ -61,7 +62,10 @@ import {
 //   « avis-google », sans champ ✉️ Mail à envoyer ; parti (ou client prévenu par téléphone faute d'adresse), il compte
 //   comme le rappel (noterRappelAvis : dernier rappel à J+14, puis fin) ;
 // - GET ?documents=1 : documents en cours du dossier entreprise du Drive (src/lib/dossierEntreprise.ts) ; POST joint
-//   les documents cochés (ids « drive:… », relus ici), et « Documents administratifs » exige au moins l'un d'eux.
+//   les documents cochés (ids « drive:… », relus ici), et « Documents administratifs » exige au moins l'un d'eux ;
+// - avec les devis, GET propose les brochures projet du dépôt GitHub chargeo-brochures (src/lib/brochuresGithub.ts),
+//   celle de la fiche en tête ; POST les joint (ids « gh:… », relues ici). Une brochure GitHub vaut la brochure déposée
+//   sur la fiche pour la règle de l'envoi du devis.
 // Préversion : le mail part seulement à l'adresse ClickUp de la personne connectée, avec [TEST] dans l'objet et les
 // destinataires prévus en tête du texte. Aucun client ne le reçoit. La réponse dans le fil, l'effacement du mail
 // obligatoire, le passage en devis envoyé, les relances et les rappels d'avis n'y sont faits que sur une fiche de test
@@ -235,13 +239,16 @@ export async function GET(request: Request) {
       donnees.poseur = attendu.avis.poseur;
       donnees.lienAvis = LIEN_AVIS;
     }
-    const [exp, lus, lesDevis, lesDocuments] = await Promise.all([
+    const [exp, lus, lesDevis, lesDocuments, lesBrochures] = await Promise.all([
       expediteur(),
       filsAvec([donnees.email, donnees.gestionnaire?.email || '', donnees.contactSurPlace?.email || '']),
       avecDevis ? devisPourMail(String(tache.id)).catch(() => ({ devis: [], problemes: ['lecture des devis impossible'] })) : Promise.resolve(null),
       avecDocuments ? listerDocuments().catch(() => ({ documents: [], problemes: ['lecture du Drive impossible'] })) : Promise.resolve(null),
+      avecDevis ? listerBrochures(texte(tache.name)).catch(() => ({ brochures: [], probleme: 'lecture de GitHub impossible' })) : Promise.resolve(null),
     ]);
     if (lesDevis) donnees.devis = lesDevis.devis;
+    // Brochure de la fiche trouvée dans GitHub : le texte l'annonce comme une brochure déposée sur la fiche
+    if (lesBrochures?.brochures.some((b) => b.probable)) donnees.brochure = true;
     return json({
       success: true,
       branche: mailBranche(),
@@ -265,6 +272,9 @@ export async function GET(request: Request) {
       // Documents du Drive, sans l'identifiant du fichier (relu côté serveur à l'envoi)
       documents: (lesDocuments?.documents || []).map(({ fichier: _f, type: _t, ...x }) => x),
       documentsProblemes: lesDocuments?.problemes || [],
+      // Brochures projet du dépôt GitHub, celle de la fiche en tête
+      brochures: lesBrochures?.brochures || [],
+      brochuresProbleme: lesBrochures?.probleme || '',
     });
   } catch (e) {
     console.error('Mail (lecture)', e);
@@ -319,19 +329,23 @@ export async function POST(request: Request) {
     const cc = copie.ok.filter((x) => !dest.ok.includes(x));
     if (dest.ok.length + cc.length > MAX_DESTINATAIRES) return json({ success: false, error: `${MAX_DESTINATAIRES} destinataires au plus.` }, 400);
 
-    // Pièces jointes : fichiers de la fiche et documents du Drive, relus ici (jamais une adresse venue de l'écran)
+    // Pièces jointes : fichiers de la fiche, documents du Drive et brochures GitHub, relus ici (jamais une adresse venue
+    // de l'écran)
     const cleTexte = texte(corps?.modele);
     const demandees: string[] = Array.isArray(corps?.pieces) ? corps.pieces.map((x: unknown) => texte(x)).filter(Boolean).slice(0, MAX_PIECES) : [];
     const idsDrive = demandees.filter((x) => x.startsWith('drive:'));
-    const idsFiche = demandees.filter((x) => !x.startsWith('drive:'));
+    const idsGithub = demandees.filter((x) => x.startsWith('gh:'));
+    const idsFiche = demandees.filter((x) => !x.startsWith('drive:') && !x.startsWith('gh:'));
     const fichiers = piecesDe(tache).filter((p) => idsFiche.includes(p.id));
     if (fichiers.length !== idsFiche.length) return json({ success: false, error: 'Un fichier choisi n’est plus sur la fiche : rouvre le mail. Rien n’est parti.' }, 400);
     const documents = idsDrive.length ? (await listerDocuments()).documents.filter((d) => idsDrive.includes(d.id)) : [];
     if (documents.length !== idsDrive.length) return json({ success: false, error: 'Un document du Drive n’est plus disponible : rouvre le mail. Rien n’est parti.' }, 400);
+    const brochures = idsGithub.length ? (await listerBrochures(texte(tache.name))).brochures.filter((b) => idsGithub.includes(b.id)) : [];
+    if (brochures.length !== idsGithub.length) return json({ success: false, error: 'Une brochure n’est plus dans GitHub : rouvre le mail. Rien n’est parti.' }, 400);
     if (cleTexte === CLE_DOCUMENTS && !documents.length) return json({ success: false, error: 'Coche au moins un document du dossier entreprise. Rien n’est parti.' }, 400);
     const segment = String(cleOption(OPTIONS.segment, indexMenu(tache, CHAMPS.segment)) || '');
-    if (cleTexte === 'devis-envoi' && segment !== 'RIC' && !fichiers.some((p) => p.brochure)) {
-      return json({ success: false, error: 'La brochure projet doit partir avec le devis : dépose son PDF (« PROJET-… ») sur la fiche, puis rouvre le mail. Rien n’est parti.' }, 400);
+    if (cleTexte === 'devis-envoi' && segment !== 'RIC' && !fichiers.some((p) => p.brochure) && !brochures.length) {
+      return json({ success: false, error: 'La brochure projet doit partir avec le devis : coche-la (GitHub ou fiche), puis renvoie. Rien n’est parti.' }, 400);
     }
     const pieces: Piece[] = [];
     let octets = 0;
@@ -345,6 +359,12 @@ export async function POST(request: Request) {
       const contenu = await telecharger(a.token, f.url);
       if (!contenu) return json({ success: false, error: `Le fichier « ${f.nom} » n’a pas pu être lu sur la fiche. Rien n’est parti.` }, 502);
       const trop = ajouterPiece(f.nom, f.type, contenu);
+      if (trop) return json({ success: false, error: trop }, 400);
+    }
+    for (const b of brochures) {
+      const contenu = await telechargerBrochure(b.nom);
+      if (!contenu) return json({ success: false, error: `La brochure « ${b.nom} » n’a pas pu être lue dans GitHub. Rien n’est parti.` }, 502);
+      const trop = ajouterPiece(b.nom, 'application/pdf', contenu);
       if (trop) return json({ success: false, error: trop }, 400);
     }
     for (const d of documents) {
