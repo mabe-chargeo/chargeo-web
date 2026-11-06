@@ -17,6 +17,10 @@
 // le modèle de mail annonce la présence de la brochure », 21 h 16). Prime ADVENIR : jamais de montant ici, le montant
 // estimé et le reste à charge sont dans la brochure et le devis. Crochets restants : la recommandation entre plusieurs
 // scénarios (seul le commercial la connaît) et une donnée que Costructor ne donne pas.
+// 06/11/2026 (suite du lot 3) : texte « Devis · validé », écrit au passage en 🏆 gagné (Suite de la vente). Il remplace
+// les 6 modèles 25 a à 25 f du 03/11 (« un modèle par cas », décision de Mathieu à 9 h 27) par un seul texte : le cas
+// suit le segment et le devis du scénario retenu. Acompte = 50 % du TTC lu dans Costructor (conditions de paiement
+// standard). Réponse dans le fil du mail d'envoi des devis.
 // Fichier pur (aucun accès réseau) : lu par l'écriture des mails (EcrireMail), la route /api/interne/mail, Caler et
 // l'agenda Google (villeDe).
 
@@ -55,10 +59,12 @@ export type Donnees = {
   segment?: string;
   devis?: DevisMail[];
   brochure?: boolean;
+  // Nom du scénario retenu au gagné (mail « Devis · validé »), donné par l'écran
+  retenu?: string;
 };
 export type Etape = 'Nouvelle demande' | 'Visite technique' | 'Devis';
-// Étapes proposées sur la page blanche du bloc Contact. Le devis s'envoie depuis la Suite de la vente, avec ses données
-// Costructor : il n'est pas dans cette liste.
+// Étapes proposées sur la page blanche du bloc Contact. Les mails de devis s'écrivent depuis la Suite de la vente, avec
+// leurs données Costructor : ils ne sont pas dans cette liste.
 export const ETAPES: Etape[] = ['Nouvelle demande', 'Visite technique'];
 export type Modele = {
   cle: string;
@@ -360,6 +366,117 @@ function corpsDevis(d: Donnees): string {
   );
 }
 
+// ── Devis validé (suite du lot 3, 06/11) ──
+// Devis du scénario retenu au gagné (et l'AMO de la fiche, qui l'accompagne) ; tous les devis si l'écran n'en donne pas
+function devisRetenus(d: Donnees): DevisMail[] {
+  const l = d.devis || [];
+  if (!d.retenu) return l;
+  const nom = String(d.retenu).trim();
+  const du = l.filter((x) => x.amo || String(x.scenario || '').trim() === nom);
+  return du.length ? du : l;
+}
+const sommeTtc = (l: DevisMail[]): number | null => l.reduce<number | null>((s, x) => (s === null || x.ttc === null ? null : s + x.ttc), 0);
+function numerosValides(d: Donnees): string[] {
+  return devisRetenus(d).filter((x) => !x.tarifType).map((x) => x.numero).filter(Boolean);
+}
+function objetValide(d: Donnees): string {
+  const n = numerosValides(d);
+  return `${n.length === 1 ? `Votre devis ${n[0]}` : n.length > 1 ? 'Vos devis' : 'Votre devis'} : merci pour votre confiance`;
+}
+function corpsValide(d: Donnees): string {
+  const seg = d.segment || '';
+  const l = devisRetenus(d);
+  const amo = l.filter((x) => x.amo);
+  const travaux = l.filter((x) => !x.amo && !x.tarifType);
+  const copro = seg === 'COP' || seg === 'PAR';
+  const res = residence(d);
+  const n = numerosValides(d);
+  const lesDevis = n.length > 1 ? `les devis ${n.slice(0, -1).join(', ')} et ${n[n.length - 1]}` : n.length ? `le devis ${n[0]}` : 'votre devis';
+  const ttcTravaux = sommeTtc(travaux);
+  const acompte = ttcTravaux !== null ? euros(Math.round(ttcTravaux * 50) / 100) : "[montant de l'acompte]";
+  const ttcAmo = sommeTtc(amo);
+  const factureAmo = ttcAmo !== null ? euros(ttcAmo) : '[montant]';
+  const prises = travaux.length > 0 && travaux.every(estPrise);
+  const surSg = travaux.some((x) => morceauxDevis(x).source === 'SG');
+  const advenir = seg === 'COP' || (!prises && (seg === 'PAR' || seg === 'RIC' || (seg === 'DAP' && surSg)));
+  const merci = copro
+    ? `Merci beaucoup pour votre confiance : nous avons bien reçu la validation de ${lesDevis}${res ? ` pour ${res}` : ''}.`
+    : `Merci beaucoup pour votre confiance : nous avons bien reçu ${lesDevis} signé${n.length > 1 ? 's' : ''}.`;
+  const ligneAmo = amo.length && travaux.length
+    ? `Pour l'assistance Enedis, la facture de ${factureAmo} TTC est réglable à la signature, par virement : nous lançons la demande auprès d'Enedis sans attendre.`
+    : null;
+  const sansAttente = "Les travaux ne démarreront qu'après sa validation, sinon ils ne pourraient pas être subventionnés.";
+
+  if (!l.length) {
+    return texteDe(
+      bonjour(salutDevis(d)),
+      '',
+      merci,
+      '',
+      '[Aucun devis trouvé dans Costructor pour le scénario retenu : vérifie qu’il est finalisé, puis rouvre ce mail]',
+      '',
+      'Bien cordialement,',
+    );
+  }
+  // AMO seul : facture de 100 % à la signature (25 f)
+  if (!travaux.length && amo.length) {
+    return texteDe(
+      bonjour(salutDevis(d)),
+      '',
+      merci,
+      '',
+      `Vous allez recevoir la facture de ${factureAmo} TTC, réglable à la signature, par virement.`,
+      '',
+      "Nous lançons dès maintenant la demande auprès d'Enedis, et nous vous tiendrons au courant de chaque étape.",
+      '',
+      'Bien cordialement,',
+    );
+  }
+  // COP et PAR : acompte après le vote de l'AG, Advenir, convention en COP (25 d, 25 e)
+  if (copro) {
+    return texteDe(
+      bonjour(salutDevis(d)),
+      '',
+      merci,
+      '',
+      "L'acompte de 50 % devient exigible dès que l'assemblée générale a autorisé les travaux : pourriez-vous nous transmettre le procès-verbal dès qu'il sera disponible ? La facture d'acompte suivra aussitôt.",
+      ligneAmo ? '' : null,
+      ligneAmo,
+      '',
+      advenir ? `Nous déposerons ensuite le dossier de prime Advenir${seg === 'COP' ? ' « infrastructure collective »' : ''}. ${sansAttente}` : null,
+      advenir ? '' : null,
+      seg === 'COP' ? "La convention d'exploitation vous sera transmise très prochainement ; elle précise les engagements de CHARGéO." : null,
+      seg === 'COP' ? '' : null,
+      advenir
+        ? `Nous reviendrons vers vous dès la validation du dossier Advenir pour fixer la date ${seg === 'COP' ? 'des travaux' : 'de pose'}.`
+        : `Nous reviendrons vers vous dès réception du procès-verbal pour fixer la date ${seg === 'COP' ? 'des travaux' : 'de pose'}.`,
+      '',
+      'Bien cordialement,',
+    );
+  }
+  // RES, FLT, TER, DAP hors SG et prises (25 a) ; DAP sur les services généraux (25 b) ; RIC (25 c)
+  const dapSg = seg === 'DAP' && surSg;
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    merci,
+    '',
+    `Vous allez recevoir la facture d'acompte de 50 %, soit ${acompte} TTC, à régler par virement. Le solde sera facturé à la fin des travaux.`,
+    ligneAmo ? '' : null,
+    ligneAmo,
+    '',
+    dapSg
+      ? `Nous préparons la notification au syndic au titre du droit à la prise${advenir ? ` et nous déposons le dossier de prime Advenir. ${sansAttente}` : '.'}`
+      : advenir ? `Nous déposons le dossier de prime Advenir. ${sansAttente}` : null,
+    dapSg || advenir ? '' : null,
+    advenir
+      ? 'Nous reviendrons vers vous dès la validation du dossier Advenir pour fixer la date de pose.'
+      : "Nous reviendrons vers vous dès réception de l'acompte pour fixer ensemble la date de pose.",
+    '',
+    'Bien cordialement,',
+  );
+}
+
 export const MODELES: Modele[] = [
   {
     cle: 'prise-en-charge',
@@ -609,6 +726,18 @@ export const MODELES: Modele[] = [
     cc: (d) => destinatairesDevis(d).cc,
     objet: objetDevis,
     corps: corpsDevis,
+  },
+  {
+    // Suite du lot 3 (06/11) : écrit au gagné (Suite de la vente) ; la fiche passe en 🏆 gagné quand il part
+    cle: 'devis-valide',
+    nom: 'Devis · validé',
+    court: 'Devis validé',
+    etape: 'Devis',
+    reponse: true,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetValide,
+    corps: corpsValide,
   },
 ];
 
