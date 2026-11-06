@@ -11,7 +11,10 @@ import { createSign, randomBytes } from 'crypto';
 //     (droit donné le 05/11 à 19 h pour la signature ; le code ne modifie jamais les réglages Gmail) ;
 //   - https://www.googleapis.com/auth/gmail.readonly : retrouver les derniers échanges avec les adresses d'une fiche,
 //     pour répondre dans le fil (décision de Mathieu du 05/11 à 21 h 22, droit donné à 21 h 28). Le code ne lit que les
-//     en-têtes (objet, expéditeur, date, identifiants), jamais le contenu des mails.
+//     en-têtes (objet, expéditeur, date, identifiants), jamais le contenu des mails ;
+//   - https://www.googleapis.com/auth/drive.readonly (06/11/2026, 23 h 43, choix de Mathieu : documents administratifs
+//     pris dans le Drive) : lire les pièces de 03_BACK_OFFICE/01_DOSSIER_ENTREPRISE (src/lib/dossierEntreprise.ts). Le
+//     jeton est exporté pour ça ; rien n'est jamais écrit dans le Drive.
 // Configuration Vercel : GMAIL_SERVICE_ACCOUNT_JSON = contenu entier du fichier de clé JSON. Sans elle : « non branché ».
 // L'expéditeur est imposé ici (EXPEDITEUR) : la clé pourrait en théorie envoyer au nom d'une autre adresse chargeo.fr,
 // le code ne le fait jamais.
@@ -61,7 +64,7 @@ const b64url = (s: string | Buffer) => Buffer.from(s).toString('base64').replace
 const jetons = new Map<string, { jeton: string; expire: number }>();
 
 // Jeton d'accès « au nom de » contact@chargeo.fr (délégation au niveau du domaine), un par droit
-async function jeton(scope: string): Promise<string> {
+export async function jeton(scope: string): Promise<string> {
   const c = compte();
   if (!c) throw new Error('envoi des mails non branché');
   const enCache = jetons.get(scope);
