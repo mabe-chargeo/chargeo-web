@@ -37,6 +37,9 @@
 // 06/11/2026 (lot 4, accords de Mathieu à 23 h 13 et 23 h 25) : « Avis Google » (modèle 22 du 02/11), affiché sur la fiche
 // du Parc le jour du rappel (J+7, puis J+14 sans avis, src/lib/avisGoogle.ts). Date de mise en service, prénom du poseur
 // et lien remplis par l'appli ; une seule phrase à écrire : un détail du chantier. Demande neutre, sans contrepartie.
+// 06/11/2026 (lot 4, choix de Mathieu à 23 h 43 : pièces prises dans le Drive) : « Documents administratifs » (modèle 20
+// du 02/11), ouvert depuis la page blanche du bloc Contact (étape « Administratif »), à toute étape de la fiche. La liste
+// du mail est celle des documents cochés dans 01_DOSSIER_ENTREPRISE (src/lib/dossierEntreprise.ts), sans crochet.
 // Fichier pur (aucun accès réseau) : lu par l'écriture des mails (EcrireMail), la route /api/interne/mail, Caler et
 // l'agenda Google (villeDe).
 
@@ -94,11 +97,13 @@ export type Donnees = {
   miseEnService?: string;
   poseur?: string;
   lienAvis?: string;
+  // Documents administratifs (lot 4) : lignes des documents cochés (« Kbis du 8 octobre 2026 »), données par l'écran
+  documents?: string[];
 };
-export type Etape = 'Nouvelle demande' | 'Visite technique' | 'Devis' | 'Après chantier';
+export type Etape = 'Nouvelle demande' | 'Visite technique' | 'Administratif' | 'Devis' | 'Après chantier';
 // Étapes proposées sur la page blanche du bloc Contact. Les mails de devis s'écrivent depuis la Suite de la vente, avec
 // leurs données Costructor, et l'avis Google depuis la fiche du Parc : ils ne sont pas dans cette liste.
-export const ETAPES: Etape[] = ['Nouvelle demande', 'Visite technique'];
+export const ETAPES: Etape[] = ['Nouvelle demande', 'Visite technique', 'Administratif'];
 export type Modele = {
   cle: string;
   nom: string;
@@ -721,6 +726,26 @@ function corpsAvis(d: Donnees): string {
   );
 }
 
+// ── Documents administratifs (lot 4, choix de Mathieu du 06/11 à 23 h 43 ; modèle 20 du 02/11) ──
+// Liste = documents cochés dans le Drive ; aucun coché : phrase sans liste (l'envoi exige au moins une pièce)
+function corpsDocuments(d: Donnees): string {
+  const l = (d.documents || []).map((x) => String(x || '').trim()).filter(Boolean);
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    'Merci pour votre message.',
+    '',
+    l.length
+      ? `Comme convenu, vous trouverez en pi${l.length > 1 ? 'èces jointes' : 'èce jointe'} ${l.length > 1 ? 'les documents administratifs' : 'le document administratif'} de CHARGéO :`
+      : 'Comme convenu, vous trouverez en pièces jointes les documents administratifs de CHARGéO.',
+    ...(l.length ? puces(l) : []),
+    '',
+    'Nous restons à votre entière disposition pour tout document complémentaire.',
+    '',
+    'Bien cordialement,',
+  );
+}
+
 export const MODELES: Modele[] = [
   {
     cle: 'prise-en-charge',
@@ -958,6 +983,18 @@ export const MODELES: Modele[] = [
         v ? `Au plaisir de vous rencontrer ${v.jour},` : 'Au plaisir de vous rencontrer très prochainement,',
       );
     },
+  },
+  {
+    // Lot 4 (06/11) : ouvert depuis la page blanche du bloc Contact ; pièces jointes prises dans le Drive
+    cle: 'documents-administratifs',
+    nom: 'Documents administratifs',
+    court: 'Documents administratifs',
+    etape: 'Administratif',
+    reponse: true,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: (d) => (residence(d) ? `${residence(d)} : documents administratifs de CHARGéO` : 'Documents administratifs de CHARGéO'),
+    corps: corpsDocuments,
   },
   {
     // Lot 3 (06/11) : ouvert par « ✉️ Envoyer le devis » (Suite de la vente) ; la fiche passe en 📩 devis envoyé quand il part
