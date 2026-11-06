@@ -29,6 +29,9 @@
 // 06/11/2026 (lot 4, accord de Mathieu à 22 h 34) : « Refus du client » (modèle 21 du 02/11), écrit au passage en
 // ❌ perdu (Suite de la vente), avec une phrase selon le ⛔ Motif Refus choisi. Le motif est toujours donné au perdu :
 // la ligne qui le demandait au client n'a plus lieu d'être.
+// 06/11/2026 (lot 4, accord de Mathieu à 22 h 42) : « Devis · révisé » (modèle 19 du 02/11), ouvert par « ✉️ Envoyer le
+// devis révisé » (Suite de la vente). Nouveaux devis lus dans Costructor comme à l'envoi ; seuls « ce qui change » et le
+// n° de l'ancien devis restent à écrire. Même phrase Advenir et même annonce de la brochure que « Devis · envoi ».
 // Fichier pur (aucun accès réseau) : lu par l'écriture des mails (EcrireMail), la route /api/interne/mail, Caler et
 // l'agenda Google (villeDe).
 
@@ -223,6 +226,7 @@ const SOURCES: Record<string, string> = {
   'Infra CHARGéO': "sur l'infrastructure collective de la résidence",
 };
 const estPrise = (x: DevisMail) => /prise/i.test(morceauxDevis(x).materiel);
+const surSg = (x: DevisMail) => morceauxDevis(x).source === 'SG';
 // « Infra 30 places » → « infrastructure collective de 30 places » ; « 2 bornes 22 kW » → accord au pluriel
 function descriptionDevis(x: DevisMail): string {
   const m = morceauxDevis(x);
@@ -260,6 +264,32 @@ function blocDevis(x: DevisMail): string[] {
     `  À consulter et à signer en ligne : ${lien}`,
   ];
 }
+// Blocs de tous les devis, dans l'ordre AMO, travaux, tarif type (envoi et révision)
+function blocsDevis(l: DevisMail[]): string[] {
+  if (!l.length) return ['[Aucun devis finalisé trouvé dans Costructor pour cette fiche : finalise le devis dans Costructor, puis rouvre ce mail]'];
+  const amo = l.filter((x) => x.amo);
+  const types = l.filter((x) => x.tarifType && !x.amo);
+  const travaux = l.filter((x) => !x.amo && !x.tarifType);
+  return [...amo, ...travaux, ...types].flatMap((x, i) => [...(i ? [''] : []), ...blocDevis(x)]);
+}
+// Prime ADVENIR : jamais acquise, jamais chiffrée ici (montant estimé et reste à charge dans la brochure et le devis).
+// Même phrase à l'envoi et à la révision du devis.
+function phraseAdvenir(d: Donnees, travaux: DevisMail[]): string | null {
+  const seg = d.segment || '';
+  const bornes = travaux.filter((x) => !estPrise(x));
+  const eligible = seg === 'COP'
+    ? "L'infrastructure est éligible à la prime Advenir « infrastructure collective », sous réserve d'acceptation du dossier et selon la date du permis de construire de la résidence."
+    : seg === 'PAR' && bornes.length
+      ? 'Les bornes partagées sont éligibles à la prime Advenir « point de recharge partagé », sous réserve d’acceptation du dossier.'
+      : seg === 'RIC' && bornes.length
+        ? 'Votre borne est éligible à la prime Advenir « point de recharge individuel », jusqu’à 1 000 € par point de recharge, sous réserve d’acceptation du dossier.'
+        : seg === 'DAP' && bornes.some(surSg)
+          ? 'La solution avec borne sur les services généraux est éligible à la prime Advenir « point de recharge individuel », jusqu’à 1 000 € par point de recharge, sous réserve d’acceptation du dossier.'
+          : '';
+  return eligible
+    ? `${eligible} La facture est réglée en totalité, puis la prime est versée si le dossier est accepté : le montant estimé et le reste à charge figurent ${d.brochure ? 'dans la brochure jointe' : 'dans le devis'}. Les travaux ne démarrent qu'après la validation du dossier, sinon ils ne pourraient pas être subventionnés.`
+    : null;
+}
 // Destinataires : le gestionnaire en COP et PAR (copie au contact sur place), le client sinon
 function destinatairesDevis(d: Donnees): { a: string[]; cc: string[] } {
   if (d.segment === 'COP' || d.segment === 'PAR') {
@@ -294,8 +324,6 @@ function corpsDevis(d: Donnees): string {
   const v = visite(d);
   const res = residence(d);
   const prises = travaux.filter(estPrise);
-  const bornes = travaux.filter((x) => !estPrise(x));
-  const surSg = (x: DevisMail) => morceauxDevis(x).source === 'SG';
 
   const quoi = l.length && l.every((x) => x.amo)
     ? "notre devis d'assistance pour vos démarches auprès d'Enedis"
@@ -307,23 +335,8 @@ function corpsDevis(d: Donnees): string {
               : seg === 'FLT' ? 'notre proposition pour la recharge des véhicules de votre flotte'
                 : seg === 'TER' ? 'notre proposition pour offrir la recharge à vos clients et visiteurs'
                   : plusieurs ? 'nos devis' : 'notre devis';
-  const blocs = l.length
-    ? [...amo, ...travaux, ...types].flatMap((x, i) => [...(i ? [''] : []), ...blocDevis(x)])
-    : ['[Aucun devis finalisé trouvé dans Costructor pour cette fiche : finalise le devis dans Costructor, puis rouvre ce mail]'];
-
-  // Prime ADVENIR : jamais acquise, jamais chiffrée ici (montant estimé et reste à charge dans la brochure et le devis)
-  const eligible = seg === 'COP'
-    ? "L'infrastructure est éligible à la prime Advenir « infrastructure collective », sous réserve d'acceptation du dossier et selon la date du permis de construire de la résidence."
-    : seg === 'PAR' && bornes.length
-      ? 'Les bornes partagées sont éligibles à la prime Advenir « point de recharge partagé », sous réserve d’acceptation du dossier.'
-      : seg === 'RIC' && bornes.length
-        ? 'Votre borne est éligible à la prime Advenir « point de recharge individuel », jusqu’à 1 000 € par point de recharge, sous réserve d’acceptation du dossier.'
-        : seg === 'DAP' && bornes.some(surSg)
-          ? 'La solution avec borne sur les services généraux est éligible à la prime Advenir « point de recharge individuel », jusqu’à 1 000 € par point de recharge, sous réserve d’acceptation du dossier.'
-          : '';
-  const advenir = eligible
-    ? `${eligible} La facture est réglée en totalité, puis la prime est versée si le dossier est accepté : le montant estimé et le reste à charge figurent ${d.brochure ? 'dans la brochure jointe' : 'dans le devis'}. Les travaux ne démarrent qu'après la validation du dossier, sinon ils ne pourraient pas être subventionnés.`
-    : null;
+  const blocs = blocsDevis(l);
+  const advenir = phraseAdvenir(d, travaux);
 
   const signer = l.filter((x) => !x.tarifType);
   const expires = l.map((x) => x.expire).filter(Boolean).sort();
@@ -377,6 +390,42 @@ function corpsDevis(d: Donnees): string {
   );
 }
 
+// ── Devis révisé (lot 4, accord de Mathieu du 06/11 à 22 h 42) ──
+// Nouveaux devis lus dans Costructor ; la personne écrit seulement ce qui change et le n° de l'ancien devis
+function corpsRevise(d: Donnees): string {
+  const l = d.devis || [];
+  const travaux = l.filter((x) => !x.amo && !x.tarifType);
+  const signer = l.filter((x) => !x.tarifType);
+  const copro = d.segment === 'COP' || d.segment === 'PAR';
+  const advenir = phraseAdvenir(d, travaux);
+  const plusieurs = signer.length > 1;
+  const expires = l.map((x) => x.expire).filter(Boolean).sort();
+  const validite = `${plusieurs ? 'Les nouveaux devis se signent' : 'Le nouveau devis se signe'} en ligne, aux mêmes conditions de paiement, et ${plusieurs ? 'restent valables' : 'reste valable'} ${expires.length ? `jusqu'au ${dateLongue(expires[0])}` : '30 jours'}.`;
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    'Suite à notre échange, voici notre proposition mise à jour :',
+    '',
+    ...blocsDevis(l),
+    '',
+    'Ce qui change : [les lignes modifiées, en clair].',
+    '',
+    `${plusieurs ? 'Ces devis remplacent' : 'Ce devis remplace'} notre devis n° [numéro de l’ancien devis].`,
+    '',
+    advenir,
+    advenir ? '' : null,
+    d.brochure
+      ? `Vous trouverez en pièce jointe la brochure de votre projet, mise à jour${copro ? ' : elle peut être transmise telle quelle au conseil syndical' : ''}.`
+      : null,
+    d.brochure ? '' : null,
+    validite,
+    '',
+    'Nous restons à votre entière disposition pour en parler, par téléphone ou par simple retour de mail.',
+    '',
+    'Bien cordialement,',
+  );
+}
+
 // ── Devis validé (suite du lot 3, 06/11) ──
 // Devis du scénario retenu au gagné (et l'AMO de la fiche, qui l'accompagne) ; tous les devis si l'écran n'en donne pas
 function devisRetenus(d: Donnees): DevisMail[] {
@@ -408,9 +457,9 @@ function corpsValide(d: Donnees): string {
   const ttcAmo = sommeTtc(amo);
   const factureAmo = ttcAmo !== null ? euros(ttcAmo) : '[montant]';
   const prises = travaux.length > 0 && travaux.every(estPrise);
-  const surSg = travaux.some((x) => morceauxDevis(x).source === 'SG');
+  const dapSurSg = travaux.some(surSg);
   // COP et PAR : toujours Advenir (pas de prise renforcée partagée) ; RIC et DAP sur SG : sauf prise renforcée
-  const advenir = seg === 'COP' || seg === 'PAR' || (!prises && (seg === 'RIC' || (seg === 'DAP' && surSg)));
+  const advenir = seg === 'COP' || seg === 'PAR' || (!prises && (seg === 'RIC' || (seg === 'DAP' && dapSurSg)));
   const merci = copro
     ? `Merci beaucoup pour votre confiance : nous avons bien reçu la validation de ${lesDevis}${res ? ` pour ${res}` : ''}.`
     : `Merci beaucoup pour votre confiance : nous avons bien reçu ${lesDevis} signé${n.length > 1 ? 's' : ''}.`;
@@ -465,7 +514,7 @@ function corpsValide(d: Donnees): string {
     );
   }
   // RES, FLT, TER, DAP hors SG et prises (25 a) ; DAP sur les services généraux (25 b) ; RIC (25 c)
-  const dapSg = seg === 'DAP' && surSg;
+  const dapSg = seg === 'DAP' && dapSurSg;
   return texteDe(
     bonjour(salutDevis(d)),
     '',
@@ -888,6 +937,18 @@ export const MODELES: Modele[] = [
     cc: (d) => destinatairesDevis(d).cc,
     objet: objetDevis,
     corps: corpsRefus,
+  },
+  {
+    // Lot 4 (06/11) : ouvert par « ✉️ Envoyer le devis révisé » ; parti, les relances repartent de zéro
+    cle: 'devis-revise',
+    nom: 'Devis · révisé',
+    court: 'Devis révisé',
+    etape: 'Devis',
+    reponse: true,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetDevis,
+    corps: corpsRevise,
   },
 ];
 
