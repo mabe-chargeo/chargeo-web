@@ -22,6 +22,8 @@
 // de Costructor (GET …&devis=1) et leurs problèmes de lecture s'affichent avant l'envoi.
 // 06/11/2026 (suite du lot 3) : « Devis · validé », ouvert au gagné (Suite de la vente) avec le scénario retenu en
 // complément (complements.retenu) : le texte ne reprend que le devis de ce scénario.
+// 06/11/2026 (lot 4, accord de Mathieu à 22 h 20) : la relance de devis en attente s'affiche en tête de fiche, seulement
+// en devis envoyé ou en négociation, et ne bloque rien : onEtat ne signale que les mails bloquants (bloquant).
 // Textes : src/lib/modelesMails.ts (seule source, décision du 05/11 à 20 h 57), envoi : /api/interne/mail.
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import { Check, FileText, Mail, Paperclip, Phone, RefreshCw, Send } from 'lucide-react';
@@ -29,7 +31,7 @@ import { Carte, Alerte, BoutonPrincipal, BoutonSecondaire, TitreCarte, PastilleC
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BoutonsContact } from '@/components/ui/BlocContact';
 import { ETAPES, MODELES, modeleDe, objetReponse, pageBlanche, remplir, type Donnees } from '@/lib/modelesMails';
-import { textesPour } from '@/lib/mailsAFaire';
+import { bloquant, enRelance, estRelance, textesPour } from '@/lib/mailsAFaire';
 
 type Fil = { id: string; objet: string; de: string; date: number };
 type PieceFiche = { id: string; nom: string; taille: number; brochure: boolean };
@@ -54,6 +56,12 @@ type Infos = {
 type Brouillon = { modele: string; filId: string; a: string; cc: string; objet: string; texte: string };
 type Fin = { titre: string; lignes: string[]; avertissement?: string };
 type Appel = { titre: string; nom: string; tel: string };
+
+// Mail en attente sur la fiche : une relance de devis ne compte que si la fiche est encore en devis envoyé ou en
+// négociation (gagnée ou perdue entre-temps, elle sera effacée au contrôle quotidien)
+const enAttente = (d: Infos) => (estRelance(d.aFaire) && !enRelance(d.fiche.statut) ? '' : d.aFaire);
+// Ce que la fiche affaire doit savoir : seulement un mail qui bloque la suite
+const bloquantDe = (cle: string) => (bloquant(cle) ? cle : '');
 
 // Mail prêt à relire pour un texte ('' = page blanche) : destinataires, objet (« RE: » du dernier échange si le texte
 // répond dans le fil) et texte rempli avec la fiche
@@ -155,8 +163,8 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
         };
         setInfos(lu);
         onFiche?.(lu.fiche.nom);
-        onEtat?.(lu.aFaire);
-        const attendu = obligatoire ? lu.aFaire || modele : '';
+        onEtat?.(bloquantDe(enAttente(lu)));
+        const attendu = obligatoire ? enAttente(lu) || modele : '';
         const b = preparer(attendu || modele, lu, dest);
         setCle(b.modele);
         setFilId(b.filId);
@@ -176,8 +184,9 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
     return () => { annule = true; };
   }, [ficheId]);
 
-  const attendu = obligatoire && infos ? infos.aFaire || modele : '';
+  const attendu = obligatoire && infos ? enAttente(infos) || modele : '';
   const mAttendu = modeleDe(attendu);
+  const relanceAttendue = estRelance(attendu);
   const courant = modeleDe(cle);
   const choix = attendu ? MODELES.filter((m) => textesPour(attendu).includes(m.cle)) : MODELES;
   const crochets = crochetsDe(objet) + crochetsDe(texte);
@@ -228,10 +237,15 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
         if (d.dansLeFil) lignes.push('Parti en réponse, dans le même fil que l’échange choisi.');
         if (d.preview) lignes.push('Préversion : mail de test envoyé seulement à ton adresse, aucun client ne l’a reçu.');
         if (!d.avertissement) lignes.push('La copie est en commentaire sur la fiche.');
-        if (d.regle) lignes.push('Mail obligatoire réglé : la suite de la fiche est débloquée.');
+        if (d.regle) lignes.push(d.relance ? 'Relance réglée.' : 'Mail obligatoire réglé : la suite de la fiche est débloquée.');
         if (d.statut) lignes.push(`Fiche passée en ${d.statut} : la relance J+3 est lancée.`);
+        if (d.relance) {
+          lignes.push(d.relance.suspendu
+            ? `Relance n°${d.relance.tentative} notée : 3 relances sans réponse, les relances sont suspendues.`
+            : `Relance n°${d.relance.tentative} notée : prochaine relance le ${d.relance.prochaine}.`);
+        }
         setFin({ titre: 'Mail envoyé', lignes, avertissement: d.avertissement });
-        if (infos) onEtat?.(d.regle ? '' : infos.aFaire);
+        if (infos) onEtat?.(d.regle ? '' : bloquantDe(enAttente(infos)));
         onEnvoye?.();
       }
     } catch {
@@ -303,7 +317,11 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
       {attendu ? (
         <Carte accent className="space-y-3">
           <p className="flex items-center gap-2 text-[17px] font-bold"><Mail size={20} color={CYAN} /> Mail à envoyer : {mAttendu?.nom || attendu}</p>
-          <p className="text-[14px]">Obligatoire : la suite de la fiche reste bloquée tant qu&apos;il n&apos;est pas parti.</p>
+          {relanceAttendue ? (
+            <p className="text-[14px]">C&apos;est le jour de la relance : écris ta phrase utile, puis envoie. Le mail compte comme la relance. Elle ne bloque pas la suite de la fiche. Relance faite par téléphone : note 🔁 Suivi relance, ce mail disparaît.</p>
+          ) : (
+            <p className="text-[14px]">Obligatoire : la suite de la fiche reste bloquée tant qu&apos;il n&apos;est pas parti.</p>
+          )}
           {choix.length > 1 && (
             <div className="flex flex-wrap gap-2">
               {choix.map((m) => (

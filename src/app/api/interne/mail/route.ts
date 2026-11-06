@@ -5,8 +5,9 @@ import { CHAMPS, OPTIONS, cleOption, indexMenu } from '@/lib/champsClickUp';
 import { adresseDe, dateVisiteDe, normal } from '@/lib/vuesFiches';
 import { CONTACT_SUR_PLACE, GESTIONNAIRE, personnesLiees } from '@/lib/contactsFiche';
 import { modeleDe, nettoyerAdresse, remplir, villeDe, type Donnees } from '@/lib/modelesMails';
-import { effacerMailAFaire, mailAFaire, regle } from '@/lib/mailsAFaire';
+import { effacerMailAFaire, enRelance, estRelance, mailAFaire, regle } from '@/lib/mailsAFaire';
 import { devisPourMail } from '@/lib/devisScenarios';
+import { noterRelanceParMail } from '@/lib/relancesDevis';
 import {
   EXPEDITEUR,
   MAX_DESTINATAIRES,
@@ -47,9 +48,15 @@ import {
 //   aussi coder comme ça », 21 h 16, sur la proposition qui bloquait l'envoi sans brochure) ;
 // - une fois ce mail parti, la fiche en 📝 devis à faire passe en 📩 devis envoyé (18 h 30 : « seulement quand le mail
 //   part »). Le report des devis et la relance J+3 partent ensuite de l'aiguillage, comme pour le bouton d'avant.
+// Lot 4 (06/11/2026, accord de Mathieu à 22 h 20, src/lib/relancesDevis.ts) :
+// - les devis sont aussi lus quand la fiche attend un mail de devis (relance posée par le contrôle quotidien) ;
+// - « Devis · relance » ou « Devis · dernière relance » parti : la relance est comptée (prochaine à J+3 ouvrés,
+//   suspension à la 3e), sans rien noter dans 🔁 Suivi relance ;
+// - un autre mail de devis (envoi, validé) efface la relance en attente.
 // Préversion : le mail part seulement à l'adresse ClickUp de la personne connectée, avec [TEST] dans l'objet et les
 // destinataires prévus en tête du texte. Aucun client ne le reçoit. La réponse dans le fil, l'effacement du mail
-// obligatoire et le passage en devis envoyé n'y sont faits que sur une fiche de test (« Test » dans le nom).
+// obligatoire, le passage en devis envoyé et le comptage des relances n'y sont faits que sur une fiche de test (« Test »
+// dans le nom).
 // Droits : direction, commercial, chargé d'opération et back-office ; l'installateur seul n'envoie pas.
 // Mail parti mais copie refusée par ClickUp : succès avec un avertissement (jamais un échec, le mail est bien parti).
 export const dynamic = 'force-dynamic';
@@ -196,9 +203,10 @@ export async function GET(request: Request) {
     if ('erreur' in a) return a.erreur;
     const url = new URL(request.url);
     const id = url.searchParams.get('fiche') || '';
-    const avecDevis = url.searchParams.get('devis') === '1';
     const tache = await lireTache(a.token, id);
     if (!tache) return json({ success: false, error: 'Fiche introuvable' }, 404);
+    // Devis lus pour un mail de devis : demandé par l'écran, ou mail de devis en attente sur la fiche (relance)
+    const avecDevis = url.searchParams.get('devis') === '1' || mailAFaire(tache).startsWith('devis');
     const donnees = await donneesDe(a.token, tache);
     const [exp, lus, lesDevis] = await Promise.all([
       expediteur(),
@@ -324,8 +332,11 @@ export async function POST(request: Request) {
     // Mail obligatoire réglé par ce texte : effacé de la fiche (en préversion, seulement sur une fiche de test)
     const texteUtilise = modeleDe(cleTexte);
     const attendu = mailAFaire(tache);
-    const aRegler = regle(attendu, cleTexte) && (!preview || ficheDeTest(tache));
+    const surFicheModifiable = !preview || ficheDeTest(tache);
+    const aRegler = regle(attendu, cleTexte) && surFicheModifiable;
     const regleOk = aRegler ? await effacerMailAFaire(a.token, tache) : false;
+    // Relance en attente rendue inutile par un autre mail de devis (envoi, validé)
+    if (!aRegler && estRelance(attendu) && cleTexte.startsWith('devis') && surFicheModifiable) await effacerMailAFaire(a.token, tache).catch(() => false);
 
     // Copie sur la fiche
     const lignes = [
@@ -349,12 +360,19 @@ export async function POST(request: Request) {
 
     // Mail des devis parti : la fiche passe en 📩 devis envoyé (en préversion, seulement sur une fiche de test)
     let statut = '';
-    if (cleTexte === 'devis-envoi' && (!preview || ficheDeTest(tache))) {
+    if (cleTexte === 'devis-envoi' && surFicheModifiable) {
       const p = await passerDevisEnvoye(a.token, tache, auteur);
       statut = p.statut;
       if (p.probleme) avertissements.push(`Mail envoyé, mais la fiche n’est pas passée en 📩 devis envoyé (${p.probleme}) : préviens Mathieu.`);
     }
-    return json({ success: true, preview, envoyeA: envoi.a, dansLeFil, regle: regleOk, statut, pieces: pieces.map((p) => p.nom), avertissement: avertissements.join(' ') || undefined });
+    // Relance du devis partie : comptée comme la relance, la suivante se programme (lot 4)
+    let relance: { tentative: number; prochaine: string; suspendu: boolean } | undefined;
+    if (estRelance(cleTexte) && enRelance(tache?.status?.status) && surFicheModifiable) {
+      const r = await noterRelanceParMail(a.token, tache, texteUtilise?.nom || cleTexte);
+      relance = { tentative: r.tentative, prochaine: r.prochaine, suspendu: r.suspendu };
+      if (r.probleme) avertissements.push(`Mail envoyé, mais la relance n’est pas comptée entièrement (${r.probleme}) : préviens Mathieu.`);
+    }
+    return json({ success: true, preview, envoyeA: envoi.a, dansLeFil, regle: regleOk, statut, relance, pieces: pieces.map((p) => p.nom), avertissement: avertissements.join(' ') || undefined });
   } catch (e) {
     console.error('Mail', e);
     return json({ success: false, error: 'Erreur serveur. Vérifie dans Gmail (contact@chargeo.fr, Envoyés) avant de renvoyer.' }, 500);
