@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
 import { sessionDeRequete } from '@/lib/session';
 import { rolesDe, type Role } from '@/lib/roles';
-import { CHAMPS, OPTIONS, indexMenu } from '@/lib/champsClickUp';
+import { CHAMPS, OPTIONS, cleOption, indexMenu } from '@/lib/champsClickUp';
 import { adresseDe, dateVisiteDe, normal } from '@/lib/vuesFiches';
 import { CONTACT_SUR_PLACE, GESTIONNAIRE, personnesLiees } from '@/lib/contactsFiche';
 import { modeleDe, nettoyerAdresse, remplir, villeDe, type Donnees } from '@/lib/modelesMails';
 import { effacerMailAFaire, mailAFaire, regle } from '@/lib/mailsAFaire';
+import { devisPourMail } from '@/lib/devisScenarios';
 import {
   EXPEDITEUR,
   MAX_DESTINATAIRES,
+  MAX_PIECES_OCTETS,
   adressesValides,
   enPreversion,
   envoyerMail,
@@ -19,6 +21,7 @@ import {
   mailPourReponse,
   type Expediteur,
   type Fil,
+  type Piece,
 } from '@/lib/mails';
 
 // Écrire un mail depuis l'appli (Phase 9, lot 1, 05/11/2026 ; envoi : src/lib/mails.ts ; écran :
@@ -35,17 +38,30 @@ import {
 // en attente (aFaire) ; un envoi avec l'un des textes qui le règlent l'efface ; POST { ficheId, action: 'telephone',
 // phrase } note « Prévenu par téléphone » sur la fiche et l'efface, seulement quand la fiche n'a pas d'adresse pour ce
 // mail.
+// Lot 3 (06/11/2026 ; décisions de Mathieu à 18 h 30, 18 h 34 et 21 h 16) :
+// - GET ?devis=1 : devis finalisés de la fiche lus dans Costructor (src/lib/devisScenarios.ts, devisPourMail), segment,
+//   et les problèmes à afficher avant l'envoi ;
+// - GET renvoie les fichiers PDF de la fiche (pieces), la brochure projet (« PROJET-… » ou « brochure » dans le nom)
+//   est cochée d'office à l'écran ; POST { pieces: [id] } télécharge ces fichiers depuis la fiche et les joint au mail ;
+// - « Devis · envoi » part seulement avec la brochure projet, sauf en RIC où elle est facultative (« Oui, tu peux
+//   aussi coder comme ça », 21 h 16, sur la proposition qui bloquait l'envoi sans brochure) ;
+// - une fois ce mail parti, la fiche en 📝 devis à faire passe en 📩 devis envoyé (18 h 30 : « seulement quand le mail
+//   part »). Le report des devis et la relance J+3 partent ensuite de l'aiguillage, comme pour le bouton d'avant.
 // Préversion : le mail part seulement à l'adresse ClickUp de la personne connectée, avec [TEST] dans l'objet et les
-// destinataires prévus en tête du texte. Aucun client ne le reçoit. La réponse dans le fil et l'effacement du mail
-// obligatoire n'y sont faits que sur une fiche de test (« Test » dans le nom).
+// destinataires prévus en tête du texte. Aucun client ne le reçoit. La réponse dans le fil, l'effacement du mail
+// obligatoire et le passage en devis envoyé n'y sont faits que sur une fiche de test (« Test » dans le nom).
 // Droits : direction, commercial, chargé d'opération et back-office ; l'installateur seul n'envoie pas.
 // Mail parti mais copie refusée par ClickUp : succès avec un avertissement (jamais un échec, le mail est bien parti).
 export const dynamic = 'force-dynamic';
+// Lecture des devis Costructor et téléchargement des pièces jointes : plus long qu'un simple envoi
+export const maxDuration = 60;
 
 const PEUVENT: Role[] = ['direction', 'commercial', 'chargeOperation', 'backOffice'];
 const MAX_OBJET = 200;
 const MAX_TEXTE = 20000;
 const MAX_COPIE = 9000;
+const MAX_PIECES = 6;
+const API = 'https://api.clickup.com/api/v2';
 
 const json = (corps: any, status = 200) => NextResponse.json(corps, { status });
 const texte = (v: unknown) => (v === undefined || v === null ? '' : String(v).trim());
@@ -56,13 +72,13 @@ const maintenantParis = () => new Date().toLocaleString('fr-FR', { timeZone: 'Eu
 
 async function lireTache(token: string, id: string): Promise<any | null> {
   if (!id || !/^[a-z0-9]+$/i.test(id)) return null;
-  const r = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(id)}`, { headers: { Authorization: token }, cache: 'no-store' });
+  const r = await fetch(`${API}/task/${encodeURIComponent(id)}`, { headers: { Authorization: token }, cache: 'no-store' });
   return r.ok ? r.json().catch(() => null) : null;
 }
 
 async function commenter(token: string, id: string, contenu: string): Promise<boolean> {
   try {
-    const r = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(id)}/comment`, {
+    const r = await fetch(`${API}/task/${encodeURIComponent(id)}/comment`, {
       method: 'POST',
       headers: { Authorization: token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ comment_text: contenu, notify_all: false }),
@@ -94,6 +110,56 @@ function parNom(t: any, morceau: string): string {
   return typeof v === 'string' || typeof v === 'number' ? texte(v) : '';
 }
 
+// ── Fichiers de la fiche (lot 3) ──
+type PieceFiche = { id: string; nom: string; taille: number; url: string; type: string; brochure: boolean };
+const estBrochure = (nom: string) => /^projet[-_ ]/i.test(nom) || /brochure/i.test(nom);
+const TYPES: Record<string, string> = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg' };
+// Fichiers PDF joints à la fiche (le plus récent d'abord), la brochure projet en tête
+function piecesDe(t: any): PieceFiche[] {
+  const l: any[] = Array.isArray(t?.attachments) ? t.attachments : [];
+  return l
+    .filter((x) => !x?.deleted && x?.url && normal(x?.extension || String(x?.title || '').split('.').pop()) === 'pdf')
+    .map((x) => {
+      const nom = texte(x.title) || 'piece-jointe.pdf';
+      return { id: String(x.id), nom, taille: Number(x.size) || 0, url: String(x.url), type: TYPES.pdf, brochure: estBrochure(nom), date: Number(x.date) || 0 };
+    })
+    .sort((a, b) => Number(b.brochure) - Number(a.brochure) || b.date - a.date)
+    .map(({ date, ...p }) => p);
+}
+// Téléchargement d'un fichier de la fiche : lien direct, sinon avec la clé ClickUp
+async function telecharger(token: string, url: string): Promise<Buffer | null> {
+  const essais: (HeadersInit | undefined)[] = [undefined, { Authorization: token }];
+  for (const headers of essais) {
+    try {
+      const r = await fetch(url, { headers, cache: 'no-store' });
+      if (r.ok) return Buffer.from(await r.arrayBuffer());
+    } catch {
+      // essai suivant
+    }
+  }
+  return null;
+}
+
+// Passage en 📩 devis envoyé après le mail « Devis · envoi », seulement depuis 📝 devis à faire (un renvoi en
+// négociation ne change pas le statut). Nom exact du statut relu dans la liste.
+async function passerDevisEnvoye(token: string, t: any, auteur: string): Promise<{ statut: string; probleme?: string }> {
+  const actuel = normal(t?.status?.status);
+  if (!actuel.includes('devis a faire')) return { statut: '' };
+  const rl = await fetch(`${API}/list/${encodeURIComponent(String(t?.list?.id || ''))}`, { headers: { Authorization: token }, cache: 'no-store' });
+  const jl = rl.ok ? await rl.json().catch(() => ({})) : {};
+  const nom = String((Array.isArray(jl?.statuses) ? jl.statuses : []).find((s: any) => normal(s?.status).includes('devis envoy'))?.status || '');
+  if (!nom) return { statut: '', probleme: 'statut « 📩 devis envoyé » introuvable dans la liste' };
+  const r = await fetch(`${API}/task/${encodeURIComponent(String(t.id))}`, {
+    method: 'PUT',
+    headers: { Authorization: token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: nom }),
+    cache: 'no-store',
+  });
+  if (!r.ok) return { statut: '', probleme: `ClickUp a refusé le statut (${r.status})` };
+  await commenter(token, String(t.id), `${nom} : passé depuis l'application par ${auteur}, à l'envoi du mail des devis.`);
+  return { statut: nom };
+}
+
 // Ce que la fiche sait déjà, pour remplir les textes
 async function donneesDe(token: string, t: any): Promise<Donnees> {
   const segment = indexMenu(t, CHAMPS.segment);
@@ -119,6 +185,8 @@ async function donneesDe(token: string, t: any): Promise<Donnees> {
     particulier,
     gestionnaire: gestionnaires[0] || null,
     contactSurPlace: contacts[0] || null,
+    segment: String(cleOption(OPTIONS.segment, segment) || ''),
+    brochure: piecesDe(t).some((p) => p.brochure),
   };
 }
 
@@ -126,14 +194,18 @@ export async function GET(request: Request) {
   try {
     const a = await acces(request);
     if ('erreur' in a) return a.erreur;
-    const id = new URL(request.url).searchParams.get('fiche') || '';
+    const url = new URL(request.url);
+    const id = url.searchParams.get('fiche') || '';
+    const avecDevis = url.searchParams.get('devis') === '1';
     const tache = await lireTache(a.token, id);
     if (!tache) return json({ success: false, error: 'Fiche introuvable' }, 404);
     const donnees = await donneesDe(a.token, tache);
-    const [exp, lus] = await Promise.all([
+    const [exp, lus, lesDevis] = await Promise.all([
       expediteur(),
       filsAvec([donnees.email, donnees.gestionnaire?.email || '', donnees.contactSurPlace?.email || '']),
+      avecDevis ? devisPourMail(String(tache.id)).catch(() => ({ devis: [], problemes: ['lecture des devis impossible'] })) : Promise.resolve(null),
     ]);
+    if (lesDevis) donnees.devis = lesDevis.devis;
     return json({
       success: true,
       branche: mailBranche(),
@@ -145,12 +217,15 @@ export async function GET(request: Request) {
       moi: texte(a.session.email),
       nom: texte(a.session.nom),
       peutEnvoyer: a.peut,
-      fiche: { id: String(tache.id), nom: texte(tache.name), email: donnees.email },
+      fiche: { id: String(tache.id), nom: texte(tache.name), email: donnees.email, statut: texte(tache?.status?.status) },
       donnees,
       // Sans les identifiants techniques du fil (relus côté serveur à l'envoi)
       fils: lus.fils.map((f) => ({ id: f.id, objet: f.objet, de: f.de, date: f.date })),
       filsProbleme: lus.probleme || '',
       aFaire: mailAFaire(tache),
+      // Fichiers PDF de la fiche, sans leur adresse (relue côté serveur à l'envoi)
+      pieces: piecesDe(tache).map(({ url: _u, type: _t, ...p }) => p),
+      devisProblemes: lesDevis?.problemes || [],
     });
   } catch (e) {
     console.error('Mail (lecture)', e);
@@ -200,6 +275,25 @@ export async function POST(request: Request) {
     const cc = copie.ok.filter((x) => !dest.ok.includes(x));
     if (dest.ok.length + cc.length > MAX_DESTINATAIRES) return json({ success: false, error: `${MAX_DESTINATAIRES} destinataires au plus.` }, 400);
 
+    // Pièces jointes : fichiers de la fiche, relus ici (jamais une adresse venue de l'écran)
+    const cleTexte = texte(corps?.modele);
+    const demandees: string[] = Array.isArray(corps?.pieces) ? corps.pieces.map((x: unknown) => texte(x)).filter(Boolean).slice(0, MAX_PIECES) : [];
+    const fichiers = piecesDe(tache).filter((p) => demandees.includes(p.id));
+    if (fichiers.length !== demandees.length) return json({ success: false, error: 'Un fichier choisi n’est plus sur la fiche : rouvre le mail. Rien n’est parti.' }, 400);
+    const segment = String(cleOption(OPTIONS.segment, indexMenu(tache, CHAMPS.segment)) || '');
+    if (cleTexte === 'devis-envoi' && segment !== 'RIC' && !fichiers.some((p) => p.brochure)) {
+      return json({ success: false, error: 'La brochure projet doit partir avec le devis : dépose son PDF (« PROJET-… ») sur la fiche, puis rouvre le mail. Rien n’est parti.' }, 400);
+    }
+    const pieces: Piece[] = [];
+    let octets = 0;
+    for (const f of fichiers) {
+      const contenu = await telecharger(a.token, f.url);
+      if (!contenu) return json({ success: false, error: `Le fichier « ${f.nom} » n’a pas pu être lu sur la fiche. Rien n’est parti.` }, 502);
+      octets += contenu.length;
+      if (octets > MAX_PIECES_OCTETS) return json({ success: false, error: `Pièces jointes trop lourdes (${Math.round(MAX_PIECES_OCTETS / 1024 / 1024)} Mo au plus en tout). Rien n’est parti.` }, 400);
+      pieces.push({ nom: f.nom, type: f.type, contenu });
+    }
+
     // Préversion : seulement la personne connectée
     const moi = texte(a.session.email).toLowerCase();
     if (preview && !estEmail(moi)) return json({ success: false, error: 'Préversion : ton adresse ClickUp est introuvable, le mail de test ne peut pas partir.' }, 400);
@@ -216,8 +310,8 @@ export async function POST(request: Request) {
 
     const prevus = `À : ${dest.ok.join(', ')}${cc.length ? ` · Cc : ${cc.join(', ')}` : ''}`;
     const envoi = preview
-      ? { a: [moi], cc: [] as string[], objet: `[TEST] ${objet}`, texte: `⚠️ Mail de test (préversion de l'appli). En production, il partirait ainsi : ${prevus}\n\n${message}`, reponse }
-      : { a: dest.ok, cc, objet, texte: message, reponse };
+      ? { a: [moi], cc: [] as string[], objet: `[TEST] ${objet}`, texte: `⚠️ Mail de test (préversion de l'appli). En production, il partirait ainsi : ${prevus}\n\n${message}`, reponse, pieces }
+      : { a: dest.ok, cc, objet, texte: message, reponse, pieces };
 
     let exp: Expediteur;
     try {
@@ -228,7 +322,6 @@ export async function POST(request: Request) {
     }
 
     // Mail obligatoire réglé par ce texte : effacé de la fiche (en préversion, seulement sur une fiche de test)
-    const cleTexte = texte(corps?.modele);
     const texteUtilise = modeleDe(cleTexte);
     const attendu = mailAFaire(tache);
     const aRegler = regle(attendu, cleTexte) && (!preview || ficheDeTest(tache));
@@ -242,6 +335,7 @@ export async function POST(request: Request) {
       ...(cc.length ? [`Cc : ${cc.join(', ')}`] : []),
       `Objet : ${objet}`,
       ...(texteUtilise ? [`Texte : ${texteUtilise.nom}`] : []),
+      ...(pieces.length ? [`Pièces jointes : ${pieces.map((p) => p.nom).join(', ')}`] : []),
       ...(regleOk ? [`✅ Mail obligatoire réglé : ${modeleDe(attendu)?.nom || attendu}`] : []),
       ...(fil ? [`En réponse à : ${fil.objet || '(sans objet)'}${dansLeFil ? '' : ' (préversion sur une vraie fiche : parti comme un nouveau mail)'}`] : []),
       ...(preview ? [`Préversion : mail de test envoyé seulement à ${moi}, aucun client ne l'a reçu.`] : []),
@@ -252,7 +346,15 @@ export async function POST(request: Request) {
     const avertissements: string[] = [];
     if (!(await commenter(a.token, String(tache.id), lignes.join('\n')))) avertissements.push('Mail envoyé, mais la copie sur la fiche a été refusée par ClickUp : colle-la à la main.');
     if (aRegler && !regleOk) avertissements.push('Mail envoyé, mais il reste marqué comme à envoyer sur la fiche : préviens Mathieu.');
-    return json({ success: true, preview, envoyeA: envoi.a, dansLeFil, regle: regleOk, avertissement: avertissements.join(' ') || undefined });
+
+    // Mail des devis parti : la fiche passe en 📩 devis envoyé (en préversion, seulement sur une fiche de test)
+    let statut = '';
+    if (cleTexte === 'devis-envoi' && (!preview || ficheDeTest(tache))) {
+      const p = await passerDevisEnvoye(a.token, tache, auteur);
+      statut = p.statut;
+      if (p.probleme) avertissements.push(`Mail envoyé, mais la fiche n’est pas passée en 📩 devis envoyé (${p.probleme}) : préviens Mathieu.`);
+    }
+    return json({ success: true, preview, envoyeA: envoi.a, dansLeFil, regle: regleOk, statut, pieces: pieces.map((p) => p.nom), avertissement: avertissements.join(' ') || undefined });
   } catch (e) {
     console.error('Mail', e);
     return json({ success: false, error: 'Erreur serveur. Vérifie dans Gmail (contact@chargeo.fr, Envoyés) avant de renvoyer.' }, 500);
