@@ -26,6 +26,9 @@
 // 18 du 02/11), posés à la date de relance par le contrôle quotidien (src/lib/relancesDevis.ts). Lien et validité des
 // devis lus dans Costructor ; la relance garde un crochet pour la phrase utile, que seul le commercial peut écrire
 // (jamais une relance « pour relancer »).
+// 06/11/2026 (lot 4, accord de Mathieu à 22 h 34) : « Refus du client » (modèle 21 du 02/11), écrit au passage en
+// ❌ perdu (Suite de la vente), avec une phrase selon le ⛔ Motif Refus choisi. Le motif est toujours donné au perdu :
+// la ligne qui le demandait au client n'a plus lieu d'être.
 // Fichier pur (aucun accès réseau) : lu par l'écriture des mails (EcrireMail), la route /api/interne/mail, Caler et
 // l'agenda Google (villeDe).
 
@@ -66,6 +69,8 @@ export type Donnees = {
   brochure?: boolean;
   // Nom du scénario retenu au gagné (mail « Devis · validé »), donné par l'écran
   retenu?: string;
+  // ⛔ Motif Refus choisi au perdu (mail « Refus du client »), donné par l'écran
+  motif?: string;
 };
 export type Etape = 'Nouvelle demande' | 'Visite technique' | 'Devis';
 // Étapes proposées sur la page blanche du bloc Contact. Les mails de devis s'écrivent depuis la Suite de la vente, avec
@@ -88,6 +93,7 @@ const liste = (...l: (string | null | undefined)[]) => l.map((x) => String(x ?? 
 const majuscule1 = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 const minuscule1 = (s: string) => (s && !/^[A-ZÀ-Ý]{2}/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 const sansPoint = (s: string) => String(s || '').trim().replace(/[\s.;,!]+$/, '');
+const sansAccents = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 // Lignes du mail : null ou false = ligne retirée ; jamais plus d'une ligne vide de suite
 const texteDe = (...l: (string | null | undefined | false)[]) =>
   l.filter((x): x is string => typeof x === 'string').join('\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -551,6 +557,40 @@ function corpsDerniereRelance(d: Donnees): string {
   );
 }
 
+// ── Refus du client (lot 4, accord de Mathieu du 06/11 à 22 h 34) ──
+// Une phrase selon le ⛔ Motif Refus : 💸 Trop cher / Budget, 🏃 Concurrence, ❌ Projet abandonné, 🧱 Faisabilité Technique
+function corpsRefus(d: Donnees): string {
+  const m = sansAccents(d.motif);
+  const copro = d.segment === 'COP' || d.segment === 'PAR';
+  const res = residence(d);
+  const projet = copro ? `l'équipement de ${res || 'la résidence'}` : `votre projet de recharge${aCommune(d)}`;
+  const faisabilite = m.includes('faisabilit');
+  const phrase = m.includes('cher') || m.includes('budget')
+    ? 'Nous comprenons tout à fait que le budget soit déterminant. Si votre projet évolue, nous reverrons volontiers notre proposition avec vous.'
+    : m.includes('concurren')
+      ? 'Nous respectons pleinement votre choix, et nous vous souhaitons une très belle réussite dans votre projet.'
+      : m.includes('abandon')
+        ? 'Nous le comprenons tout à fait : si le projet revient un jour sur la table, nous serons heureux de le reprendre avec vous.'
+        : faisabilite
+          ? 'Nous regrettons sincèrement de ne pas pouvoir mener ce projet à bien dans de bonnes conditions techniques, et nous préférons vous le dire en toute transparence.'
+          : '[Motif du refus : choisis-le au clic sur « Perdu », puis rouvre ce mail]';
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    faisabilite
+      ? `Merci beaucoup pour le temps que vous nous avez accordé au sujet de ${projet}.`
+      : `Merci beaucoup de nous avoir tenus informés au sujet de ${projet}.`,
+    '',
+    phrase,
+    '',
+    faisabilite
+      ? 'Nous restons bien sûr à votre disposition pour toute question.'
+      : 'Nous restons joignables à tout moment, et notre devis pourra être actualisé si besoin.',
+    '',
+    'Bien cordialement,',
+  );
+}
+
 export const MODELES: Modele[] = [
   {
     cle: 'prise-en-charge',
@@ -836,6 +876,18 @@ export const MODELES: Modele[] = [
     cc: (d) => destinatairesDevis(d).cc,
     objet: objetDevis,
     corps: corpsDerniereRelance,
+  },
+  {
+    // Lot 4 (06/11) : écrit au perdu (Suite de la vente) ; la fiche passe en ❌ perdu quand il part
+    cle: 'devis-refus',
+    nom: 'Refus du client',
+    court: 'Refus',
+    etape: 'Devis',
+    reponse: true,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetDevis,
+    corps: corpsRefus,
   },
 ];
 

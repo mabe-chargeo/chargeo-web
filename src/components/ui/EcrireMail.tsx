@@ -11,7 +11,8 @@
 // les modèles accessibles ») : le texte `modele` est imposé, sans la liste des modèles (créneaux, renvoi de la
 // confirmation). La liste complète ne reste que sur la page blanche du bloc Contact.
 // complements (05/11, 22 h 33) : ce que l'écran sait en plus de la fiche (créneaux choisis dans Caler, note d'accès
-// saisie dans Caler quand la fiche n'a pas de 🔑 Accès site).
+// saisie dans Caler quand la fiche n'a pas de 🔑 Accès site, scénario retenu au gagné, motif choisi au perdu). Une valeur
+// vide ne remplace rien.
 // Sans adresse mail : « Prévenu par téléphone », avec une phrase obligatoire copiée sur la fiche.
 // 06/11/2026, 9 h 22 (Mathieu : « ça serait bien qu'il y ait la possibilité d'appeler directement depuis l'application,
 // comme le bouton d'appel Google Voice ») : la carte « Pas d'adresse mail ? » montre les numéros de la fiche (client,
@@ -21,7 +22,8 @@
 // projet est cochée d'office et l'envoi reste bloqué sans elle, sauf en RIC (brochure facultative) ; les devis viennent
 // de Costructor (GET …&devis=1) et leurs problèmes de lecture s'affichent avant l'envoi.
 // 06/11/2026 (suite du lot 3) : « Devis · validé », ouvert au gagné (Suite de la vente) avec le scénario retenu en
-// complément (complements.retenu) : le texte ne reprend que le devis de ce scénario.
+// complément : le texte ne reprend que le devis de ce scénario. Lot 4 (22 h 34) : « Refus du client », ouvert au perdu
+// avec le motif choisi.
 // 06/11/2026 (lot 4, accord de Mathieu à 22 h 20) : la relance de devis en attente s'affiche en tête de fiche, seulement
 // en devis envoyé ou en négociation, et ne bloque rien : onEtat ne signale que les mails bloquants (bloquant).
 // Textes : src/lib/modelesMails.ts (seule source, décision du 05/11 à 20 h 57), envoi : /api/interne/mail.
@@ -62,6 +64,9 @@ type Appel = { titre: string; nom: string; tel: string };
 const enAttente = (d: Infos) => (estRelance(d.aFaire) && !enRelance(d.fiche.statut) ? '' : d.aFaire);
 // Ce que la fiche affaire doit savoir : seulement un mail qui bloque la suite
 const bloquantDe = (cle: string) => (bloquant(cle) ? cle : '');
+// Compléments de l'écran sans les valeurs vides
+const nonVides = (c: Partial<Donnees> | undefined) =>
+  Object.fromEntries(Object.entries(c || {}).filter(([, v]) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0)));
 
 // Mail prêt à relire pour un texte ('' = page blanche) : destinataires, objet (« RE: » du dernier échange si le texte
 // répond dans le fil) et texte rempli avec la fiche
@@ -144,12 +149,11 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
           setErreur(d?.error || `Lecture impossible (${res.status})`);
           return;
         }
-        // Compléments de l'écran : créneaux choisis, note d'accès quand la fiche n'en a pas, scénario retenu au gagné
+        // Compléments de l'écran (créneaux, scénario retenu, motif) ; la note d'accès de la fiche passe avant celle de Caler
         const fiche: Donnees = d.donnees;
         const donnees: Donnees = {
           ...fiche,
-          ...(complements?.creneaux?.length ? { creneaux: complements.creneaux } : {}),
-          ...(complements?.retenu ? { retenu: complements.retenu } : {}),
+          ...nonVides(complements),
           acces: String(fiche?.acces || complements?.acces || ''),
         };
         const lu: Infos = {
