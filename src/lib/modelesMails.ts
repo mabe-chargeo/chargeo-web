@@ -432,7 +432,8 @@ function corpsValide(d: Donnees): string {
       'Bien cordialement,',
     );
   }
-  // COP et PAR : acompte après le vote de l'AG, Advenir, convention en COP (25 d, 25 e)
+  // COP et PAR : acompte après le vote de l'AG, Advenir, convention en COP (25 d, 25 e). La COP a toujours Advenir :
+  // sans Advenir, c'est une PAR (prises seules), dont la suite est la date de pose.
   if (copro) {
     return texteDe(
       bonjour(salutDevis(d)),
@@ -449,7 +450,7 @@ function corpsValide(d: Donnees): string {
       seg === 'COP' ? '' : null,
       advenir
         ? `Nous reviendrons vers vous dès la validation du dossier Advenir pour fixer la date ${seg === 'COP' ? 'des travaux' : 'de pose'}.`
-        : `Nous reviendrons vers vous dès réception du procès-verbal pour fixer la date ${seg === 'COP' ? 'des travaux' : 'de pose'}.`,
+        : 'Nous reviendrons vers vous dès réception du procès-verbal pour fixer la date de pose.',
       '',
       'Bien cordialement,',
     );
