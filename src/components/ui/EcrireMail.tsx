@@ -23,7 +23,8 @@
 // de Costructor (GET …&devis=1) et leurs problèmes de lecture s'affichent avant l'envoi.
 // 06/11/2026 (suite du lot 3) : « Devis · validé », ouvert au gagné (Suite de la vente) avec le scénario retenu en
 // complément : le texte ne reprend que le devis de ce scénario. Lot 4 (22 h 34) : « Refus du client », ouvert au perdu
-// avec le motif choisi.
+// avec le motif choisi. Lot 4 (22 h 42) : « Devis · révisé », brochure cochée d'office si elle est sur la fiche (le texte
+// l'annonce) ; décochée, un avertissement demande de retirer la phrase.
 // 06/11/2026 (lot 4, accord de Mathieu à 22 h 20) : la relance de devis en attente s'affiche en tête de fiche, seulement
 // en devis envoyé ou en négociation, et ne bloque rien : onEtat ne signale que les mails bloquants (bloquant).
 // Textes : src/lib/modelesMails.ts (seule source, décision du 05/11 à 20 h 57), envoi : /api/interne/mail.
@@ -59,6 +60,8 @@ type Brouillon = { modele: string; filId: string; a: string; cc: string; objet: 
 type Fin = { titre: string; lignes: string[]; avertissement?: string };
 type Appel = { titre: string; nom: string; tel: string };
 
+// Textes qui joignent la brochure projet d'office (et l'annoncent)
+const AVEC_BROCHURE = ['devis-envoi', 'devis-revise'];
 // Mail en attente sur la fiche : une relance de devis ne compte que si la fiche est encore en devis envoyé ou en
 // négociation (gagnée ou perdue entre-temps, elle sera effacée au contrôle quotidien)
 const enAttente = (d: Infos) => (estRelance(d.aFaire) && !enRelance(d.fiche.statut) ? '' : d.aFaire);
@@ -176,9 +179,9 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
         setCc(b.cc);
         setObjet(b.objet);
         setTexte(b.texte);
-        // Envoi du devis : la brochure projet (la plus récente) est cochée d'office
+        // Envoi du devis ou devis révisé : la brochure projet (la plus récente) est cochée d'office
         const brochure = lu.pieces.find((p) => p.brochure);
-        if (b.modele === 'devis-envoi' && brochure) setChoisies([brochure.id]);
+        if (AVEC_BROCHURE.includes(b.modele) && brochure) setChoisies([brochure.id]);
       } catch {
         if (!annule) setErreur('Impossible de joindre le serveur.');
       } finally {
@@ -197,7 +200,10 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const devisEnvoi = cle === 'devis-envoi';
   const mailDevis = cle.startsWith('devis');
   const brochureFacultative = infos?.donnees.segment === 'RIC';
-  const brochureManque = devisEnvoi && !brochureFacultative && !(infos?.pieces || []).some((p) => p.brochure && choisies.includes(p.id));
+  const brochureCochee = (infos?.pieces || []).some((p) => p.brochure && choisies.includes(p.id));
+  const brochureManque = devisEnvoi && !brochureFacultative && !brochureCochee;
+  // Devis révisé : le texte annonce la brochure mais elle est décochée
+  const brochureAnnonceeSansPiece = cle === 'devis-revise' && !brochureCochee && /brochure/i.test(texte);
   const pret = !!infos?.branche && !!infos?.peutEnvoyer && !!a.trim() && !!objet.trim() && !!texte.trim() && crochets === 0 && !brochureManque;
   const sansAdresse = !!mAttendu && !!infos && remplir(mAttendu, infos.donnees).a.length === 0;
   const appels = sansAdresse && infos ? appelsDe(infos.donnees) : [];
@@ -248,6 +254,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
             ? `Relance n°${d.relance.tentative} notée : 3 relances sans réponse, les relances sont suspendues.`
             : `Relance n°${d.relance.tentative} notée : prochaine relance le ${d.relance.prochaine}.`);
         }
+        if (d.relanceRepart) lignes.push(`Relances remises à zéro : première relance le ${d.relanceRepart}.`);
         setFin({ titre: 'Mail envoyé', lignes, avertissement: d.avertissement });
         if (infos) onEtat?.(d.regle ? '' : bloquantDe(enAttente(infos)));
         onEnvoye?.();
@@ -448,6 +455,9 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
                   ? 'Coche la brochure projet : elle part avec le devis.'
                   : 'Brochure projet absente de la fiche : dépose son PDF (« PROJET-… ») sur la fiche, puis rouvre ce mail. Elle part avec le devis.'}
               </p>
+            )}
+            {brochureAnnonceeSansPiece && (
+              <p className="ml-1 mt-1.5 text-[13px] font-semibold" style={{ color: ORANGE }}>Le texte annonce la brochure : coche-la, ou retire la phrase qui l&apos;annonce.</p>
             )}
             {devisEnvoi && brochureFacultative && !infos.pieces.some((p) => p.brochure) && (
               <p className="ml-1 mt-1.5 text-[13px] text-slate-500">En RIC, la brochure projet est facultative.</p>
