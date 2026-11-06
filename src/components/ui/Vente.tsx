@@ -16,10 +16,15 @@
 //   créé au passage en devis à faire), écrit par l'action « projet » de la route avec ce seul champ.
 // « Devis des scénarios » : le lien se remplit seul au passage en 📩 devis envoyé (src/lib/devisScenarios.ts) ; on ne
 // le colle ici que si le site ne le trouve pas.
+// 06/11/2026 (Phase 9, lot 3 ; décisions de Mathieu à 18 h 30, 18 h 34 et 21 h 16) : le bouton « 📩 Devis envoyé »
+// devient « ✉️ Envoyer le devis » (« Envoyer les devis » avec plusieurs scénarios). Il ouvre ici le mail « Devis · envoi »
+// déjà rempli avec Costructor, brochure projet jointe (src/components/ui/EcrireMail.tsx). La fiche passe en 📩 devis
+// envoyé seulement quand le mail part (route /api/interne/mail), plus jamais sans lui.
 import { useEffect, useState } from 'react';
-import { Check, Flame, Link2, RefreshCw, Send, Trophy, XCircle } from 'lucide-react';
+import { Check, Flame, Link2, Mail, RefreshCw, Send, Trophy, XCircle } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, BoutonSecondaire, PastilleChoix as Pastille, CadreConfirmation, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
 import { LABEL } from '@/components/charte/couleurs';
+import EcrireMail from '@/components/ui/EcrireMail';
 
 type Scenario = { id: string; nom: string; statut: string; lien: string; retenu: boolean };
 type Etat = {
@@ -28,6 +33,8 @@ type Etat = {
 };
 const URL = '/api/interne/vente';
 const normal = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+// Après l'envoi des devis : le temps de lire l'écran de fin avant que la fiche se relise
+const RELECTURE_APRES_ENVOI_MS = 5000;
 
 async function poster(corps: any): Promise<{ ok: boolean; j: any }> {
   try {
@@ -51,6 +58,8 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
   const [motif, setMotif] = useState('');
   const [liens, setLiens] = useState<Record<string, string>>({});
   const [retenu, setRetenu] = useState('');
+  // Mail d'envoi des devis ouvert dans la carte (lot 3)
+  const [ecrire, setEcrire] = useState(false);
 
   const prendreScenarios = (l: Scenario[] | undefined) => {
     const m: Record<string, string> = {};
@@ -119,6 +128,7 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
   const aTrancher = scenarios.filter((x) => !x.retenu);
   const avecLien = aTrancher.filter((x) => x.lien);
   const retenuEffectif = retenu && avecLien.some((x) => x.id === retenu) ? retenu : avecLien.length === 1 ? avecLien[0].id : '';
+  const libelleEnvoi = aTrancher.length > 1 ? '✉️ Envoyer les devis' : '✉️ Envoyer le devis';
 
   const passer = async (statut: 'envoye' | 'negociation' | 'gagne' | 'perdu') => {
     setEnvoi(true);
@@ -176,10 +186,19 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
 
       {!aVisiter && !close && !confirmer && (
         <div className="space-y-2 pt-1">
-          {!envoye && !nego && (
-            <BoutonPrincipal type="button" onClick={() => passer('envoye')} disabled={envoi} inactif={envoi}>
-              <Send size={20} /> 📩 Devis envoyé
-            </BoutonPrincipal>
+          {!envoye && !nego && !ecrire && (
+            <>
+              <BoutonPrincipal type="button" onClick={() => setEcrire(true)} disabled={envoi} inactif={envoi}>
+                <Mail size={20} /> {libelleEnvoi}
+              </BoutonPrincipal>
+              <p className="px-1 text-[12px] text-slate-500">Ouvre le mail déjà rempli avec Costructor et la brochure projet jointe. La fiche passe en 📩 devis envoyé dès qu’il est parti, et la relance J+3 est lancée.</p>
+            </>
+          )}
+          {!envoye && !nego && ecrire && (
+            <>
+              <EcrireMail ficheId={ficheId} modele="devis-envoi" fixe onEnvoye={() => { setTimeout(() => onChange?.(), RELECTURE_APRES_ENVOI_MS); }} />
+              <BoutonSecondaire compact onClick={() => setEcrire(false)}>Fermer le mail sans l’envoyer</BoutonSecondaire>
+            </>
           )}
           {envoye && <BoutonSecondaire compact onClick={() => passer('negociation')} disabled={envoi}><Flame size={18} /> En négociation</BoutonSecondaire>}
           {(envoye || nego) && (
@@ -188,7 +207,6 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
               <BoutonSecondaire compact onClick={() => setConfirmer('perdu')} disabled={envoi}><XCircle size={18} /> Perdu</BoutonSecondaire>
             </>
           )}
-          {!envoye && !nego && <p className="px-1 text-[12px] text-slate-500">Le devis part encore à la main : ce bouton dit qu’il est envoyé et lance la relance J+3.</p>}
         </div>
       )}
 
