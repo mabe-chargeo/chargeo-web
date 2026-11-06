@@ -34,6 +34,9 @@
 // annonce de la brochure que « Devis · envoi ». 23 h 13 (Mathieu : « Tu ne peux pas les préremplir ? ») : « Ce qui
 // change » et le n° remplacé sont écrits avec l'ancienne version lue dans Costructor (DevisMail.ancien) ; le crochet ne
 // reste que si rien n'a pu être lu.
+// 06/11/2026 (lot 4, accords de Mathieu à 23 h 13 et 23 h 25) : « Avis Google » (modèle 22 du 02/11), affiché sur la fiche
+// du Parc le jour du rappel (J+7, puis J+14 sans avis, src/lib/avisGoogle.ts). Date de mise en service, prénom du poseur
+// et lien remplis par l'appli ; une seule phrase à écrire : un détail du chantier. Demande neutre, sans contrepartie.
 // Fichier pur (aucun accès réseau) : lu par l'écriture des mails (EcrireMail), la route /api/interne/mail, Caler et
 // l'agenda Google (villeDe).
 
@@ -86,10 +89,15 @@ export type Donnees = {
   retenu?: string;
   // ⛔ Motif Refus choisi au perdu (mail « Refus du client »), donné par l'écran
   motif?: string;
+  // Avis Google (lot 4) : n° du rappel (1 à J+7, 2 à J+14), date de mise en service en clair, prénom du poseur, lien
+  avisRappel?: number;
+  miseEnService?: string;
+  poseur?: string;
+  lienAvis?: string;
 };
-export type Etape = 'Nouvelle demande' | 'Visite technique' | 'Devis';
+export type Etape = 'Nouvelle demande' | 'Visite technique' | 'Devis' | 'Après chantier';
 // Étapes proposées sur la page blanche du bloc Contact. Les mails de devis s'écrivent depuis la Suite de la vente, avec
-// leurs données Costructor : ils ne sont pas dans cette liste.
+// leurs données Costructor, et l'avis Google depuis la fiche du Parc : ils ne sont pas dans cette liste.
 export const ETAPES: Etape[] = ['Nouvelle demande', 'Visite technique'];
 export type Modele = {
   cle: string;
@@ -689,6 +697,30 @@ function corpsRefus(d: Donnees): string {
   );
 }
 
+// ── Avis Google (lot 4, accords de Mathieu du 06/11 à 23 h 13 et 23 h 25 ; modèle 22 du 02/11) ──
+// Même texte à J+7 et à J+14 ; au 2e envoi seulement, la ligne « dernier message ». Une seule phrase à écrire.
+const LIEN_AVIS_DEFAUT = 'https://g.page/r/CVX9CIKSR7ddEBM/review';
+function corpsAvis(d: Donnees): string {
+  const deuxieme = (d.avisRappel || 1) >= 2;
+  const poseur = String(d.poseur || '').trim();
+  const depuis = d.miseEnService ? `Votre installation de recharge fonctionne depuis le ${d.miseEnService}.` : 'Votre installation de recharge est en service depuis quelques jours.';
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    `${depuis} [Un détail du chantier : le passage du câble, la place, la mise en service…]`,
+    '',
+    `Si vous avez deux minutes, un avis Google nous aiderait beaucoup à nous faire connaître dans le Chablais.${poseur ? ` Vous pouvez citer ${poseur}, qui a réalisé la pose, si vous le souhaitez.` : ''}`,
+    '',
+    `Le lien direct : ${d.lienAvis || LIEN_AVIS_DEFAUT}`,
+    '',
+    deuxieme ? 'Nous vous en avions parlé il y a une semaine : c’est notre dernier message à ce sujet.' : null,
+    deuxieme ? '' : null,
+    'Pour toute question sur votre installation, il vous suffit de répondre à ce mail.',
+    '',
+    'Bien cordialement,',
+  );
+}
+
 export const MODELES: Modele[] = [
   {
     cle: 'prise-en-charge',
@@ -998,6 +1030,18 @@ export const MODELES: Modele[] = [
     cc: (d) => destinatairesDevis(d).cc,
     objet: objetDevis,
     corps: corpsRevise,
+  },
+  {
+    // Lot 4 (06/11) : sur la fiche du Parc le jour du rappel (J+7, J+14) ; parti, il compte comme le rappel
+    cle: 'avis-google',
+    nom: 'Avis Google',
+    court: 'Avis Google',
+    etape: 'Après chantier',
+    reponse: false,
+    a: (d) => destinatairesDevis(d).a,
+    cc: () => [],
+    objet: (d) => `Votre installation de recharge${aCommune(d)} : votre avis sur CHARGéO`,
+    corps: corpsAvis,
   },
 ];
 
