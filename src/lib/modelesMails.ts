@@ -20,7 +20,12 @@
 // 06/11/2026 (suite du lot 3) : texte « Devis · validé », écrit au passage en 🏆 gagné (Suite de la vente). Il remplace
 // les 6 modèles 25 a à 25 f du 03/11 (« un modèle par cas », décision de Mathieu à 9 h 27) par un seul texte : le cas
 // suit le segment et le devis du scénario retenu. Acompte = 50 % du TTC lu dans Costructor (conditions de paiement
-// standard). Réponse dans le fil du mail d'envoi des devis.
+// standard). Réponse dans le fil du mail d'envoi des devis. En PAR, toujours Advenir (Mathieu, 06/11 à 22 h 17 : pas de
+// prise renforcée partagée).
+// 06/11/2026 (lot 4, accord de Mathieu à 22 h 20) : « Devis · relance » et « Devis · dernière relance » (modèles 17 et
+// 18 du 02/11), posés à la date de relance par le contrôle quotidien (src/lib/relancesDevis.ts). Lien et validité des
+// devis lus dans Costructor ; la relance garde un crochet pour la phrase utile, que seul le commercial peut écrire
+// (jamais une relance « pour relancer »).
 // Fichier pur (aucun accès réseau) : lu par l'écriture des mails (EcrireMail), la route /api/interne/mail, Caler et
 // l'agenda Google (villeDe).
 
@@ -398,7 +403,8 @@ function corpsValide(d: Donnees): string {
   const factureAmo = ttcAmo !== null ? euros(ttcAmo) : '[montant]';
   const prises = travaux.length > 0 && travaux.every(estPrise);
   const surSg = travaux.some((x) => morceauxDevis(x).source === 'SG');
-  const advenir = seg === 'COP' || (!prises && (seg === 'PAR' || seg === 'RIC' || (seg === 'DAP' && surSg)));
+  // COP et PAR : toujours Advenir (pas de prise renforcée partagée) ; RIC et DAP sur SG : sauf prise renforcée
+  const advenir = seg === 'COP' || seg === 'PAR' || (!prises && (seg === 'RIC' || (seg === 'DAP' && surSg)));
   const merci = copro
     ? `Merci beaucoup pour votre confiance : nous avons bien reçu la validation de ${lesDevis}${res ? ` pour ${res}` : ''}.`
     : `Merci beaucoup pour votre confiance : nous avons bien reçu ${lesDevis} signé${n.length > 1 ? 's' : ''}.`;
@@ -432,8 +438,7 @@ function corpsValide(d: Donnees): string {
       'Bien cordialement,',
     );
   }
-  // COP et PAR : acompte après le vote de l'AG, Advenir, convention en COP (25 d, 25 e). La COP a toujours Advenir :
-  // sans Advenir, c'est une PAR (prises seules), dont la suite est la date de pose.
+  // COP et PAR : acompte après le vote de l'AG, Advenir, convention en COP (25 d, 25 e)
   if (copro) {
     return texteDe(
       bonjour(salutDevis(d)),
@@ -444,13 +449,11 @@ function corpsValide(d: Donnees): string {
       ligneAmo ? '' : null,
       ligneAmo,
       '',
-      advenir ? `Nous déposerons ensuite le dossier de prime Advenir${seg === 'COP' ? ' « infrastructure collective »' : ''}. ${sansAttente}` : null,
-      advenir ? '' : null,
+      `Nous déposerons ensuite le dossier de prime Advenir${seg === 'COP' ? ' « infrastructure collective »' : ''}. ${sansAttente}`,
+      '',
       seg === 'COP' ? "La convention d'exploitation vous sera transmise très prochainement ; elle précise les engagements de CHARGéO." : null,
       seg === 'COP' ? '' : null,
-      advenir
-        ? `Nous reviendrons vers vous dès la validation du dossier Advenir pour fixer la date ${seg === 'COP' ? 'des travaux' : 'de pose'}.`
-        : 'Nous reviendrons vers vous dès réception du procès-verbal pour fixer la date de pose.',
+      `Nous reviendrons vers vous dès la validation du dossier Advenir pour fixer la date ${seg === 'COP' ? 'des travaux' : 'de pose'}.`,
       '',
       'Bien cordialement,',
     );
@@ -473,6 +476,76 @@ function corpsValide(d: Donnees): string {
     advenir
       ? 'Nous reviendrons vers vous dès la validation du dossier Advenir pour fixer la date de pose.'
       : "Nous reviendrons vers vous dès réception de l'acompte pour fixer ensemble la date de pose.",
+    '',
+    'Bien cordialement,',
+  );
+}
+
+// ── Relances du devis (lot 4, accord de Mathieu du 06/11 à 22 h 20) ──
+// Aujourd'hui à Paris, AAAA-MM-JJ
+const aujourdhuiIso = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+// Devis à signer rappelés dans une relance : travaux et AMO, sans le tarif type
+const devisARelancer = (d: Donnees) => (d.devis || []).filter((x) => !x.tarifType);
+const estExpire = (x: DevisMail) => !!x.expire && x.expire.slice(0, 10) < aujourdhuiIso();
+function validiteRelance(x: DevisMail): string {
+  if (!x.expire) return '';
+  return estExpire(x) ? `arrivé à échéance le ${dateLongue(x.expire)}, nous l'actualiserons volontiers` : `valable jusqu'au ${dateLongue(x.expire)}`;
+}
+const lienOuCrochet = (x: DevisMail) => x.lien || `[lien de signature en ligne du devis${x.numero ? ` ${x.numero}` : ''}, à copier depuis Costructor]`;
+function rappelDevis(d: Donnees): string[] {
+  const l = devisARelancer(d);
+  if (!l.length) return ['[Aucun devis finalisé trouvé dans Costructor pour cette fiche : vérifie-le, puis rouvre ce mail]'];
+  if (l.length === 1) {
+    const x = l[0];
+    const v = validiteRelance(x);
+    return [`Pour mémoire, ${x.numero ? `notre devis n° ${x.numero}` : 'notre devis'} se consulte et se signe en ligne : ${lienOuCrochet(x)}${v ? ` (${v})` : ''}.`];
+  }
+  return [
+    'Pour mémoire, nos devis se consultent et se signent en ligne :',
+    ...l.map((x) => {
+      const v = validiteRelance(x);
+      const quoi = x.amo ? 'Assistance Enedis' : morceauxDevis(x).lettre || x.scenario;
+      return `• ${quoi}${x.numero ? `, devis n° ${x.numero}` : ''} : ${lienOuCrochet(x)}${v ? ` (${v})` : ''}`;
+    }),
+  ];
+}
+// Tentatives 1 et 2 (modèle 17) : toujours un apport utile, écrit par le commercial
+function corpsRelance(d: Donnees): string {
+  const copro = d.segment === 'COP' || d.segment === 'PAR';
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    'Nous espérons que vous allez bien.',
+    '',
+    '[Ta phrase utile : réponse à une question restée ouverte, conseil, délai Advenir ou préparation de l’AG]',
+    '',
+    ...rappelDevis(d),
+    '',
+    copro
+      ? 'Si un point fait hésiter le conseil syndical, ou si vous souhaitez que nous venions présenter le dossier, dites-le-nous simplement : nous en parlerons volontiers.'
+      : 'Si quelque chose vous fait hésiter, que ce soit le prix, le matériel ou le calendrier, dites-le-nous simplement : nous en parlerons volontiers.',
+    '',
+    'Bien cordialement,',
+  );
+}
+// Tentative 3 (modèle 18), juste avant la suspension des relances
+function corpsDerniereRelance(d: Donnees): string {
+  const copro = d.segment === 'COP' || d.segment === 'PAR';
+  const res = residence(d);
+  const projet = copro ? `l'équipement de ${res || 'la résidence'}` : `votre projet de recharge${aCommune(d)}`;
+  const l = devisARelancer(d);
+  const valides = l.filter((x) => !!x.expire && !estExpire(x)).map((x) => x.expire).sort();
+  const suite = valides.length
+    ? `${l.length > 1 ? 'les devis restent valables' : 'le devis reste valable'} jusqu'au ${dateLongue(valides[0])}`
+    : 'nous actualiserons alors le devis si besoin';
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    `Nous revenons une dernière fois vers vous au sujet de ${projet}.`,
+    '',
+    `Sans nouvelles de votre part, nous mettons le dossier en attente de notre côté. Il vous suffira de répondre à ce mail pour le reprendre : ${suite}.`,
+    '',
+    "Merci encore pour l'intérêt que vous portez à CHARGéO.",
     '',
     'Bien cordialement,',
   );
@@ -739,6 +812,30 @@ export const MODELES: Modele[] = [
     cc: (d) => destinatairesDevis(d).cc,
     objet: objetValide,
     corps: corpsValide,
+  },
+  {
+    // Lot 4 (06/11) : posé à la date de relance (tentatives 1 et 2) ; parti, il compte comme la relance
+    cle: 'devis-relance',
+    nom: 'Devis · relance',
+    court: 'Relance',
+    etape: 'Devis',
+    reponse: true,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetDevis,
+    corps: corpsRelance,
+  },
+  {
+    // Lot 4 (06/11) : 3e tentative, juste avant la suspension des relances
+    cle: 'devis-derniere-relance',
+    nom: 'Devis · dernière relance',
+    court: 'Dernière relance',
+    etape: 'Devis',
+    reponse: true,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetDevis,
+    corps: corpsDerniereRelance,
   },
 ];
 
