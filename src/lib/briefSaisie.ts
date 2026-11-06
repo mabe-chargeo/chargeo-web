@@ -35,8 +35,11 @@
 // - pas de prime ADVENIR sur une prise renforcée (cahier des charges ADVENIR du point de recharge individuel, relu le
 //   06/11 sur advenir.mobi : socle T2S ou câble attaché, et pilotage énergétique obligatoires) ;
 // - [marque, puissance] dit « prise renforcée Hager, 3,7 kW » au lieu de « borne à choisir au relevé ».
+// 06/11/2026, 19 h 08 (accord de Mathieu) : modèles prise renforcée DAP SG, DAP hors SG et RIC colonne (src/lib/modelesDevis.ts).
+// Leurs en-têtes ont [marque], [mode de pose, longueur] et [date] ; pas d'ADVENIR ; le contournement tvaDevis ne sert
+// plus que pour PAR, COP, FLT et TER.
 import type { Segment } from '@/lib/champsClickUp';
-import type { CleModele, ModeleDevis, Zone } from '@/lib/modelesDevis';
+import { MODELES_PRISE, type CleModele, type ModeleDevis, type Zone } from '@/lib/modelesDevis';
 import { DISTANCES, SAISIES, type ElementReleve } from '@/lib/releveElements';
 
 // Ligne à saisir (même forme que LigneDevis de src/lib/briefChiffrage.ts, sans import circulaire)
@@ -73,11 +76,12 @@ const euros2 = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigi
 const arrondi = (n: number) => Math.round(n * 100) / 100;
 const texte = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 const metres = (m: number) => Math.ceil(m - 1e-9);
-const estDap = (m: ModeleDevis) => m.cle === 'DAP_SG' || m.cle === 'DAP_HSG';
+// DAP : borne ou prise, sur services généraux ou sur le tableau du logement
+const estDap = (m: ModeleDevis) => m.cle.startsWith('DAP');
 // « Scénario A : Borne partagée » → « Scénario A »
 const lettre = (nom: string) => nom.match(/Scénario\s+[A-Z]+/)?.[0] ?? 'Scénario';
 
-// TVA du devis (06/11) : prise renforcée seule sur un modèle à 5,5 % (DAP, RIC… : pas de modèle prise pour le segment) =
+// TVA du devis (06/11) : prise renforcée seule sur un modèle à 5,5 % (PAR, COP : pas de modèle prise pour le segment) =
 // 10 % (prise renforcée en logement de plus de 2 ans). Les autres cas gardent la TVA du modèle.
 export function tvaDevis(m: ModeleDevis, c: Pick<ContexteSaisie, 'priseSeule'>): string {
   return c.priseSeule && m.tva === '5,5 %' ? '10 %' : m.tva;
@@ -92,13 +96,16 @@ export function nomDevis(m: ModeleDevis, c: ContexteSaisie): string {
 }
 
 // Crochets de l'en-tête de chaque modèle, dans l'ordre du texte (en-têtes lus dans Costructor le 02/11/2026, 19 h 30,
-// gardés par les V2 du 04/11 ; DAP SG V2 sans [raccordement], 05/11)
+// gardés par les V2 du 04/11 ; DAP SG V2 sans [raccordement], 05/11 ; modèles prise DAP et RIC colonne, 06/11)
 const PAR_CROCHETS = ['[Nombre]', '[marque, puissance]', '[emplacements]', '[date]'];
+const PRISE_CROCHETS = ['[marque]', '[mode de pose, longueur]', '[date]'];
 const CROCHETS: Record<CleModele, string[]> = {
   RES: ['[marque, puissance]', '[mode de pose, longueur]', '[date]'],
-  RES_PRISE: ['[marque]', '[mode de pose, longueur]', '[date]'],
+  RES_PRISE: PRISE_CROCHETS,
   DAP_SG: ['[marque, puissance]', '[mode de pose, longueur]', '[date]'],
+  DAP_SG_PRISE: PRISE_CROCHETS,
   DAP_HSG: ['[marque, puissance]', '[mode de pose, longueur]', '[date]'],
+  DAP_HSG_PRISE: PRISE_CROCHETS,
   PAR_SG: PAR_CROCHETS,
   PAR_PDL: PAR_CROCHETS,
   COP_SG: ['[kVA]', '[date]'],
@@ -106,6 +113,7 @@ const CROCHETS: Record<CleModele, string[]> = {
   RIC_TARIF_TYPE: ['[marque, puissance]'],
   RIC_RESIDENT: ['[marque, puissance]', '[date]'],
   RIC_COLONNE: ['[marque, puissance]', '[date]'],
+  RIC_COLONNE_PRISE: PRISE_CROCHETS,
   FLT: ['[votre flotte]', ...PAR_CROCHETS],
   TER: ['[votre établissement]', ...PAR_CROCHETS],
   AMO_PDL: ['[puissance kVA, mono ou tri]', '[date]'],
@@ -222,6 +230,7 @@ const PERMIS_2021 = Date.UTC(2021, 2, 10);
 
 type TypeAide = 'individuel' | 'partage' | 'infra' | null;
 function typeAide(m: ModeleDevis): TypeAide {
+  if (MODELES_PRISE.has(m.cle)) return null; // prise renforcée : jamais d'ADVENIR (06/11)
   if (m.cle === 'PAR_SG' || m.cle === 'PAR_PDL') return 'partage';
   if (m.cle === 'COP_SG' || m.cle === 'COP_PDL') return 'infra';
   if (m.cle.startsWith('RIC')) return 'individuel';
@@ -253,6 +262,7 @@ function primeAdvenir(m: ModeleDevis, c: ContexteSaisie): string[] {
   if (!aide) {
     if (m.cle.startsWith('AMO')) return ['   Prime ADVENIR : aucune aide sur ce devis (D17)'];
     if (m.cle === 'DAP_HSG') return ["   Prime ADVENIR : aucune hors services généraux (le modèle n'a ni ADMIN-ADVENIR ni texte ADVENIR)"];
+    if (MODELES_PRISE.has(m.cle) && m.cle !== 'RES_PRISE') return ["   Prime ADVENIR : aucune sur une prise renforcée (le modèle n'a ni ADMIN-ADVENIR ni texte ADVENIR)"];
     return [];
   }
   // Prise renforcée seule (06/11) : le cahier des charges ADVENIR exige un socle T2S ou un câble attaché, et un pilotage
@@ -330,7 +340,7 @@ export function avantSaisie(m: ModeleDevis, c: ContexteSaisie): string[] {
   const crochets = (CROCHETS[m.cle] ?? []).map((cr) => `« ${cr} » → ${valeurCrochet(cr, c)}`);
   if (crochets.length) out.push('   En-tête, remplacer :', ...crochets.map((x) => `      ${x}`));
   // Prise renforcée seule sur un modèle de borne (06/11) : l'en-tête parle d'une borne
-  if (c.priseSeule && m.cle !== 'RES_PRISE') {
+  if (c.priseSeule && !MODELES_PRISE.has(m.cle)) {
     out.push("   En-tête : le texte du modèle parle d'une borne, écrire « prise renforcée » à la place");
   }
   // COP sur services généraux : la phrase sur l'augmentation de puissance suit le calcul (écart 53)

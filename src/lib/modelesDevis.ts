@@ -21,10 +21,16 @@
 // Ø40 du 5G25) dans leurs deux sous-sections Cheminement, à la place des percements normaux.
 // 05/11/2026, 10 h 58 (passe 3, cas 11, accord de Mathieu) : RIC colonne V2 a une sous-section Cheminement en section 1,
 // entre Raccordement et TD IRVE (LIA-TUBE-3G10 × 5, LIA-DATA-TIC × 5), pour la liaison Linky → coffret.
+// 06/11/2026 (Phase 9, lot 3 ; Mathieu : « nous n'avons pas de modèle de devis pour la prise renforcée en droit à la
+// prise », puis « Prise possible seulement sur colonne Enedis » et « fais-le toi-même », 18 h 47 ; branchement accordé à
+// 19 h 08) : trois modèles prise renforcée, copies de « MODÈLE RES · Prise renforcée V2 » (même pied de devis : mention
+// TVA 10 % et conditions de paiement), TVA 10 %, sans ADVENIR : DAP SG (coupure TGBT, sous-compteur MID), DAP hors SG
+// (coupure tableau), RIC colonne Enedis (Linky de la place, 5 m + 5 m de tube apparent 3G2.5, Consuel PDL Enedis). Pas
+// de prise sur l'infra collective CHARGéO. Une prise seule prend la version prise du modèle (VERSION_PRISE).
 
 export type CleModele =
-  | 'COP_PDL' | 'COP_SG' | 'PAR_SG' | 'PAR_PDL' | 'RIC_TARIF_TYPE' | 'RIC_RESIDENT' | 'RIC_COLONNE'
-  | 'RES' | 'RES_PRISE' | 'DAP_SG' | 'DAP_HSG' | 'FLT' | 'TER' | 'AMO_PDL' | 'AMO_COLONNE';
+  | 'COP_PDL' | 'COP_SG' | 'PAR_SG' | 'PAR_PDL' | 'RIC_TARIF_TYPE' | 'RIC_RESIDENT' | 'RIC_COLONNE' | 'RIC_COLONNE_PRISE'
+  | 'RES' | 'RES_PRISE' | 'DAP_SG' | 'DAP_SG_PRISE' | 'DAP_HSG' | 'DAP_HSG_PRISE' | 'FLT' | 'TER' | 'AMO_PDL' | 'AMO_COLONNE';
 
 export type ModeleDevis = { cle: CleModele; nom: string; id: string; tva: string };
 
@@ -36,15 +42,25 @@ export const MODELES: Record<CleModele, ModeleDevis> = {
   RIC_TARIF_TYPE: { cle: 'RIC_TARIF_TYPE', nom: "MODÈLE RIC · Tarif type résident (avec l'infrastructure) V2", id: 'quote_01m6kf5f69cqpn7t38yyqsw3fb', tva: '5,5 %' },
   RIC_RESIDENT: { cle: 'RIC_RESIDENT', nom: 'MODÈLE RIC · Résident (vrai devis) V2', id: 'quote_01m6kgyezn1bt94g5azbannr3r', tva: '5,5 %' },
   RIC_COLONNE: { cle: 'RIC_COLONNE', nom: 'MODÈLE RIC · Résident sur colonne Enedis V2', id: 'quote_01m6khee5bvnx3e77679b3akn9', tva: '5,5 %' },
+  RIC_COLONNE_PRISE: { cle: 'RIC_COLONNE_PRISE', nom: 'MODÈLE RIC · Prise renforcée sur colonne Enedis V2', id: 'quote_01m6s0bv853w5mcktxzhkvmfv7', tva: '10 %' },
   RES: { cle: 'RES', nom: 'MODÈLE RES · Résidentiel V2', id: 'quote_01m6js6t3wqbr90heerdwembcp', tva: '5,5 %' },
   RES_PRISE: { cle: 'RES_PRISE', nom: 'MODÈLE RES · Prise renforcée V2', id: 'quote_01m6jxzwtdtj61n0bvtgnmpxnj', tva: '10 %' },
   DAP_SG: { cle: 'DAP_SG', nom: 'MODÈLE DAP SG · Droit à la prise sur services généraux V2', id: 'quote_01m6jyvw4rdndytk1j7pqkawdm', tva: '5,5 %' },
+  DAP_SG_PRISE: { cle: 'DAP_SG_PRISE', nom: 'MODÈLE DAP SG · Prise renforcée sur services généraux V2', id: 'quote_01m6s09dgcf2fr3tevn0hbr1zv', tva: '10 %' },
   DAP_HSG: { cle: 'DAP_HSG', nom: 'MODÈLE DAP hors SG · Droit à la prise sur tableau du logement V2', id: 'quote_01m6k1ejdvdc5fr6pm0cyhmmmn', tva: '5,5 %' },
+  DAP_HSG_PRISE: { cle: 'DAP_HSG_PRISE', nom: 'MODÈLE DAP hors SG · Prise renforcée sur tableau du logement V2', id: 'quote_01m6s0b21qgr0w86b404aemkz4', tva: '10 %' },
   FLT: { cle: 'FLT', nom: 'MODÈLE FLT · Flotte V2', id: 'quote_01m6kjvpb9psf6b15ae8dc2602', tva: '20 %' },
   TER: { cle: 'TER', nom: 'MODÈLE TER · Tertiaire V2', id: 'quote_01m6km0matvbnh6aqzf8wq56gh', tva: '20 %' },
   AMO_PDL: { cle: 'AMO_PDL', nom: "MODÈLE AMO · Création d'un point de livraison Enedis", id: 'quote_01m6bsrq9akgea3yp5ws69trqa', tva: '20 %' },
   AMO_COLONNE: { cle: 'AMO_COLONNE', nom: 'MODÈLE AMO · Colonne horizontale Enedis (Réseau Électrique Auto)', id: 'quote_01m6bst6m24hjqprjc7y7721ds', tva: '20 %' },
 };
+
+// Version prise renforcée d'un modèle de borne (06/11) : choisie par le brief quand le scénario n'a que des prises.
+// Les autres segments (PAR, COP, FLT, TER, RIC sur l'infra CHARGéO) n'en ont pas.
+export const VERSION_PRISE: Partial<Record<CleModele, CleModele>> = {
+  RES: 'RES_PRISE', DAP_SG: 'DAP_SG_PRISE', DAP_HSG: 'DAP_HSG_PRISE', RIC_COLONNE: 'RIC_COLONNE_PRISE',
+};
+export const MODELES_PRISE = new Set<CleModele>(['RES_PRISE', 'DAP_SG_PRISE', 'DAP_HSG_PRISE', 'RIC_COLONNE_PRISE']);
 
 export const lienModele = (m: ModeleDevis) => `https://app.costructor.co/quotes/${m.id}`;
 
@@ -172,6 +188,26 @@ const PLAN_RES_PRISE: SectionModele[] = [
   PRESTATIONS([P('ADMIN-CONSUEL'), ...ZONES_DEP], '3. PRESTATIONS GLOBALES & CONFORMITÉ'),
 ];
 
+// Prises renforcées DAP et RIC colonne (06/11, copies de RES prise V2 relues dans Costructor le 06/11)
+const POINT_PRISE = (chem: LigneModele[]): SectionModele => POINT_N1([
+  { zone: 'chemAval', lignes: chem }, { zone: 'prise', lignes: PRISES }, { zone: 'autre', lignes: [P('OPT-ARCEAU-PROT')] },
+]);
+const PLAN_DAP_PRISE = (sg: boolean): SectionModele[] => [
+  ALIM(
+    [sg ? COUPURE_TGBT : COUPURE_TABLEAU, P('ADMIN-AUGM-PDL'), AUGM, ...TERRES, RESERVE],
+    CHEM_PRISE,
+    [...(sg ? [P('MID-SOUS-COMPTAGE')] : []), P('COFF-MONO-3K')],
+  ),
+  POINT_PRISE(CHEM_PRISE),
+  PRESTATIONS([P('ADMIN-CONSUEL'), CONSUEL_COPRO, P('ADMIN-DAP'), ...ZONES_DEP], '3. PRESTATIONS GLOBALES & CONFORMITÉ'),
+];
+// RIC colonne : forfait 5 m + 5 m de tube apparent 3G2.5 (Linky → coffret, coffret → prise)
+const PLAN_RIC_COLONNE_PRISE: SectionModele[] = [
+  ALIM([LINKY], [P('LIA-TUBE-3G2.5', 5)], [P('COFF-MONO-3K')]),
+  POINT_PRISE([P('LIA-TUBE-3G2.5', 5)]),
+  PRESTATIONS([P('ADMIN-CONSUEL'), CONSUEL_PDL, ...ZONES_DEP], '3. PRESTATIONS GLOBALES & CONFORMITÉ'),
+];
+
 const PLAN_DAP = (sg: boolean): SectionModele[] => [
   ALIM(RACC_TABLEAU(sg ? COUPURE_TGBT : COUPURE_TABLEAU), CHEM_AMONT, [...(sg ? [P('MID-SOUS-COMPTAGE')] : []), ...COFFRETS, SANS_DELESTAGE]),
   POINT_COMPLET(),
@@ -249,10 +285,13 @@ export const PLANS: Record<CleModele, SectionModele[]> = {
   RIC_TARIF_TYPE: PLAN_RIC(false),
   RIC_RESIDENT: PLAN_RIC(false),
   RIC_COLONNE: PLAN_RIC(true),
+  RIC_COLONNE_PRISE: PLAN_RIC_COLONNE_PRISE,
   RES: PLAN_RES,
   RES_PRISE: PLAN_RES_PRISE,
   DAP_SG: PLAN_DAP(true),
+  DAP_SG_PRISE: PLAN_DAP_PRISE(true),
   DAP_HSG: PLAN_DAP(false),
+  DAP_HSG_PRISE: PLAN_DAP_PRISE(false),
   FLT: PLAN_PRO('SERV-SETUP-SUPERVISION'),
   TER: PLAN_PRO('SERV-SETUP-SUPERVISION-REFACT'),
   AMO_PDL: [{ titre: "1. ASSISTANCE À MAÎTRISE D'OUVRAGE", sous: [{ zone: 'prestations', lignes: [P('ADMIN-CREATION-PDL'), CONSUEL_PDL, P('LOG-DEP-Z1')] }] }],
