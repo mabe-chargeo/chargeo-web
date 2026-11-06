@@ -24,6 +24,9 @@ import { createSign, randomBytes } from 'crypto';
 // Préversion (tout sauf la production Vercel) : le mail part seulement à la personne connectée (src/app/api/interne/
 // mail/route.ts), jamais à un client.
 // Gratuit (quotas Gmail API, envoi : 2 000 messages par jour et par compte Workspace).
+// 06/11/2026, 21 h 16 (Phase 9, lot 3, accord de Mathieu : la brochure projet part avec le devis) : pièces jointes
+// (fichiers de la fiche ClickUp, lus par la route). Le message passe alors en multipart/mixed et part par le point
+// d'envoi « upload » de Gmail, qui accepte jusqu'à 35 Mo.
 
 export const EXPEDITEUR = 'contact@chargeo.fr';
 export const NOM_PAR_DEFAUT = "L'équipe CHARGéO";
@@ -32,9 +35,12 @@ const SCOPE_REGLAGES = 'https://www.googleapis.com/auth/gmail.settings.basic';
 const SCOPE_LECTURE = 'https://www.googleapis.com/auth/gmail.readonly';
 const MESSAGES = 'https://gmail.googleapis.com/gmail/v1/users/me/messages';
 const ENVOI = `${MESSAGES}/send`;
+const ENVOI_UPLOAD = 'https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=multipart';
 const REGLAGES = `https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs/${encodeURIComponent(EXPEDITEUR)}`;
 const CACHE_REGLAGES = 10 * 60 * 1000;
 export const MAX_DESTINATAIRES = 10;
+// Pièces jointes : 20 Mo au total (le mail encodé reste sous les 35 Mo de Gmail)
+export const MAX_PIECES_OCTETS = 20 * 1024 * 1024;
 
 function compte(): { email: string; cle: string } | null {
   const brut = process.env.GMAIL_SERVICE_ACCOUNT_JSON;
@@ -153,7 +159,9 @@ export function corpsHtml(texte: string, signatureHtml: string): string {
 
 // Réponse dans un fil : identifiant du fil Gmail, Message-ID du mail auquel on répond et ses References
 export type Reponse = { threadId: string; messageId: string; references: string };
-export type Mail = { a: string[]; cc: string[]; objet: string; texte: string; reponse?: Reponse };
+// Pièce jointe : nom du fichier, type (application/pdf…), contenu
+export type Piece = { nom: string; type: string; contenu: Buffer };
+export type Mail = { a: string[]; cc: string[]; objet: string; texte: string; reponse?: Reponse; pieces?: Piece[] };
 export type Expediteur = { nom: string; signatureHtml: string; signatureTexte: string; probleme?: string };
 
 let reglagesEnCache: { v: Expediteur; expire: number } | null = null;
@@ -245,20 +253,23 @@ export async function mailPourReponse(id: string): Promise<Fil | null> {
 // References d'une réponse : celles du mail reçu (10 dernières au plus) puis son Message-ID
 const referencesDe = (r: Reponse) => sansSaut([...r.references.split(/\s+/).filter(Boolean).slice(-10), r.messageId].join(' '));
 
-// Message au format des mails : texte brut et HTML (même contenu), signature Gmail comprise
+// Nom d'une pièce jointe dans les en-têtes : tel quel en ASCII, sinon encodé en UTF-8 (RFC 2231)
+function nomPiece(nom: string): { name: string; filename: string } {
+  const t = sansSaut(nom).replace(/["\\]/g, '') || 'piece-jointe';
+  if (/^[\x20-\x7e]*$/.test(t)) return { name: `name="${t}"`, filename: `filename="${t}"` };
+  const code = encodeURIComponent(t).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  return { name: `name="${enteteEncode(t)}"`, filename: `filename*=UTF-8''${code}` };
+}
+
+// Message au format des mails : texte brut et HTML (même contenu), signature Gmail comprise, puis les pièces jointes
 const partie = (type: string, contenu: string) =>
   [`Content-Type: ${type}; charset=UTF-8`, 'Content-Transfer-Encoding: base64', '', lignes76(Buffer.from(contenu.replace(/\r?\n/g, '\r\n'), 'utf8').toString('base64'))].join('\r\n');
 export function messageBrut(m: Mail, exp: Expediteur): string {
   const limite = `chargeo-${randomBytes(12).toString('hex')}`;
   const texte = String(m.texte || '');
   const reponse = m.reponse?.messageId ? m.reponse : null;
-  return [
-    `From: ${nomEnTete(exp.nom || NOM_PAR_DEFAUT)} <${EXPEDITEUR}>`,
-    `To: ${m.a.join(', ')}`,
-    ...(m.cc.length ? [`Cc: ${m.cc.join(', ')}`] : []),
-    `Subject: ${enteteEncode(m.objet)}`,
-    ...(reponse ? [`In-Reply-To: ${sansSaut(reponse.messageId)}`, `References: ${referencesDe(reponse)}`] : []),
-    'MIME-Version: 1.0',
+  const pieces = m.pieces || [];
+  const alternative = [
     `Content-Type: multipart/alternative; boundary="${limite}"`,
     '',
     `--${limite}`,
@@ -266,21 +277,70 @@ export function messageBrut(m: Mail, exp: Expediteur): string {
     `--${limite}`,
     partie('text/html', corpsHtml(texte, exp.signatureHtml)),
     `--${limite}--`,
+  ];
+  const mixte = `chargeo-pj-${randomBytes(12).toString('hex')}`;
+  const corps = pieces.length
+    ? [
+      `Content-Type: multipart/mixed; boundary="${mixte}"`,
+      '',
+      `--${mixte}`,
+      ...alternative,
+      ...pieces.flatMap((p) => {
+        const n = nomPiece(p.nom);
+        return [
+          `--${mixte}`,
+          `Content-Type: ${p.type || 'application/octet-stream'}; ${n.name}`,
+          `Content-Disposition: attachment; ${n.filename}`,
+          'Content-Transfer-Encoding: base64',
+          '',
+          lignes76(p.contenu.toString('base64')),
+        ];
+      }),
+      `--${mixte}--`,
+    ]
+    : alternative;
+  return [
+    `From: ${nomEnTete(exp.nom || NOM_PAR_DEFAUT)} <${EXPEDITEUR}>`,
+    `To: ${m.a.join(', ')}`,
+    ...(m.cc.length ? [`Cc: ${m.cc.join(', ')}`] : []),
+    `Subject: ${enteteEncode(m.objet)}`,
+    ...(reponse ? [`In-Reply-To: ${sansSaut(reponse.messageId)}`, `References: ${referencesDe(reponse)}`] : []),
+    'MIME-Version: 1.0',
+    ...corps,
     '',
   ].join('\r\n');
 }
 
 // Envoie le mail depuis contact@chargeo.fr, avec le nom et la signature de Gmail, dans le fil si c'est une réponse ;
-// une erreur = rien n'est parti
+// une erreur = rien n'est parti. Avec des pièces jointes : point d'envoi « upload » (message entier, jusqu'à 35 Mo)
 export async function envoyerMail(m: Mail): Promise<{ id: string; exp: Expediteur }> {
   if (!m.a.length) throw new Error('aucun destinataire');
   const exp = await expediteur();
-  const r = await fetch(ENVOI, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${await jeton(SCOPE_ENVOI)}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ raw: b64url(messageBrut(m, exp)), ...(m.reponse?.threadId ? { threadId: m.reponse.threadId } : {}) }),
-    cache: 'no-store',
-  });
+  const acces = await jeton(SCOPE_ENVOI);
+  const brut = messageBrut(m, exp);
+  let r: Response;
+  if (m.pieces?.length) {
+    const lim = `chargeo-up-${randomBytes(12).toString('hex')}`;
+    const meta = JSON.stringify(m.reponse?.threadId ? { threadId: m.reponse.threadId } : {});
+    const corps = Buffer.concat([
+      Buffer.from(`--${lim}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${lim}\r\nContent-Type: message/rfc822\r\n\r\n`, 'utf8'),
+      Buffer.from(brut, 'utf8'),
+      Buffer.from(`\r\n--${lim}--`, 'utf8'),
+    ]);
+    r = await fetch(ENVOI_UPLOAD, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${acces}`, 'Content-Type': `multipart/related; boundary=${lim}` },
+      body: corps as unknown as BodyInit,
+      cache: 'no-store',
+    });
+  } else {
+    r = await fetch(ENVOI, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${acces}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw: b64url(brut), ...(m.reponse?.threadId ? { threadId: m.reponse.threadId } : {}) }),
+      cache: 'no-store',
+    });
+  }
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j?.id) throw new Error(`envoi refusé par Google (${j?.error?.message || r.status})`);
   return { id: String(j.id), exp };
