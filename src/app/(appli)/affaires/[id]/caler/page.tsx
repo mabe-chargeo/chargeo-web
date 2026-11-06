@@ -31,6 +31,8 @@
 // 06/11/2026, 6 h 37 (Mathieu : « Je ne peux pas cliquer sur Caler ce créneau ») : vrai bouton plein ; il choisit le
 //   créneau, fait passer l'agenda à sa semaine et descend jusqu'au créneau choisi et au bouton Caler. Marques courtes
 //   sur l'agenda (« ⏳ » proposé, « ✓ » en cours de choix).
+// 06/11/2026, 7 h 21 (Mathieu, « Corriger les doublons ») : l'écran après le calage n'a plus de lien « Ouvrir la fiche »
+//   (Retour de l'en-tête, puis « Revenir à la fiche » après l'envoi du mail).
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AlertTriangle, CalendarCheck, CalendarX, Check, ChevronRight, Hourglass, Mail, MapPin, RefreshCw, X } from 'lucide-react';
@@ -259,7 +261,8 @@ export default function CalerPage() {
     );
   }
 
-  // Écran de confirmation : juste après avoir calé (mail obligatoire), ou « Renvoyer la confirmation » (mail imposé)
+  // Écran de confirmation : juste après avoir calé (mail obligatoire), ou « Renvoyer la confirmation » (mail imposé).
+  // Retour à la fiche : bouton Retour de l'en-tête, puis « Revenir à la fiche » sous le mail envoyé (pas de doublon).
   const confirmation = (c: Cale, titre: string, renvoyee: boolean) => {
     const s = statutAgenda.statut;
     const modele = !renvoyee && decale ? 'visite-deplacee' : 'visite-confirmation';
@@ -284,7 +287,6 @@ export default function CalerPage() {
 
           <Repere>{modele === 'visite-deplacee' ? 'Mail au client : visite déplacée' : 'Mail de confirmation au client'}</Repere>
           <EcrireMail ficheId={id} modele={modele} obligatoire={!renvoyee} fixe complements={{ acces: note }} retour={{ href: c.lienFiche, libelle: 'Revenir à la fiche' }} />
-          <a href={c.lienFiche} className="flex items-center justify-center gap-1 text-[15px] font-semibold" style={{ color: CYAN }}>Ouvrir la fiche <ChevronRight size={16} /></a>
           {renvoyee
             ? <button onClick={() => setRenvoi(false)} className="block w-full cursor-pointer text-center text-[15px] font-semibold" style={{ color: CYAN }}>Décaler ou annuler le rendez-vous</button>
             : <a href={adresses.agenda} className="block text-center text-[15px] font-semibold" style={{ color: CYAN }}>Voir l’agenda des visites</a>}

@@ -29,8 +29,10 @@
 // 05/11/2026 (Phase 9, lot 1 ; Mathieu, 18 h 03 : « Tous les mails doivent être envoyés depuis l'application ») : quand
 // la fiche est connue (ficheId), le bouton Gmail devient « Mail » et ouvre l'écran d'envoi de l'appli (/mail), qui envoie
 // depuis contact@chargeo.fr et copie le mail sur la fiche. Sans fiche connue, le bouton Gmail reste.
-// 05/11, 18 h 46 (recette, fiche sans téléphone ni email) : le bloc ouvert montre toujours « Écrire un mail », destinataire
-// à saisir, pour que chaque fiche puisse envoyer un mail.
+// 05/11, 18 h 46 (recette, fiche sans téléphone ni email) : le bloc ouvert montre « Écrire un mail », destinataire à
+// saisir, pour que chaque fiche puisse envoyer un mail.
+// 06/11/2026, 7 h 21 (Mathieu, « Corriger les doublons ») : « Écrire un mail » seulement quand personne n'a d'adresse
+// mail sur la fiche ; sinon chaque personne a déjà son bouton « Mail ».
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Headphones, Mail, MapPin, MessageSquare, Navigation, Phone, Users } from 'lucide-react';
 import { Carte, TitreCarte } from '@/components/charte/Appli';
@@ -161,6 +163,8 @@ export function BlocContact({
   const a = c?.adresse || null;
   // La copie du mail va sur la fiche (pas sur le scénario ni l'élément d'où le bloc est ouvert)
   const ficheId = c?.fiche?.id || '';
+  // Quelqu'un a une adresse mail : son bouton « Mail » suffit, pas de « Écrire un mail » en double (06/11, 7 h 21)
+  const unMail = !!c && [c.client, ...c.contactSurPlace, ...c.gestionnaire].some((p) => !!p.email);
 
   const personne = (titre: string, p: Personne) => (
     <div key={`${titre}-${p.nom}`} className="space-y-2">
@@ -182,7 +186,7 @@ export function BlocContact({
       ) : (
         <p className="text-[14px]">Pas d&apos;adresse sur la fiche.</p>
       )}
-      {ficheId && (
+      {ficheId && !unMail && (
         <div className="flex flex-wrap gap-2">
           <Lien href={adresses.mail(ficheId)}><Mail size={14} /> Écrire un mail</Lien>
         </div>
@@ -198,7 +202,7 @@ export function BlocContact({
   // Dans une carte de liste (differe), bloc blanc pour se détacher du fond gris de la carte
   const corps = (
     <>
-      <button type="button" onClick={() => setOuvert(!ouvert)} className="w-full text-left">
+      <button type="button" onClick={() => setOuvert(!ouvert)} className="w-full cursor-pointer text-left">
         <TitreCarte icon={Users} extra={ouvert ? <ChevronUp size={20} /> : <ChevronDown size={20} />}>📇 Contact</TitreCarte>
       </button>
       {ouvert && contenu}
