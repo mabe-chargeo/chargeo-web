@@ -7,12 +7,14 @@ import { mailAFaire, poserMailAFaire } from '@/lib/mailsAFaire';
 // les fiches à visiter dont la visite tombe le lendemain (du lundi au jeudi) ou le samedi, dimanche ou lundi (le
 // vendredi). Rien le week-end. Une fiche qui a déjà un mail en attente (confirmation pas encore partie) le garde.
 // Le commercial l'envoie depuis la fiche : rien ne part tout seul. Simulation : rien n'est écrit.
+// 06/11/2026 (lot 4) : lister est aussi lu par les relances de devis (src/lib/relancesDevis.ts).
 
 const PAGES_MAX = 10;
 const JOUR_MS = 86400000;
 const jourParis = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
 
-async function lister(token: string, listId: string): Promise<any[]> {
+// Fiches principales (sans sous-tâches) d'une liste, ouvertes et non archivées
+export async function lister(token: string, listId: string): Promise<any[]> {
   const toutes: any[] = [];
   for (let page = 0; page < PAGES_MAX; page++) {
     const res = await fetch(`https://api.clickup.com/api/v2/list/${listId}/task?archived=false&include_closed=false&subtasks=false&page=${page}`, { headers: { Authorization: token }, cache: 'no-store' });

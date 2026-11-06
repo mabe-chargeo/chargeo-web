@@ -4,6 +4,8 @@ import {
   aujourdhuiParis, ajouterJoursOuvres, ajouterJours, prochainOuvre, comparer, echeanceClickUp, libelleJour, type Jour,
 } from '@/lib/joursOuvres';
 import { alerter } from '@/lib/alerteSite';
+import { compterTentatives, DELAI_RELANCE_OUVRES, MAX_TENTATIVES } from '@/lib/relancesDevis';
+import { effacerRelanceEnAttente } from '@/lib/mailsAFaire';
 
 // Suivi des relances commerciales internes (Phase 4, champs validés par Matthieu le 11/10/2026).
 // Appelé par l'automatisation ClickUp « champ 🔁 Suivi relance ou 📅 Date AG ou RDV modifié » : POST ?taskId=...
@@ -18,13 +20,14 @@ import { alerter } from '@/lib/alerteSite';
 // commentaires « 🔁 Relance n° » depuis le dernier envoi (📩) ou la dernière pause (📅).
 // Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @commercial (src/lib/alerteSite.ts).
 //   Le relais commence par la mention : les tentatives sont donc cherchées dans le texte (includes), pas en début.
+// 06/11/2026 (Phase 9, lot 4, accord de Mathieu à 22 h 20) : la relance par mail depuis l'appli compte toute seule
+// (src/lib/relancesDevis.ts, même comptage, partagé) ; une valeur notée ici à la main (téléphone, AG, date convenue)
+// efface la relance par mail en attente sur la fiche.
 // Arrêt : fiche gagnée, perdue ou archivée. Sous-tâche : ignorée.
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches TEST uniquement).
 
 const CHAMP_SUIVI = '840aecae-652d-40e4-b39e-525d5d56cec1';
 const CHAMP_DATE = '482cfe42-351f-4030-8789-d2010e1605ca';
-const DELAI_OUVRES = 3;
-const MAX_TENTATIVES = 3;
 const DELAI_AG_INCONNUE = 30;
 
 const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -59,21 +62,6 @@ async function commenter(taskId: string, token: string, texte: string, notifier 
   const res = await api(token, `/task/${taskId}/comment`, 'POST', { comment_text: texte, notify_all: false });
   if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${taskId}`);
   return res.ok;
-}
-
-// Tentatives depuis le dernier envoi ou la dernière pause (les commentaires arrivent du plus récent au plus ancien)
-async function compterTentatives(taskId: string, token: string): Promise<number | null> {
-  const res = await api(token, `/task/${taskId}/comment`);
-  if (!res.ok) return null;
-  const json = await res.json().catch(() => ({}));
-  const liste: any[] = Array.isArray(json?.comments) ? json.comments : [];
-  let n = 0;
-  for (const c of liste) {
-    const t = String(c?.comment_text || '').trim();
-    if (t.startsWith('📩') || t.startsWith('📅')) break;
-    if (t.includes('🔁 Relance n°')) n++;
-  }
-  return n;
 }
 
 // Écriture de l'échéance, vérifiée par relecture (même jour à Paris)
@@ -136,10 +124,10 @@ async function traiter(taskId: string, simulation: boolean) {
         commentaire: `🔁 Relance n°${n} notée, toujours sans réponse. ⏸️ ${MAX_TENTATIVES} relances sans réponse : les relances automatiques sont suspendues. À toi de choisir : poursuivre, reprogrammer (« Date convenue ») ou mettre en pause. La fiche n'est pas classée en perdu.`,
       };
     } else {
-      const prochaine = ajouterJoursOuvres(aujourdhui, DELAI_OUVRES);
+      const prochaine = ajouterJoursOuvres(aujourdhui, DELAI_RELANCE_OUVRES);
       plan = {
         action: 'relance_notee', tentative: n, echeance: prochaine, vider: true,
-        commentaire: `🔁 Relance n°${n} notée le ${libelleJour(aujourdhui)}, sans réponse. Prochaine relance le ${libelleJour(prochaine)} (J+${DELAI_OUVRES} ouvrés).`,
+        commentaire: `🔁 Relance n°${n} notée le ${libelleJour(aujourdhui)}, sans réponse. Prochaine relance le ${libelleJour(prochaine)} (J+${DELAI_RELANCE_OUVRES} ouvrés).`,
       };
     }
   } else if (suivi.includes('ag')) {
@@ -182,7 +170,9 @@ async function traiter(taskId: string, simulation: boolean) {
   }
   await commenter(id, token, plan.commentaire, !!plan.notifier);
   const vide = plan.vider ? await viderSuivi(id, token) : true;
-  return { status: 200, body: { success: true, ...resume, menuVide: plan.vider ? vide : undefined } };
+  // Relance notée à la main (téléphone, AG, date convenue) : la relance par mail en attente n'a plus lieu d'être
+  const relanceEffacee = plan.action === 'date_manquante' ? false : await effacerRelanceEnAttente(token, tache).catch(() => false);
+  return { status: 200, body: { success: true, ...resume, menuVide: plan.vider ? vide : undefined, relanceEffacee } };
 }
 
 export async function POST(request: Request) {
