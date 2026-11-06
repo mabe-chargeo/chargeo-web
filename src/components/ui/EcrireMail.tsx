@@ -20,6 +20,8 @@
 // « Pièces jointes » avec les PDF de la fiche. Pour « Devis · envoi » (ouvert depuis la Suite de la vente), la brochure
 // projet est cochée d'office et l'envoi reste bloqué sans elle, sauf en RIC (brochure facultative) ; les devis viennent
 // de Costructor (GET …&devis=1) et leurs problèmes de lecture s'affichent avant l'envoi.
+// 06/11/2026 (suite du lot 3) : « Devis · validé », ouvert au gagné (Suite de la vente) avec le scénario retenu en
+// complément (complements.retenu) : le texte ne reprend que le devis de ce scénario.
 // Textes : src/lib/modelesMails.ts (seule source, décision du 05/11 à 20 h 57), envoi : /api/interne/mail.
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import { Check, FileText, Mail, Paperclip, Phone, RefreshCw, Send } from 'lucide-react';
@@ -134,11 +136,12 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
           setErreur(d?.error || `Lecture impossible (${res.status})`);
           return;
         }
-        // Compléments de l'écran : créneaux choisis, note d'accès quand la fiche n'en a pas
+        // Compléments de l'écran : créneaux choisis, note d'accès quand la fiche n'en a pas, scénario retenu au gagné
         const fiche: Donnees = d.donnees;
         const donnees: Donnees = {
           ...fiche,
           ...(complements?.creneaux?.length ? { creneaux: complements.creneaux } : {}),
+          ...(complements?.retenu ? { retenu: complements.retenu } : {}),
           acces: String(fiche?.acces || complements?.acces || ''),
         };
         const lu: Infos = {
@@ -179,6 +182,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const choix = attendu ? MODELES.filter((m) => textesPour(attendu).includes(m.cle)) : MODELES;
   const crochets = crochetsDe(objet) + crochetsDe(texte);
   const devisEnvoi = cle === 'devis-envoi';
+  const mailDevis = cle.startsWith('devis');
   const brochureFacultative = infos?.donnees.segment === 'RIC';
   const brochureManque = devisEnvoi && !brochureFacultative && !(infos?.pieces || []).some((p) => p.brochure && choisies.includes(p.id));
   const pret = !!infos?.branche && !!infos?.peutEnvoyer && !!a.trim() && !!objet.trim() && !!texte.trim() && crochets === 0 && !brochureManque;
@@ -289,7 +293,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
       )}
       {!infos.branche && <Alerte>Envoi pas encore branché : la clé Google des mails est absente dans Vercel.</Alerte>}
       {!infos.peutEnvoyer && <Alerte>L&apos;envoi est réservé à la direction, au commercial, au chargé d&apos;opération et au back-office.</Alerte>}
-      {devisEnvoi && infos.devisProblemes.length > 0 && (
+      {mailDevis && infos.devisProblemes.length > 0 && (
         <Alerte>
           <span className="block font-semibold">À regarder dans Costructor avant l&apos;envoi :</span>
           {infos.devisProblemes.map((p) => <span key={p} className="block">• {p}</span>)}

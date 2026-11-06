@@ -19,7 +19,12 @@
 // 06/11/2026 (Phase 9, lot 3 ; décisions de Mathieu à 18 h 30, 18 h 34 et 21 h 16) : le bouton « 📩 Devis envoyé »
 // devient « ✉️ Envoyer le devis » (« Envoyer les devis » avec plusieurs scénarios). Il ouvre ici le mail « Devis · envoi »
 // déjà rempli avec Costructor, brochure projet jointe (src/components/ui/EcrireMail.tsx). La fiche passe en 📩 devis
-// envoyé seulement quand le mail part (route /api/interne/mail), plus jamais sans lui.
+// envoyé seulement quand le mail part (route /api/interne/mail), plus jamais sans lien.
+// 06/11/2026 (suite du lot 3, même règle : le bon mail au bon moment, décision du 05/11 à 21 h 56) : au gagné, après le
+// choix du scénario retenu, le bouton « Écrire le mail « Devis validé » » ouvre le mail de remerciement rempli avec le
+// devis retenu (acompte, Advenir, suite). La fiche passe en 🏆 gagné dès que ce mail est parti ; si le passage échoue
+// après l'envoi, un bouton « Réessayer » le relance sans renvoyer le mail. Le scénario retenu ne change plus pendant
+// l'écriture.
 import { useEffect, useState } from 'react';
 import { Check, Flame, Link2, Mail, RefreshCw, Send, Trophy, XCircle } from 'lucide-react';
 import { Carte, TitreCarte, Alerte, BoutonPrincipal, BoutonSecondaire, PastilleChoix as Pastille, CadreConfirmation, CHAMP, ETIQUETTE } from '@/components/charte/Appli';
@@ -60,6 +65,9 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
   const [retenu, setRetenu] = useState('');
   // Mail d'envoi des devis ouvert dans la carte (lot 3)
   const [ecrire, setEcrire] = useState(false);
+  // Mail « Devis · validé » ouvert dans la confirmation du gagné, puis parti (suite du lot 3)
+  const [ecrireValide, setEcrireValide] = useState(false);
+  const [valideParti, setValideParti] = useState(false);
 
   const prendreScenarios = (l: Scenario[] | undefined) => {
     const m: Record<string, string> = {};
@@ -128,17 +136,25 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
   const aTrancher = scenarios.filter((x) => !x.retenu);
   const avecLien = aTrancher.filter((x) => x.lien);
   const retenuEffectif = retenu && avecLien.some((x) => x.id === retenu) ? retenu : avecLien.length === 1 ? avecLien[0].id : '';
+  // Nom du scénario retenu, pour le mail « Devis · validé » (il ne garde que le devis de ce scénario)
+  const nomRetenu = avecLien.find((x) => x.id === retenuEffectif)?.nom || scenarios.find((x) => x.retenu)?.nom || '';
   const libelleEnvoi = aTrancher.length > 1 ? '✉️ Envoyer les devis' : '✉️ Envoyer le devis';
 
-  const passer = async (statut: 'envoye' | 'negociation' | 'gagne' | 'perdu') => {
+  const passer = async (statut: 'envoye' | 'negociation' | 'gagne' | 'perdu', avant = '') => {
     setEnvoi(true);
     setErreur('');
     setMessage('');
     const { ok, j } = await poster({ id: ficheId, action: 'statut', statut, motif, retenu: statut === 'gagne' ? retenuEffectif : undefined });
-    if (!ok) { setErreur(j?.error || 'Le statut n’a pas changé.'); setEnvoi(false); return; }
+    if (!ok) {
+      setErreur(`${avant}${j?.error || 'Le statut n’a pas changé.'}`);
+      setEnvoi(false);
+      return;
+    }
     setE({ ...e, statut: String(j.statut || e.statut), motif: String(j.motif || e.motif) });
     setConfirmer(null);
-    setMessage(`Fiche passée en ${j.statut}${j.retenu ? `, scénario retenu : ${j.retenu}` : ''}.`);
+    setEcrireValide(false);
+    setValideParti(false);
+    setMessage(`${avant}Fiche passée en ${j.statut}${j.retenu ? `, scénario retenu : ${j.retenu}` : ''}.`);
     setEnvoi(false);
     onChange?.();
   };
@@ -155,6 +171,7 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
     }
     setEnvoi(false);
   };
+  const MAIL_VALIDE_PARTI = 'Mail « Devis validé » envoyé. ';
 
   return (
     <Carte accent className="space-y-3">
@@ -218,16 +235,41 @@ export function Vente({ ficheId, partie, onChange }: { ficheId: string; partie: 
             <div className="space-y-2">
               <p className={ETIQUETTE}>Scénario retenu</p>
               <div className="flex flex-wrap gap-2">
-                {avecLien.map((x) => <Pastille key={x.id} actif={retenuEffectif === x.id} onClick={() => setRetenu(x.id)}>{x.nom}</Pastille>)}
+                {avecLien.map((x) => <Pastille key={x.id} actif={retenuEffectif === x.id} onClick={() => { if (!ecrireValide) setRetenu(x.id); }}>{x.nom}</Pastille>)}
               </div>
             </div>
           )}
           {avecLien.length === 1 && <p className="text-[14px]">Scénario retenu : <strong>{avecLien[0].nom}</strong>.</p>}
           {(() => {
             const bloque = envoi || (aTrancher.length > 0 && !retenuEffectif);
-            return <BoutonPrincipal type="button" onClick={() => passer('gagne')} disabled={bloque} inactif={bloque}><Trophy size={20} /> {envoi ? 'Envoi…' : 'Confirmer : gagné'}</BoutonPrincipal>;
+            if (!ecrireValide) {
+              return (
+                <>
+                  <BoutonPrincipal type="button" onClick={() => setEcrireValide(true)} disabled={bloque} inactif={bloque}><Mail size={20} /> Écrire le mail « Devis validé »</BoutonPrincipal>
+                  <p className="px-1 text-[12px] text-slate-500">Le mail de remerciement reprend le devis du scénario retenu (acompte, Advenir, suite). Le projet passe en 🏆 gagné dès qu’il est parti.</p>
+                  <BoutonSecondaire compact onClick={() => setConfirmer(null)} disabled={envoi}>Annuler</BoutonSecondaire>
+                </>
+              );
+            }
+            return (
+              <>
+                <EcrireMail
+                  key={retenuEffectif || 'seul'}
+                  ficheId={ficheId}
+                  modele="devis-valide"
+                  fixe
+                  complements={{ retenu: nomRetenu }}
+                  onEnvoye={() => { setValideParti(true); passer('gagne', MAIL_VALIDE_PARTI); }}
+                />
+                {!valideParti && <BoutonSecondaire compact onClick={() => setEcrireValide(false)} disabled={envoi}>Fermer le mail sans l’envoyer</BoutonSecondaire>}
+                {valideParti && erreur && (
+                  <BoutonPrincipal type="button" onClick={() => passer('gagne', MAIL_VALIDE_PARTI)} disabled={envoi} inactif={envoi}>
+                    {envoi ? <RefreshCw size={20} className="animate-spin" /> : <Trophy size={20} />} Réessayer : passer en gagné
+                  </BoutonPrincipal>
+                )}
+              </>
+            );
           })()}
-          <BoutonSecondaire compact onClick={() => setConfirmer(null)} disabled={envoi}>Annuler</BoutonSecondaire>
         </CadreConfirmation>
       )}
 
