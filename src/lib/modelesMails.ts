@@ -40,10 +40,14 @@
 // 06/11/2026 (lot 4, choix de Mathieu à 23 h 43 : pièces prises dans le Drive) : « Documents administratifs » (modèle 20
 // du 02/11), ouvert depuis la page blanche du bloc Contact (étape « Administratif »), à toute étape de la fiche. La liste
 // du mail est celle des documents cochés dans 01_DOSSIER_ENTREPRISE (src/lib/dossierEntreprise.ts), sans crochet.
-// 07/11/2026 (lot 4, accord de Mathieu à 10 h 22) : « Facture · relance », en tête de l'écran de la facture le jour des
-// relances 1 (J+3) et 2 (J+10) après le paiement dû (src/lib/factureMail.ts). N°, type, montant TTC ou reste dû,
-// échéance et lien en ligne remplis par l'appli ; une phrase à écrire. La 2e relance est plus ferme et demande la date
-// prévue du règlement. La relance 3 (J+15) reste l'appel du back-office.
+// 07/11/2026 (lot 4, accord de Mathieu à 10 h 22) : « Facture · relance » (modèles 23 et 24 du 02/11), en tête de l'écran
+// de la facture le jour des relances 1 (J+3) et 2 (J+10) après le paiement dû (src/lib/factureMail.ts). N°, type,
+// montant TTC ou reste dû, échéance et lien en ligne remplis par l'appli, IBAN des modèles du 02/11 ; une phrase à
+// écrire. La 2e relance est plus ferme et demande la date prévue du règlement. La relance 3 (J+15) reste l'appel du
+// back-office.
+// 07/11/2026 (lot 4, accord de Mathieu à 10 h 55) : « Facture · envoi », sur l'écran de la facture dès qu'elle est émise,
+// un seul texte qui suit le type : acompte (copropriété : après le vote de l'AG), assistance Enedis, solde (avec la
+// ligne Advenir quand le chantier a un dossier Advenir), situation. Sans crochet, PDF de la facture joint.
 // Fichier pur (aucun accès réseau) : lu par l'écriture des mails (EcrireMail), la route /api/interne/mail, Caler et
 // l'agenda Google (villeDe).
 
@@ -73,10 +77,10 @@ export type DevisMail = {
     prix: string[];
   };
 };
-// Facture à relancer (lot 4, 07/11, src/lib/factureMail.ts, donneesFacture)
+// Facture à envoyer ou à relancer (lot 4, 07/11, src/lib/factureMail.ts, donneesFacture)
 export type FactureMail = {
   numero: string;
-  genre: string; // acompte, solde, situation ou ''
+  genre: string; // acompte, solde, situation, amo (assistance Enedis) ou ''
   ttc: number | null; // montant TTC lu dans Costructor
   reste: number | null; // reste dû lu dans Costructor
   partielle: boolean;
@@ -84,6 +88,7 @@ export type FactureMail = {
   rappel: number; // 1 (J+3) ou 2 (J+10)
   lien: string; // facture en ligne dans Costructor, '' si introuvable
   jointe: boolean; // un PDF est sur la tâche de la facture
+  advenir: boolean; // le chantier a un dossier Advenir (COP et PAR : toujours)
 };
 export type Donnees = {
   nomFiche: string;
@@ -115,12 +120,12 @@ export type Donnees = {
   lienAvis?: string;
   // Documents administratifs (lot 4) : lignes des documents cochés (« Kbis du 8 octobre 2026 »), données par l'écran
   documents?: string[];
-  // Relance de facture (lot 4, 07/11)
+  // Mails de facture (lot 4, 07/11)
   facture?: FactureMail;
 };
 export type Etape = 'Nouvelle demande' | 'Visite technique' | 'Administratif' | 'Devis' | 'Après chantier' | 'Facturation';
 // Étapes proposées sur la page blanche du bloc Contact. Les mails de devis s'écrivent depuis la Suite de la vente, avec
-// leurs données Costructor, l'avis Google depuis la fiche du Parc et la relance de facture depuis l'écran de la facture :
+// leurs données Costructor, l'avis Google depuis la fiche du Parc et les mails de facture depuis l'écran de la facture :
 // ils ne sont pas dans cette liste.
 export const ETAPES: Etape[] = ['Nouvelle demande', 'Visite technique', 'Administratif'];
 export type Modele = {
@@ -765,10 +770,13 @@ function corpsDocuments(d: Donnees): string {
   );
 }
 
-// ── Relance de facture (lot 4, accord de Mathieu du 07/11 à 10 h 22) ──
-// Relance 1 (J+3) : rappel courtois ; relance 2 (J+10) : plus ferme, demande la date prévue du règlement. Une phrase à
-// écrire. Montant TTC (ou reste dû si la facture est réglée en partie) lu dans Costructor, sinon un crochet.
-const GENRES_FACTURE: Record<string, string> = { acompte: "d'acompte ", solde: 'de solde ', situation: 'de situation ' };
+// ── Mails de facture (lot 4, accords de Mathieu du 07/11 à 10 h 22 et 10 h 55) ──
+// IBAN des modèles 23 et 24 du 02/11 ; montant TTC (ou reste dû si la facture est réglée en partie) lu dans Costructor,
+// sinon un crochet.
+const IBAN = 'FR76 1382 5002 0008 0214 7764 481';
+const VIREMENT_FACTURE = `Le règlement se fait par virement, avec le n° de la facture en référence :\nIBAN ${IBAN}`;
+const GENRES_FACTURE: Record<string, string> = { acompte: "d'acompte ", solde: 'de solde ', situation: 'de situation ', amo: "d'assistance Enedis " };
+const LIBELLES_FACTURE: Record<string, string> = { acompte: "facture d'acompte", solde: 'facture de solde', situation: 'facture de situation', amo: "facture d'assistance Enedis" };
 const CRO_FACTURE = '[Ta phrase : un mot sur le chantier ou sur votre dernier échange]';
 function quelleFacture(f: FactureMail): string {
   return `notre facture ${GENRES_FACTURE[f.genre] || ''}${f.numero ? `n° ${f.numero}` : ''}`.trim();
@@ -780,6 +788,64 @@ function accesFacture(f: FactureMail): string | null {
   if (f.lien) return `Elle se consulte en ligne : ${f.lien}`;
   return null;
 }
+const sansFacture = (d: Donnees) => texteDe(bonjour(salutDevis(d)), '', '[Facture introuvable : ouvre ce mail depuis l’écran de la facture]', '', 'Bien cordialement,');
+
+// Envoi (accord de Mathieu du 07/11 à 10 h 55) : un seul texte qui suit le type de facture, sans crochet
+function objetEnvoiFacture(d: Donnees): string {
+  const f = d.facture;
+  const quoi = LIBELLES_FACTURE[f?.genre || ''] || 'facture';
+  const res = residence(d);
+  const copro = d.segment === 'COP' || d.segment === 'PAR';
+  return `${copro && res ? `${res} : ${quoi}` : `Votre ${quoi}`}${f?.numero ? ` n° ${f.numero}` : ''}`;
+}
+function corpsEnvoiFacture(d: Donnees): string {
+  const f = d.facture;
+  if (!f) return sansFacture(d);
+  const copro = d.segment === 'COP' || d.segment === 'PAR';
+  const quoi = LIBELLES_FACTURE[f.genre] || 'facture';
+  const num = f.numero ? ` n° ${f.numero}` : '';
+  const montant = `d'un montant de ${f.ttc !== null ? euros(f.ttc) : '[montant]'} TTC`;
+  const quand = f.echeance ? `à régler avant le ${dateLongue(f.echeance)}` : 'à régler à réception';
+  const intro = f.genre === 'amo'
+    ? `Comme convenu, voici notre ${quoi}${num}, ${montant}, ${quand}.`
+    : f.genre === 'acompte'
+      ? copro
+        ? `Suite à l'autorisation des travaux par l'assemblée générale, voici notre ${quoi} de 50 %${num}, ${montant}, ${quand}.`
+        : `Comme convenu, voici notre ${quoi} de 50 %${num}, ${montant}, ${quand}.`
+      : f.genre === 'solde'
+        ? `Votre installation est terminée, et nous vous remercions encore pour votre confiance. Voici notre ${quoi}${num}, ${montant}, ${quand}.`
+        : f.genre === 'situation'
+          ? `Voici notre ${quoi}${num}, qui correspond à l'avancement des travaux, ${montant}, ${quand}.`
+          : `Voici notre facture${num}, ${montant}, ${quand}.`;
+  const suite = f.genre === 'amo'
+    ? "La demande est lancée auprès d'Enedis : nous vous tiendrons au courant de chaque étape."
+    : f.genre === 'acompte'
+      ? copro
+        ? `Nous déposons maintenant le dossier de prime Advenir${d.segment === 'COP' ? ' « infrastructure collective »' : ''}. Les travaux ne démarreront qu'après sa validation, sinon ils ne pourraient pas être subventionnés.`
+        : `Le solde sera facturé à la fin des travaux. ${f.advenir ? 'Nous reviendrons vers vous dès la validation du dossier Advenir pour fixer la date de pose.' : "Dès réception de l'acompte, nous reviendrons vers vous pour fixer ensemble la date de pose."}`
+      : f.genre === 'solde' && f.advenir
+        ? 'Dès réception du règlement, nous transmettons la facture acquittée à Advenir pour le versement de la prime, si le dossier est accepté.'
+        : null;
+  const acces = accesFacture(f);
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    intro,
+    '',
+    suite,
+    suite ? '' : null,
+    acces,
+    acces ? '' : null,
+    VIREMENT_FACTURE,
+    '',
+    'Pour toute question, il vous suffit de répondre à ce mail.',
+    '',
+    'Bien cordialement,',
+  );
+}
+
+// Relance (accord de Mathieu du 07/11 à 10 h 22 ; modèles 23 et 24 du 02/11) : relance 1 (J+3) courtoise, relance 2
+// (J+10) plus ferme, qui demande la date prévue du règlement. Une phrase à écrire.
 function objetFacture(d: Donnees): string {
   const f = d.facture;
   const quoi = f?.numero ? `Facture ${f.numero}` : 'Votre facture CHARGéO';
@@ -787,13 +853,12 @@ function objetFacture(d: Donnees): string {
 }
 function corpsFacture(d: Donnees): string {
   const f = d.facture;
-  if (!f) return texteDe(bonjour(salutDevis(d)), '', '[Facture introuvable : ouvre ce mail depuis l’écran de la facture]', '', 'Bien cordialement,');
+  if (!f) return sansFacture(d);
   const quelle = quelleFacture(f);
   const echeance = f.echeance ? `, arrivée à échéance le ${dateLongue(f.echeance)}` : '';
   const ttc = f.ttc !== null ? euros(f.ttc) : '[montant]';
   const reste = f.reste !== null ? euros(f.reste) : '[montant restant dû]';
   const acces = accesFacture(f);
-  const virement = 'Le règlement se fait par virement, avec le n° de la facture en référence ; nos coordonnées bancaires figurent sur la facture.';
   if ((f.rappel || 1) >= 2) {
     return texteDe(
       bonjour(salutDevis(d)),
@@ -808,7 +873,7 @@ function corpsFacture(d: Donnees): string {
       acces ? '' : null,
       'Pourriez-vous nous indiquer la date prévue du règlement ? Si une difficulté se présente, parlons-en simplement : nous trouverons volontiers une solution ensemble.',
       '',
-      virement,
+      VIREMENT_FACTURE,
       '',
       'Si votre règlement est déjà parti, merci de ne pas tenir compte de ce message.',
       '',
@@ -828,7 +893,7 @@ function corpsFacture(d: Donnees): string {
     '',
     acces,
     acces ? '' : null,
-    virement,
+    VIREMENT_FACTURE,
     '',
     'Si votre règlement est déjà parti, merci de ne pas tenir compte de ce message, et pardonnez-nous ce rappel.',
     '',
@@ -1171,6 +1236,18 @@ export const MODELES: Modele[] = [
     cc: () => [],
     objet: (d) => `Votre installation de recharge${aCommune(d)} : votre avis sur CHARGéO`,
     corps: corpsAvis,
+  },
+  {
+    // Lot 4 (07/11) : sur l'écran de la facture dès qu'elle est émise ; nom lu par src/lib/factureMail.ts (ne pas le changer)
+    cle: 'facture-envoi',
+    nom: 'Facture · envoi',
+    court: 'Envoi facture',
+    etape: 'Facturation',
+    reponse: false,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetEnvoiFacture,
+    corps: corpsEnvoiFacture,
   },
   {
     // Lot 4 (07/11) : sur l'écran de la facture le jour des relances 1 (J+3) et 2 (J+10) ; parti, il compte comme la relance
