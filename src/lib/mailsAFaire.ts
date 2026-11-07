@@ -15,11 +15,14 @@
 // « Prévenu par téléphone » (seulement sans adresse mail). Tant qu'il est posé, la fiche affaire montre le mail en tête
 // et la fiche remonte dans « Mails à envoyer » (Pipeline et Ma journée).
 // Bloquant : tous les mails bloquent la suite de la fiche, SAUF les relances de devis (06/11, 22 h 20 : la relance ne
-// bloque jamais le bouton Gagné) et l'avis Google. Une relance en attente s'efface aussi quand 🔁 Suivi relance est noté
-// à la main (téléphone, AG, date convenue), quand un autre mail de devis part (envoi, validé), et au contrôle quotidien
-// quand la fiche n'est plus en devis envoyé ni en négociation.
+// bloque jamais le bouton Gagné), l'avis Google et la relance de facture. Une relance en attente s'efface aussi quand
+// 🔁 Suivi relance est noté à la main (téléphone, AG, date convenue), quand un autre mail de devis part (envoi, validé),
+// et au contrôle quotidien quand la fiche n'est plus en devis envoyé ni en négociation.
 // Avis Google (06/11/2026, lot 4, accords de Mathieu à 23 h 13 et 23 h 25) : fiche du Parc, sans ce champ. Le mail
 // « avis-google » est déduit de la sous-tâche ⭐ dont le rappel est arrivé (src/lib/avisGoogle.ts, avisAEnvoyer) ; il ne
+// bloque rien.
+// Relance de facture (07/11/2026, lot 4, accord de Mathieu à 10 h 22) : tâche de Factures Clients, sans ce champ. Le
+// mail « facture-relance » est déduit du rappel de relance arrivé (src/lib/factureMail.ts, factureAEnvoyer) ; il ne
 // bloque rien.
 // Fichier sans import : lu par l'écran (textesPour, bloquant) comme par les routes.
 
@@ -38,7 +41,9 @@ export const RELANCES = ['devis-relance', 'devis-derniere-relance'];
 export const estRelance = (cle: string | null | undefined) => RELANCES.includes(String(cle || ''));
 // Avis Google (lot 4) : non bloquant
 export const AVIS = 'avis-google';
-const NON_BLOQUANTS = [...RELANCES, AVIS];
+// Relance de facture (lot 4, 07/11) : non bloquante
+export const FACTURE = 'facture-relance';
+const NON_BLOQUANTS = [...RELANCES, AVIS, FACTURE];
 export const bloquant = (cle: string | null | undefined) => !!cle && !NON_BLOQUANTS.includes(String(cle));
 // Fiche en vente où l'on relance : 📩 devis envoyé ou 🔥 en négociation
 export const enRelance = (statut: unknown) => {

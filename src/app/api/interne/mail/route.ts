@@ -11,6 +11,7 @@ import { noterRelanceParMail, relancesApresRevision } from '@/lib/relancesDevis'
 import { CLE_MAIL_AVIS, LIEN_AVIS, avisAEnvoyer, noterRappelAvis } from '@/lib/avisGoogle';
 import { listerDocuments, telechargerDocument } from '@/lib/dossierEntreprise';
 import { listerBrochures, telechargerBrochure } from '@/lib/brochuresGithub';
+import { CLE_MAIL_FACTURE, affaireDe, clientDeFacture, donneesFacture, estFacture, factureAEnvoyer, noterRelanceFacture } from '@/lib/factureMail';
 import {
   EXPEDITEUR,
   MAX_DESTINATAIRES,
@@ -51,7 +52,7 @@ import {
 //   aussi coder comme ça », 21 h 16, sur la proposition qui bloquait l'envoi sans brochure) ;
 // - une fois ce mail parti, la fiche en 📝 devis à faire passe en 📩 devis envoyé (18 h 30 : « seulement quand le mail
 //   part »). Le report des devis et la relance J+3 partent ensuite de l'aiguillage, comme pour le bouton d'avant.
-// Lot 4 (06/11/2026, accords de Mathieu à 22 h 20, 22 h 42, 23 h 13, 23 h 25 et 23 h 43 ; 07/11 à 0 h 00) :
+// Lot 4 (06/11/2026, accords de Mathieu à 22 h 20, 22 h 42, 23 h 13, 23 h 25 et 23 h 43 ; 07/11 à 0 h 00 et 10 h 22) :
 // - les devis sont aussi lus quand la fiche attend un mail de devis (relance posée par le contrôle quotidien) ;
 // - « Devis · relance » ou « Devis · dernière relance » parti : la relance est comptée (prochaine à J+3 ouvrés,
 //   suspension à la 3e), sans rien noter dans 🔁 Suivi relance (src/lib/relancesDevis.ts) ;
@@ -65,7 +66,10 @@ import {
 //   les documents cochés (ids « drive:… », relus ici), et « Documents administratifs » exige au moins l'un d'eux ;
 // - avec les devis, GET propose les brochures projet du dépôt GitHub chargeo-brochures (src/lib/brochuresGithub.ts),
 //   celle de la fiche en tête ; POST les joint (ids « gh:… », relues ici). Une brochure GitHub vaut la brochure déposée
-//   sur la fiche pour la règle de l'envoi du devis.
+//   sur la fiche pour la règle de l'envoi du devis ;
+// - tâche de Factures Clients dont la relance 1 (J+3) ou 2 (J+10) est arrivée (src/lib/factureMail.ts) : mail en
+//   attente « facture-relance », rempli avec la facture (Costructor) et le client du chantier relié ; parti (ou client
+//   appelé faute d'adresse), il compte comme la relance (Relances envoyées + 1, rappel suivant programmé).
 // Préversion : le mail part seulement à l'adresse ClickUp de la personne connectée, avec [TEST] dans l'objet et les
 // destinataires prévus en tête du texte. Aucun client ne le reçoit. La réponse dans le fil, l'effacement du mail
 // obligatoire, le passage en devis envoyé, les relances et les rappels d'avis n'y sont faits que sur une fiche de test
@@ -212,8 +216,23 @@ async function donneesDe(token: string, t: any): Promise<Donnees> {
   };
 }
 
-// Mail en attente : celui du champ ✉️ Mail à envoyer (vente), sinon l'avis Google d'une fiche du Parc
+// Facture (lot 4, 07/11) : le client vient du chantier relié par 🔗 Affaire, la facture de la tâche et de Costructor.
+// avecCostructor = false : sans montant ni lien (contrôle d'adresse du « Prévenu par téléphone »).
+async function donneesFactureDe(token: string, t: any, avecCostructor = true): Promise<{ d: Donnees; problemes: string[] }> {
+  const id = affaireDe(t);
+  const affaire = id ? await lireTache(token, id) : null;
+  const d = affaire ? await donneesDe(token, affaire) : await donneesDe(token, { ...t, name: clientDeFacture(t) || t?.name, custom_fields: [] });
+  d.brochure = false;
+  const lu = await donneesFacture(t, avecCostructor);
+  d.facture = { ...lu.facture, jointe: piecesDe(t).length > 0 };
+  const problemes = [...(affaire ? [] : ['chantier relié introuvable (🔗 Affaire vide) : écris l’adresse du client à la main']), ...lu.problemes];
+  return { d, problemes };
+}
+
+// Mail en attente : celui du champ ✉️ Mail à envoyer (vente), sinon l'avis Google d'une fiche du Parc, ou la relance
+// d'une facture
 async function attenduDe(token: string, t: any): Promise<{ cle: string; avis: Awaited<ReturnType<typeof avisAEnvoyer>> }> {
+  if (estFacture(t)) return { cle: factureAEnvoyer(t) ? CLE_MAIL_FACTURE : '', avis: null };
   const champ = mailAFaire(t);
   if (champ) return { cle: champ, avis: null };
   const avis = await avisAEnvoyer(t, token).catch(() => null);
@@ -228,11 +247,16 @@ export async function GET(request: Request) {
     const id = url.searchParams.get('fiche') || '';
     const tache = await lireTache(a.token, id);
     if (!tache) return json({ success: false, error: 'Fiche introuvable' }, 404);
+    const facture = estFacture(tache);
     // Devis lus pour un mail de devis : demandé par l'écran, ou mail de devis en attente sur la fiche (relance)
-    const avecDevis = url.searchParams.get('devis') === '1' || mailAFaire(tache).startsWith('devis');
+    const avecDevis = !facture && (url.searchParams.get('devis') === '1' || mailAFaire(tache).startsWith('devis'));
     // Documents du dossier entreprise (Drive) : demandés par l'écran (page blanche, documents administratifs)
     const avecDocuments = url.searchParams.get('documents') === '1';
-    const [donnees, attendu] = await Promise.all([donneesDe(a.token, tache), attenduDe(a.token, tache)]);
+    const [lu, attendu] = await Promise.all([
+      facture ? donneesFactureDe(a.token, tache) : donneesDe(a.token, tache).then((d) => ({ d, problemes: [] as string[] })),
+      attenduDe(a.token, tache),
+    ]);
+    const donnees = lu.d;
     if (attendu.avis) {
       donnees.avisRappel = attendu.avis.rappel;
       donnees.miseEnService = attendu.avis.miseEnService;
@@ -275,6 +299,8 @@ export async function GET(request: Request) {
       // Brochures projet du dépôt GitHub, celle de la fiche en tête
       brochures: lesBrochures?.brochures || [],
       brochuresProbleme: lesBrochures?.probleme || '',
+      // Relance de facture : ce qui manque pour remplir le texte
+      factureProblemes: lu.problemes,
     });
   } catch (e) {
     console.error('Mail (lecture)', e);
@@ -301,9 +327,16 @@ export async function POST(request: Request) {
       const phrase = texte(corps?.phrase).replace(/\s+/g, ' ').slice(0, 1000);
       if (phrase.length < 10) return json({ success: false, error: 'Écris en une phrase ce que tu as dit au client.' }, 400);
       const m = modeleDe(attendu);
-      if (m && remplir(m, await donneesDe(a.token, tache)).a.length) return json({ success: false, error: 'La fiche a une adresse mail pour ce mail : il doit partir par mail.' }, 400);
+      const facture = estFacture(tache);
+      const pourAdresse = facture ? (await donneesFactureDe(a.token, tache, false)).d : await donneesDe(a.token, tache);
+      if (m && remplir(m, pourAdresse).a.length) return json({ success: false, error: 'La fiche a une adresse mail pour ce mail : il doit partir par mail.' }, 400);
       const note = await commenter(a.token, String(tache.id), `📞 Prévenu par téléphone à la place du mail « ${m?.nom || attendu} », par ${auteur} · ${maintenantParis()}\n${phrase}`);
       if (!note) return json({ success: false, error: 'ClickUp a refusé la note : rien n’est réglé, réessaie.' }, 502);
+      // Relance de facture : l'appel compte comme la relance
+      if (facture) {
+        const r = await noterRelanceFacture(a.token, tache, 'telephone', auteur);
+        return json({ success: true, telephone: true, avertissement: r.probleme ? `Appel noté, mais ${r.probleme} : préviens Mathieu.` : undefined });
+      }
       // Avis Google : l'appel compte comme le rappel
       if (avis) {
         const r = await noterRappelAvis(a.token, tache, 'telephone');
@@ -464,7 +497,14 @@ export async function POST(request: Request) {
       avis = { n: r.n, prochain: r.prochain, fin: r.fin };
       if (r.probleme) avertissements.push(`Mail envoyé, mais le rappel n’est pas compté entièrement (${r.probleme}) : préviens Mathieu.`);
     }
-    return json({ success: true, preview, envoyeA: envoi.a, dansLeFil, regle: regleOk, statut, relance, relanceRepart, avis, pieces: pieces.map((p) => p.nom), avertissement: avertissements.join(' ') || undefined });
+    // Relance de facture partie le jour du rappel : comptée comme la relance (lot 4, 07/11, 10 h 22)
+    let relanceFacture: { n: number; prochaine: string } | undefined;
+    if (cleTexte === CLE_MAIL_FACTURE && surFicheModifiable && factureAEnvoyer(tache)) {
+      const r = await noterRelanceFacture(a.token, tache, 'mail', auteur);
+      relanceFacture = { n: r.n, prochaine: r.prochaine };
+      if (r.probleme) avertissements.push(`Mail envoyé, mais la relance n’est pas comptée entièrement (${r.probleme}) : préviens Mathieu.`);
+    }
+    return json({ success: true, preview, envoyeA: envoi.a, dansLeFil, regle: regleOk, statut, relance, relanceRepart, avis, relanceFacture, pieces: pieces.map((p) => p.nom), avertissement: avertissements.join(' ') || undefined });
   } catch (e) {
     console.error('Mail', e);
     return json({ success: false, error: 'Erreur serveur. Vérifie dans Gmail (contact@chargeo.fr, Envoyés) avant de renvoyer.' }, 500);
