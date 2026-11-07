@@ -11,6 +11,7 @@ import { noterRelanceParMail, relancesApresRevision } from '@/lib/relancesDevis'
 import { CLE_MAIL_AVIS, LIEN_AVIS, avisAEnvoyer, noterRappelAvis } from '@/lib/avisGoogle';
 import { listerDocuments, telechargerDocument } from '@/lib/dossierEntreprise';
 import { listerBrochures, telechargerBrochure } from '@/lib/brochuresGithub';
+import { estCandidat, lireCandidat, type InfosCandidat } from '@/lib/candidatMail';
 import {
   CLE_MAIL_FACTURE,
   CLE_MAIL_FACTURE_ENVOI,
@@ -83,6 +84,8 @@ import {
 //   Costructor : « facture-envoi » en attente tant que la facture émise n'est pas envoyée (la copie « Texte : Facture ·
 //   envoi » posée ici le prouve), puis « facture-relance » le jour des relances 1 (J+3) et 2 (J+10) ; une relance
 //   partie (ou un client appelé faute d'adresse) compte comme la relance (Relances envoyées + 1, rappel suivant).
+// Lot 5 (07/11/2026, accord de Mathieu à 11 h 15) : fiche d'un candidat (src/lib/candidatMail.ts) : le texte de son statut
+// est en attente tant que sa copie n'est pas sur la fiche ; poste, liste et disponibilité remplissent le texte.
 // Préversion : le mail part seulement à l'adresse ClickUp de la personne connectée, avec [TEST] dans l'objet et les
 // destinataires prévus en tête du texte. Aucun client ne le reçoit. La réponse dans le fil, l'effacement du mail
 // obligatoire, le passage en devis envoyé, les relances et les rappels d'avis n'y sont faits que sur une fiche de test
@@ -229,6 +232,17 @@ async function donneesDe(token: string, t: any): Promise<Donnees> {
   };
 }
 
+// Candidat (lot 5) : l'adresse peut venir d'un autre champ « Email » (liste Sales/Freelance)
+async function donneesCandidatDe(token: string, t: any): Promise<Donnees> {
+  const d = await donneesDe(token, t);
+  if (!d.email) {
+    const e = parNom(t, 'email');
+    if (estEmail(e)) d.email = e;
+  }
+  d.brochure = false;
+  return d;
+}
+
 // Facture (lot 4, 07/11) : le client et le dossier Advenir viennent du chantier relié par 🔗 Affaire, la facture de la
 // tâche et de Costructor. avecCostructor = false : sans montant ni lien (contrôle d'adresse du « Prévenu par téléphone »).
 async function donneesFactureDe(token: string, t: any, avecCostructor = true): Promise<{ d: Donnees; problemes: string[] }> {
@@ -246,12 +260,17 @@ async function donneesFactureDe(token: string, t: any, avecCostructor = true): P
   return { d, problemes };
 }
 
-// Mail en attente : sur une facture, l'envoi puis la relance ; sinon celui du champ ✉️ Mail à envoyer (vente), ou
-// l'avis Google d'une fiche du Parc
-async function attenduDe(token: string, t: any): Promise<{ cle: string; avis: Awaited<ReturnType<typeof avisAEnvoyer>> }> {
+type Attendu = { cle: string; avis: Awaited<ReturnType<typeof avisAEnvoyer>>; candidat?: InfosCandidat };
+// Mail en attente : sur une facture, l'envoi puis la relance ; sur un candidat, le texte de son statut ; sinon celui du
+// champ ✉️ Mail à envoyer (vente), ou l'avis Google d'une fiche du Parc
+async function attenduDe(token: string, t: any): Promise<Attendu> {
   if (estFacture(t)) {
     if (await envoiFactureAFaire(token, t).catch(() => false)) return { cle: CLE_MAIL_FACTURE_ENVOI, avis: null };
     return { cle: factureAEnvoyer(t) ? CLE_MAIL_FACTURE : '', avis: null };
+  }
+  if (estCandidat(t)) {
+    const c = await lireCandidat(token, t).catch(() => null);
+    return { cle: c?.cle || '', avis: null, candidat: c?.infos };
   }
   const champ = mailAFaire(t);
   if (champ) return { cle: champ, avis: null };
@@ -268,12 +287,15 @@ export async function GET(request: Request) {
     const tache = await lireTache(a.token, id);
     if (!tache) return json({ success: false, error: 'Fiche introuvable' }, 404);
     const facture = estFacture(tache);
+    const candidat = estCandidat(tache);
     // Devis lus pour un mail de devis : demandé par l'écran, ou mail de devis en attente sur la fiche (relance)
-    const avecDevis = !facture && (url.searchParams.get('devis') === '1' || mailAFaire(tache).startsWith('devis'));
-    // Documents du dossier entreprise (Drive) : demandés par l'écran (page blanche, documents administratifs)
+    const avecDevis = !facture && !candidat && (url.searchParams.get('devis') === '1' || mailAFaire(tache).startsWith('devis'));
+    // Documents du Drive : demandés par l'écran (page blanche, documents administratifs)
     const avecDocuments = url.searchParams.get('documents') === '1';
     const [lu, attendu] = await Promise.all([
-      facture ? donneesFactureDe(a.token, tache) : donneesDe(a.token, tache).then((d) => ({ d, problemes: [] as string[] })),
+      facture
+        ? donneesFactureDe(a.token, tache)
+        : (candidat ? donneesCandidatDe(a.token, tache) : donneesDe(a.token, tache)).then((d) => ({ d, problemes: [] as string[] })),
       attenduDe(a.token, tache),
     ]);
     const donnees = lu.d;
@@ -283,6 +305,7 @@ export async function GET(request: Request) {
       donnees.poseur = attendu.avis.poseur;
       donnees.lienAvis = LIEN_AVIS;
     }
+    if (attendu.candidat) donnees.candidat = attendu.candidat;
     const [exp, lus, lesDevis, lesDocuments, lesBrochures] = await Promise.all([
       expediteur(),
       filsAvec([donnees.email, donnees.gestionnaire?.email || '', donnees.contactSurPlace?.email || '']),
@@ -348,11 +371,16 @@ export async function POST(request: Request) {
       if (phrase.length < 10) return json({ success: false, error: 'Écris en une phrase ce que tu as dit au client.' }, 400);
       const m = modeleDe(attendu);
       const facture = estFacture(tache);
-      const pourAdresse = facture ? (await donneesFactureDe(a.token, tache, false)).d : await donneesDe(a.token, tache);
+      const candidat = estCandidat(tache);
+      const pourAdresse = facture
+        ? (await donneesFactureDe(a.token, tache, false)).d
+        : candidat ? await donneesCandidatDe(a.token, tache) : await donneesDe(a.token, tache);
       if (m && remplir(m, pourAdresse).a.length) return json({ success: false, error: 'La fiche a une adresse mail pour ce mail : il doit partir par mail.' }, 400);
-      // La note cite le nom du texte : pour l'envoi de facture, elle vaut envoi (src/lib/factureMail.ts)
+      // La note cite le nom du texte : pour l'envoi de facture et les candidats, elle vaut envoi
       const note = await commenter(a.token, String(tache.id), `📞 Prévenu par téléphone à la place du mail « ${m?.nom || attendu} », par ${auteur} · ${maintenantParis()}\n${phrase}`);
       if (!note) return json({ success: false, error: 'ClickUp a refusé la note : rien n’est réglé, réessaie.' }, 502);
+      // Candidat : la note suffit
+      if (candidat) return json({ success: true, telephone: true });
       // Facture : l'appel compte comme la relance (pour une relance seulement)
       if (facture) {
         if (attendu !== CLE_MAIL_FACTURE) return json({ success: true, telephone: true });
@@ -465,7 +493,7 @@ export async function POST(request: Request) {
     // Relance en attente rendue inutile par un autre mail de devis (envoi, validé, révisé, refus)
     if (!aRegler && estRelance(attendu) && cleTexte.startsWith('devis') && surFicheModifiable) await effacerMailAFaire(a.token, tache).catch(() => false);
 
-    // Copie sur la fiche (sur une facture, la ligne « Texte : Facture · envoi » marque la facture comme envoyée)
+    // Copie sur la fiche (la ligne « Texte : … » marque une facture comme envoyée et le mail d'un candidat comme parti)
     const lignes = [
       `✉️ Mail envoyé depuis l'appli par ${auteur} · ${maintenantParis()}`,
       `De : ${exp.nom} <${EXPEDITEUR}>`,
