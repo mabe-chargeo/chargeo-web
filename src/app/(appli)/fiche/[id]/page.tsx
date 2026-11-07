@@ -23,7 +23,7 @@
 // prochaine étape (Caler, Faire la visite), détails, liens (src/lib/ficheGabarit.ts), historique replié.
 // 18/10, 20 h 00 (Matthieu : « ton bouton… FaceTime, on avait travaillé là-dessus ») : plus de raccourcis tel: bruts.
 // Le contact passe par le bloc 📇 Contact validé : celui de l'affaire reliée (Parc, chantier, vente), et les mêmes
-// boutons (BoutonsContact : Appeler, Google Voice, SMS, Gmail ; Waze et Google Maps) sur les coordonnées de la fiche.
+// boutons (BoutonsContact : Appeler, Google Voice, SMS, Écrire ; Waze et Google Maps) sur les coordonnées de la fiche.
 // 18/10, 22 h 20 (maquette MAQUETTE_RAPPORT-SAV_2026-10-18.png validée par Matthieu) : un ticket SAV ouvert a le bouton
 // « 🛠️ Rapport d'intervention » (/sav/<id>/rapport) pour le chef de chantier, la direction et l'installateur ;
 // « Problème résolu » dans le rapport ferme le ticket.
@@ -43,6 +43,7 @@
 // 19/10/2026 : adresse /fiche/<id> (ex-/interne/element/<id>).
 // 07/11/2026 (Phase 9, lot 5, accord de Mathieu à 11 h 15) : une fiche de Recrutement affiche en tête le mail qui va avec
 // le statut du candidat (EcrireMail, src/lib/candidatMail.ts), non bloquant ; rien s'il est déjà parti.
+// 07/11/2026, 11 h 34 (lot 5) : plus de Gmail, « ✉️ Écrire » ouvre l'écran d'envoi de l'appli et copie le mail sur cette fiche.
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AlignLeft, CalendarPlus, Check, ChevronDown, ChevronRight, ExternalLink, FileText, Link2, ListChecks, Mail, MapPin, Navigation, Paperclip, PenLine, Phone, RefreshCw, Users } from 'lucide-react';
@@ -356,11 +357,11 @@ export default function ElementPage() {
               <Carte className="space-y-3">
                 <TitreCarte icon={Users}>{g.affaire ? '📇 Contact de cette fiche' : '📇 Contact'}</TitreCarte>
                 <div className="space-y-4">
-                  {(ct.tel || ct.email) && <BoutonsContact tel={ct.tel} email={ct.email} moi={g.moi} />}
+                  {(ct.tel || ct.email) && <BoutonsContact tel={ct.tel} email={ct.email} moi={g.moi} ficheId={element.id} />}
                   {ct.autres.map((x, i) => (
                     <div key={`${x.libelle}-${i}`} className="space-y-2">
                       <p className="text-[14px]"><strong>{x.libelle} :</strong> {x.tel || x.email}</p>
-                      <BoutonsContact tel={x.tel} email={x.email} moi={g.moi} />
+                      <BoutonsContact tel={x.tel} email={x.email} moi={g.moi} ficheId={element.id} />
                     </div>
                   ))}
                   {ct.adresse && (
