@@ -15,15 +15,18 @@
 // « Prévenu par téléphone » (seulement sans adresse mail). Tant qu'il est posé, la fiche affaire montre le mail en tête
 // et la fiche remonte dans « Mails à envoyer » (Pipeline et Ma journée).
 // Bloquant : tous les mails bloquent la suite de la fiche, SAUF les relances de devis (06/11, 22 h 20 : la relance ne
-// bloque jamais le bouton Gagné), l'avis Google et les mails de facture. Une relance en attente s'efface aussi quand
-// 🔁 Suivi relance est noté à la main (téléphone, AG, date convenue), quand un autre mail de devis part (envoi, validé),
-// et au contrôle quotidien quand la fiche n'est plus en devis envoyé ni en négociation.
+// bloque jamais le bouton Gagné), l'avis Google, les mails de facture et les mails aux candidats. Une relance en attente
+// s'efface aussi quand 🔁 Suivi relance est noté à la main (téléphone, AG, date convenue), quand un autre mail de devis
+// part (envoi, validé), et au contrôle quotidien quand la fiche n'est plus en devis envoyé ni en négociation.
 // Avis Google (06/11/2026, lot 4, accords de Mathieu à 23 h 13 et 23 h 25) : fiche du Parc, sans ce champ. Le mail
 // « avis-google » est déduit de la sous-tâche ⭐ dont le rappel est arrivé (src/lib/avisGoogle.ts, avisAEnvoyer) ; il ne
 // bloque rien.
 // Mails de facture (07/11/2026, lot 4, accords de Mathieu à 10 h 22 et 10 h 55) : tâche de Factures Clients, sans ce
 // champ. « facture-envoi » (facture émise pas encore envoyée) et « facture-relance » (rappel de relance arrivé) sont
 // déduits par src/lib/factureMail.ts ; ils ne bloquent rien.
+// Mails aux candidats (07/11/2026, lot 5, accord de Mathieu à 11 h 15) : fiche du candidat, sans ce champ. Le texte
+// « candidat-… » est déduit du statut (src/lib/candidatMail.ts) ; il ne bloque rien. Offre : salarié ou freelance ;
+// refus : sur CV ou après entretien, au choix.
 // Fichier sans import : lu par l'écran (textesPour, bloquant) comme par les routes.
 
 const API = 'https://api.clickup.com/api/v2';
@@ -44,8 +47,10 @@ export const AVIS = 'avis-google';
 // Mails de facture (lot 4, 07/11) : relance et envoi, non bloquants
 export const FACTURE = 'facture-relance';
 export const FACTURE_ENVOI = 'facture-envoi';
+// Mails aux candidats (lot 5, 07/11) : non bloquants
+export const estMailCandidat = (cle: string | null | undefined) => String(cle || '').startsWith('candidat-');
 const NON_BLOQUANTS = [...RELANCES, AVIS, FACTURE, FACTURE_ENVOI];
-export const bloquant = (cle: string | null | undefined) => !!cle && !NON_BLOQUANTS.includes(String(cle));
+export const bloquant = (cle: string | null | undefined) => !!cle && !NON_BLOQUANTS.includes(String(cle)) && !estMailCandidat(cle);
 // Fiche en vente où l'on relance : 📩 devis envoyé ou 🔥 en négociation
 export const enRelance = (statut: unknown) => {
   const s = normal(statut);
@@ -55,9 +60,15 @@ export const enRelance = (statut: unknown) => {
 // Textes qui règlent un mail obligatoire, au choix du commercial (le premier est celui qu'on propose d'abord)
 const PRISE_EN_CHARGE = ['prise-en-charge', 'prise-en-charge-gestionnaire', 'hors-zone'];
 const CONFIRMATION = ['visite-confirmation', 'visite-deplacee'];
+const OFFRES_CANDIDAT = ['candidat-offre-salarie', 'candidat-offre-freelance'];
+const REFUS_CANDIDAT = ['candidat-refus-cv', 'candidat-refus-entretien'];
+// Groupe de textes au choix, celui attendu en premier
+const enPremier = (attendu: string, l: string[]) => [attendu, ...l.filter((x) => x !== attendu)];
 export function textesPour(attendu: string): string[] {
   if (PRISE_EN_CHARGE.includes(attendu)) return PRISE_EN_CHARGE;
   if (CONFIRMATION.includes(attendu)) return attendu === 'visite-deplacee' ? ['visite-deplacee', 'visite-confirmation'] : CONFIRMATION;
+  if (OFFRES_CANDIDAT.includes(attendu)) return enPremier(attendu, OFFRES_CANDIDAT);
+  if (REFUS_CANDIDAT.includes(attendu)) return enPremier(attendu, REFUS_CANDIDAT);
   return attendu ? [attendu] : [];
 }
 export const regle = (attendu: string, envoye: string) => !!attendu && !!envoye && textesPour(attendu).includes(envoye);

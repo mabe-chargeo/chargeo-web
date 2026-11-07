@@ -48,6 +48,10 @@
 // 07/11/2026 (lot 4, accord de Mathieu à 10 h 55) : « Facture · envoi », sur l'écran de la facture dès qu'elle est émise,
 // un seul texte qui suit le type : acompte (copropriété : après le vote de l'AG), assistance Enedis, solde (avec la
 // ligne Advenir quand le chantier a un dossier Advenir), situation. Sans crochet, PDF de la facture joint.
+// 07/11/2026 (lot 5, accord de Mathieu à 11 h 15) : 9 textes « Candidat · … », proposés sur la fiche du candidat selon
+// son statut (src/lib/candidatMail.ts). Aucun modèle n'existait : textes écrits au « nous », vouvoiement, aucun
+// document demandé, standard de CHARGéO et adresse du dépôt (page chargeo.fr/recrutement). Crochets : ce que seul le
+// recruteur sait (date et heure, contrat, rémunération, date limite de réponse).
 // Fichier pur (aucun accès réseau) : lu par l'écriture des mails (EcrireMail), la route /api/interne/mail, Caler et
 // l'agenda Google (villeDe).
 
@@ -90,6 +94,13 @@ export type FactureMail = {
   jointe: boolean; // un PDF est sur la tâche de la facture
   advenir: boolean; // le chantier a un dossier Advenir (COP et PAR : toujours)
 };
+// Candidat (lot 5, 07/11, src/lib/candidatMail.ts, lireCandidat)
+export type CandidatMail = {
+  poste: string; // « poseur de bornes de recharge », « électricien », « chef d’équipe », « commercial »
+  commercial: boolean; // liste Recrutement Sales/Freelance
+  entretien: boolean; // un entretien a eu lieu
+  dispo: string; // disponibilité à venir, AAAA-MM-JJ, '' si inconnue
+};
 export type Donnees = {
   nomFiche: string;
   commune: string;
@@ -122,11 +133,13 @@ export type Donnees = {
   documents?: string[];
   // Mails de facture (lot 4, 07/11)
   facture?: FactureMail;
+  // Mails aux candidats (lot 5, 07/11)
+  candidat?: CandidatMail;
 };
-export type Etape = 'Nouvelle demande' | 'Visite technique' | 'Administratif' | 'Devis' | 'Après chantier' | 'Facturation';
+export type Etape = 'Nouvelle demande' | 'Visite technique' | 'Administratif' | 'Devis' | 'Après chantier' | 'Facturation' | 'Candidature';
 // Étapes proposées sur la page blanche du bloc Contact. Les mails de devis s'écrivent depuis la Suite de la vente, avec
-// leurs données Costructor, l'avis Google depuis la fiche du Parc et les mails de facture depuis l'écran de la facture :
-// ils ne sont pas dans cette liste.
+// leurs données Costructor, l'avis Google depuis la fiche du Parc, les mails de facture depuis l'écran de la facture et
+// les mails aux candidats depuis la fiche du candidat : ils ne sont pas dans cette liste.
 export const ETAPES: Etape[] = ['Nouvelle demande', 'Visite technique', 'Administratif'];
 export type Modele = {
   cle: string;
@@ -903,6 +916,176 @@ function corpsFacture(d: Donnees): string {
   );
 }
 
+// ── Mails aux candidats (lot 5, accord de Mathieu du 07/11 à 11 h 15) ──
+// Standard, adresse du dépôt et brochure du poste : ceux de la page chargeo.fr/recrutement (src/app/recrutement/page.tsx,
+// brochure partagée en lecture à tous ceux qui ont le lien). Aucun document demandé au candidat.
+const STANDARD = '04 85 69 22 04';
+const DEPOT = '89 chemin de la Ballastière, à Thonon-les-Bains';
+const BROCHURE_RECRUTEMENT = 'https://drive.google.com/file/d/1CXRE-PEHDua-cXb6ggUBP3wHSxL_UerY/view';
+const salutCandidat = (d: Donnees) => vous(d.nomFiche);
+const posteCandidat = (d: Donnees) => d.candidat?.poste || 'poseur de bornes de recharge';
+const commercialCandidat = (d: Donnees) => !!d.candidat?.commercial;
+const JOINDRE = `Pour toute question, vous pouvez nous joindre au ${STANDARD}, ou simplement répondre à ce mail.`;
+const AUTRE_DATE = 'Si ce créneau ne vous convient pas, dites-le-nous simplement : nous trouverons volontiers une autre date.';
+const debutCandidat = (d: Donnees) => (d.candidat?.dispo ? `à partir du ${dateLongue(d.candidat.dispo)}` : '[date de début]');
+const OBJET_CANDIDATURE = 'Votre candidature chez CHARGéO';
+
+function corpsCandidatRecue(d: Donnees): string {
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    `Merci beaucoup pour votre candidature au poste de ${posteCandidat(d)}, et pour l'intérêt que vous portez à CHARGéO.`,
+    '',
+    'Nous l’avons bien reçue et nous la lisons avec attention : nous revenons vers vous sous 48 heures, par téléphone ou par mail, pour vous dire la suite.',
+    '',
+    JOINDRE,
+    '',
+    'Bien cordialement,',
+  );
+}
+function corpsCandidatEntretien(d: Donnees): string {
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    `Votre candidature au poste de ${posteCandidat(d)} a retenu toute notre attention, et nous avons le plaisir de vous proposer un entretien :`,
+    ...puces(['le [jour, date et heure de l’entretien]', `au ${DEPOT}`]),
+    '',
+    commercialCandidat(d) ? null : `Pour le préparer, vous trouverez ici la brochure du poste, avec la fiche de poste : ${BROCHURE_RECRUTEMENT}`,
+    commercialCandidat(d) ? null : '',
+    AUTRE_DATE,
+    '',
+    JOINDRE,
+    '',
+    'Au plaisir de vous rencontrer,',
+  );
+}
+function corpsCandidatTest(d: Donnees): string {
+  const commercial = commercialCandidat(d);
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    'Merci pour notre entretien, que nous avons beaucoup apprécié.',
+    '',
+    commercial
+      ? 'Comme convenu, nous vous proposons une mise en situation commerciale :'
+      : 'Comme convenu, nous vous proposons une mise en situation sur le terrain, aux côtés d’un électricien de CHARGéO :',
+    ...puces(['le [jour, date et heure]', `au ${DEPOT}`]),
+    '',
+    commercial ? 'Nous vous présenterons le cas sur place : rien à préparer de votre côté.' : 'Tout l’outillage est fourni sur place : rien à prévoir de votre côté.',
+    '',
+    AUTRE_DATE,
+    '',
+    JOINDRE,
+    '',
+    'Au plaisir de vous retrouver,',
+  );
+}
+function corpsCandidatOffreSalarie(d: Donnees): string {
+  const commercial = commercialCandidat(d);
+  const poste = posteCandidat(d);
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    'Merci encore pour le temps que vous nous avez consacré. Nous avons le plaisir de vous proposer de rejoindre l’équipe de CHARGéO :',
+    ...puces([
+      `poste : ${poste}`,
+      'contrat : [type de contrat : intérim, CDD ou CDI]',
+      'rémunération : [montant brut, à l’heure ou au mois]',
+      `début : ${debutCandidat(d)}`,
+      commercial ? 'secteur : Thonon-les-Bains et le Chablais' : 'secteur : au départ de Thonon-les-Bains, chantiers dans le Chablais et en Haute-Savoie',
+    ]),
+    '',
+    commercial ? null : 'Le véhicule, la tenue et l’outillage sont fournis.',
+    commercial ? null : '',
+    `Pourriez-vous nous donner votre réponse d’ici le [date limite de réponse] ? Nous restons bien sûr disponibles pour en parler au ${STANDARD}.`,
+    '',
+    'Nous serions très heureux de vous compter parmi nous.',
+    '',
+    'Bien cordialement,',
+  );
+}
+function corpsCandidatOffreFreelance(d: Donnees): string {
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    'Merci encore pour le temps que vous nous avez consacré. Nous avons le plaisir de vous proposer une collaboration en indépendant avec CHARGéO :',
+    ...puces([
+      'mission : [périmètre : clientèle, secteur et missions]',
+      'rémunération : [commission ou forfait, et ses conditions]',
+      `démarrage : ${debutCandidat(d)}`,
+    ]),
+    '',
+    'Le contrat de collaboration vous sera transmis dès votre accord.',
+    '',
+    `Pourriez-vous nous donner votre réponse d’ici le [date limite de réponse] ? Nous restons bien sûr disponibles pour en parler au ${STANDARD}.`,
+    '',
+    'Nous serions très heureux de travailler avec vous.',
+    '',
+    'Bien cordialement,',
+  );
+}
+function corpsCandidatRefusCv(d: Donnees): string {
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    `Merci beaucoup pour votre candidature au poste de ${posteCandidat(d)}, et pour l'intérêt que vous portez à CHARGéO.`,
+    '',
+    'Après une lecture attentive, nous ne pouvons pas y donner suite : votre profil ne correspond pas à nos besoins actuels.',
+    '',
+    'Nous vous souhaitons pleine réussite dans vos recherches.',
+    '',
+    'Bien cordialement,',
+  );
+}
+function corpsCandidatRefusEntretien(d: Donnees): string {
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    'Merci beaucoup pour le temps que vous nous avez consacré lors de nos échanges, que nous avons sincèrement appréciés.',
+    '',
+    `Après réflexion, nous avons fait le choix d’un autre profil pour le poste de ${posteCandidat(d)}. Cette décision n’a pas été facile, et elle n’enlève rien à vos qualités.`,
+    '',
+    'Nous vous souhaitons pleine réussite dans la suite de votre parcours.',
+    '',
+    'Bien cordialement,',
+  );
+}
+function corpsCandidatVivier(d: Donnees): string {
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    `Merci encore pour votre candidature${d.candidat?.entretien ? ' et pour nos échanges' : ''}.`,
+    '',
+    'Nous ne pouvons pas vous proposer de poste pour le moment, mais votre profil nous intéresse : nous gardons votre candidature, et nous reviendrons vers vous dès qu’une place s’ouvrira. Si vous préférez que nous ne la conservions pas, il vous suffit de nous le dire.',
+    '',
+    'Et si votre situation évolue d’ici là, répondez simplement à ce mail : nous serons heureux d’avoir de vos nouvelles.',
+    '',
+    'Bien cordialement,',
+  );
+}
+function corpsCandidatBienvenue(d: Donnees): string {
+  const commercial = commercialCandidat(d);
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    'Nous sommes ravis de vous accueillir dans l’équipe de CHARGéO !',
+    '',
+    'Votre premier jour :',
+    ...puces([d.candidat?.dispo ? `le ${dateLongue(d.candidat.dispo)}, à [heure]` : 'le [jour, date et heure]', `au ${DEPOT}`]),
+    '',
+    commercial
+      ? 'Nous commencerons par vous présenter l’équipe et nos outils de travail.'
+      : 'Nous commencerons par vous présenter l’équipe, votre véhicule et votre outillage.',
+    '',
+    `Pour toute question d’ici là, vous pouvez nous joindre au ${STANDARD}.`,
+    '',
+    'À très bientôt,',
+  );
+}
+// Même destinataire pour tous : le candidat, sans copie
+const aCandidat = (d: Donnees) => liste(d.email);
+const sansCopie = () => [] as string[];
+
 export const MODELES: Modele[] = [
   {
     cle: 'prise-en-charge',
@@ -1260,6 +1443,46 @@ export const MODELES: Modele[] = [
     cc: (d) => destinatairesDevis(d).cc,
     objet: objetFacture,
     corps: corpsFacture,
+  },
+  // Lot 5 (07/11) : sur la fiche du candidat selon son statut (src/lib/candidatMail.ts). Les noms sont relus dans les copies
+  // des commentaires pour savoir si le mail est parti : ne pas les changer.
+  {
+    cle: 'candidat-recue', nom: 'Candidat · candidature reçue', court: 'Candidature reçue', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => `${OBJET_CANDIDATURE} : bien reçue`, corps: corpsCandidatRecue,
+  },
+  {
+    cle: 'candidat-entretien', nom: 'Candidat · entretien', court: 'Entretien', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => 'Votre entretien chez CHARGéO', corps: corpsCandidatEntretien,
+  },
+  {
+    cle: 'candidat-test', nom: 'Candidat · mise en situation', court: 'Mise en situation', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie,
+    objet: (d) => (commercialCandidat(d) ? 'Votre mise en situation commerciale chez CHARGéO' : 'Votre mise en situation sur le terrain chez CHARGéO'),
+    corps: corpsCandidatTest,
+  },
+  {
+    cle: 'candidat-offre-salarie', nom: 'Candidat · offre salarié', court: 'Offre salarié', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: (d) => `Notre proposition pour le poste de ${posteCandidat(d)}`, corps: corpsCandidatOffreSalarie,
+  },
+  {
+    cle: 'candidat-offre-freelance', nom: 'Candidat · offre freelance', court: 'Offre freelance', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => 'Notre proposition de collaboration', corps: corpsCandidatOffreFreelance,
+  },
+  {
+    cle: 'candidat-refus-cv', nom: 'Candidat · refus sur CV', court: 'Refus sur CV', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => OBJET_CANDIDATURE, corps: corpsCandidatRefusCv,
+  },
+  {
+    cle: 'candidat-refus-entretien', nom: 'Candidat · refus après entretien', court: 'Refus après entretien', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => OBJET_CANDIDATURE, corps: corpsCandidatRefusEntretien,
+  },
+  {
+    cle: 'candidat-vivier', nom: 'Candidat · vivier', court: 'Vivier', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => OBJET_CANDIDATURE, corps: corpsCandidatVivier,
+  },
+  {
+    cle: 'candidat-bienvenue', nom: 'Candidat · bienvenue', court: 'Bienvenue', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => 'Bienvenue chez CHARGéO', corps: corpsCandidatBienvenue,
   },
 ];
 
