@@ -2,11 +2,13 @@
 
 // Annuaire de l'espace Commercial (validé par Matthieu le 17/10/2026), partagé avec le back-office.
 // Recherche par nom ou société, filtre par rôle (comme la vue ClickUp « Annuaire des Contacts » regroupée par rôle), et
-// pour chaque contact les mêmes boutons que le bloc 📇 Contact : Appeler, Google Voice, SMS, Gmail.
+// pour chaque contact les mêmes boutons que le bloc 📇 Contact : Appeler, Google Voice, SMS, Écrire.
 // 17/10, 13 h 13 (Matthieu) : tous les contacts, clients compris. Les clients (Qualification, Planning, Parc) et les
 // prospects ont leur pastille de rôle et leur nom ouvre la fiche affaire unique.
 // 19/10/2026 (2e lot de cohérence) : cartes et boutons sur les briques communes (src/components/charte/Appli.tsx),
 // liens ClickUp réservés à la direction et au back-office, bouton Retour de l'en-tête commun.
+// 07/11/2026 (Phase 9, lot 5, accord de Mathieu à 11 h 34) : plus de Gmail ; « ✉️ Écrire » ouvre l'écran d'envoi de l'appli et
+// copie le mail sur la tâche du contact (ou la fiche du client).
 import { useEffect, useState } from 'react';
 import { ChevronRight, ExternalLink, RefreshCw, Search } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Carte, Alerte, CHAMP } from '@/components/charte/Appli';
@@ -120,7 +122,7 @@ export default function ContactsPage() {
               </div>
               {voitClickUp && <a href={c.url} target="_blank" rel="noopener noreferrer" aria-label="Ouvrir dans ClickUp" className="shrink-0"><ExternalLink size={18} color={CYAN} /></a>}
             </div>
-            <BoutonsContact tel={c.tel} email={c.email} moi={moi} />
+            <BoutonsContact tel={c.tel} email={c.email} moi={moi} ficheId={c.id} />
           </Carte>
         ))}
       </ContenuAppli>

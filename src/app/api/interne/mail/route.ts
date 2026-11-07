@@ -1,14 +1,33 @@
 import { NextResponse } from 'next/server';
 import { sessionDeRequete } from '@/lib/session';
 import { rolesDe, type Role } from '@/lib/roles';
-import { CHAMPS, OPTIONS, indexMenu } from '@/lib/champsClickUp';
+import { CHAMPS, OPTIONS, cleOption, indexMenu } from '@/lib/champsClickUp';
 import { adresseDe, dateVisiteDe, normal } from '@/lib/vuesFiches';
 import { CONTACT_SUR_PLACE, GESTIONNAIRE, personnesLiees } from '@/lib/contactsFiche';
 import { modeleDe, nettoyerAdresse, remplir, villeDe, type Donnees } from '@/lib/modelesMails';
-import { effacerMailAFaire, mailAFaire, regle } from '@/lib/mailsAFaire';
+import { effacerMailAFaire, enRelance, estRelance, mailAFaire, regle } from '@/lib/mailsAFaire';
+import { devisPourMail, reporterDevisScenarios } from '@/lib/devisScenarios';
+import { noterRelanceParMail, relancesApresRevision } from '@/lib/relancesDevis';
+import { CLE_MAIL_AVIS, LIEN_AVIS, avisAEnvoyer, noterRappelAvis } from '@/lib/avisGoogle';
+import { listerDocuments, telechargerDocument } from '@/lib/dossierEntreprise';
+import { listerBrochures, telechargerBrochure } from '@/lib/brochuresGithub';
+import { estCandidat, lireCandidat, type InfosCandidat } from '@/lib/candidatMail';
+import {
+  CLE_MAIL_FACTURE,
+  CLE_MAIL_FACTURE_ENVOI,
+  affaireDe,
+  clientDeFacture,
+  donneesFacture,
+  dossierAdvenir,
+  envoiFactureAFaire,
+  estFacture,
+  factureAEnvoyer,
+  noterRelanceFacture,
+} from '@/lib/factureMail';
 import {
   EXPEDITEUR,
   MAX_DESTINATAIRES,
+  MAX_PIECES_OCTETS,
   adressesValides,
   enPreversion,
   envoyerMail,
@@ -19,6 +38,7 @@ import {
   mailPourReponse,
   type Expediteur,
   type Fil,
+  type Piece,
 } from '@/lib/mails';
 
 // Écrire un mail depuis l'appli (Phase 9, lot 1, 05/11/2026 ; envoi : src/lib/mails.ts ; écran :
@@ -35,17 +55,54 @@ import {
 // en attente (aFaire) ; un envoi avec l'un des textes qui le règlent l'efface ; POST { ficheId, action: 'telephone',
 // phrase } note « Prévenu par téléphone » sur la fiche et l'efface, seulement quand la fiche n'a pas d'adresse pour ce
 // mail.
+// Lot 3 (06/11/2026 ; décisions de Mathieu à 18 h 30, 18 h 34 et 21 h 16) :
+// - GET ?devis=1 : devis finalisés de la fiche lus dans Costructor (src/lib/devisScenarios.ts, devisPourMail), segment,
+//   et les problèmes à afficher avant l'envoi ;
+// - GET renvoie les fichiers PDF de la fiche (pieces), la brochure projet (« PROJET-… » ou « brochure » dans le nom)
+//   est cochée d'office à l'écran ; POST { pieces: [id] } télécharge ces fichiers depuis la fiche et les joint au mail ;
+// - « Devis · envoi » part seulement avec la brochure projet, sauf en RIC où elle est facultative (« Oui, tu peux
+//   aussi coder comme ça », 21 h 16, sur la proposition qui bloquait l'envoi sans brochure) ;
+// - une fois ce mail parti, la fiche en 📝 devis à faire passe en 📩 devis envoyé (18 h 30 : « seulement quand le mail
+//   part »). Le report des devis et la relance J+3 partent ensuite de l'aiguillage, comme pour le bouton d'avant.
+// Lot 4 (06/11/2026, accords de Mathieu à 22 h 20, 22 h 42, 23 h 13, 23 h 25 et 23 h 43 ; 07/11 à 0 h 00, 10 h 22 et
+// 10 h 55) :
+// - les devis sont aussi lus quand la fiche attend un mail de devis (relance posée par le contrôle quotidien) ;
+// - « Devis · relance » ou « Devis · dernière relance » parti : la relance est comptée (prochaine à J+3 ouvrés,
+//   suspension à la 3e), sans rien noter dans 🔁 Suivi relance (src/lib/relancesDevis.ts) ;
+// - « Devis · révisé » parti : relances remises à zéro (première à J+3 ouvrés) et nouveaux devis reportés sur les
+//   scénarios (n°, montant, lien), comme au premier envoi ;
+// - un autre mail de devis (envoi, validé, révisé, refus) efface la relance en attente ;
+// - fiche du Parc dont le rappel ⭐ Avis Google est arrivé (src/lib/avisGoogle.ts, avisAEnvoyer) : mail en attente
+//   « avis-google », sans champ ✉️ Mail à envoyer ; parti (ou client prévenu par téléphone faute d'adresse), il compte
+//   comme le rappel (noterRappelAvis : dernier rappel à J+14, puis fin) ;
+// - GET ?documents=1 : documents en cours du dossier entreprise du Drive (src/lib/dossierEntreprise.ts) ; POST joint
+//   les documents cochés (ids « drive:… », relus ici), et « Documents administratifs » exige au moins l'un d'eux ;
+// - avec les devis, GET propose les brochures projet du dépôt GitHub chargeo-brochures (src/lib/brochuresGithub.ts),
+//   celle de la fiche en tête ; POST les joint (ids « gh:… », relues ici). Une brochure GitHub vaut la brochure déposée
+//   sur la fiche pour la règle de l'envoi du devis ;
+// - tâche de Factures Clients (src/lib/factureMail.ts), client lu sur le chantier relié et facture lue dans
+//   Costructor : « facture-envoi » en attente tant que la facture émise n'est pas envoyée (la copie « Texte : Facture ·
+//   envoi » posée ici le prouve), puis « facture-relance » le jour des relances 1 (J+3) et 2 (J+10) ; une relance
+//   partie (ou un client appelé faute d'adresse) compte comme la relance (Relances envoyées + 1, rappel suivant).
+// Lot 5 (07/11/2026, accord de Mathieu à 11 h 15) : fiche d'un candidat (src/lib/candidatMail.ts) : le texte de son statut
+// est en attente tant que sa copie n'est pas sur la fiche ; poste, liste et disponibilité remplissent le texte.
 // Préversion : le mail part seulement à l'adresse ClickUp de la personne connectée, avec [TEST] dans l'objet et les
-// destinataires prévus en tête du texte. Aucun client ne le reçoit. La réponse dans le fil et l'effacement du mail
-// obligatoire n'y sont faits que sur une fiche de test (« Test » dans le nom).
+// destinataires prévus en tête du texte. Aucun client ne le reçoit. La réponse dans le fil, l'effacement du mail
+// obligatoire, le passage en devis envoyé, les relances et les rappels d'avis n'y sont faits que sur une fiche de test
+// (« Test » dans le nom).
 // Droits : direction, commercial, chargé d'opération et back-office ; l'installateur seul n'envoie pas.
 // Mail parti mais copie refusée par ClickUp : succès avec un avertissement (jamais un échec, le mail est bien parti).
 export const dynamic = 'force-dynamic';
+// Lecture des devis Costructor et téléchargement des pièces jointes : plus long qu'un simple envoi
+export const maxDuration = 60;
 
 const PEUVENT: Role[] = ['direction', 'commercial', 'chargeOperation', 'backOffice'];
 const MAX_OBJET = 200;
 const MAX_TEXTE = 20000;
 const MAX_COPIE = 9000;
+const MAX_PIECES = 10;
+const API = 'https://api.clickup.com/api/v2';
+const CLE_DOCUMENTS = 'documents-administratifs';
 
 const json = (corps: any, status = 200) => NextResponse.json(corps, { status });
 const texte = (v: unknown) => (v === undefined || v === null ? '' : String(v).trim());
@@ -54,15 +111,16 @@ const valeur = (t: any, id: string) => champs(t).find((c: any) => c?.id === id)?
 const ficheDeTest = (t: any) => /\btest\b/i.test(String(t?.name || ''));
 const maintenantParis = () => new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' });
 
+// Fiche lue avec ses sous-tâches (la sous-tâche ⭐ Avis Google d'une fiche du Parc)
 async function lireTache(token: string, id: string): Promise<any | null> {
   if (!id || !/^[a-z0-9]+$/i.test(id)) return null;
-  const r = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(id)}`, { headers: { Authorization: token }, cache: 'no-store' });
+  const r = await fetch(`${API}/task/${encodeURIComponent(id)}?include_subtasks=true`, { headers: { Authorization: token }, cache: 'no-store' });
   return r.ok ? r.json().catch(() => null) : null;
 }
 
 async function commenter(token: string, id: string, contenu: string): Promise<boolean> {
   try {
-    const r = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(id)}/comment`, {
+    const r = await fetch(`${API}/task/${encodeURIComponent(id)}/comment`, {
       method: 'POST',
       headers: { Authorization: token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ comment_text: contenu, notify_all: false }),
@@ -94,6 +152,56 @@ function parNom(t: any, morceau: string): string {
   return typeof v === 'string' || typeof v === 'number' ? texte(v) : '';
 }
 
+// ── Fichiers de la fiche (lot 3) ──
+type PieceFiche = { id: string; nom: string; taille: number; url: string; type: string; brochure: boolean };
+const estBrochure = (nom: string) => /^projet[-_ ]/i.test(nom) || /brochure/i.test(nom);
+const TYPES: Record<string, string> = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg' };
+// Fichiers PDF joints à la fiche (le plus récent d'abord), la brochure projet en tête
+function piecesDe(t: any): PieceFiche[] {
+  const l: any[] = Array.isArray(t?.attachments) ? t.attachments : [];
+  return l
+    .filter((x) => !x?.deleted && x?.url && normal(x?.extension || String(x?.title || '').split('.').pop()) === 'pdf')
+    .map((x) => {
+      const nom = texte(x.title) || 'piece-jointe.pdf';
+      return { id: String(x.id), nom, taille: Number(x.size) || 0, url: String(x.url), type: TYPES.pdf, brochure: estBrochure(nom), date: Number(x.date) || 0 };
+    })
+    .sort((a, b) => Number(b.brochure) - Number(a.brochure) || b.date - a.date)
+    .map(({ date, ...p }) => p);
+}
+// Téléchargement d'un fichier de la fiche : lien direct, sinon avec la clé ClickUp
+async function telecharger(token: string, url: string): Promise<Buffer | null> {
+  const essais: (HeadersInit | undefined)[] = [undefined, { Authorization: token }];
+  for (const headers of essais) {
+    try {
+      const r = await fetch(url, { headers, cache: 'no-store' });
+      if (r.ok) return Buffer.from(await r.arrayBuffer());
+    } catch {
+      // essai suivant
+    }
+  }
+  return null;
+}
+
+// Passage en 📩 devis envoyé après le mail « Devis · envoi », seulement depuis 📝 devis à faire (un renvoi en
+// négociation ne change pas le statut). Nom exact du statut relu dans la liste.
+async function passerDevisEnvoye(token: string, t: any, auteur: string): Promise<{ statut: string; probleme?: string }> {
+  const actuel = normal(t?.status?.status);
+  if (!actuel.includes('devis a faire')) return { statut: '' };
+  const rl = await fetch(`${API}/list/${encodeURIComponent(String(t?.list?.id || ''))}`, { headers: { Authorization: token }, cache: 'no-store' });
+  const jl = rl.ok ? await rl.json().catch(() => ({})) : {};
+  const nom = String((Array.isArray(jl?.statuses) ? jl.statuses : []).find((s: any) => normal(s?.status).includes('devis envoy'))?.status || '');
+  if (!nom) return { statut: '', probleme: 'statut « 📩 devis envoyé » introuvable dans la liste' };
+  const r = await fetch(`${API}/task/${encodeURIComponent(String(t.id))}`, {
+    method: 'PUT',
+    headers: { Authorization: token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: nom }),
+    cache: 'no-store',
+  });
+  if (!r.ok) return { statut: '', probleme: `ClickUp a refusé le statut (${r.status})` };
+  await commenter(token, String(t.id), `${nom} : passé depuis l'application par ${auteur}, à l'envoi du mail des devis.`);
+  return { statut: nom };
+}
+
 // Ce que la fiche sait déjà, pour remplir les textes
 async function donneesDe(token: string, t: any): Promise<Donnees> {
   const segment = indexMenu(t, CHAMPS.segment);
@@ -119,21 +227,95 @@ async function donneesDe(token: string, t: any): Promise<Donnees> {
     particulier,
     gestionnaire: gestionnaires[0] || null,
     contactSurPlace: contacts[0] || null,
+    segment: String(cleOption(OPTIONS.segment, segment) || ''),
+    brochure: piecesDe(t).some((p) => p.brochure),
   };
+}
+
+// Candidat (lot 5) : l'adresse peut venir d'un autre champ « Email » (liste Sales/Freelance)
+async function donneesCandidatDe(token: string, t: any): Promise<Donnees> {
+  const d = await donneesDe(token, t);
+  if (!d.email) {
+    const e = parNom(t, 'email');
+    if (estEmail(e)) d.email = e;
+  }
+  d.brochure = false;
+  return d;
+}
+
+// Facture (lot 4, 07/11) : le client et le dossier Advenir viennent du chantier relié par 🔗 Affaire, la facture de la
+// tâche et de Costructor. avecCostructor = false : sans montant ni lien (contrôle d'adresse du « Prévenu par téléphone »).
+async function donneesFactureDe(token: string, t: any, avecCostructor = true): Promise<{ d: Donnees; problemes: string[] }> {
+  const id = affaireDe(t);
+  const affaire = id ? await lireTache(token, id) : null;
+  const d = affaire ? await donneesDe(token, affaire) : await donneesDe(token, { ...t, name: clientDeFacture(t) || t?.name, custom_fields: [] });
+  d.brochure = false;
+  const lu = await donneesFacture(t, avecCostructor);
+  d.facture = {
+    ...lu.facture,
+    jointe: piecesDe(t).length > 0,
+    advenir: d.segment === 'COP' || d.segment === 'PAR' || (!!affaire && dossierAdvenir(affaire)),
+  };
+  const problemes = [...(affaire ? [] : ['chantier relié introuvable (🔗 Affaire vide) : écris l’adresse du client à la main']), ...lu.problemes];
+  return { d, problemes };
+}
+
+type Attendu = { cle: string; avis: Awaited<ReturnType<typeof avisAEnvoyer>>; candidat?: InfosCandidat };
+// Mail en attente : sur une facture, l'envoi puis la relance ; sur un candidat, le texte de son statut ; sinon celui du
+// champ ✉️ Mail à envoyer (vente), ou l'avis Google d'une fiche du Parc
+async function attenduDe(token: string, t: any): Promise<Attendu> {
+  if (estFacture(t)) {
+    if (await envoiFactureAFaire(token, t).catch(() => false)) return { cle: CLE_MAIL_FACTURE_ENVOI, avis: null };
+    return { cle: factureAEnvoyer(t) ? CLE_MAIL_FACTURE : '', avis: null };
+  }
+  if (estCandidat(t)) {
+    const c = await lireCandidat(token, t).catch(() => null);
+    return { cle: c?.cle || '', avis: null, candidat: c?.infos };
+  }
+  const champ = mailAFaire(t);
+  if (champ) return { cle: champ, avis: null };
+  const avis = await avisAEnvoyer(t, token).catch(() => null);
+  return { cle: avis ? CLE_MAIL_AVIS : '', avis };
 }
 
 export async function GET(request: Request) {
   try {
     const a = await acces(request);
     if ('erreur' in a) return a.erreur;
-    const id = new URL(request.url).searchParams.get('fiche') || '';
+    const url = new URL(request.url);
+    const id = url.searchParams.get('fiche') || '';
     const tache = await lireTache(a.token, id);
     if (!tache) return json({ success: false, error: 'Fiche introuvable' }, 404);
-    const donnees = await donneesDe(a.token, tache);
-    const [exp, lus] = await Promise.all([
+    const facture = estFacture(tache);
+    const candidat = estCandidat(tache);
+    // Devis lus pour un mail de devis : demandé par l'écran, ou mail de devis en attente sur la fiche (relance)
+    const avecDevis = !facture && !candidat && (url.searchParams.get('devis') === '1' || mailAFaire(tache).startsWith('devis'));
+    // Documents du Drive : demandés par l'écran (page blanche, documents administratifs)
+    const avecDocuments = url.searchParams.get('documents') === '1';
+    const [lu, attendu] = await Promise.all([
+      facture
+        ? donneesFactureDe(a.token, tache)
+        : (candidat ? donneesCandidatDe(a.token, tache) : donneesDe(a.token, tache)).then((d) => ({ d, problemes: [] as string[] })),
+      attenduDe(a.token, tache),
+    ]);
+    const donnees = lu.d;
+    if (attendu.avis) {
+      donnees.avisRappel = attendu.avis.rappel;
+      donnees.miseEnService = attendu.avis.miseEnService;
+      donnees.poseur = attendu.avis.poseur;
+      donnees.lienAvis = LIEN_AVIS;
+    }
+    if (attendu.candidat) donnees.candidat = attendu.candidat;
+    const [exp, lus, lesDevis, lesDocuments, lesBrochures] = await Promise.all([
       expediteur(),
       filsAvec([donnees.email, donnees.gestionnaire?.email || '', donnees.contactSurPlace?.email || '']),
+      avecDevis ? devisPourMail(String(tache.id)).catch(() => ({ devis: [], problemes: ['lecture des devis impossible'] })) : Promise.resolve(null),
+      avecDocuments ? listerDocuments().catch(() => ({ documents: [], problemes: ['lecture du Drive impossible'] })) : Promise.resolve(null),
+      avecDevis ? listerBrochures(texte(tache.name)).catch(() => ({ brochures: [], probleme: 'lecture de GitHub impossible' })) : Promise.resolve(null),
     ]);
+    if (lesDevis) donnees.devis = lesDevis.devis;
+    // Brochure de la fiche trouvée dans GitHub : le texte l'annonce comme une brochure déposée sur la fiche
+    if (lesBrochures?.brochures.some((b) => b.probable)) donnees.brochure = true;
     return json({
       success: true,
       branche: mailBranche(),
@@ -145,12 +327,23 @@ export async function GET(request: Request) {
       moi: texte(a.session.email),
       nom: texte(a.session.nom),
       peutEnvoyer: a.peut,
-      fiche: { id: String(tache.id), nom: texte(tache.name), email: donnees.email },
+      fiche: { id: String(tache.id), nom: texte(tache.name), email: donnees.email, statut: texte(tache?.status?.status) },
       donnees,
       // Sans les identifiants techniques du fil (relus côté serveur à l'envoi)
       fils: lus.fils.map((f) => ({ id: f.id, objet: f.objet, de: f.de, date: f.date })),
       filsProbleme: lus.probleme || '',
-      aFaire: mailAFaire(tache),
+      aFaire: attendu.cle,
+      // Fichiers PDF de la fiche, sans leur adresse (relue côté serveur à l'envoi)
+      pieces: piecesDe(tache).map(({ url: _u, type: _t, ...p }) => p),
+      devisProblemes: lesDevis?.problemes || [],
+      // Documents du Drive, sans l'identifiant du fichier (relu côté serveur à l'envoi)
+      documents: (lesDocuments?.documents || []).map(({ fichier: _f, type: _t, ...x }) => x),
+      documentsProblemes: lesDocuments?.problemes || [],
+      // Brochures projet du dépôt GitHub, celle de la fiche en tête
+      brochures: lesBrochures?.brochures || [],
+      brochuresProbleme: lesBrochures?.probleme || '',
+      // Mails de facture : ce qui manque pour remplir le texte
+      factureProblemes: lu.problemes,
     });
   } catch (e) {
     console.error('Mail (lecture)', e);
@@ -171,15 +364,34 @@ export async function POST(request: Request) {
 
     // ── Prévenu par téléphone (seule sortie d'un mail obligatoire sans adresse mail) ──
     if (texte(corps?.action) === 'telephone') {
-      const attendu = mailAFaire(tache);
+      const { cle: attendu, avis } = await attenduDe(a.token, tache);
       if (!attendu) return json({ success: false, error: 'Aucun mail obligatoire en attente sur cette fiche.' }, 400);
       if (preview && !ficheDeTest(tache)) return json({ success: false, error: 'En préversion, seules les fiches de test (« Test » dans le nom) peuvent être modifiées.' }, 403);
       const phrase = texte(corps?.phrase).replace(/\s+/g, ' ').slice(0, 1000);
       if (phrase.length < 10) return json({ success: false, error: 'Écris en une phrase ce que tu as dit au client.' }, 400);
       const m = modeleDe(attendu);
-      if (m && remplir(m, await donneesDe(a.token, tache)).a.length) return json({ success: false, error: 'La fiche a une adresse mail pour ce mail : il doit partir par mail.' }, 400);
+      const facture = estFacture(tache);
+      const candidat = estCandidat(tache);
+      const pourAdresse = facture
+        ? (await donneesFactureDe(a.token, tache, false)).d
+        : candidat ? await donneesCandidatDe(a.token, tache) : await donneesDe(a.token, tache);
+      if (m && remplir(m, pourAdresse).a.length) return json({ success: false, error: 'La fiche a une adresse mail pour ce mail : il doit partir par mail.' }, 400);
+      // La note cite le nom du texte : pour l'envoi de facture et les candidats, elle vaut envoi
       const note = await commenter(a.token, String(tache.id), `📞 Prévenu par téléphone à la place du mail « ${m?.nom || attendu} », par ${auteur} · ${maintenantParis()}\n${phrase}`);
       if (!note) return json({ success: false, error: 'ClickUp a refusé la note : rien n’est réglé, réessaie.' }, 502);
+      // Candidat : la note suffit
+      if (candidat) return json({ success: true, telephone: true });
+      // Facture : l'appel compte comme la relance (pour une relance seulement)
+      if (facture) {
+        if (attendu !== CLE_MAIL_FACTURE) return json({ success: true, telephone: true });
+        const r = await noterRelanceFacture(a.token, tache, 'telephone', auteur);
+        return json({ success: true, telephone: true, avertissement: r.probleme ? `Appel noté, mais ${r.probleme} : préviens Mathieu.` : undefined });
+      }
+      // Avis Google : l'appel compte comme le rappel
+      if (avis) {
+        const r = await noterRappelAvis(a.token, tache, 'telephone');
+        return json({ success: true, telephone: true, avertissement: r.probleme ? `Appel noté, mais ${r.probleme} : préviens Mathieu.` : undefined });
+      }
       const ok = await effacerMailAFaire(a.token, tache);
       return json({ success: true, telephone: true, avertissement: ok ? undefined : 'Appel noté, mais le mail reste marqué comme à envoyer : réessaie ou préviens Mathieu.' });
     }
@@ -200,6 +412,51 @@ export async function POST(request: Request) {
     const cc = copie.ok.filter((x) => !dest.ok.includes(x));
     if (dest.ok.length + cc.length > MAX_DESTINATAIRES) return json({ success: false, error: `${MAX_DESTINATAIRES} destinataires au plus.` }, 400);
 
+    // Pièces jointes : fichiers de la fiche, documents du Drive et brochures GitHub, relus ici (jamais une adresse venue
+    // de l'écran)
+    const cleTexte = texte(corps?.modele);
+    const demandees: string[] = Array.isArray(corps?.pieces) ? corps.pieces.map((x: unknown) => texte(x)).filter(Boolean).slice(0, MAX_PIECES) : [];
+    const idsDrive = demandees.filter((x) => x.startsWith('drive:'));
+    const idsGithub = demandees.filter((x) => x.startsWith('gh:'));
+    const idsFiche = demandees.filter((x) => !x.startsWith('drive:') && !x.startsWith('gh:'));
+    const fichiers = piecesDe(tache).filter((p) => idsFiche.includes(p.id));
+    if (fichiers.length !== idsFiche.length) return json({ success: false, error: 'Un fichier choisi n’est plus sur la fiche : rouvre le mail. Rien n’est parti.' }, 400);
+    const documents = idsDrive.length ? (await listerDocuments()).documents.filter((d) => idsDrive.includes(d.id)) : [];
+    if (documents.length !== idsDrive.length) return json({ success: false, error: 'Un document du Drive n’est plus disponible : rouvre le mail. Rien n’est parti.' }, 400);
+    const brochures = idsGithub.length ? (await listerBrochures(texte(tache.name))).brochures.filter((b) => idsGithub.includes(b.id)) : [];
+    if (brochures.length !== idsGithub.length) return json({ success: false, error: 'Une brochure n’est plus dans GitHub : rouvre le mail. Rien n’est parti.' }, 400);
+    if (cleTexte === CLE_DOCUMENTS && !documents.length) return json({ success: false, error: 'Coche au moins un document du dossier entreprise. Rien n’est parti.' }, 400);
+    const segment = String(cleOption(OPTIONS.segment, indexMenu(tache, CHAMPS.segment)) || '');
+    if (cleTexte === 'devis-envoi' && segment !== 'RIC' && !fichiers.some((p) => p.brochure) && !brochures.length) {
+      return json({ success: false, error: 'La brochure projet doit partir avec le devis : coche-la (GitHub ou fiche), puis renvoie. Rien n’est parti.' }, 400);
+    }
+    const pieces: Piece[] = [];
+    let octets = 0;
+    const ajouterPiece = (nom: string, type: string, contenu: Buffer): string | null => {
+      octets += contenu.length;
+      if (octets > MAX_PIECES_OCTETS) return `Pièces jointes trop lourdes (${Math.round(MAX_PIECES_OCTETS / 1024 / 1024)} Mo au plus en tout). Rien n’est parti.`;
+      pieces.push({ nom, type, contenu });
+      return null;
+    };
+    for (const f of fichiers) {
+      const contenu = await telecharger(a.token, f.url);
+      if (!contenu) return json({ success: false, error: `Le fichier « ${f.nom} » n’a pas pu être lu sur la fiche. Rien n’est parti.` }, 502);
+      const trop = ajouterPiece(f.nom, f.type, contenu);
+      if (trop) return json({ success: false, error: trop }, 400);
+    }
+    for (const b of brochures) {
+      const contenu = await telechargerBrochure(b.nom);
+      if (!contenu) return json({ success: false, error: `La brochure « ${b.nom} » n’a pas pu être lue dans GitHub. Rien n’est parti.` }, 502);
+      const trop = ajouterPiece(b.nom, 'application/pdf', contenu);
+      if (trop) return json({ success: false, error: trop }, 400);
+    }
+    for (const d of documents) {
+      const contenu = await telechargerDocument(d.fichier);
+      if (!contenu) return json({ success: false, error: `Le document « ${d.nom} » n’a pas pu être lu dans le Drive. Rien n’est parti.` }, 502);
+      const trop = ajouterPiece(d.nom, d.type, contenu);
+      if (trop) return json({ success: false, error: trop }, 400);
+    }
+
     // Préversion : seulement la personne connectée
     const moi = texte(a.session.email).toLowerCase();
     if (preview && !estEmail(moi)) return json({ success: false, error: 'Préversion : ton adresse ClickUp est introuvable, le mail de test ne peut pas partir.' }, 400);
@@ -216,8 +473,8 @@ export async function POST(request: Request) {
 
     const prevus = `À : ${dest.ok.join(', ')}${cc.length ? ` · Cc : ${cc.join(', ')}` : ''}`;
     const envoi = preview
-      ? { a: [moi], cc: [] as string[], objet: `[TEST] ${objet}`, texte: `⚠️ Mail de test (préversion de l'appli). En production, il partirait ainsi : ${prevus}\n\n${message}`, reponse }
-      : { a: dest.ok, cc, objet, texte: message, reponse };
+      ? { a: [moi], cc: [] as string[], objet: `[TEST] ${objet}`, texte: `⚠️ Mail de test (préversion de l'appli). En production, il partirait ainsi : ${prevus}\n\n${message}`, reponse, pieces }
+      : { a: dest.ok, cc, objet, texte: message, reponse, pieces };
 
     let exp: Expediteur;
     try {
@@ -228,13 +485,15 @@ export async function POST(request: Request) {
     }
 
     // Mail obligatoire réglé par ce texte : effacé de la fiche (en préversion, seulement sur une fiche de test)
-    const cleTexte = texte(corps?.modele);
     const texteUtilise = modeleDe(cleTexte);
     const attendu = mailAFaire(tache);
-    const aRegler = regle(attendu, cleTexte) && (!preview || ficheDeTest(tache));
+    const surFicheModifiable = !preview || ficheDeTest(tache);
+    const aRegler = regle(attendu, cleTexte) && surFicheModifiable;
     const regleOk = aRegler ? await effacerMailAFaire(a.token, tache) : false;
+    // Relance en attente rendue inutile par un autre mail de devis (envoi, validé, révisé, refus)
+    if (!aRegler && estRelance(attendu) && cleTexte.startsWith('devis') && surFicheModifiable) await effacerMailAFaire(a.token, tache).catch(() => false);
 
-    // Copie sur la fiche
+    // Copie sur la fiche (la ligne « Texte : … » marque une facture comme envoyée et le mail d'un candidat comme parti)
     const lignes = [
       `✉️ Mail envoyé depuis l'appli par ${auteur} · ${maintenantParis()}`,
       `De : ${exp.nom} <${EXPEDITEUR}>`,
@@ -242,6 +501,7 @@ export async function POST(request: Request) {
       ...(cc.length ? [`Cc : ${cc.join(', ')}`] : []),
       `Objet : ${objet}`,
       ...(texteUtilise ? [`Texte : ${texteUtilise.nom}`] : []),
+      ...(pieces.length ? [`Pièces jointes : ${pieces.map((p) => p.nom).join(', ')}`] : []),
       ...(regleOk ? [`✅ Mail obligatoire réglé : ${modeleDe(attendu)?.nom || attendu}`] : []),
       ...(fil ? [`En réponse à : ${fil.objet || '(sans objet)'}${dansLeFil ? '' : ' (préversion sur une vraie fiche : parti comme un nouveau mail)'}`] : []),
       ...(preview ? [`Préversion : mail de test envoyé seulement à ${moi}, aucun client ne l'a reçu.`] : []),
@@ -252,7 +512,49 @@ export async function POST(request: Request) {
     const avertissements: string[] = [];
     if (!(await commenter(a.token, String(tache.id), lignes.join('\n')))) avertissements.push('Mail envoyé, mais la copie sur la fiche a été refusée par ClickUp : colle-la à la main.');
     if (aRegler && !regleOk) avertissements.push('Mail envoyé, mais il reste marqué comme à envoyer sur la fiche : préviens Mathieu.');
-    return json({ success: true, preview, envoyeA: envoi.a, dansLeFil, regle: regleOk, avertissement: avertissements.join(' ') || undefined });
+
+    // Mail des devis parti : la fiche passe en 📩 devis envoyé (en préversion, seulement sur une fiche de test)
+    let statut = '';
+    if (cleTexte === 'devis-envoi' && surFicheModifiable) {
+      const p = await passerDevisEnvoye(a.token, tache, auteur);
+      statut = p.statut;
+      if (p.probleme) avertissements.push(`Mail envoyé, mais la fiche n’est pas passée en 📩 devis envoyé (${p.probleme}) : préviens Mathieu.`);
+    }
+    // Relance du devis partie : comptée comme la relance, la suivante se programme (lot 4)
+    let relance: { tentative: number; prochaine: string; suspendu: boolean } | undefined;
+    if (estRelance(cleTexte) && enRelance(tache?.status?.status) && surFicheModifiable) {
+      const r = await noterRelanceParMail(a.token, tache, texteUtilise?.nom || cleTexte);
+      relance = { tentative: r.tentative, prochaine: r.prochaine, suspendu: r.suspendu };
+      if (r.probleme) avertissements.push(`Mail envoyé, mais la relance n’est pas comptée entièrement (${r.probleme}) : préviens Mathieu.`);
+    }
+    // Devis révisé parti : relances remises à zéro, nouveaux devis reportés sur les scénarios (lot 4, 22 h 42)
+    let relanceRepart = '';
+    if (cleTexte === 'devis-revise' && enRelance(tache?.status?.status) && surFicheModifiable) {
+      const r = await relancesApresRevision(a.token, tache, auteur);
+      relanceRepart = r.prochaine;
+      if (r.probleme) avertissements.push(`Mail envoyé, mais ${r.probleme} : préviens Mathieu.`);
+      try {
+        await reporterDevisScenarios(String(tache.id), false);
+      } catch (e) {
+        console.error('Mail (report du devis révisé)', e);
+        avertissements.push('Mail envoyé, mais le nouveau devis n’a pas été reporté sur les scénarios : préviens Mathieu.');
+      }
+    }
+    // Avis Google parti le jour du rappel : compté comme le rappel (lot 4, 23 h 13)
+    let avis: { n: number; prochain: string; fin: boolean } | undefined;
+    if (cleTexte === CLE_MAIL_AVIS && surFicheModifiable && (await avisAEnvoyer(tache, a.token).catch(() => null))) {
+      const r = await noterRappelAvis(a.token, tache, 'mail');
+      avis = { n: r.n, prochain: r.prochain, fin: r.fin };
+      if (r.probleme) avertissements.push(`Mail envoyé, mais le rappel n’est pas compté entièrement (${r.probleme}) : préviens Mathieu.`);
+    }
+    // Relance de facture partie le jour du rappel : comptée comme la relance (lot 4, 07/11, 10 h 22)
+    let relanceFacture: { n: number; prochaine: string } | undefined;
+    if (cleTexte === CLE_MAIL_FACTURE && surFicheModifiable && factureAEnvoyer(tache)) {
+      const r = await noterRelanceFacture(a.token, tache, 'mail', auteur);
+      relanceFacture = { n: r.n, prochaine: r.prochaine };
+      if (r.probleme) avertissements.push(`Mail envoyé, mais la relance n’est pas comptée entièrement (${r.probleme}) : préviens Mathieu.`);
+    }
+    return json({ success: true, preview, envoyeA: envoi.a, dansLeFil, regle: regleOk, statut, relance, relanceRepart, avis, relanceFacture, pieces: pieces.map((p) => p.nom), avertissement: avertissements.join(' ') || undefined });
   } catch (e) {
     console.error('Mail', e);
     return json({ success: false, error: 'Erreur serveur. Vérifie dans Gmail (contact@chargeo.fr, Envoyés) avant de renvoyer.' }, 500);

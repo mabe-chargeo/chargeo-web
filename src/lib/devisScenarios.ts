@@ -2,6 +2,7 @@ import { getQualificationListId, QUALIFICATION_PROD_ID } from '@/lib/listesClick
 import { alerter } from '@/lib/alerteSite';
 import { CHAMPS, OPTIONS, cleOption, indexMenu } from '@/lib/champsClickUp';
 import { chargerTypes, estDuType, estScenario } from '@/lib/typesTaches';
+import type { DevisMail } from '@/lib/modelesMails';
 
 // Report automatique du devis de chaque scénario (Phase 8, étape 7, PR #59).
 // Mathieu, 02/11/2026, 20 h 19 : « On ne peut pas reporter automatiquement le lien du devis ? Il faudrait limiter
@@ -25,6 +26,14 @@ import { chargerTypes, estDuType, estScenario } from '@/lib/typesTaches';
 // - déjà à jour : rien n'est réécrit ni commenté (le passage des scénarios en devis envoyé rappelle ce report).
 // Montants : centimes dans l'API externe, comme src/app/api/devis/montant/route.ts.
 // Preview : écritures sur la liste TEST seulement, simulation partout.
+// 06/11/2026 (Phase 9, lot 3, accord de Mathieu à 21 h 16) : devisPourMail, en bas de ce fichier, lit avec les mêmes
+// règles les devis finalisés de la fiche pour remplir le mail « Devis · envoi » (n°, HT, TTC, TVA, lien de la page
+// client Costructor, validité). Lecture seule : il n'écrit rien.
+// 06/11/2026, 23 h 13 (lot 4, Mathieu : « Tu ne peux pas les préremplir ? ») : devisPourMail donne aussi l'ancienne
+// version d'un devis révisé (ancien), pour le mail « Devis · révisé » : celle du 🔗 Lien devis du scénario quand
+// Costructor l'a passée en « révisé », à défaut le 📝 N° et le 💶 Montant encore reportés sur le scénario. Comparaison
+// des lignes (ajoutées, retirées, quantités, prix) quand Costructor les donne. Données seulement : les phrases sont
+// dans src/lib/modelesMails.ts.
 
 const COSTRUCTOR = 'https://api.costructor.co/external/v1';
 const EXCLUS = ['revised', 'draft', 'cancelled', 'refused'];
@@ -257,4 +266,180 @@ export async function reporterDevisScenarios(taskId: string, simulation: boolean
   for (const s of scenarios) resultats.push(await reporter(ctx, s));
   const ok = resultats.every((r) => ['reporte', 'deja_a_jour', 'reporterait'].includes(String(r?.action)) && !(r?.rates || []).length);
   return { success: ok, action: 'scenarios', resultats, simulation };
+}
+
+// ── Devis pour le mail « Devis · envoi » (Phase 9, lot 3, 06/11/2026) ──
+// Mêmes règles que reporter() pour retrouver le devis de chaque scénario, sans rien écrire. Le mail a besoin de ce que
+// voit le client : TTC, TVA, page client Costructor (consultation et signature en ligne) et date de validité.
+// Un champ absent de l'API n'est jamais inventé : le texte du mail met alors un [crochet] qui bloque l'envoi.
+const centimes = (n: number) => (process.env.COSTRUCTOR_MONTANTS_CENTIMES !== '0' ? Math.round(n) / 100 : Math.round(n * 100) / 100);
+function montantTTC(d: any): number | null {
+  if (typeof d?.totalDecimal === 'string' && d.totalDecimal.trim()) return Number(d.totalDecimal);
+  const n = Number(d?.total ?? d?.totalInclTax ?? d?.netToPay ?? d?.total_ttc);
+  return Number.isFinite(n) && n > 0 ? centimes(n) : null;
+}
+function tauxTva(d: any): string {
+  const ht = Number(d?.subtotal ?? d?.subTotal ?? d?.totalExclTax);
+  const taxe = Number(d?.taxTotal ?? d?.tax_total ?? d?.totalTax ?? d?.vatTotal);
+  if (!(ht > 0) || !Number.isFinite(taxe)) return '';
+  const r = (taxe / ht) * 100;
+  const connu = [5.5, 10, 20].find((x) => Math.abs(x - r) < 0.3);
+  return connu ? `${String(connu).replace('.', ',')} %` : '';
+}
+const lienClient = (d: any) => {
+  const l = String(d?.hostedUrl || d?.hosted_url || d?.publicUrl || d?.public_url || d?.shareUrl || d?.share_url || '').trim();
+  return /^https:\/\/\S+$/i.test(l) ? l : '';
+};
+const expireDe = (d: any) => {
+  const v = String(d?.expireAt || d?.expire_at || d?.expiresAt || d?.validUntil || d?.valid_until || '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
+};
+
+// ── Ancienne version d'un devis révisé (lot 4, 06/11/2026, 23 h 13) ──
+type LigneDevis = { libelle: string; quantite: number | null; ht: number | null };
+type Ancien = NonNullable<DevisMail['ancien']>;
+const nombre = (v: unknown): number => (v === undefined || v === null || v === '' ? NaN : Number(v));
+// Lignes du devis telles que Costructor les donne (lignes à plat, ou rangées dans des sections) ; [] si absentes
+function lignesDe(d: any): LigneDevis[] {
+  const brutes: any[] = [];
+  const prendre = (l: unknown, profondeur: number) => {
+    if (!Array.isArray(l) || profondeur > 3) return;
+    for (const x of l) {
+      const sous = x?.items ?? x?.lines ?? x?.children;
+      if (Array.isArray(sous) && sous.length) prendre(sous, profondeur + 1);
+      else brutes.push(x);
+    }
+  };
+  prendre(d?.items ?? d?.lines ?? d?.quoteItems ?? d?.quoteLines ?? d?.rows ?? d?.sections, 0);
+  return brutes
+    .map((x) => {
+      const q = nombre(x?.quantity ?? x?.qty);
+      const dec = x?.subtotalDecimal ?? x?.totalExclTaxDecimal;
+      const n = nombre(x?.subtotal ?? x?.totalExclTax ?? x?.total);
+      return {
+        libelle: String(x?.name || x?.title || x?.designation || x?.label || '').replace(/\s+/g, ' ').trim().slice(0, 120),
+        quantite: Number.isFinite(q) ? q : null,
+        ht: typeof dec === 'string' && dec.trim() ? Number(dec) : Number.isFinite(n) ? centimes(n) : null,
+      };
+    })
+    .filter((l) => l.libelle);
+}
+// Ce qui change entre deux versions : n° et HT de l'ancienne, lignes ajoutées, retirées, quantités et prix revus
+function comparerVersions(avant: any, apres: any): Ancien {
+  const res: Ancien = { numero: String(avant?.number || ''), ht: montantHT(avant), ajoutees: [], retirees: [], quantites: [], prix: [] };
+  const la = lignesDe(avant);
+  const lb = lignesDe(apres);
+  if (!la.length || !lb.length) return res;
+  const cle = (l: LigneDevis) => mots(l.libelle);
+  const restantes = [...la];
+  for (const x of lb) {
+    const i = restantes.findIndex((y) => cle(y) === cle(x));
+    if (i < 0) { res.ajoutees.push(x.libelle); continue; }
+    const y = restantes.splice(i, 1)[0];
+    if (y.quantite !== null && x.quantite !== null && Math.abs(y.quantite - x.quantite) > 1e-6) res.quantites.push({ libelle: x.libelle, avant: y.quantite, apres: x.quantite });
+    else if (y.ht !== null && x.ht !== null && Math.abs(y.ht - x.ht) >= 0.005) res.prix.push(x.libelle);
+  }
+  res.retirees = restantes.map((y) => y.libelle);
+  return res;
+}
+
+type Choisi = { d: any; scenario: string; amo: boolean; tarifType: boolean; avant?: any; reporte?: { numero: string; ht: number | null } | null };
+
+export async function devisPourMail(ficheId: string): Promise<{ devis: DevisMail[]; problemes: string[] }> {
+  const token = process.env.CLICKUP_API_KEY;
+  const co = process.env.COSTRUCTOR_API_KEY;
+  if (!token || !co) return { devis: [], problemes: ['configuration serveur incomplète (clé Costructor absente)'] };
+  const t = await lireTache(token, ficheId, true);
+  if (!t) return { devis: [], problemes: ['fiche introuvable'] };
+  const fiche = t.parent ? await lireTache(token, String(t.parent), true) : t;
+  if (!fiche) return { devis: [], problemes: ['fiche introuvable'] };
+  const { carte } = await chargerTypes(token);
+  const scenarios = (await Promise.all(directes(fiche).filter((x) => estScenario(x, carte)).map((x) => lireTache(token, String(x.id))))).filter(Boolean);
+  if (!scenarios.length) return { devis: [], problemes: ['aucun scénario sur la fiche'] };
+  const tous = await listerDevis(co);
+  if (!tous) return { devis: [], problemes: ['lecture de Costructor impossible : réessaie dans quelques minutes'] };
+
+  const ficheNom = mots(fiche?.name);
+  const clientId = (valeur(fiche, CHAMPS.lienCostructor).match(/cnt_[a-z0-9]+/i) || [])[0] || '';
+  const typeClient = cleOption(OPTIONS.typeClient, indexMenu(fiche, CHAMPS.typeClient));
+  const autreClient = (d: any) => !!clientId && !!clientDe(d) && clientDe(d) !== clientId;
+  const choisis: Choisi[] = [];
+  const problemes: string[] = [];
+
+  for (const s of scenarios) {
+    const nom = String(s.name || '');
+    const lettre = (nom.match(/Sc[ée]nario\s+([A-Za-z0-9]+)/i)?.[1] || '').toLowerCase();
+    const segment = cleOption(OPTIONS.segment, indexMenu(s, CHAMPS.segment));
+    const tarifType = segment === 'RIC' && (typeClient === 'syndic' || typeClient === 'pro');
+    const qid = (valeur(s, CHAMPS.lienDevis).match(/quote_[a-z0-9]+/i) || [])[0] || '';
+    const duScenario = (d: any) => {
+      if (!lettre) return false;
+      const n = mots(d?.name);
+      if (!` ${n} `.includes(` scenario ${lettre} `)) return false;
+      return (!!ficheNom && (n === ficheNom || n.startsWith(`${ficheNom} `))) || (!!clientId && clientDe(d) === clientId);
+    };
+    const retenus = tous.filter(duScenario).filter((d) => !EXCLUS.includes(statutDe(d)) && !autreClient(d));
+    for (const a of retenus.filter(estAmo)) {
+      if (!choisis.some((c) => c.d.id === a.id)) choisis.push({ d: a, scenario: nom, amo: true, tarifType: false });
+    }
+    const travaux = retenus.filter((d) => !estAmo(d));
+    let choisi: any = null;
+    let avant: any = null;
+    if (qid) {
+      const d0 = tous.find((d) => d.id === qid);
+      const v = d0 ? derniereVersion(tous, d0) : null;
+      if (!v) problemes.push(`${nom} : le lien collé dans « 🔗 Lien devis » ne correspond à aucun devis Costructor`);
+      else if (EXCLUS.includes(statutDe(v))) problemes.push(`${nom} : le devis ${v.number || ''} est ${LIBELLES_STATUT[statutDe(v)] || statutDe(v)} dans Costructor`);
+      else if (autreClient(v)) problemes.push(`${nom} : le devis ${v.number || ''} appartient à un autre client Costructor que celui de la fiche`);
+      else {
+        choisi = v;
+        // Devis reporté passé « révisé » dans Costructor : c'est l'ancienne version
+        if (d0 && d0.id !== v.id) avant = d0;
+      }
+    } else if (travaux.length === 1) choisi = travaux[0];
+    else if (travaux.length > 1) problemes.push(`${nom} : ${travaux.length} devis finalisés (${travaux.map((d) => d.number).join(', ')}), colle le bon dans « 🔗 Lien devis » du scénario`);
+    else {
+      const brouillon = tous.filter(duScenario).some((d) => statutDe(d) === 'draft' && !estAmo(d));
+      problemes.push(`${nom} : ${brouillon ? 'devis encore en brouillon, finalise-le dans Costructor' : `aucun devis finalisé trouvé (son nom doit commencer par « ${String(fiche?.name || '').trim()} · Scénario ${lettre.toUpperCase()} »)`}`);
+    }
+    if (choisi && !choisis.some((c) => c.d.id === choisi.id)) {
+      // Sans ancienne version dans Costructor : le n° et le montant encore reportés sur le scénario, s'ils diffèrent
+      const numeroReporte = valeur(s, CHAMPS.numeroDevis);
+      const montantReporte = nombre(valeur(s, CHAMPS.montantDevisHT).replace(',', '.'));
+      const htReporte = Number.isFinite(montantReporte) ? montantReporte : null;
+      const differe = !!numeroReporte && (numeroReporte !== String(choisi.number || '') || (htReporte !== null && Math.abs(htReporte - montantHT(choisi)) >= 0.005));
+      choisis.push({ d: choisi, scenario: nom, amo: estAmo(choisi), tarifType, avant, reporte: !avant && differe ? { numero: numeroReporte, ht: htReporte } : null });
+    }
+  }
+
+  // Détail d'un devis (page client, validité, lignes) relu sur le devis lui-même
+  const detailler = async (x: any): Promise<any> => {
+    const r = await costructor(co, `/quotes/${encodeURIComponent(String(x.id))}`);
+    const j = r.ok ? await r.json().catch(() => null) : null;
+    const detail = j?.data && typeof j.data === 'object' && !Array.isArray(j.data) ? j.data : j;
+    return detail?.id ? { ...x, ...detail } : x;
+  };
+  const devis: DevisMail[] = [];
+  for (const c of choisis) {
+    let d = c.d;
+    if (c.avant || !lienClient(d) || montantTTC(d) === null || !expireDe(d)) d = await detailler(d);
+    let ancien: Ancien | undefined;
+    if (c.avant) ancien = comparerVersions(await detailler(c.avant), d);
+    else if (c.reporte) ancien = { numero: c.reporte.numero, ht: c.reporte.ht, ajoutees: [], retirees: [], quantites: [], prix: [] };
+    devis.push({
+      scenario: c.scenario,
+      numero: String(d.number || ''),
+      nom: String(d.name || ''),
+      ht: montantHT(d),
+      ttc: montantTTC(d),
+      tva: tauxTva(d),
+      lien: lienClient(d),
+      expire: expireDe(d),
+      amo: c.amo,
+      tarifType: c.tarifType,
+      ancien,
+    });
+    if (!lienClient(d)) problemes.push(`devis ${d.number || ''} : lien de signature en ligne introuvable dans Costructor, à copier à la main`);
+  }
+  return { devis, problemes };
 }

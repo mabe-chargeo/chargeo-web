@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aujourdhuiParis, ajouterJours, comparer, echeanceClickUp, libelleJour, type Jour } from '@/lib/joursOuvres';
-import { CHAMP_AVIS, NOM_SOUS_TACHE, clickup, creerRappelAvis, infosBrouillon, poseurs, sousTacheAvis } from '@/lib/avisGoogle';
+import { CHAMP_AVIS, NOM_SOUS_TACHE, NOM_TERMINE, PARC_ID, clickup, compterRappels, creerRappelAvis, infosBrouillon, poseurs, sousTacheAvis, valeurAvis } from '@/lib/avisGoogle';
 import { alerter } from '@/lib/alerteSite';
 
 // Suivi des avis Google (Phase 4, validé par Matthieu le 11/10/2026). Rappels internes, aucun email au client.
@@ -10,11 +10,11 @@ import { alerter } from '@/lib/alerteSite';
 //   après chaque relance notée, pour pouvoir noter la suivante (comme pour les devis).
 // - ✅ Avis reçu / 🚫 Refus du client : fin de séquence (sous-tâche renommée « ⭐ Avis Google : terminé (…) », échéance retirée).
 // Les relances sont comptées dans les commentaires « 🔁 Rappel avis n° » depuis le dernier « 🔵 Demande d'avis ».
+// 06/11/2026 (Phase 9, lot 4) : le mail « Avis Google » envoyé depuis l'appli compte aussi comme un rappel
+// (src/lib/avisGoogle.ts, noterRappelAvis) ; comptage et lecture du menu partagés avec lui, règles inchangées.
 // Alertes notifiées (12/10) : écrites dans 📣 Alerte site, relayées par ClickBot à @charge-doperation (src/lib/alerteSite.ts).
 // Preview : GET ?taskId=...&simulation=1 (rien n'est écrit) ou &executer=1 (fiches « Test » uniquement).
 
-const PARC_ID = '901520038290';
-const NOM_TERMINE = '⭐ Avis Google : terminé';
 const normal = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 
 async function lireTache(id: string, token: string): Promise<any | null> {
@@ -27,26 +27,6 @@ async function commenter(token: string, id: string, texte: string, notifier = fa
   if (notifier) { await alerter(token, id, texte); return; }
   const res = await clickup(token, `/task/${id}/comment`, 'POST', { comment_text: texte, notify_all: false });
   if (!res.ok) console.error(`Commentaire refusé (${res.status}) sur ${id}`);
-}
-
-function valeurAvis(tache: any): string {
-  const f = (Array.isArray(tache?.custom_fields) ? tache.custom_fields : []).find((c: any) => c.id === CHAMP_AVIS);
-  if (!f || f.value === undefined || f.value === null || f.value === '') return '';
-  const o = (f.type_config?.options || []).find((x: any) => x.orderindex === Number(f.value) || x.id === f.value);
-  return normal(o?.name || '');
-}
-
-async function compterRappels(id: string, token: string): Promise<number | null> {
-  const res = await clickup(token, `/task/${id}/comment`);
-  if (!res.ok) return null;
-  const json = await res.json().catch(() => ({}));
-  let n = 0;
-  for (const c of Array.isArray(json?.comments) ? json.comments : []) {
-    const t = String(c?.comment_text || '').trim();
-    if (t.startsWith('🔵 Demande d')) break;
-    if (t.startsWith('🔁 Rappel avis n°')) n++;
-  }
-  return n;
 }
 
 const jourDe = (ms: any): Jour | null => (ms ? aujourdhuiParis(new Date(Number(ms))) : null);

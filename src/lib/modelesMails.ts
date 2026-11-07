@@ -9,12 +9,98 @@
 // écrire (créneaux d'un mail « Créneaux » ouvert hors de Caler, date d'une visite pas encore calée). L'envoi reste
 // bloqué tant qu'il en reste un. Chaque texte a son vrai objet ; en réponse dans un fil, l'objet devient « RE: » + l'objet
 // du fil. Pas de signature ici : celle de Gmail (contact@chargeo.fr) s'ajoute à l'envoi.
+// 06/11/2026 (Phase 9, lot 3 ; décisions de Mathieu à 18 h 30, 18 h 34 et 21 h 16) : texte « Devis · envoi », ouvert par
+// le bouton « ✉️ Envoyer le devis » de la fiche. Il reprend les modèles 9 à 16 du 02/11 (un par segment, plus l'AMO
+// seul) en un seul texte qui suit le segment de la fiche, réécrit au « nous » sur le même ton. Chaque devis finalisé
+// est lu dans Costructor (src/lib/devisScenarios.ts) : n°, HT, TTC, TVA, lien de signature en ligne et date de
+// validité. La brochure projet déposée sur la fiche part en pièce jointe et le texte l'annonce (« il faut également que
+// le modèle de mail annonce la présence de la brochure », 21 h 16). Prime ADVENIR : jamais de montant ici, le montant
+// estimé et le reste à charge sont dans la brochure et le devis. Crochets restants : la recommandation entre plusieurs
+// scénarios (seul le commercial la connaît) et une donnée que Costructor ne donne pas.
+// 06/11/2026 (suite du lot 3) : texte « Devis · validé », écrit au passage en 🏆 gagné (Suite de la vente). Il remplace
+// les 6 modèles 25 a à 25 f du 03/11 (« un modèle par cas », décision de Mathieu à 9 h 27) par un seul texte : le cas
+// suit le segment et le devis du scénario retenu. Acompte = 50 % du TTC lu dans Costructor (conditions de paiement
+// standard). Réponse dans le fil du mail d'envoi des devis. En PAR, toujours Advenir (Mathieu, 06/11 à 22 h 17 : pas de
+// prise renforcée partagée).
+// 06/11/2026 (lot 4, accord de Mathieu à 22 h 20) : « Devis · relance » et « Devis · dernière relance » (modèles 17 et
+// 18 du 02/11), posés à la date de relance par le contrôle quotidien (src/lib/relancesDevis.ts). Lien et validité des
+// devis lus dans Costructor ; la relance garde un crochet pour la phrase utile, que seul le commercial peut écrire
+// (jamais une relance « pour relancer »).
+// 06/11/2026 (lot 4, accord de Mathieu à 22 h 34) : « Refus du client » (modèle 21 du 02/11), écrit au passage en
+// ❌ perdu (Suite de la vente), avec une phrase selon le ⛔ Motif Refus choisi. Le motif est toujours donné au perdu :
+// la ligne qui le demandait au client n'a plus lieu d'être.
+// 06/11/2026 (lot 4, accord de Mathieu à 22 h 42) : « Devis · révisé » (modèle 19 du 02/11), ouvert par « ✉️ Envoyer le
+// devis révisé » (Suite de la vente). Nouveaux devis lus dans Costructor comme à l'envoi. Même phrase Advenir et même
+// annonce de la brochure que « Devis · envoi ». 23 h 13 (Mathieu : « Tu ne peux pas les préremplir ? ») : « Ce qui
+// change » et le n° remplacé sont écrits avec l'ancienne version lue dans Costructor (DevisMail.ancien) ; le crochet ne
+// reste que si rien n'a pu être lu.
+// 06/11/2026 (lot 4, accords de Mathieu à 23 h 13 et 23 h 25) : « Avis Google » (modèle 22 du 02/11), affiché sur la fiche
+// du Parc le jour du rappel (J+7, puis J+14 sans avis, src/lib/avisGoogle.ts). Date de mise en service, prénom du poseur
+// et lien remplis par l'appli ; une seule phrase à écrire : un détail du chantier. Demande neutre, sans contrepartie.
+// 06/11/2026 (lot 4, choix de Mathieu à 23 h 43 : pièces prises dans le Drive) : « Documents administratifs » (modèle 20
+// du 02/11), ouvert depuis la page blanche du bloc Contact (étape « Administratif »), à toute étape de la fiche. La liste
+// du mail est celle des documents cochés dans 01_DOSSIER_ENTREPRISE (src/lib/dossierEntreprise.ts), sans crochet.
+// 07/11/2026 (lot 4, accord de Mathieu à 10 h 22) : « Facture · relance » (modèles 23 et 24 du 02/11), en tête de l'écran
+// de la facture le jour des relances 1 (J+3) et 2 (J+10) après le paiement dû (src/lib/factureMail.ts). N°, type,
+// montant TTC ou reste dû, échéance et lien en ligne remplis par l'appli, IBAN des modèles du 02/11 ; une phrase à
+// écrire. La 2e relance est plus ferme et demande la date prévue du règlement. La relance 3 (J+15) reste l'appel du
+// back-office.
+// 07/11/2026 (lot 4, accord de Mathieu à 10 h 55) : « Facture · envoi », sur l'écran de la facture dès qu'elle est émise,
+// un seul texte qui suit le type : acompte (copropriété : après le vote de l'AG), assistance Enedis, solde (avec la
+// ligne Advenir quand le chantier a un dossier Advenir), situation. Sans crochet, PDF de la facture joint.
+// 07/11/2026 (lot 5, accord de Mathieu à 11 h 15) : 9 textes « Candidat · … », proposés sur la fiche du candidat selon
+// son statut (src/lib/candidatMail.ts). Aucun modèle n'existait : textes écrits au « nous », vouvoiement, aucun
+// document demandé, standard de CHARGéO et adresse du dépôt (page chargeo.fr/recrutement). Crochets : ce que seul le
+// recruteur sait (date et heure, contrat, rémunération, date limite de réponse).
 // Fichier pur (aucun accès réseau) : lu par l'écriture des mails (EcrireMail), la route /api/interne/mail, Caler et
 // l'agenda Google (villeDe).
 
 export type Personne = { nom: string; tel: string; email: string };
 // Créneau proposé : jour AAAA-MM-JJ (Paris) et minutes depuis minuit
 export type Creneau = { jour: string; minutes: number };
+// Devis finalisé lu dans Costructor pour le mail d'envoi (src/lib/devisScenarios.ts, devisPourMail)
+export type DevisMail = {
+  scenario: string; // nom du scénario ClickUp
+  numero: string;
+  nom: string; // nom du devis dans Costructor (« … · Scénario A · SG · Borne 7,4 kW », donné par le brief)
+  ht: number;
+  ttc: number | null;
+  tva: string; // « 5,5 % », « 10 % », « 20 % » ou '' si inconnue
+  lien: string; // page client Costructor (consultation et signature en ligne), '' si introuvable
+  expire: string; // AAAA-MM-JJ, '' si inconnue
+  amo: boolean;
+  tarifType: boolean;
+  // Version remplacée d'un devis révisé (lot 4, 06/11, 23 h 13) : n°, HT, lignes ajoutées, retirées, quantités et prix
+  // revus (listes vides si Costructor ne donne pas les lignes)
+  ancien?: {
+    numero: string;
+    ht: number | null;
+    ajoutees: string[];
+    retirees: string[];
+    quantites: { libelle: string; avant: number; apres: number }[];
+    prix: string[];
+  };
+};
+// Facture à envoyer ou à relancer (lot 4, 07/11, src/lib/factureMail.ts, donneesFacture)
+export type FactureMail = {
+  numero: string;
+  genre: string; // acompte, solde, situation, amo (assistance Enedis) ou ''
+  ttc: number | null; // montant TTC lu dans Costructor
+  reste: number | null; // reste dû lu dans Costructor
+  partielle: boolean;
+  echeance: string; // paiement dû, AAAA-MM-JJ
+  rappel: number; // 1 (J+3) ou 2 (J+10)
+  lien: string; // facture en ligne dans Costructor, '' si introuvable
+  jointe: boolean; // un PDF est sur la tâche de la facture
+  advenir: boolean; // le chantier a un dossier Advenir (COP et PAR : toujours)
+};
+// Candidat (lot 5, 07/11, src/lib/candidatMail.ts, lireCandidat)
+export type CandidatMail = {
+  poste: string; // « poseur de bornes de recharge », « électricien », « chef d’équipe », « commercial »
+  commercial: boolean; // liste Recrutement Sales/Freelance
+  entretien: boolean; // un entretien a eu lieu
+  dispo: string; // disponibilité à venir, AAAA-MM-JJ, '' si inconnue
+};
 export type Donnees = {
   nomFiche: string;
   commune: string;
@@ -30,9 +116,31 @@ export type Donnees = {
   contactSurPlace: Personne | null;
   // Créneaux choisis dans Caler (mail « Créneaux », relais gestionnaire)
   creneaux?: Creneau[];
+  // Lot 3 (06/11) : segment de la fiche (RES, DAP, COP, PAR, RIC, FLT, TER), devis finalisés, brochure projet sur la fiche
+  segment?: string;
+  devis?: DevisMail[];
+  brochure?: boolean;
+  // Nom du scénario retenu au gagné (mail « Devis · validé »), donné par l'écran
+  retenu?: string;
+  // ⛔ Motif Refus choisi au perdu (mail « Refus du client »), donné par l'écran
+  motif?: string;
+  // Avis Google (lot 4) : n° du rappel (1 à J+7, 2 à J+14), date de mise en service en clair, prénom du poseur, lien
+  avisRappel?: number;
+  miseEnService?: string;
+  poseur?: string;
+  lienAvis?: string;
+  // Documents administratifs (lot 4) : lignes des documents cochés (« Kbis du 8 octobre 2026 »), données par l'écran
+  documents?: string[];
+  // Mails de facture (lot 4, 07/11)
+  facture?: FactureMail;
+  // Mails aux candidats (lot 5, 07/11)
+  candidat?: CandidatMail;
 };
-export type Etape = 'Nouvelle demande' | 'Visite technique';
-export const ETAPES: Etape[] = ['Nouvelle demande', 'Visite technique'];
+export type Etape = 'Nouvelle demande' | 'Visite technique' | 'Administratif' | 'Devis' | 'Après chantier' | 'Facturation' | 'Candidature';
+// Étapes proposées sur la page blanche du bloc Contact. Les mails de devis s'écrivent depuis la Suite de la vente, avec
+// leurs données Costructor, l'avis Google depuis la fiche du Parc, les mails de facture depuis l'écran de la facture et
+// les mails aux candidats depuis la fiche du candidat : ils ne sont pas dans cette liste.
+export const ETAPES: Etape[] = ['Nouvelle demande', 'Visite technique', 'Administratif'];
 export type Modele = {
   cle: string;
   nom: string;
@@ -48,7 +156,9 @@ export type Modele = {
 
 const liste = (...l: (string | null | undefined)[]) => l.map((x) => String(x ?? '').trim()).filter(Boolean);
 const majuscule1 = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+const minuscule1 = (s: string) => (s && !/^[A-ZÀ-Ý]{2}/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 const sansPoint = (s: string) => String(s || '').trim().replace(/[\s.;,!]+$/, '');
+const sansAccents = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 // Lignes du mail : null ou false = ligne retirée ; jamais plus d'une ligne vide de suite
 const texteDe = (...l: (string | null | undefined | false)[]) =>
   l.filter((x): x is string => typeof x === 'string').join('\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -154,6 +264,827 @@ function creneauEnClair(c: Creneau): string {
   const mi = c.minutes % 60;
   return `${date} à ${h} h${mi ? ` ${String(mi).padStart(2, '0')}` : ''}`;
 }
+
+// ── Envoi du devis (lot 3, 06/11) ──
+const euros = (n: number) => `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+// « 2026-12-06 » → « 6 décembre 2026 »
+function dateLongue(jour: string): string {
+  const [a, mo, j] = String(jour || '').slice(0, 10).split('-').map(Number);
+  if (!a || !mo || !j) return '';
+  return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(Date.UTC(a, mo - 1, j, 12)));
+}
+// Nom donné par le brief (src/lib/briefSaisie.ts, nomDevis) : « [fiche ·] Scénario A · SG · Borne 7,4 kW »
+function morceauxDevis(x: DevisMail): { lettre: string; source: string; materiel: string } {
+  const parts = String(x.nom || '').split('·').map((s) => s.trim()).filter(Boolean);
+  const i = parts.findIndex((p) => /^sc[ée]nario\s+[a-z0-9]+$/i.test(p));
+  const lettre = i >= 0 ? parts[i] : (String(x.scenario || '').match(/Sc[ée]nario\s+[A-Za-z0-9]+/)?.[0] || '');
+  return { lettre, source: i >= 0 ? parts[i + 1] || '' : '', materiel: i >= 0 ? parts.slice(i + 2).join(' · ') : '' };
+}
+const SOURCES: Record<string, string> = {
+  SG: 'sur les services généraux de la copropriété',
+  Tableau: 'sur votre tableau électrique',
+  'PDL dédié': 'sur un point de livraison dédié',
+  'Colonne Enedis': 'au compteur Linky de votre place',
+  'Infra CHARGéO': "sur l'infrastructure collective de la résidence",
+};
+const estPrise = (x: DevisMail) => /prise/i.test(morceauxDevis(x).materiel);
+const surSg = (x: DevisMail) => morceauxDevis(x).source === 'SG';
+// « Infra 30 places » → « infrastructure collective de 30 places » ; « 2 bornes 22 kW » → accord au pluriel
+function descriptionDevis(x: DevisMail): string {
+  const m = morceauxDevis(x);
+  const infra = m.materiel.match(/^infra\s+(.+)$/i);
+  const quoi = infra ? `infrastructure collective de ${infra[1]}` : minuscule1(m.materiel);
+  const pluriel = /^\d+\s/.test(m.materiel) && !/^1\s/.test(m.materiel) && !infra;
+  const ou = SOURCES[m.source] ? `, raccordée${pluriel ? 's' : ''} ${SOURCES[m.source]}` : '';
+  return quoi ? `${quoi}${ou}` : String(x.scenario || '').replace(/^Sc[ée]nario\s+[A-Za-z0-9]+\s*:\s*/, '');
+}
+function blocDevis(x: DevisMail): string[] {
+  const montant = `${euros(x.ht)} HT, soit ${x.ttc !== null ? euros(x.ttc) : '[montant TTC]'} TTC${x.tva ? ` (TVA ${x.tva})` : ''}`;
+  const num = x.numero ? `, devis n° ${x.numero}` : '';
+  const lien = x.lien || `[lien de signature en ligne du devis${x.numero ? ` ${x.numero}` : ''}, à copier depuis Costructor]`;
+  if (x.amo) {
+    const colonne = /colonne/i.test(x.nom);
+    return [
+      `• Assistance Enedis pour ${colonne ? 'la colonne électrique horizontale' : 'la création du point de livraison dédié'} : ${montant}${num}`,
+      colonne
+        ? "  Enedis réalise ensuite la colonne ; chaque résident recevra son propre devis pour sa borne, raccordée au compteur Linky de sa place."
+        : "  La contribution de raccordement fera l'objet d'un devis séparé, émis directement par Enedis.",
+      `  À consulter et à signer en ligne : ${lien}`,
+    ];
+  }
+  if (x.tarifType) {
+    return [
+      `• Tarif type de raccordement d'un résident, pour l'assemblée générale : ${montant}${num}`,
+      "  Ce tarif n'est pas une commande : chaque résident recevra son propre devis, ajusté à sa place.",
+      `  À consulter en ligne : ${lien}`,
+    ];
+  }
+  const m = morceauxDevis(x);
+  return [
+    `• ${m.lettre ? `${m.lettre} : ` : ''}${descriptionDevis(x)}`,
+    `  ${montant}${num}`,
+    `  À consulter et à signer en ligne : ${lien}`,
+  ];
+}
+// Blocs de tous les devis, dans l'ordre AMO, travaux, tarif type (envoi et révision)
+function blocsDevis(l: DevisMail[]): string[] {
+  if (!l.length) return ['[Aucun devis finalisé trouvé dans Costructor pour cette fiche : finalise le devis dans Costructor, puis rouvre ce mail]'];
+  const amo = l.filter((x) => x.amo);
+  const types = l.filter((x) => x.tarifType && !x.amo);
+  const travaux = l.filter((x) => !x.amo && !x.tarifType);
+  return [...amo, ...travaux, ...types].flatMap((x, i) => [...(i ? [''] : []), ...blocDevis(x)]);
+}
+// Prime ADVENIR : jamais acquise, jamais chiffrée ici (montant estimé et reste à charge dans la brochure et le devis).
+// Même phrase à l'envoi et à la révision du devis.
+function phraseAdvenir(d: Donnees, travaux: DevisMail[]): string | null {
+  const seg = d.segment || '';
+  const bornes = travaux.filter((x) => !estPrise(x));
+  const eligible = seg === 'COP'
+    ? "L'infrastructure est éligible à la prime Advenir « infrastructure collective », sous réserve d'acceptation du dossier et selon la date du permis de construire de la résidence."
+    : seg === 'PAR' && bornes.length
+      ? 'Les bornes partagées sont éligibles à la prime Advenir « point de recharge partagé », sous réserve d’acceptation du dossier.'
+      : seg === 'RIC' && bornes.length
+        ? 'Votre borne est éligible à la prime Advenir « point de recharge individuel », jusqu’à 1 000 € par point de recharge, sous réserve d’acceptation du dossier.'
+        : seg === 'DAP' && bornes.some(surSg)
+          ? 'La solution avec borne sur les services généraux est éligible à la prime Advenir « point de recharge individuel », jusqu’à 1 000 € par point de recharge, sous réserve d’acceptation du dossier.'
+          : '';
+  return eligible
+    ? `${eligible} La facture est réglée en totalité, puis la prime est versée si le dossier est accepté : le montant estimé et le reste à charge figurent ${d.brochure ? 'dans la brochure jointe' : 'dans le devis'}. Les travaux ne démarrent qu'après la validation du dossier, sinon ils ne pourraient pas être subventionnés.`
+    : null;
+}
+// Destinataires : le gestionnaire en COP et PAR (copie au contact sur place), le client sinon
+function destinatairesDevis(d: Donnees): { a: string[]; cc: string[] } {
+  if (d.segment === 'COP' || d.segment === 'PAR') {
+    const a = liste(d.gestionnaire?.email || d.email || d.contactSurPlace?.email);
+    return { a, cc: liste(d.contactSurPlace?.email).filter((x) => !a.includes(x)) };
+  }
+  return { a: liste(d.email || contact(d)?.email), cc: [] };
+}
+function salutDevis(d: Donnees): string {
+  if (d.segment === 'COP' || d.segment === 'PAR') return vous(d.gestionnaire?.nom || '') || salutContact(d);
+  return salutContact(d);
+}
+function objetDevis(d: Donnees): string {
+  const l = d.devis || [];
+  const combien = l.length > 1 ? `nos ${l.length} devis` : 'notre devis';
+  const res = residence(d);
+  if (l.length && l.every((x) => x.amo)) return `Votre raccordement Enedis${aCommune(d)} : notre devis d'assistance`;
+  if (d.segment === 'COP') return `${res ? `${res} : ` : ''}${combien} pour l'infrastructure de recharge`;
+  if (d.segment === 'PAR') return `${res ? `${res} : ` : ''}${combien} pour les bornes de recharge partagées`;
+  if (d.segment === 'FLT') return `La recharge de votre flotte : ${combien}`;
+  if (d.segment === 'TER') return `La recharge pour vos clients : ${combien}`;
+  return `Votre projet de recharge${aCommune(d)} : ${combien}`;
+}
+function corpsDevis(d: Donnees): string {
+  const seg = d.segment || '';
+  const l = d.devis || [];
+  const amo = l.filter((x) => x.amo);
+  const types = l.filter((x) => x.tarifType && !x.amo);
+  const travaux = l.filter((x) => !x.amo && !x.tarifType);
+  const plusieurs = l.length > 1;
+  const copro = seg === 'COP' || seg === 'PAR';
+  const v = visite(d);
+  const res = residence(d);
+  const prises = travaux.filter(estPrise);
+
+  const quoi = l.length && l.every((x) => x.amo)
+    ? "notre devis d'assistance pour vos démarches auprès d'Enedis"
+    : seg === 'RES' ? `${plusieurs ? 'nos propositions' : 'notre proposition'} pour recharger votre véhicule chez vous`
+      : seg === 'DAP' ? `${plusieurs ? 'nos propositions' : 'notre proposition'} pour recharger votre véhicule sur votre place, dans votre copropriété`
+        : seg === 'RIC' ? `notre devis pour votre point de recharge${aCommune(d)}`
+          : seg === 'COP' ? `notre dossier pour équiper ${res || 'la copropriété'} d'une infrastructure collective de recharge`
+            : seg === 'PAR' ? `notre proposition pour équiper ${res || 'la résidence'} de bornes de recharge partagées`
+              : seg === 'FLT' ? 'notre proposition pour la recharge des véhicules de votre flotte'
+                : seg === 'TER' ? 'notre proposition pour offrir la recharge à vos clients et visiteurs'
+                  : plusieurs ? 'nos devis' : 'notre devis';
+  const blocs = blocsDevis(l);
+  const advenir = phraseAdvenir(d, travaux);
+
+  const signer = l.filter((x) => !x.tarifType);
+  const expires = l.map((x) => x.expire).filter(Boolean).sort();
+  const validite = expires.length
+    ? ` ${signer.length > 1 || l.length > 1 ? 'Les devis sont valables' : 'Il est valable'} jusqu'au ${dateLongue(expires[0])}.`
+    : ` ${l.length > 1 ? 'Les devis sont valables' : 'Il est valable'} 30 jours.`;
+  const noteAmo = amo.length && travaux.length ? " Le devis d'assistance Enedis, à signer en premier pour lancer la demande, se règle à 100 % à la signature." : '';
+  const conditions = amo.length && !travaux.length && !types.length
+    ? `Le devis se signe en ligne, avec un règlement de 100 % à la signature, par virement.${validite}`
+    : copro
+      ? `${signer.length > 1 ? 'Chaque devis' : 'Le devis'} se signe en ligne. L'acompte de 50 % n'est exigible qu'après l'autorisation des travaux par l'assemblée générale ; le solde est réglé à réception de la facture, par virement.${noteAmo}${validite}`
+      : `${signer.length > 1 ? 'Chaque devis' : 'Le devis'} se signe en ligne : acompte de 50 % à la signature, solde à réception de la facture, par virement.${noteAmo}${validite}`;
+
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    `Merci encore pour l'accueil que vous nous avez réservé lors de la visite technique${v ? ` du ${v.date}` : ''}.`,
+    '',
+    `Comme promis, voici ${quoi} :`,
+    '',
+    ...blocs,
+    '',
+    travaux.length > 1 ? 'Notre recommandation : [scénario conseillé et raison concrète vue à la visite].' : null,
+    travaux.length > 1 ? '' : null,
+    seg === 'DAP' && travaux.some(surSg)
+      ? "La solution sur les services généraux relève du droit à la prise : une simple notification au syndic suffit, sans vote en assemblée générale, et nous nous occupons de ce dossier pour vous. Un sous-compteur certifié MID mesure votre seule consommation, pour un remboursement transparent à la copropriété."
+      : null,
+    seg === 'DAP' && travaux.some(surSg) ? '' : null,
+    advenir,
+    advenir ? '' : null,
+    prises.length && ['RES', 'DAP', 'RIC'].includes(seg) ? `${prises.length > 1 ? 'Les prises renforcées bénéficient' : 'La prise renforcée bénéficie'} d'une TVA à 10 % ; elle n'ouvre pas droit à la prime Advenir.` : null,
+    prises.length && ['RES', 'DAP', 'RIC'].includes(seg) ? '' : null,
+    seg === 'PAR' ? "Chaque utilisateur recharge avec son badge et règle directement sa consommation : la copropriété n'avance rien et n'a aucune facture de recharge à émettre." : null,
+    seg === 'COP' ? "Une convention d'exploitation sera établie dès la validation du devis ; elle précisera les engagements de CHARGéO : accès de tous les utilisateurs à des conditions non discriminatoires, portabilité des données et durée d'engagement." : null,
+    seg === 'FLT' ? 'La supervision relève les consommations, pour suivre et refacturer la recharge de chaque véhicule ou salarié.' : null,
+    seg === 'TER' ? "Vos clients règlent leur recharge par carte bancaire ou par application, et l'électricité consommée vous est reversée : vous n'avez rien à encaisser ni à facturer." : null,
+    ['PAR', 'COP', 'FLT', 'TER'].includes(seg) ? '' : null,
+    d.brochure
+      ? `Vous trouverez en pièce jointe la brochure de votre projet, avec les photos de la visite${copro ? ' : elle peut être transmise telle quelle au conseil syndical' : ''}.`
+      : null,
+    d.brochure ? '' : null,
+    conditions,
+    '',
+    copro
+      ? 'Nous serions ravis de venir présenter le dossier en conseil syndical ou en assemblée générale.'
+      : seg === 'FLT'
+        ? 'Nous pouvons volontiers venir le présenter à votre équipe.'
+        : 'Nous restons à votre entière disposition pour en parler, par téléphone ou par simple retour de mail.',
+    '',
+    'Bien cordialement,',
+  );
+}
+
+// ── Devis révisé (lot 4, accord de Mathieu du 06/11 à 22 h 42 ; préremplissage demandé à 23 h 13) ──
+const LIGNES_MAX = 6;
+const qte = (n: number) => String(Math.round(n * 100) / 100).replace('.', ',');
+const enumerer = (l: string[]) => {
+  if (l.length <= LIGNES_MAX) return l.join(', ');
+  const reste = l.length - LIGNES_MAX;
+  return `${l.slice(0, LIGNES_MAX).join(', ')} et ${reste} autre${reste > 1 ? 's' : ''}`;
+};
+const etEntre = (l: string[]) => (l.length > 1 ? `${l.slice(0, -1).join(', ')} et ${l[l.length - 1]}` : l[0] || '');
+// Ce qui change sur un devis, lu dans Costructor (vide si rien n'a pu être lu)
+function changementsDe(x: DevisMail): string[] {
+  const a = x.ancien;
+  if (!a) return [];
+  const l: string[] = [];
+  if (a.ht !== null && Math.abs(a.ht - x.ht) >= 0.005) l.push(`le montant passe de ${euros(a.ht)} HT à ${euros(x.ht)} HT`);
+  if (a.ajoutees.length) l.push(`${a.ajoutees.length > 1 ? 'lignes ajoutées' : 'ligne ajoutée'} : ${enumerer(a.ajoutees)}`);
+  if (a.retirees.length) l.push(`${a.retirees.length > 1 ? 'lignes retirées' : 'ligne retirée'} : ${enumerer(a.retirees)}`);
+  if (a.quantites.length) l.push(`${a.quantites.length > 1 ? 'quantités revues' : 'quantité revue'} : ${enumerer(a.quantites.map((q) => `${q.libelle} (${qte(q.avant)} → ${qte(q.apres)})`))}`);
+  if (a.prix.length) l.push(`${a.prix.length > 1 ? 'prix revus' : 'prix revu'} : ${enumerer(a.prix)}`);
+  return l;
+}
+const CRO_CHANGE = '[les lignes modifiées, en clair]';
+function corpsRevise(d: Donnees): string {
+  const l = d.devis || [];
+  const travaux = l.filter((x) => !x.amo && !x.tarifType);
+  const signer = l.filter((x) => !x.tarifType);
+  const copro = d.segment === 'COP' || d.segment === 'PAR';
+  const advenir = phraseAdvenir(d, travaux);
+  const plusieurs = signer.length > 1;
+  const expires = l.map((x) => x.expire).filter(Boolean).sort();
+  const validite = `${plusieurs ? 'Les nouveaux devis se signent' : 'Le nouveau devis se signe'} en ligne, aux mêmes conditions de paiement, et ${plusieurs ? 'restent valables' : 'reste valable'} ${expires.length ? `jusqu'au ${dateLongue(expires[0])}` : '30 jours'}.`;
+
+  // Devis dont l'ancienne version est connue : ce qui change et le n° remplacé, sinon un crochet
+  const revus = l.filter((x) => x.ancien);
+  const nomDe = (x: DevisMail) => (x.amo ? 'Assistance Enedis' : morceauxDevis(x).lettre || x.scenario);
+  const ceQuiChange = !revus.length
+    ? [`Ce qui change : ${CRO_CHANGE}.`]
+    : revus.length === 1
+      ? [`Ce qui change : ${changementsDe(revus[0]).join(' ; ') || CRO_CHANGE}.`]
+      : ['Ce qui change :', ...revus.map((x) => `• ${nomDe(x)} : ${changementsDe(x).join(' ; ') || CRO_CHANGE}`)];
+  const numeros = revus.map((x) => x.ancien?.numero || '').filter(Boolean);
+  const memeNumero = revus.length > 0 && revus.every((x) => x.ancien?.numero === x.numero);
+  const remplace = !numeros.length
+    ? `${plusieurs ? 'Ces devis remplacent' : 'Ce devis remplace'} notre devis n° [numéro de l’ancien devis].`
+    : memeNumero
+      ? `${revus.length > 1 ? 'Ces versions remplacent les précédentes' : 'Cette version remplace la précédente'} (devis n° ${etEntre(numeros)}).`
+      : `${revus.length > 1 ? 'Ces devis remplacent nos devis' : 'Ce devis remplace notre devis'} n° ${etEntre(numeros)}.`;
+
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    'Suite à notre échange, voici notre proposition mise à jour :',
+    '',
+    ...blocsDevis(l),
+    '',
+    ...ceQuiChange,
+    '',
+    remplace,
+    '',
+    advenir,
+    advenir ? '' : null,
+    d.brochure
+      ? `Vous trouverez en pièce jointe la brochure de votre projet, mise à jour${copro ? ' : elle peut être transmise telle quelle au conseil syndical' : ''}.`
+      : null,
+    d.brochure ? '' : null,
+    validite,
+    '',
+    'Nous restons à votre entière disposition pour en parler, par téléphone ou par simple retour de mail.',
+    '',
+    'Bien cordialement,',
+  );
+}
+
+// ── Devis validé (suite du lot 3, 06/11) ──
+// Devis du scénario retenu au gagné (et l'AMO de la fiche, qui l'accompagne) ; tous les devis si l'écran n'en donne pas
+function devisRetenus(d: Donnees): DevisMail[] {
+  const l = d.devis || [];
+  if (!d.retenu) return l;
+  const nom = String(d.retenu).trim();
+  const du = l.filter((x) => x.amo || String(x.scenario || '').trim() === nom);
+  return du.length ? du : l;
+}
+const sommeTtc = (l: DevisMail[]): number | null => l.reduce<number | null>((s, x) => (s === null || x.ttc === null ? null : s + x.ttc), 0);
+function numerosValides(d: Donnees): string[] {
+  return devisRetenus(d).filter((x) => !x.tarifType).map((x) => x.numero).filter(Boolean);
+}
+function objetValide(d: Donnees): string {
+  const n = numerosValides(d);
+  return `${n.length === 1 ? `Votre devis ${n[0]}` : n.length > 1 ? 'Vos devis' : 'Votre devis'} : merci pour votre confiance`;
+}
+function corpsValide(d: Donnees): string {
+  const seg = d.segment || '';
+  const l = devisRetenus(d);
+  const amo = l.filter((x) => x.amo);
+  const travaux = l.filter((x) => !x.amo && !x.tarifType);
+  const copro = seg === 'COP' || seg === 'PAR';
+  const res = residence(d);
+  const n = numerosValides(d);
+  const lesDevis = n.length > 1 ? `les devis ${n.slice(0, -1).join(', ')} et ${n[n.length - 1]}` : n.length ? `le devis ${n[0]}` : 'votre devis';
+  const ttcTravaux = sommeTtc(travaux);
+  const acompte = ttcTravaux !== null ? euros(Math.round(ttcTravaux * 50) / 100) : "[montant de l'acompte]";
+  const ttcAmo = sommeTtc(amo);
+  const factureAmo = ttcAmo !== null ? euros(ttcAmo) : '[montant]';
+  const prises = travaux.length > 0 && travaux.every(estPrise);
+  const dapSurSg = travaux.some(surSg);
+  // COP et PAR : toujours Advenir (pas de prise renforcée partagée) ; RIC et DAP sur SG : sauf prise renforcée
+  const advenir = seg === 'COP' || seg === 'PAR' || (!prises && (seg === 'RIC' || (seg === 'DAP' && dapSurSg)));
+  const merci = copro
+    ? `Merci beaucoup pour votre confiance : nous avons bien reçu la validation de ${lesDevis}${res ? ` pour ${res}` : ''}.`
+    : `Merci beaucoup pour votre confiance : nous avons bien reçu ${lesDevis} signé${n.length > 1 ? 's' : ''}.`;
+  const ligneAmo = amo.length && travaux.length
+    ? `Pour l'assistance Enedis, la facture de ${factureAmo} TTC est réglable à la signature, par virement : nous lançons la demande auprès d'Enedis sans attendre.`
+    : null;
+  const sansAttente = "Les travaux ne démarreront qu'après sa validation, sinon ils ne pourraient pas être subventionnés.";
+
+  if (!l.length) {
+    return texteDe(
+      bonjour(salutDevis(d)),
+      '',
+      merci,
+      '',
+      '[Aucun devis trouvé dans Costructor pour le scénario retenu : vérifie qu’il est finalisé, puis rouvre ce mail]',
+      '',
+      'Bien cordialement,',
+    );
+  }
+  // AMO seul : facture de 100 % à la signature (25 f)
+  if (!travaux.length && amo.length) {
+    return texteDe(
+      bonjour(salutDevis(d)),
+      '',
+      merci,
+      '',
+      `Vous allez recevoir la facture de ${factureAmo} TTC, réglable à la signature, par virement.`,
+      '',
+      "Nous lançons dès maintenant la demande auprès d'Enedis, et nous vous tiendrons au courant de chaque étape.",
+      '',
+      'Bien cordialement,',
+    );
+  }
+  // COP et PAR : acompte après le vote de l'AG, Advenir, convention en COP (25 d, 25 e)
+  if (copro) {
+    return texteDe(
+      bonjour(salutDevis(d)),
+      '',
+      merci,
+      '',
+      "L'acompte de 50 % devient exigible dès que l'assemblée générale a autorisé les travaux : pourriez-vous nous transmettre le procès-verbal dès qu'il sera disponible ? La facture d'acompte suivra aussitôt.",
+      ligneAmo ? '' : null,
+      ligneAmo,
+      '',
+      `Nous déposerons ensuite le dossier de prime Advenir${seg === 'COP' ? ' « infrastructure collective »' : ''}. ${sansAttente}`,
+      '',
+      seg === 'COP' ? "La convention d'exploitation vous sera transmise très prochainement ; elle précise les engagements de CHARGéO." : null,
+      seg === 'COP' ? '' : null,
+      `Nous reviendrons vers vous dès la validation du dossier Advenir pour fixer la date ${seg === 'COP' ? 'des travaux' : 'de pose'}.`,
+      '',
+      'Bien cordialement,',
+    );
+  }
+  // RES, FLT, TER, DAP hors SG et prises (25 a) ; DAP sur les services généraux (25 b) ; RIC (25 c)
+  const dapSg = seg === 'DAP' && dapSurSg;
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    merci,
+    '',
+    `Vous allez recevoir la facture d'acompte de 50 %, soit ${acompte} TTC, à régler par virement. Le solde sera facturé à la fin des travaux.`,
+    ligneAmo ? '' : null,
+    ligneAmo,
+    '',
+    dapSg
+      ? `Nous préparons la notification au syndic au titre du droit à la prise${advenir ? ` et nous déposons le dossier de prime Advenir. ${sansAttente}` : '.'}`
+      : advenir ? `Nous déposons le dossier de prime Advenir. ${sansAttente}` : null,
+    dapSg || advenir ? '' : null,
+    advenir
+      ? 'Nous reviendrons vers vous dès la validation du dossier Advenir pour fixer la date de pose.'
+      : "Nous reviendrons vers vous dès réception de l'acompte pour fixer ensemble la date de pose.",
+    '',
+    'Bien cordialement,',
+  );
+}
+
+// ── Relances du devis (lot 4, accord de Mathieu du 06/11 à 22 h 20) ──
+// Aujourd'hui à Paris, AAAA-MM-JJ
+const aujourdhuiIso = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+// Devis à signer rappelés dans une relance : travaux et AMO, sans le tarif type
+const devisARelancer = (d: Donnees) => (d.devis || []).filter((x) => !x.tarifType);
+const estExpire = (x: DevisMail) => !!x.expire && x.expire.slice(0, 10) < aujourdhuiIso();
+function validiteRelance(x: DevisMail): string {
+  if (!x.expire) return '';
+  return estExpire(x) ? `arrivé à échéance le ${dateLongue(x.expire)}, nous l'actualiserons volontiers` : `valable jusqu'au ${dateLongue(x.expire)}`;
+}
+const lienOuCrochet = (x: DevisMail) => x.lien || `[lien de signature en ligne du devis${x.numero ? ` ${x.numero}` : ''}, à copier depuis Costructor]`;
+function rappelDevis(d: Donnees): string[] {
+  const l = devisARelancer(d);
+  if (!l.length) return ['[Aucun devis finalisé trouvé dans Costructor pour cette fiche : vérifie-le, puis rouvre ce mail]'];
+  if (l.length === 1) {
+    const x = l[0];
+    const v = validiteRelance(x);
+    return [`Pour mémoire, ${x.numero ? `notre devis n° ${x.numero}` : 'notre devis'} se consulte et se signe en ligne : ${lienOuCrochet(x)}${v ? ` (${v})` : ''}.`];
+  }
+  return [
+    'Pour mémoire, nos devis se consultent et se signent en ligne :',
+    ...l.map((x) => {
+      const v = validiteRelance(x);
+      const quoi = x.amo ? 'Assistance Enedis' : morceauxDevis(x).lettre || x.scenario;
+      return `• ${quoi}${x.numero ? `, devis n° ${x.numero}` : ''} : ${lienOuCrochet(x)}${v ? ` (${v})` : ''}`;
+    }),
+  ];
+}
+// Tentatives 1 et 2 (modèle 17) : toujours un apport utile, écrit par le commercial
+function corpsRelance(d: Donnees): string {
+  const copro = d.segment === 'COP' || d.segment === 'PAR';
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    'Nous espérons que vous allez bien.',
+    '',
+    '[Ta phrase utile : réponse à une question restée ouverte, conseil, délai Advenir ou préparation de l’AG]',
+    '',
+    ...rappelDevis(d),
+    '',
+    copro
+      ? 'Si un point fait hésiter le conseil syndical, ou si vous souhaitez que nous venions présenter le dossier, dites-le-nous simplement : nous en parlerons volontiers.'
+      : 'Si quelque chose vous fait hésiter, que ce soit le prix, le matériel ou le calendrier, dites-le-nous simplement : nous en parlerons volontiers.',
+    '',
+    'Bien cordialement,',
+  );
+}
+// Tentative 3 (modèle 18), juste avant la suspension des relances
+function corpsDerniereRelance(d: Donnees): string {
+  const copro = d.segment === 'COP' || d.segment === 'PAR';
+  const res = residence(d);
+  const projet = copro ? `l'équipement de ${res || 'la résidence'}` : `votre projet de recharge${aCommune(d)}`;
+  const l = devisARelancer(d);
+  const valides = l.filter((x) => !!x.expire && !estExpire(x)).map((x) => x.expire).sort();
+  const suite = valides.length
+    ? `${l.length > 1 ? 'les devis restent valables' : 'le devis reste valable'} jusqu'au ${dateLongue(valides[0])}`
+    : 'nous actualiserons alors le devis si besoin';
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    `Nous revenons une dernière fois vers vous au sujet de ${projet}.`,
+    '',
+    `Sans nouvelles de votre part, nous mettons le dossier en attente de notre côté. Il vous suffira de répondre à ce mail pour le reprendre : ${suite}.`,
+    '',
+    "Merci encore pour l'intérêt que vous portez à CHARGéO.",
+    '',
+    'Bien cordialement,',
+  );
+}
+
+// ── Refus du client (lot 4, accord de Mathieu du 06/11 à 22 h 34) ──
+// Une phrase selon le ⛔ Motif Refus : 💸 Trop cher / Budget, 🏃 Concurrence, ❌ Projet abandonné, 🧱 Faisabilité Technique
+function corpsRefus(d: Donnees): string {
+  const m = sansAccents(d.motif);
+  const copro = d.segment === 'COP' || d.segment === 'PAR';
+  const res = residence(d);
+  const projet = copro ? `l'équipement de ${res || 'la résidence'}` : `votre projet de recharge${aCommune(d)}`;
+  const faisabilite = m.includes('faisabilit');
+  const phrase = m.includes('cher') || m.includes('budget')
+    ? 'Nous comprenons tout à fait que le budget soit déterminant. Si votre projet évolue, nous reverrons volontiers notre proposition avec vous.'
+    : m.includes('concurren')
+      ? 'Nous respectons pleinement votre choix, et nous vous souhaitons une très belle réussite dans votre projet.'
+      : m.includes('abandon')
+        ? 'Nous le comprenons tout à fait : si le projet revient un jour sur la table, nous serons heureux de le reprendre avec vous.'
+        : faisabilite
+          ? 'Nous regrettons sincèrement de ne pas pouvoir mener ce projet à bien dans de bonnes conditions techniques, et nous préférons vous le dire en toute transparence.'
+          : '[Motif du refus : choisis-le au clic sur « Perdu », puis rouvre ce mail]';
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    faisabilite
+      ? `Merci beaucoup pour le temps que vous nous avez accordé au sujet de ${projet}.`
+      : `Merci beaucoup de nous avoir tenus informés au sujet de ${projet}.`,
+    '',
+    phrase,
+    '',
+    faisabilite
+      ? 'Nous restons bien sûr à votre disposition pour toute question.'
+      : 'Nous restons joignables à tout moment, et notre devis pourra être actualisé si besoin.',
+    '',
+    'Bien cordialement,',
+  );
+}
+
+// ── Avis Google (lot 4, accords de Mathieu du 06/11 à 23 h 13 et 23 h 25 ; modèle 22 du 02/11) ──
+// Même texte à J+7 et à J+14 ; au 2e envoi seulement, la ligne « dernier message ». Une seule phrase à écrire.
+const LIEN_AVIS_DEFAUT = 'https://g.page/r/CVX9CIKSR7ddEBM/review';
+function corpsAvis(d: Donnees): string {
+  const deuxieme = (d.avisRappel || 1) >= 2;
+  const poseur = String(d.poseur || '').trim();
+  const depuis = d.miseEnService ? `Votre installation de recharge fonctionne depuis le ${d.miseEnService}.` : 'Votre installation de recharge est en service depuis quelques jours.';
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    `${depuis} [Un détail du chantier : le passage du câble, la place, la mise en service…]`,
+    '',
+    `Si vous avez deux minutes, un avis Google nous aiderait beaucoup à nous faire connaître dans le Chablais.${poseur ? ` Vous pouvez citer ${poseur}, qui a réalisé la pose, si vous le souhaitez.` : ''}`,
+    '',
+    `Le lien direct : ${d.lienAvis || LIEN_AVIS_DEFAUT}`,
+    '',
+    deuxieme ? 'Nous vous en avions parlé il y a une semaine : c’est notre dernier message à ce sujet.' : null,
+    deuxieme ? '' : null,
+    'Pour toute question sur votre installation, il vous suffit de répondre à ce mail.',
+    '',
+    'Bien cordialement,',
+  );
+}
+
+// ── Documents administratifs (lot 4, choix de Mathieu du 06/11 à 23 h 43 ; modèle 20 du 02/11) ──
+// Liste = documents cochés dans le Drive ; aucun coché : phrase sans liste (l'envoi exige au moins une pièce)
+function corpsDocuments(d: Donnees): string {
+  const l = (d.documents || []).map((x) => String(x || '').trim()).filter(Boolean);
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    'Merci pour votre message.',
+    '',
+    l.length
+      ? `Comme convenu, vous trouverez en pi${l.length > 1 ? 'èces jointes' : 'èce jointe'} ${l.length > 1 ? 'les documents administratifs' : 'le document administratif'} de CHARGéO :`
+      : 'Comme convenu, vous trouverez en pièces jointes les documents administratifs de CHARGéO.',
+    ...(l.length ? puces(l) : []),
+    '',
+    'Nous restons à votre entière disposition pour tout document complémentaire.',
+    '',
+    'Bien cordialement,',
+  );
+}
+
+// ── Mails de facture (lot 4, accords de Mathieu du 07/11 à 10 h 22 et 10 h 55) ──
+// IBAN des modèles 23 et 24 du 02/11 ; montant TTC (ou reste dû si la facture est réglée en partie) lu dans Costructor,
+// sinon un crochet.
+const IBAN = 'FR76 1382 5002 0008 0214 7764 481';
+const VIREMENT_FACTURE = `Le règlement se fait par virement, avec le n° de la facture en référence :\nIBAN ${IBAN}`;
+const GENRES_FACTURE: Record<string, string> = { acompte: "d'acompte ", solde: 'de solde ', situation: 'de situation ', amo: "d'assistance Enedis " };
+const LIBELLES_FACTURE: Record<string, string> = { acompte: "facture d'acompte", solde: 'facture de solde', situation: 'facture de situation', amo: "facture d'assistance Enedis" };
+const CRO_FACTURE = '[Ta phrase : un mot sur le chantier ou sur votre dernier échange]';
+function quelleFacture(f: FactureMail): string {
+  return `notre facture ${GENRES_FACTURE[f.genre] || ''}${f.numero ? `n° ${f.numero}` : ''}`.trim();
+}
+// Pièce jointe et lien en ligne de la facture (rien si aucun des deux)
+function accesFacture(f: FactureMail): string | null {
+  if (f.jointe && f.lien) return `Vous la trouverez en pièce jointe ; elle se consulte aussi en ligne : ${f.lien}`;
+  if (f.jointe) return 'Vous la trouverez en pièce jointe.';
+  if (f.lien) return `Elle se consulte en ligne : ${f.lien}`;
+  return null;
+}
+const sansFacture = (d: Donnees) => texteDe(bonjour(salutDevis(d)), '', '[Facture introuvable : ouvre ce mail depuis l’écran de la facture]', '', 'Bien cordialement,');
+
+// Envoi (accord de Mathieu du 07/11 à 10 h 55) : un seul texte qui suit le type de facture, sans crochet
+function objetEnvoiFacture(d: Donnees): string {
+  const f = d.facture;
+  const quoi = LIBELLES_FACTURE[f?.genre || ''] || 'facture';
+  const res = residence(d);
+  const copro = d.segment === 'COP' || d.segment === 'PAR';
+  return `${copro && res ? `${res} : ${quoi}` : `Votre ${quoi}`}${f?.numero ? ` n° ${f.numero}` : ''}`;
+}
+function corpsEnvoiFacture(d: Donnees): string {
+  const f = d.facture;
+  if (!f) return sansFacture(d);
+  const copro = d.segment === 'COP' || d.segment === 'PAR';
+  const quoi = LIBELLES_FACTURE[f.genre] || 'facture';
+  const num = f.numero ? ` n° ${f.numero}` : '';
+  const montant = `d'un montant de ${f.ttc !== null ? euros(f.ttc) : '[montant]'} TTC`;
+  const quand = f.echeance ? `à régler avant le ${dateLongue(f.echeance)}` : 'à régler à réception';
+  const intro = f.genre === 'amo'
+    ? `Comme convenu, voici notre ${quoi}${num}, ${montant}, ${quand}.`
+    : f.genre === 'acompte'
+      ? copro
+        ? `Suite à l'autorisation des travaux par l'assemblée générale, voici notre ${quoi} de 50 %${num}, ${montant}, ${quand}.`
+        : `Comme convenu, voici notre ${quoi} de 50 %${num}, ${montant}, ${quand}.`
+      : f.genre === 'solde'
+        ? `Votre installation est terminée, et nous vous remercions encore pour votre confiance. Voici notre ${quoi}${num}, ${montant}, ${quand}.`
+        : f.genre === 'situation'
+          ? `Voici notre ${quoi}${num}, qui correspond à l'avancement des travaux, ${montant}, ${quand}.`
+          : `Voici notre facture${num}, ${montant}, ${quand}.`;
+  const suite = f.genre === 'amo'
+    ? "La demande est lancée auprès d'Enedis : nous vous tiendrons au courant de chaque étape."
+    : f.genre === 'acompte'
+      ? copro
+        ? `Nous déposons maintenant le dossier de prime Advenir${d.segment === 'COP' ? ' « infrastructure collective »' : ''}. Les travaux ne démarreront qu'après sa validation, sinon ils ne pourraient pas être subventionnés.`
+        : `Le solde sera facturé à la fin des travaux. ${f.advenir ? 'Nous reviendrons vers vous dès la validation du dossier Advenir pour fixer la date de pose.' : "Dès réception de l'acompte, nous reviendrons vers vous pour fixer ensemble la date de pose."}`
+      : f.genre === 'solde' && f.advenir
+        ? 'Dès réception du règlement, nous transmettons la facture acquittée à Advenir pour le versement de la prime, si le dossier est accepté.'
+        : null;
+  const acces = accesFacture(f);
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    intro,
+    '',
+    suite,
+    suite ? '' : null,
+    acces,
+    acces ? '' : null,
+    VIREMENT_FACTURE,
+    '',
+    'Pour toute question, il vous suffit de répondre à ce mail.',
+    '',
+    'Bien cordialement,',
+  );
+}
+
+// Relance (accord de Mathieu du 07/11 à 10 h 22 ; modèles 23 et 24 du 02/11) : relance 1 (J+3) courtoise, relance 2
+// (J+10) plus ferme, qui demande la date prévue du règlement. Une phrase à écrire.
+function objetFacture(d: Donnees): string {
+  const f = d.facture;
+  const quoi = f?.numero ? `Facture ${f.numero}` : 'Votre facture CHARGéO';
+  return `${quoi} : ${(f?.rappel || 1) >= 2 ? 'règlement en attente' : 'petit rappel'}`;
+}
+function corpsFacture(d: Donnees): string {
+  const f = d.facture;
+  if (!f) return sansFacture(d);
+  const quelle = quelleFacture(f);
+  const echeance = f.echeance ? `, arrivée à échéance le ${dateLongue(f.echeance)}` : '';
+  const ttc = f.ttc !== null ? euros(f.ttc) : '[montant]';
+  const reste = f.reste !== null ? euros(f.reste) : '[montant restant dû]';
+  const acces = accesFacture(f);
+  if ((f.rappel || 1) >= 2) {
+    return texteDe(
+      bonjour(salutDevis(d)),
+      '',
+      f.partielle
+        ? `Nous revenons vers vous au sujet de ${quelle}${echeance} : sauf erreur de notre part, il reste ${reste} TTC à régler.`
+        : `Nous revenons vers vous au sujet de ${quelle}, d'un montant de ${ttc} TTC${echeance}, dont nous n'avons pas encore reçu le règlement.`,
+      '',
+      CRO_FACTURE,
+      '',
+      acces,
+      acces ? '' : null,
+      'Pourriez-vous nous indiquer la date prévue du règlement ? Si une difficulté se présente, parlons-en simplement : nous trouverons volontiers une solution ensemble.',
+      '',
+      VIREMENT_FACTURE,
+      '',
+      'Si votre règlement est déjà parti, merci de ne pas tenir compte de ce message.',
+      '',
+      'Bien cordialement,',
+    );
+  }
+  return texteDe(
+    bonjour(salutDevis(d)),
+    '',
+    'Nous espérons que vous allez bien.',
+    '',
+    f.partielle
+      ? `Merci pour le premier règlement reçu sur ${quelle}${echeance}. Sauf erreur de notre part, il reste ${reste} TTC à régler.`
+      : `Sauf erreur de notre part, nous n'avons pas encore reçu le règlement de ${quelle}, d'un montant de ${ttc} TTC${echeance}.`,
+    '',
+    CRO_FACTURE,
+    '',
+    acces,
+    acces ? '' : null,
+    VIREMENT_FACTURE,
+    '',
+    'Si votre règlement est déjà parti, merci de ne pas tenir compte de ce message, et pardonnez-nous ce rappel.',
+    '',
+    'Pour toute question, il vous suffit de répondre à ce mail.',
+    '',
+    'Bien cordialement,',
+  );
+}
+
+// ── Mails aux candidats (lot 5, accord de Mathieu du 07/11 à 11 h 15) ──
+// Standard, adresse du dépôt et brochure du poste : ceux de la page chargeo.fr/recrutement (src/app/recrutement/page.tsx,
+// brochure partagée en lecture à tous ceux qui ont le lien). Aucun document demandé au candidat.
+const STANDARD = '04 85 69 22 04';
+const DEPOT = '89 chemin de la Ballastière, à Thonon-les-Bains';
+const BROCHURE_RECRUTEMENT = 'https://drive.google.com/file/d/1CXRE-PEHDua-cXb6ggUBP3wHSxL_UerY/view';
+const salutCandidat = (d: Donnees) => vous(d.nomFiche);
+const posteCandidat = (d: Donnees) => d.candidat?.poste || 'poseur de bornes de recharge';
+const commercialCandidat = (d: Donnees) => !!d.candidat?.commercial;
+const JOINDRE = `Pour toute question, vous pouvez nous joindre au ${STANDARD}, ou simplement répondre à ce mail.`;
+const AUTRE_DATE = 'Si ce créneau ne vous convient pas, dites-le-nous simplement : nous trouverons volontiers une autre date.';
+const debutCandidat = (d: Donnees) => (d.candidat?.dispo ? `à partir du ${dateLongue(d.candidat.dispo)}` : '[date de début]');
+const OBJET_CANDIDATURE = 'Votre candidature chez CHARGéO';
+
+function corpsCandidatRecue(d: Donnees): string {
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    `Merci beaucoup pour votre candidature au poste de ${posteCandidat(d)}, et pour l'intérêt que vous portez à CHARGéO.`,
+    '',
+    'Nous l’avons bien reçue et nous la lisons avec attention : nous revenons vers vous sous 48 heures, par téléphone ou par mail, pour vous dire la suite.',
+    '',
+    JOINDRE,
+    '',
+    'Bien cordialement,',
+  );
+}
+function corpsCandidatEntretien(d: Donnees): string {
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    `Votre candidature au poste de ${posteCandidat(d)} a retenu toute notre attention, et nous avons le plaisir de vous proposer un entretien :`,
+    ...puces(['le [jour, date et heure de l’entretien]', `au ${DEPOT}`]),
+    '',
+    commercialCandidat(d) ? null : `Pour le préparer, vous trouverez ici la brochure du poste, avec la fiche de poste : ${BROCHURE_RECRUTEMENT}`,
+    commercialCandidat(d) ? null : '',
+    AUTRE_DATE,
+    '',
+    JOINDRE,
+    '',
+    'Au plaisir de vous rencontrer,',
+  );
+}
+function corpsCandidatTest(d: Donnees): string {
+  const commercial = commercialCandidat(d);
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    'Merci pour notre entretien, que nous avons beaucoup apprécié.',
+    '',
+    commercial
+      ? 'Comme convenu, nous vous proposons une mise en situation commerciale :'
+      : 'Comme convenu, nous vous proposons une mise en situation sur le terrain, aux côtés d’un électricien de CHARGéO :',
+    ...puces(['le [jour, date et heure]', `au ${DEPOT}`]),
+    '',
+    commercial ? 'Nous vous présenterons le cas sur place : rien à préparer de votre côté.' : 'Tout l’outillage est fourni sur place : rien à prévoir de votre côté.',
+    '',
+    AUTRE_DATE,
+    '',
+    JOINDRE,
+    '',
+    'Au plaisir de vous retrouver,',
+  );
+}
+function corpsCandidatOffreSalarie(d: Donnees): string {
+  const commercial = commercialCandidat(d);
+  const poste = posteCandidat(d);
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    'Merci encore pour le temps que vous nous avez consacré. Nous avons le plaisir de vous proposer de rejoindre l’équipe de CHARGéO :',
+    ...puces([
+      `poste : ${poste}`,
+      'contrat : [type de contrat : intérim, CDD ou CDI]',
+      'rémunération : [montant brut, à l’heure ou au mois]',
+      `début : ${debutCandidat(d)}`,
+      commercial ? 'secteur : Thonon-les-Bains et le Chablais' : 'secteur : au départ de Thonon-les-Bains, chantiers dans le Chablais et en Haute-Savoie',
+    ]),
+    '',
+    commercial ? null : 'Le véhicule, la tenue et l’outillage sont fournis.',
+    commercial ? null : '',
+    `Pourriez-vous nous donner votre réponse d’ici le [date limite de réponse] ? Nous restons bien sûr disponibles pour en parler au ${STANDARD}.`,
+    '',
+    'Nous serions très heureux de vous compter parmi nous.',
+    '',
+    'Bien cordialement,',
+  );
+}
+function corpsCandidatOffreFreelance(d: Donnees): string {
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    'Merci encore pour le temps que vous nous avez consacré. Nous avons le plaisir de vous proposer une collaboration en indépendant avec CHARGéO :',
+    ...puces([
+      'mission : [périmètre : clientèle, secteur et missions]',
+      'rémunération : [commission ou forfait, et ses conditions]',
+      `démarrage : ${debutCandidat(d)}`,
+    ]),
+    '',
+    'Le contrat de collaboration vous sera transmis dès votre accord.',
+    '',
+    `Pourriez-vous nous donner votre réponse d’ici le [date limite de réponse] ? Nous restons bien sûr disponibles pour en parler au ${STANDARD}.`,
+    '',
+    'Nous serions très heureux de travailler avec vous.',
+    '',
+    'Bien cordialement,',
+  );
+}
+function corpsCandidatRefusCv(d: Donnees): string {
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    `Merci beaucoup pour votre candidature au poste de ${posteCandidat(d)}, et pour l'intérêt que vous portez à CHARGéO.`,
+    '',
+    'Après une lecture attentive, nous ne pouvons pas y donner suite : votre profil ne correspond pas à nos besoins actuels.',
+    '',
+    'Nous vous souhaitons pleine réussite dans vos recherches.',
+    '',
+    'Bien cordialement,',
+  );
+}
+function corpsCandidatRefusEntretien(d: Donnees): string {
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    'Merci beaucoup pour le temps que vous nous avez consacré lors de nos échanges, que nous avons sincèrement appréciés.',
+    '',
+    `Après réflexion, nous avons fait le choix d’un autre profil pour le poste de ${posteCandidat(d)}. Cette décision n’a pas été facile, et elle n’enlève rien à vos qualités.`,
+    '',
+    'Nous vous souhaitons pleine réussite dans la suite de votre parcours.',
+    '',
+    'Bien cordialement,',
+  );
+}
+function corpsCandidatVivier(d: Donnees): string {
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    `Merci encore pour votre candidature${d.candidat?.entretien ? ' et pour nos échanges' : ''}.`,
+    '',
+    'Nous ne pouvons pas vous proposer de poste pour le moment, mais votre profil nous intéresse : nous gardons votre candidature, et nous reviendrons vers vous dès qu’une place s’ouvrira. Si vous préférez que nous ne la conservions pas, il vous suffit de nous le dire.',
+    '',
+    'Et si votre situation évolue d’ici là, répondez simplement à ce mail : nous serons heureux d’avoir de vos nouvelles.',
+    '',
+    'Bien cordialement,',
+  );
+}
+function corpsCandidatBienvenue(d: Donnees): string {
+  const commercial = commercialCandidat(d);
+  return texteDe(
+    bonjour(salutCandidat(d)),
+    '',
+    'Nous sommes ravis de vous accueillir dans l’équipe de CHARGéO !',
+    '',
+    'Votre premier jour :',
+    ...puces([d.candidat?.dispo ? `le ${dateLongue(d.candidat.dispo)}, à [heure]` : 'le [jour, date et heure]', `au ${DEPOT}`]),
+    '',
+    commercial
+      ? 'Nous commencerons par vous présenter l’équipe et nos outils de travail.'
+      : 'Nous commencerons par vous présenter l’équipe, votre véhicule et votre outillage.',
+    '',
+    `Pour toute question d’ici là, vous pouvez nous joindre au ${STANDARD}.`,
+    '',
+    'À très bientôt,',
+  );
+}
+// Même destinataire pour tous : le candidat, sans copie
+const aCandidat = (d: Donnees) => liste(d.email);
+const sansCopie = () => [] as string[];
 
 export const MODELES: Modele[] = [
   {
@@ -392,6 +1323,166 @@ export const MODELES: Modele[] = [
         v ? `Au plaisir de vous rencontrer ${v.jour},` : 'Au plaisir de vous rencontrer très prochainement,',
       );
     },
+  },
+  {
+    // Lot 4 (06/11) : ouvert depuis la page blanche du bloc Contact ; pièces jointes prises dans le Drive
+    cle: 'documents-administratifs',
+    nom: 'Documents administratifs',
+    court: 'Documents administratifs',
+    etape: 'Administratif',
+    reponse: true,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: (d) => (residence(d) ? `${residence(d)} : documents administratifs de CHARGéO` : 'Documents administratifs de CHARGéO'),
+    corps: corpsDocuments,
+  },
+  {
+    // Lot 3 (06/11) : ouvert par « ✉️ Envoyer le devis » (Suite de la vente) ; la fiche passe en 📩 devis envoyé quand il part
+    cle: 'devis-envoi',
+    nom: 'Devis · envoi',
+    court: 'Envoi du devis',
+    etape: 'Devis',
+    reponse: false,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetDevis,
+    corps: corpsDevis,
+  },
+  {
+    // Suite du lot 3 (06/11) : écrit au gagné (Suite de la vente) ; la fiche passe en 🏆 gagné quand il part
+    cle: 'devis-valide',
+    nom: 'Devis · validé',
+    court: 'Devis validé',
+    etape: 'Devis',
+    reponse: true,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetValide,
+    corps: corpsValide,
+  },
+  {
+    // Lot 4 (06/11) : posé à la date de relance (tentatives 1 et 2) ; parti, il compte comme la relance
+    cle: 'devis-relance',
+    nom: 'Devis · relance',
+    court: 'Relance',
+    etape: 'Devis',
+    reponse: true,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetDevis,
+    corps: corpsRelance,
+  },
+  {
+    // Lot 4 (06/11) : 3e tentative, juste avant la suspension des relances
+    cle: 'devis-derniere-relance',
+    nom: 'Devis · dernière relance',
+    court: 'Dernière relance',
+    etape: 'Devis',
+    reponse: true,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetDevis,
+    corps: corpsDerniereRelance,
+  },
+  {
+    // Lot 4 (06/11) : écrit au perdu (Suite de la vente) ; la fiche passe en ❌ perdu quand il part
+    cle: 'devis-refus',
+    nom: 'Refus du client',
+    court: 'Refus',
+    etape: 'Devis',
+    reponse: true,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetDevis,
+    corps: corpsRefus,
+  },
+  {
+    // Lot 4 (06/11) : ouvert par « ✉️ Envoyer le devis révisé » ; parti, les relances repartent de zéro
+    cle: 'devis-revise',
+    nom: 'Devis · révisé',
+    court: 'Devis révisé',
+    etape: 'Devis',
+    reponse: true,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetDevis,
+    corps: corpsRevise,
+  },
+  {
+    // Lot 4 (06/11) : sur la fiche du Parc le jour du rappel (J+7, J+14) ; parti, il compte comme le rappel
+    cle: 'avis-google',
+    nom: 'Avis Google',
+    court: 'Avis Google',
+    etape: 'Après chantier',
+    reponse: false,
+    a: (d) => destinatairesDevis(d).a,
+    cc: () => [],
+    objet: (d) => `Votre installation de recharge${aCommune(d)} : votre avis sur CHARGéO`,
+    corps: corpsAvis,
+  },
+  {
+    // Lot 4 (07/11) : sur l'écran de la facture dès qu'elle est émise ; nom lu par src/lib/factureMail.ts (ne pas le changer)
+    cle: 'facture-envoi',
+    nom: 'Facture · envoi',
+    court: 'Envoi facture',
+    etape: 'Facturation',
+    reponse: false,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetEnvoiFacture,
+    corps: corpsEnvoiFacture,
+  },
+  {
+    // Lot 4 (07/11) : sur l'écran de la facture le jour des relances 1 (J+3) et 2 (J+10) ; parti, il compte comme la relance
+    cle: 'facture-relance',
+    nom: 'Facture · relance',
+    court: 'Relance facture',
+    etape: 'Facturation',
+    reponse: false,
+    a: (d) => destinatairesDevis(d).a,
+    cc: (d) => destinatairesDevis(d).cc,
+    objet: objetFacture,
+    corps: corpsFacture,
+  },
+  // Lot 5 (07/11) : sur la fiche du candidat selon son statut (src/lib/candidatMail.ts). Les noms sont relus dans les copies
+  // des commentaires pour savoir si le mail est parti : ne pas les changer.
+  {
+    cle: 'candidat-recue', nom: 'Candidat · candidature reçue', court: 'Candidature reçue', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => `${OBJET_CANDIDATURE} : bien reçue`, corps: corpsCandidatRecue,
+  },
+  {
+    cle: 'candidat-entretien', nom: 'Candidat · entretien', court: 'Entretien', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => 'Votre entretien chez CHARGéO', corps: corpsCandidatEntretien,
+  },
+  {
+    cle: 'candidat-test', nom: 'Candidat · mise en situation', court: 'Mise en situation', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie,
+    objet: (d) => (commercialCandidat(d) ? 'Votre mise en situation commerciale chez CHARGéO' : 'Votre mise en situation sur le terrain chez CHARGéO'),
+    corps: corpsCandidatTest,
+  },
+  {
+    cle: 'candidat-offre-salarie', nom: 'Candidat · offre salarié', court: 'Offre salarié', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: (d) => `Notre proposition pour le poste de ${posteCandidat(d)}`, corps: corpsCandidatOffreSalarie,
+  },
+  {
+    cle: 'candidat-offre-freelance', nom: 'Candidat · offre freelance', court: 'Offre freelance', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => 'Notre proposition de collaboration', corps: corpsCandidatOffreFreelance,
+  },
+  {
+    cle: 'candidat-refus-cv', nom: 'Candidat · refus sur CV', court: 'Refus sur CV', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => OBJET_CANDIDATURE, corps: corpsCandidatRefusCv,
+  },
+  {
+    cle: 'candidat-refus-entretien', nom: 'Candidat · refus après entretien', court: 'Refus après entretien', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => OBJET_CANDIDATURE, corps: corpsCandidatRefusEntretien,
+  },
+  {
+    cle: 'candidat-vivier', nom: 'Candidat · vivier', court: 'Vivier', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => OBJET_CANDIDATURE, corps: corpsCandidatVivier,
+  },
+  {
+    cle: 'candidat-bienvenue', nom: 'Candidat · bienvenue', court: 'Bienvenue', etape: 'Candidature', reponse: true,
+    a: aCandidat, cc: sansCopie, objet: () => 'Bienvenue chez CHARGéO', corps: corpsCandidatBienvenue,
   },
 ];
 

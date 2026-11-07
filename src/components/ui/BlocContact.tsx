@@ -6,10 +6,7 @@
 // 15/10, demandes de Matthieu :
 // - 15 h 19 : bouton « Google Voice » ; Google Maps vise l'adresse écrite ;
 // - 15 h 23 : Google Voice s'ouvre sur le compte CHARGéO (authuser = email de la personne connectée). Sur iPhone, le
-//   lien voice.google.com ouvre l'application Google Voice (validé par Matthieu à 15 h 29). L'email passe par Gmail ;
-// - 15 h 29 : sur iPhone et iPad, le bouton Gmail ouvre l'application Gmail sur un nouveau message
-//   (googlegmail://co?to=…), avec le compte actif de l'application ; sur ordinateur, Gmail web sur le compte CHARGéO.
-//   Validé par Matthieu à 15 h 34, avec Google Voice et Google Maps ;
+//   lien voice.google.com ouvre l'application Google Voice (validé par Matthieu à 15 h 29) ;
 // - 15 h 34 : Waze n'amenait que sur la route (le point GPS de ClickUp est celui de la rue, pas du numéro). Waze cherche
 //   maintenant l'adresse écrite autour de ce point (q + ll, format officiel des liens Waze), donc le numéro est respecté.
 // 16/10, 15 h 38 (Matthieu : « SMS pour tous les portables ») : le bouton SMS ne dépend plus du rôle (le gestionnaire
@@ -28,12 +25,15 @@
 // Vente.tsx, partie siret), retiré de l'ancienne carte « Le projet ».
 // 05/11/2026 (Phase 9, lot 1 ; Mathieu, 18 h 03 : « Tous les mails doivent être envoyés depuis l'application ») : quand
 // la fiche est connue (ficheId), le bouton Gmail devient « Mail » et ouvre l'écran d'envoi de l'appli (/mail), qui envoie
-// depuis contact@chargeo.fr et copie le mail sur la fiche. Sans fiche connue, le bouton Gmail reste.
+// depuis contact@chargeo.fr et copie le mail sur la fiche.
 // 05/11, 18 h 46 (recette, fiche sans téléphone ni email) : le bloc ouvert montre « Écrire un mail », destinataire à
 // saisir, pour que chaque fiche puisse envoyer un mail.
 // 06/11/2026, 7 h 21 (Mathieu, « Corriger les doublons ») : « Écrire un mail » seulement quand personne n'a d'adresse
-// mail sur la fiche ; sinon chaque personne a déjà son bouton « Mail ».
-import { useEffect, useState, type ReactNode } from 'react';
+// mail sur la fiche ; sinon chaque personne a déjà son bouton.
+// 07/11/2026, 11 h 34 (Phase 9, lot 5, Mathieu : « Oui, remplace-le ») : plus aucun bouton Gmail. Le bouton s'appelle
+// « ✉️ Écrire » et ouvre toujours l'écran d'envoi de l'appli ; il faut donc la fiche (ficheId) où copier le mail : la
+// fiche générique et l'annuaire Contacts la donnent. Sans fiche, pas de bouton mail.
+import { useState, useEffect, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Headphones, Mail, MapPin, MessageSquare, Navigation, Phone, Users } from 'lucide-react';
 import { Carte, TitreCarte } from '@/components/charte/Appli';
 import { LABEL } from '@/components/charte/couleurs';
@@ -67,10 +67,6 @@ function recoitSms(t: string): boolean {
 const compte = (moi?: string) => (moi ? `&authuser=${encodeURIComponent(moi)}` : '');
 const lienVoice = (t: string, moi?: string) =>
   `https://voice.google.com/calls?a=nc,${encodeURIComponent(international(t))}${compte(moi)}`;
-const lienGmail = (dest: string, moi: string, ios: boolean) =>
-  ios
-    ? `googlegmail://co?to=${encodeURIComponent(dest)}`
-    : `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(dest)}${compte(moi)}`;
 // Waze : adresse écrite, cherchée autour du point GPS quand il existe
 const lienWaze = (texte: string, lat: number | null, lng: number | null) =>
   `https://waze.com/ul?q=${encodeURIComponent(texte)}${lat !== null && lng !== null ? `&ll=${lat},${lng}` : ''}&navigate=yes`;
@@ -98,19 +94,16 @@ function Lien({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-// Les boutons d'une personne déjà lue : Appeler, Google Voice, SMS (portables), Mail (écran d'envoi de l'appli quand la
-// fiche est connue, sinon Gmail)
+// Les boutons d'une personne déjà lue : Appeler, Google Voice, SMS (portables), Écrire (écran d'envoi de l'appli, copie
+// sur la fiche ficheId)
 export function BoutonsContact({ tel, email, moi = '', ficheId = '' }: { tel: string; email: string; moi?: string; ficheId?: string }) {
-  const [ios, setIos] = useState(false);
-  useEffect(() => { setIos(estIOS()); }, []);
   if (!tel && !email) return <p className="text-[13px]">Ni téléphone ni email sur la fiche.</p>;
   return (
     <div className="flex flex-wrap gap-2">
       {tel && <Lien href={`tel:${international(tel)}`}><Phone size={14} /> Appeler</Lien>}
       {tel && <Lien href={lienVoice(tel, moi)}><Headphones size={14} /> Google Voice</Lien>}
       {tel && recoitSms(tel) && <Lien href={`sms:${international(tel)}`}><MessageSquare size={14} /> SMS</Lien>}
-      {email && ficheId && <Lien href={adresses.mail(ficheId, email)}><Mail size={14} /> Mail</Lien>}
-      {email && !ficheId && <Lien href={lienGmail(email, moi, ios)}><Mail size={14} /> Gmail</Lien>}
+      {email && ficheId && <Lien href={adresses.mail(ficheId, email)}><Mail size={14} /> Écrire</Lien>}
     </div>
   );
 }
@@ -163,7 +156,7 @@ export function BlocContact({
   const a = c?.adresse || null;
   // La copie du mail va sur la fiche (pas sur le scénario ni l'élément d'où le bloc est ouvert)
   const ficheId = c?.fiche?.id || '';
-  // Quelqu'un a une adresse mail : son bouton « Mail » suffit, pas de « Écrire un mail » en double (06/11, 7 h 21)
+  // Quelqu'un a une adresse mail : son bouton « Écrire » suffit, pas de « Écrire un mail » en double (06/11, 7 h 21)
   const unMail = !!c && [c.client, ...c.contactSurPlace, ...c.gestionnaire].some((p) => !!p.email);
 
   const personne = (titre: string, p: Personne) => (

@@ -27,11 +27,15 @@
 // carte n'est plus rendu que pour la direction et le back-office.
 // 19/10, 11 h 39 : la préparation des photos (1600 px, JPEG) passe dans src/lib/preparerFichier.ts, partagée avec la
 // photo du bon de livraison d'une commande.
+// 06/11/2026, 23 h 13 (Phase 9, lot 4, Mathieu : « lors de la mise en service, l'installateur [doit avoir] la possibilité
+// d'afficher le QR code Google avec un rappel pour demander l'avis ») : bloc ⭐ Avis Google pour le poseur, après le PV,
+// mis en avant dès que la mise en service est conforme (src/components/ui/AvisGoogle.tsx).
 import { useEffect, useState } from 'react';
 import { Camera, ClipboardCheck, ExternalLink, FileText, Gauge, Lock, PenLine, Plus, RefreshCw, Zap } from 'lucide-react';
 import { PageAppli, EnTeteAppli, ContenuAppli, Repere, Carte, TitreCarte, Alerte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BlocContact } from '@/components/ui/BlocContact';
+import AvisSurPlace from '@/components/ui/AvisGoogle';
 import { useRoleAppli } from '@/components/charte/roleAppli';
 import { ActionDocument, LigneDocument, type FichierApercu } from '@/components/appli/LigneDocument';
 import { preparerFichier as preparer, TAILLE_MAX_ENVOI } from '@/lib/preparerFichier';
@@ -333,6 +337,9 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
           );
         })}
 
+        {/* ⭐ Avis Google demandé sur place, avant de partir (06/11/2026, 23 h 13) */}
+        {poseur && <AvisSurPlace pret={!!c.miseEnServiceComplete} />}
+
         {c.motifs.length > 0 && (
           <Alerte>Avant la réception : {c.motifs.join(' ; ')}.</Alerte>
         )}
@@ -384,7 +391,7 @@ export default function Reception({ role }: { role: 'poseur' | 'charge' }) {
         <div className="flex items-center justify-between gap-3">
           <p className="text-[13px]">
             {poseur
-              ? 'Fais la mise en service de chaque élément, déclare les réserves, fais signer le PV au client sur le téléphone, ajoute des photos, puis envoie au chargé d\'opération. Rapport et PV se créent tout seuls.'
+              ? 'Fais la mise en service de chaque élément, déclare les réserves, fais signer le PV au client sur le téléphone, ajoute des photos, demande l’avis Google, puis envoie au chargé d\'opération. Rapport et PV se créent tout seuls.'
               : 'Contrôle la mise en service et son rapport, le PV, les photos et les réserves, puis valide : le chantier passe au Parc.'}
           </p>
           <button onClick={charger} aria-label="Actualiser" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full ring-[1.5px] ring-[#dfe3e8] transition-transform active:scale-95">
