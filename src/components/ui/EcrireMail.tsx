@@ -4,7 +4,7 @@
 // 21 h 58 : le bon mail au bon moment, obligatoire, et plus de page sans lien avec les autres). Sorti de /mail.
 // Utilisé par la fiche affaire (mail obligatoire en attente, en tête de fiche), par Caler (confirmation ou visite
 // déplacée, sur l'écran du rendez-vous ; créneaux proposés quand le client est injoignable), par l'écran facture
-// (relance de facture) et par /mail (page blanche ouverte depuis le bloc 📇 Contact).
+// (envoi et relance de facture) et par /mail (page blanche ouverte depuis le bloc 📇 Contact).
 // obligatoire : le texte attendu est celui du champ ✉️ Mail à envoyer de la fiche (src/lib/mailsAFaire.ts), à défaut
 // `modele`. On ne choisit qu'entre les textes qui le règlent (textesPour). Rien en attente : le composant n'affiche rien.
 // fixe (05/11, 23 h 01, Mathieu : « il ne faudrait pas retomber sur l'écran initial de rédaction d'un mail avec tous
@@ -38,6 +38,8 @@
 // cochée d'office, sinon celle déposée sur la fiche.
 // 07/11/2026 (lot 4, accord de Mathieu à 10 h 22) : « Facture · relance » en tête de l'écran facture le jour des
 // relances 1 (J+3) et 2 (J+10), non bloquant ; PDF de la facture coché d'office ; parti, il compte comme la relance.
+// 07/11/2026 (lot 4, accord de Mathieu à 10 h 55) : « Facture · envoi » en tête de l'écran facture dès qu'elle est émise,
+// tant qu'il n'est pas parti, non bloquant ; PDF de la facture coché d'office.
 // Textes : src/lib/modelesMails.ts (seule source, décision du 05/11 à 20 h 57), envoi : /api/interne/mail.
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import { BookOpen, Check, FileText, FolderOpen, Mail, Paperclip, Phone, RefreshCw, Send } from 'lucide-react';
@@ -45,7 +47,7 @@ import { Carte, Alerte, BoutonPrincipal, BoutonSecondaire, TitreCarte, PastilleC
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BoutonsContact } from '@/components/ui/BlocContact';
 import { ETAPES, MODELES, modeleDe, objetReponse, pageBlanche, remplir, type Donnees } from '@/lib/modelesMails';
-import { AVIS, FACTURE, bloquant, enRelance, estRelance, textesPour } from '@/lib/mailsAFaire';
+import { AVIS, FACTURE, FACTURE_ENVOI, bloquant, enRelance, estRelance, textesPour } from '@/lib/mailsAFaire';
 
 type Fil = { id: string; objet: string; de: string; date: number };
 type PieceFiche = { id: string; nom: string; taille: number; brochure: boolean };
@@ -82,6 +84,8 @@ type Appel = { titre: string; nom: string; tel: string };
 const AVEC_BROCHURE = ['devis-envoi', 'devis-revise'];
 // Texte qui joint les documents du dossier entreprise (Drive)
 const DOCUMENTS = 'documents-administratifs';
+// Textes de facture (envoi et relance) : PDF de la facture coché d'office
+const MAILS_FACTURE = [FACTURE, FACTURE_ENVOI];
 // Mail en attente sur la fiche : une relance de devis ne compte que si la fiche est encore en devis envoyé ou en
 // négociation (gagnée ou perdue entre-temps, elle sera effacée au contrôle quotidien)
 const enAttente = (d: Infos) => (estRelance(d.aFaire) && !enRelance(d.fiche.statut) ? '' : d.aFaire);
@@ -240,12 +244,12 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
         setObjet(b.objet);
         setTexte(b.texte);
         // Envoi du devis ou devis révisé : la brochure projet est cochée d'office (GitHub, sinon la fiche) ; documents
-        // administratifs : les documents du Drive cochés d'office ; relance de facture : le PDF de la facture
+        // administratifs : les documents du Drive cochés d'office ; envoi et relance de facture : le PDF de la facture
         const brochure = brochureParDefaut(lu);
         if (AVEC_BROCHURE.includes(b.modele) && brochure) setChoisies([brochure]);
         if (b.modele === DOCUMENTS) setChoisies(docsParDefaut(lu));
         const pdfFacture = factureParDefaut(lu);
-        if (b.modele === FACTURE && pdfFacture) setChoisies([pdfFacture]);
+        if (MAILS_FACTURE.includes(b.modele) && pdfFacture) setChoisies([pdfFacture]);
       } catch {
         if (!annule) setErreur('Impossible de joindre le serveur.');
       } finally {
@@ -260,6 +264,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const relanceAttendue = estRelance(attendu);
   const avisAttendu = attendu === AVIS;
   const factureAttendue = attendu === FACTURE;
+  const envoiFactureAttendu = attendu === FACTURE_ENVOI;
   const courant = modeleDe(cle);
   const choix = attendu ? MODELES.filter((m) => textesPour(attendu).includes(m.cle)) : MODELES;
   const crochets = crochetsDe(objet) + crochetsDe(texte);
@@ -267,7 +272,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const avecBrochure = AVEC_BROCHURE.includes(cle);
   const mailDevis = cle.startsWith('devis');
   const mailDocuments = cle === DOCUMENTS;
-  const mailFacture = cle === FACTURE;
+  const mailFacture = MAILS_FACTURE.includes(cle);
   const brochureFacultative = infos?.donnees.segment === 'RIC';
   const brochureExiste = (infos?.pieces || []).some((p) => p.brochure) || (infos?.brochures || []).length > 0;
   const brochureCochee = (infos?.pieces || []).some((p) => p.brochure && choisies.includes(p.id)) || (infos?.brochures || []).some((x) => choisies.includes(x.id));
@@ -275,7 +280,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const documentManque = mailDocuments && !(infos?.documents || []).some((x) => choisies.includes(x.id));
   // Devis révisé : le texte annonce la brochure mais elle est décochée
   const brochureAnnonceeSansPiece = cle === 'devis-revise' && !brochureCochee && /brochure/i.test(texte);
-  // Relance de facture : le texte annonce la facture en pièce jointe mais aucun PDF n'est coché
+  // Mail de facture : le texte annonce la facture en pièce jointe mais aucun PDF n'est coché
   const factureAnnonceeSansPiece = mailFacture && !(infos?.pieces || []).some((p) => choisies.includes(p.id)) && /pi[eè]ce jointe/i.test(texte);
   const pret = !!infos?.branche && !!infos?.peutEnvoyer && !!a.trim() && !!objet.trim() && !!texte.trim() && crochets === 0 && !brochureManque && !documentManque;
   const sansAdresse = !!mAttendu && !!infos && remplir(mAttendu, infos.donnees).a.length === 0;
@@ -346,6 +351,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
             ? `Relance n°${d.relanceFacture.n} notée : sans règlement, le back-office appelle le client${d.relanceFacture.prochaine ? ` le ${d.relanceFacture.prochaine}` : ''}.`
             : `Relance n°${d.relanceFacture.n} notée : prochaine relance${d.relanceFacture.prochaine ? ` le ${d.relanceFacture.prochaine}` : ' programmée'}, s’il n’y a toujours pas de règlement.`);
         }
+        if (cle === FACTURE_ENVOI) lignes.push('Facture envoyée : les relances partiront de la date de paiement dû.');
         setFin({ titre: 'Mail envoyé', lignes, avertissement: d.avertissement });
         if (infos) onEtat?.(d.regle ? '' : bloquantDe(enAttente(infos)));
         onEnvoye?.();
@@ -374,7 +380,9 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
           ? 'La note est en commentaire sur la fiche, et l’appel compte comme le rappel.'
           : factureAttendue
             ? 'La note est en commentaire sur la facture, et l’appel compte comme la relance.'
-            : 'La note est en commentaire sur la fiche, et la suite de la fiche est débloquée.';
+            : envoiFactureAttendu
+              ? 'La note est en commentaire sur la facture. Pense à lui faire parvenir la facture.'
+              : 'La note est en commentaire sur la fiche, et la suite de la fiche est débloquée.';
         setFin({ titre: 'Appel noté', lignes: [ligne], avertissement: d.avertissement });
         onEtat?.('');
         onEnvoye?.();
@@ -440,6 +448,8 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
             <p className="text-[14px]">C&apos;est le jour de la relance : écris ta phrase utile, puis envoie. Le mail compte comme la relance. Elle ne bloque pas la suite de la fiche. Relance faite par téléphone : note 🔁 Suivi relance, ce mail disparaît.</p>
           ) : avisAttendu ? (
             <p className="text-[14px]">C&apos;est le jour du rappel pour l&apos;avis Google : ajoute un détail du chantier, puis envoie. Le mail compte comme le rappel et ne bloque rien.</p>
+          ) : envoiFactureAttendu ? (
+            <p className="text-[14px]">La facture est émise : envoie-la au client avec ce mail, PDF joint. Les relances partent ensuite de la date de paiement dû. Ce mail ne bloque rien.</p>
           ) : factureAttendue ? (
             <p className="text-[14px]">C&apos;est le jour de la relance de cette facture : vérifie d&apos;abord le règlement dans Costructor, écris ta phrase, puis envoie. Le mail compte comme la relance. Relance faite par téléphone : « J&apos;ai relancé le client » plus bas.</p>
           ) : (
