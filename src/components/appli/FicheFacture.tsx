@@ -9,10 +9,14 @@
 // Costructor (src/lib/factureAuto.ts) ; trouvée, la fiche se recharge déjà émise. Rien ne change à l'affichage sinon.
 // 18/10, 19 h 21 (maquette MAQUETTE_FACTURE-BOUTONS validée par Matthieu) : étape 2 « Rien à recopier… », saisie à la
 // main en secours ; dans Relances, « J'ai relancé le client » et « Marquer comme payée » (avec confirmation).
+// 07/11/2026 (Phase 9, lot 4, accord de Mathieu à 10 h 22) : le jour des relances 1 (J+3) et 2 (J+10), le mail
+// « Facture · relance » s'affiche en tête (EcrireMail, src/lib/factureMail.ts) ; parti, il compte comme la relance.
+// « J'ai relancé le client » reste pour une relance faite par téléphone.
 import { useEffect, useState } from 'react';
 import { Check, ChevronRight, Euro, ExternalLink, Link2, Bell, RefreshCw } from 'lucide-react';
 import { Carte, TitreCarte, BoutonPrincipal, CHAMP } from '@/components/charte/Appli';
 import { CYAN } from '@/components/charte/couleurs';
+import EcrireMail from '@/components/ui/EcrireMail';
 import type { Facture } from '@/lib/factureFiche';
 import { adresses } from '@/lib/adresses';
 
@@ -153,6 +157,9 @@ export default function FicheFacture({ id, facture: f, peutEcrire, onEmise }: { 
         </div>
       )}
 
+      {/* Relance 1 ou 2 du jour : le mail prêt à relire (rien ne s'affiche les autres jours) */}
+      {peutEcrire && ouverte && f.relancesEnvoyees < 2 && <EcrireMail ficheId={id} obligatoire onEnvoye={onEmise} />}
+
       {/* Prochaine étape : émettre */}
       {f.etat === 'a_emettre' && (
         <Carte className="space-y-3">
@@ -206,14 +213,14 @@ export default function FicheFacture({ id, facture: f, peutEcrire, onEmise }: { 
             </div>
           ))}
           <p className="pt-1 text-[13px] leading-snug text-slate-600">
-            Chaque relance est un rappel pour l’équipe : le client n’est jamais relancé automatiquement. Le matin de la relance, le règlement est revérifié dans Costructor.
+            Le client n’est jamais relancé automatiquement. Aux relances J+3 et J+10, le mail est prêt en haut de cet écran le jour venu : relu et envoyé d’un clic, il compte comme la relance. À J+15, le back-office appelle. Le matin de la relance, le règlement est revérifié dans Costructor.
           </p>
           {peutEcrire && (ouverte || f.etat === 'litige') && (
             <div className="space-y-2.5 pt-1">
               {ouverte && f.relancesEnvoyees < 3 && (
                 <button onClick={() => suivre('relance')} disabled={!!suivi} className="flex min-h-[52px] w-full flex-col items-center justify-center rounded-full px-6 py-2 text-white transition-transform active:scale-95" style={{ backgroundColor: CYAN }}>
                   <span className="flex items-center gap-2 text-[15px] font-semibold">{suivi === 'relance' && <RefreshCw size={16} className="animate-spin" />}J'ai relancé le client</span>
-                  <span className="text-[12px] opacity-85">{suivante >= 3 ? 'note la dernière relance, le dossier passe au back-office' : `note la relance ${suivante} et programme la suivante`}</span>
+                  <span className="text-[12px] opacity-85">{suivante >= 3 ? 'note la dernière relance, le dossier passe au back-office' : `par téléphone : note la relance ${suivante} et programme la suivante`}</span>
                 </button>
               )}
               <button onClick={() => suivre('payee')} disabled={!!suivi} className="flex min-h-[52px] w-full flex-col items-center justify-center rounded-full bg-white px-6 py-2 transition-transform active:scale-95" style={{ color: '#16a34a', boxShadow: 'inset 0 0 0 1.5px #16a34a' }}>

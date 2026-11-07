@@ -3,8 +3,8 @@
 // Écrire un mail depuis l'appli (Phase 9), DANS l'écran de l'étape (décision de Mathieu du 05/11/2026, 21 h 56 à
 // 21 h 58 : le bon mail au bon moment, obligatoire, et plus de page sans lien avec les autres). Sorti de /mail.
 // Utilisé par la fiche affaire (mail obligatoire en attente, en tête de fiche), par Caler (confirmation ou visite
-// déplacée, sur l'écran du rendez-vous ; créneaux proposés quand le client est injoignable) et par /mail (page blanche
-// ouverte depuis le bloc 📇 Contact).
+// déplacée, sur l'écran du rendez-vous ; créneaux proposés quand le client est injoignable), par l'écran facture
+// (relance de facture) et par /mail (page blanche ouverte depuis le bloc 📇 Contact).
 // obligatoire : le texte attendu est celui du champ ✉️ Mail à envoyer de la fiche (src/lib/mailsAFaire.ts), à défaut
 // `modele`. On ne choisit qu'entre les textes qui le règlent (textesPour). Rien en attente : le composant n'affiche rien.
 // fixe (05/11, 23 h 01, Mathieu : « il ne faudrait pas retomber sur l'écran initial de rédaction d'un mail avec tous
@@ -36,6 +36,8 @@
 // 07/11/2026 (lot 4, choix de Mathieu à 0 h 00 : « Oui, depuis GitHub ») : carte « Brochures projet (GitHub) » pour
 // l'envoi du devis et le devis révisé (src/lib/brochuresGithub.ts). La brochure de la fiche trouvée dans GitHub est
 // cochée d'office, sinon celle déposée sur la fiche.
+// 07/11/2026 (lot 4, accord de Mathieu à 10 h 22) : « Facture · relance » en tête de l'écran facture le jour des
+// relances 1 (J+3) et 2 (J+10), non bloquant ; PDF de la facture coché d'office ; parti, il compte comme la relance.
 // Textes : src/lib/modelesMails.ts (seule source, décision du 05/11 à 20 h 57), envoi : /api/interne/mail.
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import { BookOpen, Check, FileText, FolderOpen, Mail, Paperclip, Phone, RefreshCw, Send } from 'lucide-react';
@@ -43,7 +45,7 @@ import { Carte, Alerte, BoutonPrincipal, BoutonSecondaire, TitreCarte, PastilleC
 import { CYAN, ORANGE } from '@/components/charte/couleurs';
 import { BoutonsContact } from '@/components/ui/BlocContact';
 import { ETAPES, MODELES, modeleDe, objetReponse, pageBlanche, remplir, type Donnees } from '@/lib/modelesMails';
-import { AVIS, bloquant, enRelance, estRelance, textesPour } from '@/lib/mailsAFaire';
+import { AVIS, FACTURE, bloquant, enRelance, estRelance, textesPour } from '@/lib/mailsAFaire';
 
 type Fil = { id: string; objet: string; de: string; date: number };
 type PieceFiche = { id: string; nom: string; taille: number; brochure: boolean };
@@ -70,6 +72,7 @@ type Infos = {
   documentsProblemes: string[];
   brochures: BrochureGh[];
   brochuresProbleme: string;
+  factureProblemes: string[];
 };
 type Brouillon = { modele: string; filId: string; a: string; cc: string; objet: string; texte: string };
 type Fin = { titre: string; lignes: string[]; avertissement?: string };
@@ -91,6 +94,11 @@ const nonVides = (c: Partial<Donnees> | undefined) =>
 const docsParDefaut = (d: Infos) => d.documents.filter((x) => x.coche).map((x) => x.id);
 // Brochure cochée d'office : celle de la fiche dans GitHub, sinon celle déposée sur la fiche
 const brochureParDefaut = (d: Infos) => d.brochures.find((x) => x.probable)?.id || d.pieces.find((p) => p.brochure)?.id || '';
+// PDF de la facture coché d'office : celui qui porte son n°, sinon le plus récent
+const factureParDefaut = (d: Infos) => {
+  const n = String(d.donnees.facture?.numero || '').toLowerCase();
+  return (n && d.pieces.find((p) => p.nom.toLowerCase().includes(n))?.id) || d.pieces[0]?.id || '';
+};
 // Données du texte : pour les documents administratifs, la liste des documents cochés
 const donneesPour = (cle: string, d: Infos, ids: string[]): Donnees =>
   cle === DOCUMENTS ? { ...d.donnees, documents: d.documents.filter((x) => ids.includes(x.id)).map((x) => x.ligne) } : d.donnees;
@@ -218,6 +226,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
           documentsProblemes: Array.isArray(d.documentsProblemes) ? d.documentsProblemes : [],
           brochures: Array.isArray(d.brochures) ? d.brochures : [],
           brochuresProbleme: String(d.brochuresProbleme || ''),
+          factureProblemes: Array.isArray(d.factureProblemes) ? d.factureProblemes : [],
         };
         setInfos(lu);
         onFiche?.(lu.fiche.nom);
@@ -231,10 +240,12 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
         setObjet(b.objet);
         setTexte(b.texte);
         // Envoi du devis ou devis révisé : la brochure projet est cochée d'office (GitHub, sinon la fiche) ; documents
-        // administratifs : les documents du Drive cochés d'office
+        // administratifs : les documents du Drive cochés d'office ; relance de facture : le PDF de la facture
         const brochure = brochureParDefaut(lu);
         if (AVEC_BROCHURE.includes(b.modele) && brochure) setChoisies([brochure]);
         if (b.modele === DOCUMENTS) setChoisies(docsParDefaut(lu));
+        const pdfFacture = factureParDefaut(lu);
+        if (b.modele === FACTURE && pdfFacture) setChoisies([pdfFacture]);
       } catch {
         if (!annule) setErreur('Impossible de joindre le serveur.');
       } finally {
@@ -248,6 +259,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const mAttendu = modeleDe(attendu);
   const relanceAttendue = estRelance(attendu);
   const avisAttendu = attendu === AVIS;
+  const factureAttendue = attendu === FACTURE;
   const courant = modeleDe(cle);
   const choix = attendu ? MODELES.filter((m) => textesPour(attendu).includes(m.cle)) : MODELES;
   const crochets = crochetsDe(objet) + crochetsDe(texte);
@@ -255,6 +267,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const avecBrochure = AVEC_BROCHURE.includes(cle);
   const mailDevis = cle.startsWith('devis');
   const mailDocuments = cle === DOCUMENTS;
+  const mailFacture = cle === FACTURE;
   const brochureFacultative = infos?.donnees.segment === 'RIC';
   const brochureExiste = (infos?.pieces || []).some((p) => p.brochure) || (infos?.brochures || []).length > 0;
   const brochureCochee = (infos?.pieces || []).some((p) => p.brochure && choisies.includes(p.id)) || (infos?.brochures || []).some((x) => choisies.includes(x.id));
@@ -262,6 +275,8 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
   const documentManque = mailDocuments && !(infos?.documents || []).some((x) => choisies.includes(x.id));
   // Devis révisé : le texte annonce la brochure mais elle est décochée
   const brochureAnnonceeSansPiece = cle === 'devis-revise' && !brochureCochee && /brochure/i.test(texte);
+  // Relance de facture : le texte annonce la facture en pièce jointe mais aucun PDF n'est coché
+  const factureAnnonceeSansPiece = mailFacture && !(infos?.pieces || []).some((p) => choisies.includes(p.id)) && /pi[eè]ce jointe/i.test(texte);
   const pret = !!infos?.branche && !!infos?.peutEnvoyer && !!a.trim() && !!objet.trim() && !!texte.trim() && crochets === 0 && !brochureManque && !documentManque;
   const sansAdresse = !!mAttendu && !!infos && remplir(mAttendu, infos.donnees).a.length === 0;
   const appels = sansAdresse && infos ? appelsDe(infos.donnees) : [];
@@ -326,6 +341,11 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
             ? `Rappel n°${d.avis.n} noté : la demande d’avis s’arrête là pour ce chantier.`
             : `Rappel n°${d.avis.n} noté : dernier rappel le ${d.avis.prochain}, s’il n’y a toujours pas d’avis.`);
         }
+        if (d.relanceFacture) {
+          lignes.push(d.relanceFacture.n >= 2
+            ? `Relance n°${d.relanceFacture.n} notée : sans règlement, le back-office appelle le client${d.relanceFacture.prochaine ? ` le ${d.relanceFacture.prochaine}` : ''}.`
+            : `Relance n°${d.relanceFacture.n} notée : prochaine relance${d.relanceFacture.prochaine ? ` le ${d.relanceFacture.prochaine}` : ' programmée'}, s’il n’y a toujours pas de règlement.`);
+        }
         setFin({ titre: 'Mail envoyé', lignes, avertissement: d.avertissement });
         if (infos) onEtat?.(d.regle ? '' : bloquantDe(enAttente(infos)));
         onEnvoye?.();
@@ -350,7 +370,12 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
       const d = await res.json().catch(() => ({}));
       if (!res.ok || !d?.success) setErreur(d?.error || `Enregistrement impossible (${res.status}).`);
       else {
-        setFin({ titre: 'Appel noté', lignes: [avisAttendu ? 'La note est en commentaire sur la fiche, et l’appel compte comme le rappel.' : 'La note est en commentaire sur la fiche, et la suite de la fiche est débloquée.'], avertissement: d.avertissement });
+        const ligne = avisAttendu
+          ? 'La note est en commentaire sur la fiche, et l’appel compte comme le rappel.'
+          : factureAttendue
+            ? 'La note est en commentaire sur la facture, et l’appel compte comme la relance.'
+            : 'La note est en commentaire sur la fiche, et la suite de la fiche est débloquée.';
+        setFin({ titre: 'Appel noté', lignes: [ligne], avertissement: d.avertissement });
         onEtat?.('');
         onEnvoye?.();
       }
@@ -401,6 +426,12 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
           {infos.documentsProblemes.map((p) => <span key={p} className="block">• {p}</span>)}
         </Alerte>
       )}
+      {mailFacture && infos.factureProblemes.length > 0 && (
+        <Alerte>
+          <span className="block font-semibold">À regarder avant l&apos;envoi :</span>
+          {infos.factureProblemes.map((p) => <span key={p} className="block">• {p}</span>)}
+        </Alerte>
+      )}
 
       {attendu ? (
         <Carte accent className="space-y-3">
@@ -409,6 +440,8 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
             <p className="text-[14px]">C&apos;est le jour de la relance : écris ta phrase utile, puis envoie. Le mail compte comme la relance. Elle ne bloque pas la suite de la fiche. Relance faite par téléphone : note 🔁 Suivi relance, ce mail disparaît.</p>
           ) : avisAttendu ? (
             <p className="text-[14px]">C&apos;est le jour du rappel pour l&apos;avis Google : ajoute un détail du chantier, puis envoie. Le mail compte comme le rappel et ne bloque rien.</p>
+          ) : factureAttendue ? (
+            <p className="text-[14px]">C&apos;est le jour de la relance de cette facture : vérifie d&apos;abord le règlement dans Costructor, écris ta phrase, puis envoie. Le mail compte comme la relance. Relance faite par téléphone : « J&apos;ai relancé le client » plus bas.</p>
           ) : (
             <p className="text-[14px]">Obligatoire : la suite de la fiche reste bloquée tant qu&apos;il n&apos;est pas parti.</p>
           )}
@@ -565,7 +598,7 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
         )}
         {infos.pieces.length > 0 && (
           <div>
-            <p className={`${ETIQUETTE} flex items-center gap-1.5`}><Paperclip size={14} /> Pièces jointes de la fiche</p>
+            <p className={`${ETIQUETTE} flex items-center gap-1.5`}><Paperclip size={14} /> {mailFacture ? 'PDF de la facture' : 'Pièces jointes de la fiche'}</p>
             <div className="mt-1.5 space-y-2">
               {infos.pieces.map((p) => (
                 <LignePiece
@@ -578,6 +611,12 @@ export default function EcrireMail({ ficheId, modele = '', dest = '', obligatoir
               ))}
             </div>
           </div>
+        )}
+        {mailFacture && !infos.pieces.length && (
+          <p className="ml-1 text-[13px] text-slate-500">Pas de PDF sur la facture : le mail donne le lien en ligne quand Costructor le fournit. Pour la joindre, dépose son PDF sur la tâche de la facture, puis rouvre cet écran.</p>
+        )}
+        {factureAnnonceeSansPiece && (
+          <p className="ml-1 text-[13px] font-semibold" style={{ color: ORANGE }}>Le texte annonce la facture en pièce jointe : coche-la, ou retire la phrase.</p>
         )}
         <div>
           <p className={ETIQUETTE}>Signature</p>
