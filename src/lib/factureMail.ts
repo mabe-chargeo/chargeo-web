@@ -1,19 +1,27 @@
-// Relance de facture par mail depuis l'appli (Phase 9, lot 4, accord de Mathieu du 07/11/2026 à 10 h 22 : « Oui,
-// vas-y »). S'appuie sur les relances existantes de Factures Clients (src/lib/relancesFacture.ts, J+3, J+10, J+15 après le
-// paiement dû, rappel posé dans l'échéance de la tâche), sans les changer :
+// Mails de facture depuis l'appli (Phase 9, lot 4). S'appuie sur Factures Clients et ses relances existantes
+// (src/lib/relancesFacture.ts, J+3, J+10, J+15 après le paiement dû, rappel posé dans l'échéance de la tâche), sans les
+// changer.
+// Relance (accord de Mathieu du 07/11/2026 à 10 h 22 : « Oui, vas-y ») :
 // - relances 1 (J+3) et 2 (J+10) : le jour du rappel, le mail « Facture · relance » est en attente sur l'écran de la
 //   facture (factureAEnvoyer), facture 📤 émise ou 💵 partiellement payée seulement. Non bloquant ;
 // - parti (ou client relancé par téléphone faute d'adresse), il compte comme la relance (noterRelanceFacture) :
 //   Relances envoyées + 1, puis traiterRelance programme le rappel suivant, comme « J'ai relancé le client » ;
 // - relance 3 (J+15) : inchangée, appel du back-office (pas de mail proposé).
+// Envoi (accord de Mathieu du 07/11/2026 à 10 h 55) : dès que la facture est émise, le mail « Facture · envoi » est en
+// attente (envoiFactureAAFaire) tant qu'aucune relance n'est faite et que la facture ne porte pas la copie d'un mail
+// « Facture · envoi » (ou la note « Prévenu par téléphone » de ce mail). Il passe avant la relance. Non bloquant.
 // Données du texte (donneesFacture) : n°, type et paiement dû lus sur la tâche ; montant TTC, reste dû et lien en ligne
 // lus sur la facture Costructor de ce n° (lecture seule). Un champ absent n'est jamais inventé : le texte met un
-// [crochet]. Le client (adresse, nom, segment) vient du chantier relié par 🔗 Affaire.
+// [crochet]. Le client (adresse, nom, segment) vient du chantier relié par 🔗 Affaire ; le dossier Advenir aussi
+// (dossierAdvenir).
 import { aujourdhuiParis, comparer, type Jour } from '@/lib/joursOuvres';
 import { FACTURES_ID, CHAMP_ECHEANCE, CHAMP_RELANCES, lireStatut, traiterRelance } from '@/lib/relancesFacture';
 import type { FactureMail } from '@/lib/modelesMails';
 
 export const CLE_MAIL_FACTURE = 'facture-relance';
+export const CLE_MAIL_FACTURE_ENVOI = 'facture-envoi';
+// Copie du mail parti (ou note d'appel) qui dit que la facture a été envoyée : nom du texte dans modelesMails.ts
+const MARQUE_ENVOI = 'Facture · envoi';
 // Relances faites par mail : la 1 (J+3) et la 2 (J+10) ; la 3 (J+15) reste l'appel du back-office
 export const RELANCES_PAR_MAIL = 2;
 
@@ -32,6 +40,10 @@ const texte = (t: any, id: string) => { const v = champ(t, id)?.value; return v 
 const jourDe = (ms: unknown): Jour | null => (ms ? aujourdhuiParis(new Date(Number(ms))) : null);
 const iso = (d: Jour) => `${d.a}-${String(d.m).padStart(2, '0')}-${String(d.j).padStart(2, '0')}`;
 const relances = (t: any) => Math.max(0, Math.floor(Number(champ(t, CHAMP_RELANCES)?.value ?? 0) || 0));
+const ouverte = (t: any) => {
+  const etat = lireStatut(String(t?.status?.status || ''));
+  return etat === 'emise' || etat === 'partielle';
+};
 
 // Tâche de Factures Clients (pas une sous-tâche)
 export const estFacture = (t: any) => !!t && !t.parent && String(t?.list?.id || '') === String(FACTURES_ID);
@@ -46,9 +58,7 @@ export const clientDeFacture = (t: any) => texte(t, CHAMP.client);
 // N° de la relance à faire par mail aujourd'hui (1 ou 2), null sinon : facture émise ou partiellement payée, paiement
 // dû dépassé, rappel de relance arrivé, moins de 2 relances faites
 export function factureAEnvoyer(t: any): number | null {
-  if (!estFacture(t)) return null;
-  const etat = lireStatut(String(t?.status?.status || ''));
-  if (etat !== 'emise' && etat !== 'partielle') return null;
+  if (!estFacture(t) || !ouverte(t)) return null;
   const n = relances(t);
   if (n >= RELANCES_PAR_MAIL) return null;
   const rappel = jourDe(t?.due_date);
@@ -58,7 +68,37 @@ export function factureAEnvoyer(t: any): number | null {
   return n + 1;
 }
 
+// Facture émise pas encore envoyée par l'appli : aucune relance faite, aucune copie « Facture · envoi » sur la tâche
+export async function envoiFactureAFaire(token: string, t: any): Promise<boolean> {
+  if (!estFacture(t) || !ouverte(t) || relances(t) > 0) return false;
+  const r = await fetch(`${API}/task/${encodeURIComponent(String(t.id))}/comment`, { headers: { Authorization: token }, cache: 'no-store' });
+  if (!r.ok) return false;
+  const j = await r.json().catch(() => ({}));
+  const l: any[] = Array.isArray(j?.comments) ? j.comments : [];
+  return !l.some((c) => String(c?.comment_text || '').includes(MARQUE_ENVOI));
+}
+
+// Dossier Advenir du chantier : un champ « Advenir » rempli (case cochée, texte, n°, date, ou option qui ne dit pas
+// « non », « sans » ni « pas »)
+export function dossierAdvenir(t: any): boolean {
+  return (Array.isArray(t?.custom_fields) ? t.custom_fields : []).some((c: any) => {
+    if (!normal(c?.name).includes('advenir')) return false;
+    const v = c?.value;
+    if (v === undefined || v === null || v === '' || v === false || v === 'false') return false;
+    if (c?.type === 'drop_down') {
+      const o = (Array.isArray(c?.type_config?.options) ? c.type_config.options : []).find((x: any) => x?.id === v || Number(x?.orderindex) === Number(v));
+      const nom = normal(o?.name);
+      return !!nom && !/\b(non|sans|pas)\b/.test(nom);
+    }
+    if (Array.isArray(v)) return v.length > 0;
+    return true;
+  });
+}
+
+// Type de facture : assistance Enedis (« AMO » ou « assistance » dans le nom), sinon le Type de pièce
 function genreDe(t: any): string {
+  const nom = normal(t?.name);
+  if (/\bamo\b/.test(nom) || nom.includes('assistance')) return 'amo';
   const f = champ(t, CHAMP.type);
   const o = (Array.isArray(f?.type_config?.options) ? f.type_config.options : []).find((x: any) => String(x?.id) === String(f?.value) || Number(x?.orderindex) === Number(f?.value));
   const n = normal(o?.name || t?.name);
@@ -134,6 +174,7 @@ export async function donneesFacture(t: any, avecCostructor = true): Promise<{ f
     rappel: Math.min(relances(t) + 1, RELANCES_PAR_MAIL),
     lien: '',
     jointe: false,
+    advenir: false,
   };
   const problemes: string[] = [];
   if (!avecCostructor) return { facture, problemes };
