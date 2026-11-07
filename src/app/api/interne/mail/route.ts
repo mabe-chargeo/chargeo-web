@@ -11,7 +11,18 @@ import { noterRelanceParMail, relancesApresRevision } from '@/lib/relancesDevis'
 import { CLE_MAIL_AVIS, LIEN_AVIS, avisAEnvoyer, noterRappelAvis } from '@/lib/avisGoogle';
 import { listerDocuments, telechargerDocument } from '@/lib/dossierEntreprise';
 import { listerBrochures, telechargerBrochure } from '@/lib/brochuresGithub';
-import { CLE_MAIL_FACTURE, affaireDe, clientDeFacture, donneesFacture, estFacture, factureAEnvoyer, noterRelanceFacture } from '@/lib/factureMail';
+import {
+  CLE_MAIL_FACTURE,
+  CLE_MAIL_FACTURE_ENVOI,
+  affaireDe,
+  clientDeFacture,
+  donneesFacture,
+  dossierAdvenir,
+  envoiFactureAFaire,
+  estFacture,
+  factureAEnvoyer,
+  noterRelanceFacture,
+} from '@/lib/factureMail';
 import {
   EXPEDITEUR,
   MAX_DESTINATAIRES,
@@ -52,7 +63,8 @@ import {
 //   aussi coder comme ça », 21 h 16, sur la proposition qui bloquait l'envoi sans brochure) ;
 // - une fois ce mail parti, la fiche en 📝 devis à faire passe en 📩 devis envoyé (18 h 30 : « seulement quand le mail
 //   part »). Le report des devis et la relance J+3 partent ensuite de l'aiguillage, comme pour le bouton d'avant.
-// Lot 4 (06/11/2026, accords de Mathieu à 22 h 20, 22 h 42, 23 h 13, 23 h 25 et 23 h 43 ; 07/11 à 0 h 00 et 10 h 22) :
+// Lot 4 (06/11/2026, accords de Mathieu à 22 h 20, 22 h 42, 23 h 13, 23 h 25 et 23 h 43 ; 07/11 à 0 h 00, 10 h 22 et
+// 10 h 55) :
 // - les devis sont aussi lus quand la fiche attend un mail de devis (relance posée par le contrôle quotidien) ;
 // - « Devis · relance » ou « Devis · dernière relance » parti : la relance est comptée (prochaine à J+3 ouvrés,
 //   suspension à la 3e), sans rien noter dans 🔁 Suivi relance (src/lib/relancesDevis.ts) ;
@@ -67,9 +79,10 @@ import {
 // - avec les devis, GET propose les brochures projet du dépôt GitHub chargeo-brochures (src/lib/brochuresGithub.ts),
 //   celle de la fiche en tête ; POST les joint (ids « gh:… », relues ici). Une brochure GitHub vaut la brochure déposée
 //   sur la fiche pour la règle de l'envoi du devis ;
-// - tâche de Factures Clients dont la relance 1 (J+3) ou 2 (J+10) est arrivée (src/lib/factureMail.ts) : mail en
-//   attente « facture-relance », rempli avec la facture (Costructor) et le client du chantier relié ; parti (ou client
-//   appelé faute d'adresse), il compte comme la relance (Relances envoyées + 1, rappel suivant programmé).
+// - tâche de Factures Clients (src/lib/factureMail.ts), client lu sur le chantier relié et facture lue dans
+//   Costructor : « facture-envoi » en attente tant que la facture émise n'est pas envoyée (la copie « Texte : Facture ·
+//   envoi » posée ici le prouve), puis « facture-relance » le jour des relances 1 (J+3) et 2 (J+10) ; une relance
+//   partie (ou un client appelé faute d'adresse) compte comme la relance (Relances envoyées + 1, rappel suivant).
 // Préversion : le mail part seulement à l'adresse ClickUp de la personne connectée, avec [TEST] dans l'objet et les
 // destinataires prévus en tête du texte. Aucun client ne le reçoit. La réponse dans le fil, l'effacement du mail
 // obligatoire, le passage en devis envoyé, les relances et les rappels d'avis n'y sont faits que sur une fiche de test
@@ -216,23 +229,30 @@ async function donneesDe(token: string, t: any): Promise<Donnees> {
   };
 }
 
-// Facture (lot 4, 07/11) : le client vient du chantier relié par 🔗 Affaire, la facture de la tâche et de Costructor.
-// avecCostructor = false : sans montant ni lien (contrôle d'adresse du « Prévenu par téléphone »).
+// Facture (lot 4, 07/11) : le client et le dossier Advenir viennent du chantier relié par 🔗 Affaire, la facture de la
+// tâche et de Costructor. avecCostructor = false : sans montant ni lien (contrôle d'adresse du « Prévenu par téléphone »).
 async function donneesFactureDe(token: string, t: any, avecCostructor = true): Promise<{ d: Donnees; problemes: string[] }> {
   const id = affaireDe(t);
   const affaire = id ? await lireTache(token, id) : null;
   const d = affaire ? await donneesDe(token, affaire) : await donneesDe(token, { ...t, name: clientDeFacture(t) || t?.name, custom_fields: [] });
   d.brochure = false;
   const lu = await donneesFacture(t, avecCostructor);
-  d.facture = { ...lu.facture, jointe: piecesDe(t).length > 0 };
+  d.facture = {
+    ...lu.facture,
+    jointe: piecesDe(t).length > 0,
+    advenir: d.segment === 'COP' || d.segment === 'PAR' || (!!affaire && dossierAdvenir(affaire)),
+  };
   const problemes = [...(affaire ? [] : ['chantier relié introuvable (🔗 Affaire vide) : écris l’adresse du client à la main']), ...lu.problemes];
   return { d, problemes };
 }
 
-// Mail en attente : celui du champ ✉️ Mail à envoyer (vente), sinon l'avis Google d'une fiche du Parc, ou la relance
-// d'une facture
+// Mail en attente : sur une facture, l'envoi puis la relance ; sinon celui du champ ✉️ Mail à envoyer (vente), ou
+// l'avis Google d'une fiche du Parc
 async function attenduDe(token: string, t: any): Promise<{ cle: string; avis: Awaited<ReturnType<typeof avisAEnvoyer>> }> {
-  if (estFacture(t)) return { cle: factureAEnvoyer(t) ? CLE_MAIL_FACTURE : '', avis: null };
+  if (estFacture(t)) {
+    if (await envoiFactureAFaire(token, t).catch(() => false)) return { cle: CLE_MAIL_FACTURE_ENVOI, avis: null };
+    return { cle: factureAEnvoyer(t) ? CLE_MAIL_FACTURE : '', avis: null };
+  }
   const champ = mailAFaire(t);
   if (champ) return { cle: champ, avis: null };
   const avis = await avisAEnvoyer(t, token).catch(() => null);
@@ -299,7 +319,7 @@ export async function GET(request: Request) {
       // Brochures projet du dépôt GitHub, celle de la fiche en tête
       brochures: lesBrochures?.brochures || [],
       brochuresProbleme: lesBrochures?.probleme || '',
-      // Relance de facture : ce qui manque pour remplir le texte
+      // Mails de facture : ce qui manque pour remplir le texte
       factureProblemes: lu.problemes,
     });
   } catch (e) {
@@ -330,10 +350,12 @@ export async function POST(request: Request) {
       const facture = estFacture(tache);
       const pourAdresse = facture ? (await donneesFactureDe(a.token, tache, false)).d : await donneesDe(a.token, tache);
       if (m && remplir(m, pourAdresse).a.length) return json({ success: false, error: 'La fiche a une adresse mail pour ce mail : il doit partir par mail.' }, 400);
+      // La note cite le nom du texte : pour l'envoi de facture, elle vaut envoi (src/lib/factureMail.ts)
       const note = await commenter(a.token, String(tache.id), `📞 Prévenu par téléphone à la place du mail « ${m?.nom || attendu} », par ${auteur} · ${maintenantParis()}\n${phrase}`);
       if (!note) return json({ success: false, error: 'ClickUp a refusé la note : rien n’est réglé, réessaie.' }, 502);
-      // Relance de facture : l'appel compte comme la relance
+      // Facture : l'appel compte comme la relance (pour une relance seulement)
       if (facture) {
+        if (attendu !== CLE_MAIL_FACTURE) return json({ success: true, telephone: true });
         const r = await noterRelanceFacture(a.token, tache, 'telephone', auteur);
         return json({ success: true, telephone: true, avertissement: r.probleme ? `Appel noté, mais ${r.probleme} : préviens Mathieu.` : undefined });
       }
@@ -443,7 +465,7 @@ export async function POST(request: Request) {
     // Relance en attente rendue inutile par un autre mail de devis (envoi, validé, révisé, refus)
     if (!aRegler && estRelance(attendu) && cleTexte.startsWith('devis') && surFicheModifiable) await effacerMailAFaire(a.token, tache).catch(() => false);
 
-    // Copie sur la fiche
+    // Copie sur la fiche (sur une facture, la ligne « Texte : Facture · envoi » marque la facture comme envoyée)
     const lignes = [
       `✉️ Mail envoyé depuis l'appli par ${auteur} · ${maintenantParis()}`,
       `De : ${exp.nom} <${EXPEDITEUR}>`,
